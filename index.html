@@ -322,7 +322,8 @@
         setPhoneNote("Phone counter on. Start the game, keep this tab open, walk with the phone.");
       } catch (err) {
         setPhoneNote("This browser cannot use the motion sensor. Enter steps from your watch.");
-      }
+       }
+    }
     function stopPhoneSteps() {
       phoneStepsOn = false;
       window.removeEventListener("devicemotion", onMotion);
