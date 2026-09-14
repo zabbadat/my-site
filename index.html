@@ -278,16 +278,7 @@
     document.querySelectorAll("[data-steps]").forEach((btn) => {
       btn.onclick = () => addSteps(Number(btn.dataset.steps));
     });
-       function addSteps(n) {
-      if (state.finished || !n) return;
-      state.steps += n;
-      render();
-    }
-    $("addStepsBtn").onclick = () => { addSteps(Number($("stepAdd").value) || 0); $("stepAdd").value = ""; };
-    document.querySelectorAll("[data-steps]").forEach((btn) => {
-      btn.onclick = () => addSteps(Number(btn.dataset.steps));
-    });
-
+      
     let phoneStepsOn = false;
     let lastPeak = 0;
     let lastMag = 0;
@@ -341,6 +332,7 @@
     }
 
     $("phoneStepsBtn").onclick = startPhoneSteps;
+    }  
     $("stopPhoneStepsBtn").onclick = stopPhoneSteps;
 
     async function finishGame() {
