@@ -85,53 +85,7 @@
       .stats { grid-template-columns: 1fr; }
     }
   </style> 
-            <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-  import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-    apiKey: "PASTE_FROM_FIREBASE",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT",
-    appId: "PASTE_FROM_FIREBASE"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
-  const statusEl = document.getElementById("auth-status");
-  const signInBtn = document.getElementById("sign-in");
-  const signOutBtn = document.getElementById("sign-out");
-
-  signInBtn?.addEventListener("click", () => signInWithPopup(auth, new GoogleAuthProvider()));
-  signOutBtn?.addEventListener("click", () => signOut(auth));
-
-  onAuthStateChanged(auth, (user) => {
-    if (statusEl) statusEl.textContent = user ? user.displayName : "Not signed in";
-    if (signInBtn) signInBtn.hidden = !!user;
-    if (signOutBtn) signOutBtn.hidden = !user;
-  });
-
-  // After a finished game (score reached 21 or Mini 11):
-  async function postGame({ score, steps, timeMs }) {
-    const user = auth.currentUser;
-    if (!user) return;
-    await addDoc(collection(db, "games"), {
-      uid: user.uid,
-      player: user.displayName,
-      score, steps, timeMs,
-      when: serverTimestamp()
-    });
-  }
-  const q = query(collection(db, "games"), orderBy("steps"), limit(50));
-  onSnapshot(q, (snap) => {
-    const board = document.getElementById("live-board");
-    if (!board) return;
-    board.innerHTML = snap.docs.map((d, i) => {
-      const g = d.data();
-      return `<tr><td>${i + 1}</td><td>${g.player}</td><td>${g.steps}</td><td>${g.timeMs}</td></tr>`;
-    }).join("");
-  });
 </script>
     }
   </style>
