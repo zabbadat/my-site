@@ -232,19 +232,20 @@
   <footer>© 2026 Zabbadat · www.zabbadat.com</footer>
 
   <script type="module">
-    const firebaseConfig = {
-      apiKey: "PASTE_API_KEY",apiKey: "AIza..."
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",zabbadat-5f132
-      storageBucket: "YOUR_PROJECT.appspot.com",zabbadat-5f132
-      messagingSenderId: "PASTE",918223497843
-      appId: "PASTE"918223497843
+    
     };
 
     const TARGET = 21;
     const $ = (id) => document.getElementById(id);
     const configured = firebaseConfig.apiKey !== "PASTE_API_KEY";
-
+    const firebaseConfig = {
+      apiKey: "PASTE_FULL_KEY_FROM_FIREBASE",
+      authDomain: "zabbadat-5f132.firebaseapp.com",
+      projectId: "zabbadat-5f132",
+      storageBucket: "zabbadat-5f132.firebasestorage.app",
+      messagingSenderId: "918223497843",
+      appId: "PASTE_FULL_APP_ID"
+    };
     const state = { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
     let currentUser = null;
     let saveRemote = async () => { throw new Error("Live board is not connected"); };
