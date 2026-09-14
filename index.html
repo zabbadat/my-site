@@ -278,7 +278,7 @@
     document.querySelectorAll("[data-steps]").forEach((btn) => {
       btn.onclick = () => addSteps(Number(btn.dataset.steps));
     });
-    function addSteps(n) {
+       function addSteps(n) {
       if (state.finished || !n) return;
       state.steps += n;
       render();
@@ -288,7 +288,60 @@
       btn.onclick = () => addSteps(Number(btn.dataset.steps));
     });
 
-    PASTE THE PHONE COUNTER CODE HERE
+    let phoneStepsOn = false;
+    let lastPeak = 0;
+    let lastMag = 0;
+    let rising = false;
+
+    function setPhoneNote(msg) {
+      const el = $("phoneStepsNote");
+      if (el) el.textContent = msg;
+    }
+
+    function onMotion(e) {
+      if (!phoneStepsOn || !state.running || state.finished) return;
+      const a = e.accelerationIncludingGravity || e.acceleration;
+      if (!a) return;
+      const mag = Math.sqrt((a.x || 0) ** 2 + (a.y || 0) ** 2 + (a.z || 0) ** 2);
+      const now = Date.now();
+      if (mag > lastMag && mag > 11.2) rising = true;
+      if (rising && mag < lastMag && mag > 10.4 && now - lastPeak > 280) {
+        lastPeak = now;
+        rising = false;
+        addSteps(1);
+      }
+      lastMag = mag;
+    }
+
+    async function startPhoneSteps() {
+      try {
+        if (typeof DeviceMotionEvent !== "undefined" &&
+            typeof DeviceMotionEvent.requestPermission === "function") {
+          const perm = await DeviceMotionEvent.requestPermission();
+          if (perm !== "granted") {
+            setPhoneNote("Motion permission denied. Use manual steps or allow motion on this phone.");
+            return;
+          }
+        }
+        window.removeEventListener("devicemotion", onMotion);
+        window.addEventListener("devicemotion", onMotion);
+        phoneStepsOn = true;
+        $("phoneStepsBtn").hidden = true;
+        $("stopPhoneStepsBtn").hidden = false;
+        setPhoneNote("Phone counter on. Start the game, keep this tab open, walk with the phone.");
+      } catch (err) {
+        setPhoneNote("This browser cannot use the motion sensor. Enter steps from your watch.");
+      }
+    function stopPhoneSteps() {
+      phoneStepsOn = false;
+      window.removeEventListener("devicemotion", onMotion);
+      $("phoneStepsBtn").hidden = false;
+      $("stopPhoneStepsBtn").hidden = true;
+      setPhoneNote("Phone counter off. You can still add steps manually.");
+    }
+
+    $("phoneStepsBtn").onclick = startPhoneSteps;
+    $("stopPhoneStepsBtn").onclick = stopPhoneSteps;
 
     async function finishGame() {
       if (state.finished) return;
