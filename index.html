@@ -170,6 +170,11 @@
       <button class="btn ghost" type="button" data-steps="50">+50</button>
       <button class="btn ghost" type="button" data-steps="100">+100</button>
     </div>
+        <div class="row">
+      <button class="btn ghost" id="phoneStepsBtn" type="button">Use phone step counter</button>
+      <button class="btn ghost" id="stopPhoneStepsBtn" type="button" hidden>Stop phone counter</button>
+    </div>
+    <p class="note" id="phoneStepsNote">Optional. Keep this page open and walk with the phone on you.</p>
     <p class="note" id="status">Ready. Sign in, then press start.</p>
   </section>
 
@@ -273,6 +278,17 @@
     document.querySelectorAll("[data-steps]").forEach((btn) => {
       btn.onclick = () => addSteps(Number(btn.dataset.steps));
     });
+    function addSteps(n) {
+      if (state.finished || !n) return;
+      state.steps += n;
+      render();
+    }
+    $("addStepsBtn").onclick = () => { addSteps(Number($("stepAdd").value) || 0); $("stepAdd").value = ""; };
+    document.querySelectorAll("[data-steps]").forEach((btn) => {
+      btn.onclick = () => addSteps(Number(btn.dataset.steps));
+    });
+
+    PASTE THE PHONE COUNTER CODE HERE
 
     async function finishGame() {
       if (state.finished) return;
