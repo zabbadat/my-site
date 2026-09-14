@@ -85,10 +85,9 @@
       .stats { grid-template-columns: 1fr; }
     }
   </style> 
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 </script>
     }
-  </style>
+  
 </head>
 <body>
   <nav>
@@ -197,7 +196,7 @@
     const TARGET = 21;
     const $ = (id) => document.getElementById(id);
     const configured = firebaseConfig.apiKey !== "PASTE_API_KEY";
-    };
+    
     const state = { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
     let currentUser = null;
     let saveRemote = async () => { throw new Error("Live board is not connected"); };
