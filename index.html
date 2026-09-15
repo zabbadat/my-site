@@ -383,8 +383,9 @@
 
     saveRemote = async (record) => {
       if (!auth.currentUser) throw new Error("Sign in required");
-      await addDoc(collection(db, "games"), {
+       await addDoc(collection(db, "games"), {
         name: displayNameOf(auth.currentUser),
+        xHandle: record.xHandle || "",
         uid: auth.currentUser.uid,
         score: 21,
         steps: Number(record.steps),
