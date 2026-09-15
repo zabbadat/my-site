@@ -170,10 +170,7 @@
       <button class="btn ghost" type="button" data-steps="50">+50</button>
       <button class="btn ghost" type="button" data-steps="100">+100</button>
     </div>
-        <div class="row">
-      <button class="btn ghost" id="phoneStepsBtn" type="button">Use phone step counter</button>
-      <button class="btn ghost" id="stopPhoneStepsBtn" type="button" hidden>Stop phone counter</button>
-    </div>
+      
     <p class="note" id="phoneStepsNote">Optional. Keep this page open and walk with the phone on you.</p>
     <p class="note" id="status">Ready. Sign in, then press start.</p>
   </section>
@@ -244,6 +241,7 @@
       state.startedAt = Date.now();
       state.tick = setInterval(render, 200);
       setStatus("Game on.");
+      startPhoneSteps();
       render();
     };
     $("pauseBtn").onclick = () => {
@@ -252,12 +250,14 @@
       state.running = false;
       clearInterval(state.tick);
       setStatus("Paused.");
+      stopPhoneSteps();
       render();
     };
     $("resetBtn").onclick = () => {
       clearInterval(state.tick);
       Object.assign(state, { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false });
       setStatus("Reset.");
+      stopPhoneSteps();
       render();
     };
     document.querySelectorAll("[data-points]").forEach((btn) => {
@@ -272,6 +272,7 @@
     function addSteps(n) {
       if (state.finished || !n) return;
       state.steps += n;
+      stopPhoneSteps();
       render();
     }
     $("addStepsBtn").onclick = () => { addSteps(Number($("stepAdd").value) || 0); $("stepAdd").value = ""; };
