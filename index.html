@@ -344,7 +344,8 @@
       const ms = state.elapsed + (state.startedAt ? Date.now() - state.startedAt : 0);
       state.elapsed = ms;
       const name = currentUser ? displayNameOf(currentUser) : ($("player").value || "Player").trim().slice(0, 40);
-      const record = { name, score: 21, steps: state.steps, ms, when: new Date().toLocaleString() };
+      const handle = ($("xHandle").value || "").trim().replace(/^@/, "");
+      const record = { name, xHandle: handle ? "@" + handle : "", score: 21, steps: state.steps, ms, when: new Date().toLocaleString() };
       const local = localBoard();
       local.push(record);
       localStorage.setItem("zabbadat-washers", JSON.stringify(local));
