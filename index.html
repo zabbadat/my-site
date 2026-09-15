@@ -272,7 +272,7 @@
     function addSteps(n) {
       if (state.finished || !n) return;
       state.steps += n;
-      stopPhoneSteps();
+      
       render();
     }
     $("addStepsBtn").onclick = () => { addSteps(Number($("stepAdd").value) || 0); $("stepAdd").value = ""; };
@@ -318,8 +318,8 @@
         window.removeEventListener("devicemotion", onMotion);
         window.addEventListener("devicemotion", onMotion);
         phoneStepsOn = true;
-        $("phoneStepsBtn").hidden = true;
-        $("stopPhoneStepsBtn").hidden = false;
+        
+        
         setPhoneNote("Phone counter on. Start the game, keep this tab open, walk with the phone.");
       } catch (err) {
         setPhoneNote("This browser cannot use the motion sensor. Enter steps from your watch.");
@@ -328,20 +328,21 @@
     function stopPhoneSteps() {
       phoneStepsOn = false;
       window.removeEventListener("devicemotion", onMotion);
-      $("phoneStepsBtn").hidden = false;
-      $("stopPhoneStepsBtn").hidden = true;
+      
+      
       setPhoneNote("Phone counter off. You can still add steps manually.");
     }
 
-    $("phoneStepsBtn").onclick = startPhoneSteps;
+  
     
-    $("stopPhoneStepsBtn").onclick = stopPhoneSteps;
+    
 
     async function finishGame() {
       if (state.finished) return;
       state.running = false;
       state.finished = true;
       clearInterval(state.tick);
+      stopPhoneSteps();
       const ms = state.elapsed + (state.startedAt ? Date.now() - state.startedAt : 0);
       state.elapsed = ms;
       const name = currentUser ? displayNameOf(currentUser) : ($("player").value || "Player").trim().slice(0, 40);
