@@ -234,7 +234,7 @@
     function paintRows(rows) {
       const sorted = [...rows].sort((a, b) => a.steps - b.steps || a.ms - b.ms).slice(0, 50);
       $("boardBody").innerHTML = sorted.length
-        ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.name)}</td><td>${Number(r.steps).toLocaleString()}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td></tr>`).join("")
+        ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.name)}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.steps).toLocaleString()}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td></tr>`).join("")
         : `<tr><td colspan="5">No finished games yet.</td></tr>`;
     }
 
