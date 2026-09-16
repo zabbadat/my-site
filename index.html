@@ -544,7 +544,7 @@
 
     function showUser(user) {
       currentUser = user;
-      const signedIn = !!(user && user.providerData.some((p) => p.providerId === "google.com"));
+            const signedIn = !!(user && user.uid);
       if (signedIn) {
         $("whoName").textContent = displayNameOf(user);
         $("player").value = displayNameOf(user);
