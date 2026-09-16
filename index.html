@@ -305,6 +305,29 @@
     </form>
     <p class="fine">We’ll reply with available dates, what’s included, and what we need on site.</p>
   </section>
+    <section class="washers" id="order">
+    <h2>Order boards &amp; packs</h2>
+    <p class="lead">Custom Bariboshi boards (company or personal mark) and pitching packs of 3 — steel or nickel core. No cart yet. Send the ask; we’ll quote.</p>
+    <form class="signup" id="orderForm" action="https://formspree.io/f/xwlpenlp" method="POST">
+      <label for="orderName">Name</label>
+      <input id="orderName" name="name" type="text" required maxlength="80">
+      <label for="orderEmail">Email</label>
+      <input id="orderEmail" name="email" type="email" required maxlength="120">
+      <label for="orderItem">What do you want?</label>
+      <input id="orderItem" name="item" type="text" required maxlength="120" placeholder="Board, pack of 3, or both">
+      <label for="orderQty">How many</label>
+      <input id="orderQty" name="qty" type="text" maxlength="40" placeholder="e.g. 1 board, 2 packs">
+      <label for="orderLogo">Logo / mark</label>
+      <input id="orderLogo" name="logo" type="text" maxlength="120" placeholder="Company, personal, or none">
+      <label for="orderMetal">Steel or nickel</label>
+      <input id="orderMetal" name="metal" type="text" maxlength="40" placeholder="Steel, nickel, or mix">
+      <label for="orderNote">Notes</label>
+      <input id="orderNote" name="note" type="text" maxlength="200" placeholder="City, deadline, questions">
+      <input type="hidden" name="_subject" value="Zabbadat board / pack inquiry">
+      <button class="btn" type="submit">Ask for a quote</button>
+    </form>
+    <p class="fine">Same list we use for league and companies. Subject line will read board / pack inquiry.</p>
+  </section>
   <footer>© 2026 Zabbadat · www.zabbadat.com</footer>
   <script type="module">
     const firebaseConfig = {
