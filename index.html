@@ -540,27 +540,19 @@
       });
     };
 
-    function showUser(user) {
+        function showUser(user) {
       currentUser = user;
       const signedIn = !!(user && user.uid);
       if (signedIn) {
         $("whoName").textContent = displayNameOf(user);
         $("player").value = displayNameOf(user);
         $("signInBtn").hidden = true;
-        $("signOutBtn").hidden = false;
-        if (signedIn) {
-        $("whoName").textContent = displayNameOf(user);
-        $("player").value = displayNameOf(user);
-        $("signInBtn").hidden = true;
+        $("signInXBtn").hidden = true;
         $("signOutBtn").hidden = false;
         const screen = user.reloadUserInfo && user.reloadUserInfo.screenName;
         if (screen) $("xHandle").value = "@" + screen;
-        $("signInXBtn").hidden = true;
         $("cloudStatus").className = "note ok";
         $("cloudStatus").textContent = "Signed in. Finished games post under this name.";
-        if (user.photoURL) {
-        $("cloudStatus").className = "note ok";
-        $("cloudStatus").textContent = "Signed in with Google. Finished games post under this name.";
         if (user.photoURL) {
           let img = document.getElementById("avatar");
           if (!img) {
@@ -576,11 +568,12 @@
         $("whoName").textContent = "Not signed in";
         $("player").value = "";
         $("signInBtn").hidden = false;
+        $("signInXBtn").hidden = false;
         $("signOutBtn").hidden = true;
         const img = document.getElementById("avatar");
         if (img) img.remove();
         $("cloudStatus").className = "note";
-        $("cloudStatus").textContent = "Live board is on. Sign in with Google to post a consistent name.";
+        $("cloudStatus").textContent = "Live board is on. Sign in to post a consistent name.";
       }
     }
 
@@ -594,7 +587,8 @@
         }
         setStatus("Google sign-in failed: " + (e.message || e.code));
       }
-          $("signInXBtn").onclick = async () => {
+    };
+    $("signInXBtn").onclick = async () => {
       try {
         await signInWithPopup(auth, xProvider);
       } catch (e) {
@@ -607,9 +601,7 @@
     };
     $("signOutBtn").onclick = () => signOut(auth);
     getRedirectResult(auth).catch(() => {});
-
     onAuthStateChanged(auth, showUser);
-
     const q = query(collection(db, "games"), orderBy("steps", "asc"), limit(80));
     onSnapshot(q, (snap) => {
       const rows = snap.docs.map((d) => {
