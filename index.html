@@ -528,7 +528,7 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
-
+    const xProvider = new TwitterAuthProvider();
     saveRemote = async (record) => {
       if (!auth.currentUser) throw new Error("Sign in required");
         await addDoc(collection(db, "games"), {
