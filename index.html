@@ -84,6 +84,15 @@
       .hero, section { padding-left: 6%; padding-right: 6%; }
       .stats { grid-template-columns: 1fr; }
     }
+        .price { font-family: 'Cormorant Garamond', serif; font-size: 1.55rem; color: var(--accent-2); margin: .35rem 0 .5rem; }
+    .tag { display: inline-block; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: .4rem; }
+    form.signup { display: grid; gap: .55rem; margin-top: 1rem; max-width: 28rem; }
+    form.signup .btn { justify-self: start; }
+    .fine { font-size: .8rem; color: var(--muted); margin-top: .6rem; }
+    @media (max-width: 700px) {
+      nav { flex-wrap: wrap; gap: .4rem; }
+      nav a { margin-left: .55rem; }
+    }
   </style> 
   
 
@@ -93,9 +102,11 @@
   <nav>
     <div class="logo">Zabbadat</div>
     <div>
-      <a href="#approach">Practice</a>
-      <a href="#washers">Washers</a>
-      <a href="#play">Play</a>
+    <a href="#approach">Practice</a>
+    <a href="#washers">Washers</a>
+    <a href="#play">Play</a>
+    <a href="#league">League</a>
+    <a href="#corporate">Companies</a>
     </div>
   </nav>
 
@@ -183,7 +194,87 @@
       <tbody id="boardBody"><tr><td colspan="5">Waiting for games…</td></tr></tbody>
     </table>
   </section>
+  <section class="washers" id="league">
+    <h2>League night</h2>
+    <p class="lead">TZG DD League. One box. 20 feet. Pitch a pack of 3. Summon the Zabba. First to 21, fewest steps, fastest time. Game-Set-Bariboshi.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tag">Next night</div>
+        <h3>Bariboshi night</h3>
+        <p>Date, time, and court announced to the list. Bring washers if you have them; a house box is on site.</p>
+        <p class="fine">Drop-in $10–25 · Season $40–80 · House rules posted before first pitch.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Board</div>
+        <h3>How a night runs</h3>
+        <p>Bariboshi sets first pitch. Packs of 3, underhand, from the rubber. Bank 5 / shoot 3 / box-bound 2. Idle Zabba is a backboard; summoned Zabba blocks.</p>
+        <p><a href="/rules.html">Official regulations — Version 1.9</a></p>
+      </div>
+    </div>
 
+    <h3 style="margin-top:1.6rem">Sign the list</h3>
+    <p class="lead">We’ll email the next date, court, and fee. No account required.</p>
+    <form class="signup" id="leagueForm" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+      <label for="leagueName">Name</label>
+      <input id="leagueName" name="name" type="text" required maxlength="80" placeholder="Your name">
+      <label for="leagueEmail">Email</label>
+      <input id="leagueEmail" name="email" type="email" required maxlength="120" placeholder="you@email.com">
+      <label for="leagueHandle">X handle (optional)</label>
+      <input id="leagueHandle" name="xHandle" type="text" maxlength="20" placeholder="@handle">
+      <label for="leagueNote">Notes</label>
+      <input id="leagueNote" name="note" type="text" maxlength="200" placeholder="City, plus-ones, first night?">
+      <input type="hidden" name="_subject" value="Zabbadat league night signup">
+      <button class="btn" type="submit">Join the list</button>
+    </form>
+    <p class="fine">Or email the same details to your league address. Season players keep one name on the live board.</p>
+  </section>
+
+  <section id="corporate">
+    <h2>For companies</h2>
+    <p class="lead">A live session and a walking contest, not another unused wellness app. People pitch, walk the court, and post first-to-21 with steps and time. You get a board and a participation note.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tag">Pilot</div>
+        <h3>Lunchtime Bariboshi</h3>
+        <p class="price">$650–$1,200</p>
+        <p>45–60 minutes on site. One box, rubber at 20 feet, pack of 3. Up to about 20 people. We bring the court. Travel extra outside the home metro.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Challenge</div>
+        <h3>4-week “21 and walk”</h3>
+        <p class="price">$1,500–$3,500</p>
+        <p>Week 1 on site. Weeks 2–4 employees play at lunch and post to the board. Close with a final night. Ranked by fewest steps, then fastest time.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Season</div>
+        <h3>Quarterly retainer</h3>
+        <p class="price">$2,000–$4,000 / quarter</p>
+        <p>One on-site night a month plus the board for the season. After a pilot that people actually attend.</p>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1.15rem">
+      <h3>What you need</h3>
+      <p>A parking lot, courtyard, warehouse aisle, or rec room. About 25 feet of clear throw. HR or office ops as the one contact. Optional: an official kit left at the office after the first night.</p>
+      <p class="fine">Recreational skill game — not medical treatment, coaching, or an insurance program. First-name-only board available. Sitting / short-walk lane on request.</p>
+    </div>
+
+    <h3 style="margin-top:1.6rem">Book a pilot</h3>
+    <form class="signup" id="corpForm" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+      <label for="coName">Your name</label>
+      <input id="coName" name="name" type="text" required maxlength="80">
+      <label for="coEmail">Work email</label>
+      <input id="coEmail" name="email" type="email" required maxlength="120">
+      <label for="coCompany">Company</label>
+      <input id="coCompany" name="company" type="text" required maxlength="120">
+      <label for="coSize">Headcount (approx.)</label>
+      <input id="coSize" name="headcount" type="text" maxlength="40" placeholder="e.g. 40">
+      <label for="coOffer">Interest</label>
+      <input id="coOffer" name="offer" type="text" maxlength="80" placeholder="Pilot / 4-week / quarter">
+      <input type="hidden" name="_subject" value="Zabbadat corporate pilot">
+      <button class="btn" type="submit">Request a date</button>
+    </form>
+    <p class="fine">We’ll reply with available dates, what’s included, and what we need on site.</p>
+  </section>
   <footer>© 2026 Zabbadat · www.zabbadat.com</footer>
   <script type="module">
     const firebaseConfig = {
