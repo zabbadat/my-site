@@ -396,10 +396,6 @@
       
       render();
     }
-    $("addStepsBtn").onclick = () => { addSteps(Number($("stepAdd").value) || 0); $("stepAdd").value = ""; };
-    document.querySelectorAll("[data-steps]").forEach((btn) => {
-      btn.onclick = () => addSteps(Number(btn.dataset.steps));
-    });
       
     let phoneStepsOn = false;
     let lastPeak = 0;
