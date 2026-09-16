@@ -544,12 +544,23 @@
 
     function showUser(user) {
       currentUser = user;
-            const signedIn = !!(user && user.uid);
+      const signedIn = !!(user && user.uid);
       if (signedIn) {
         $("whoName").textContent = displayNameOf(user);
         $("player").value = displayNameOf(user);
         $("signInBtn").hidden = true;
         $("signOutBtn").hidden = false;
+        if (signedIn) {
+        $("whoName").textContent = displayNameOf(user);
+        $("player").value = displayNameOf(user);
+        $("signInBtn").hidden = true;
+        $("signOutBtn").hidden = false;
+        const screen = user.reloadUserInfo && user.reloadUserInfo.screenName;
+        if (screen) $("xHandle").value = "@" + screen;
+        $("signInXBtn").hidden = true;
+        $("cloudStatus").className = "note ok";
+        $("cloudStatus").textContent = "Signed in. Finished games post under this name.";
+        if (user.photoURL) {
         $("cloudStatus").className = "note ok";
         $("cloudStatus").textContent = "Signed in with Google. Finished games post under this name.";
         if (user.photoURL) {
