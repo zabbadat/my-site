@@ -764,12 +764,8 @@
     };
     $("signInXBtn").onclick = async () => {
       try {
-        await signInWithPopup(auth, xProvider);
+        await signInWithRedirect(auth, xProvider);
       } catch (e) {
-        if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
-          await signInWithRedirect(auth, xProvider);
-          return;
-        }
         setStatus("X sign-in failed: " + (e.message || e.code));
       }
     };
