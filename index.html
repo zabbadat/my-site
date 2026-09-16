@@ -594,7 +594,13 @@
       }
     };
     $("signOutBtn").onclick = () => signOut(auth);
-    getRedirectResult(auth).catch(() => {});
+        getRedirectResult(auth)
+      .then((res) => {
+        if (res && res.user) setStatus("Signed in with X.");
+      })
+      .catch((e) => {
+        setStatus("X return failed: " + (e.code || "") + " " + (e.message || e));
+      });
     onAuthStateChanged(auth, showUser);
     
     const q = query(collection(db, "games"), orderBy("steps", "asc"), limit(80));
