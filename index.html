@@ -652,7 +652,30 @@
         setStatus("X return failed: " + (e.code || "") + " " + (e.message || e));
       });
      onAuthStateChanged(auth, showUser);
-
+    $("pocketBtn").onclick = () => {
+      if (pocketOn) return;
+      setPocket(true);
+      setStatus("Pocket lock on. Hold unlock when you take the phone out.");
+    };
+    const unlock = $("unlockBtn");
+    const startHold = () => {
+      if (!pocketOn) return;
+      unlock.textContent = "Hold…";
+      unlockHold = setTimeout(() => {
+        setPocket(false);
+        unlock.textContent = "Hold to unlock";
+        setStatus("Unlocked. Score the pack, then Pocket lock again.");
+      }, 1000);
+    };
+    const cancelHold = () => {
+      if (unlockHold) clearTimeout(unlockHold);
+      unlockHold = null;
+      if (pocketOn) unlock.textContent = "Hold to unlock";
+    };
+    unlock.onpointerdown = startHold;
+    unlock.onpointerup = cancelHold;
+    unlock.onpointerleave = cancelHold;
+    unlock.onpointercancel = cancelHold;
     $("boardAllBtn").onclick = () => {
       boardFilter = "all";
       $("boardAllBtn").className = "btn";
