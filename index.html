@@ -208,9 +208,13 @@
 
   <section id="board">
     <h2>Live board</h2>
-    <p class="lead">Finished games, ranked by fewest steps, then fastest time.</p>
+        <p class="lead">Finished games, ranked by fewest steps, then fastest time.</p>
+    <div class="row" style="margin-top:0">
+      <button class="btn" id="boardAllBtn" type="button">All-time</button>
+      <button class="btn ghost" id="boardTonightBtn" type="button">Tonight</button>
+    </div>
     <table>
-      <thead><tr><th>#</th><th>Player</th><th>Steps</th><th>Time</th><th>When</th></tr></thead>
+      <thead><tr><th>#</th><th>Player</th><th>Steps</th><th>Time</th><th>When</th><th>Season</th></tr></thead>
       <tbody id="boardBody"><tr><td colspan="5">Waiting for games…</td></tr></tbody>
     </table>
   </section>
