@@ -648,7 +648,15 @@
       const rows = snap.docs.map((d) => {
         const x = d.data();
         const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleString() : "";
-        return { name: x.name, xHandle: x.xHandle || "", steps: x.steps, ms: x.ms, when };
+                return {
+          name: x.name,
+          xHandle: x.xHandle || "",
+          steps: x.steps,
+          ms: x.ms,
+          when,
+          created: x.createdAt && x.createdAt.toDate ? x.createdAt.toDate() : null,
+          season: x.season || ""
+        };
       }).sort((a, b) => a.steps - b.steps || a.ms - b.ms);
       paintRows(rows);
     }, () => paintRows(localBoard()));
