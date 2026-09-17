@@ -354,6 +354,22 @@
 
     const state = { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
     let currentUser = null;
+        let pocketOn = false;
+    let unlockHold = null;
+
+    function setPocket(on) {
+      pocketOn = !!on;
+      const bar = $("pocketBar");
+      const note = $("pocketNote");
+      const btn = $("pocketBtn");
+      if (bar) bar.hidden = !pocketOn;
+      if (note) note.hidden = !pocketOn;
+      if (btn) btn.textContent = pocketOn ? "Locked" : "Pocket lock";
+      if (!pocketOn && unlockHold) {
+        clearTimeout(unlockHold);
+        unlockHold = null;
+      }
+    }
     let saveRemote = async () => { throw new Error("Live board is not connected"); };
 
     function pad(n) { return String(n).padStart(2, "0"); }
