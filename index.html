@@ -363,6 +363,24 @@
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
     }
+        let boardFilter = "all";
+    let lastBoardRows = [];
+
+    function publicName(s) {
+      const n = String(s || "Player").trim();
+      if (n.includes("@") && n.includes(".") && !n.startsWith("@")) {
+        return n.split("@")[0].slice(0, 24) || "Player";
+      }
+      return n.slice(0, 40);
+    }
+    function isTonight(when, created) {
+      const d = created instanceof Date ? created : (when ? new Date(when) : null);
+      if (!d || Number.isNaN(d.getTime())) return false;
+      const now = new Date();
+      return d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate();
+    }
     function render() {
       $("score").textContent = state.score;
       $("steps").textContent = state.steps.toLocaleString();
