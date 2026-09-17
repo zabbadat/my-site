@@ -395,11 +395,15 @@
       try { return JSON.parse(localStorage.getItem("zabbadat-washers") || "[]"); }
       catch { return []; }
     }
-    function paintRows(rows) {
-      const sorted = [...rows].sort((a, b) => a.steps - b.steps || a.ms - b.ms).slice(0, 50);
+        function paintRows(rows) {
+      lastBoardRows = Array.isArray(rows) ? rows : [];
+      const filtered = boardFilter === "tonight"
+        ? lastBoardRows.filter((r) => isTonight(r.when, r.created))
+        : lastBoardRows;
+      const sorted = [...filtered].sort((a, b) => a.steps - b.steps || a.ms - b.ms).slice(0, 50);
       $("boardBody").innerHTML = sorted.length
-        ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.name)}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.steps).toLocaleString()}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td></tr>`).join("")
-        : `<tr><td colspan="5">No finished games yet.</td></tr>`;
+        ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.steps).toLocaleString()}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td><td>${escapeHtml(r.season || "—")}</td></tr>`).join("")
+        : `<tr><td colspan="6">${boardFilter === "tonight" ? "No games posted tonight yet." : "No finished games yet."}</td></tr>`;
     }
 
     $("startBtn").onclick = () => {
