@@ -627,9 +627,23 @@
       .catch((e) => {
         setStatus("X return failed: " + (e.code || "") + " " + (e.message || e));
       });
-    onAuthStateChanged(auth, showUser);
+     onAuthStateChanged(auth, showUser);
+
+    $("boardAllBtn").onclick = () => {
+      boardFilter = "all";
+      $("boardAllBtn").className = "btn";
+      $("boardTonightBtn").className = "btn ghost";
+      paintRows(lastBoardRows);
+    };
+    $("boardTonightBtn").onclick = () => {
+      boardFilter = "tonight";
+      $("boardAllBtn").className = "btn ghost";
+      $("boardTonightBtn").className = "btn";
+      paintRows(lastBoardRows);
+    };
+
+    const q = query(collection(db, "games"), orderBy("steps", "asc"), limit(80));  
     
-    const q = query(collection(db, "games"), orderBy("steps", "asc"), limit(80));
     onSnapshot(q, (snap) => {
       const rows = snap.docs.map((d) => {
         const x = d.data();
