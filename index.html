@@ -453,6 +453,7 @@
     };
     document.querySelectorAll("[data-points]").forEach((btn) => {
       btn.onclick = () => {
+        if (pocketOn) { setStatus("Pocket lock on. Hold unlock to score."); return; }
         if (state.finished) return;
         if (!state.running && state.elapsed === 0) { setStatus("Start the game before scoring."); return; }
         state.score = Math.max(0, state.score + Number(btn.dataset.points));
