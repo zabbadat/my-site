@@ -425,8 +425,8 @@
         ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.steps).toLocaleString()}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td><td>${escapeHtml(r.season || "—")}</td></tr>`).join("")
         : `<tr><td colspan="6">${boardFilter === "tonight" ? "No games posted tonight yet." : "No finished games yet."}</td></tr>`;
     }
-
     $("startBtn").onclick = () => {
+      if (pocketOn) { setStatus("Pocket lock on. Hold unlock first."); return; }
       if (state.finished || state.running) return;
       state.running = true;
       state.startedAt = Date.now();
@@ -436,6 +436,7 @@
       render();
     };
     $("pauseBtn").onclick = () => {
+      if (pocketOn) { setStatus("Pocket lock on. Hold unlock first."); return; }
       if (!state.running || state.finished) return;
       state.elapsed += Date.now() - state.startedAt;
       state.running = false;
@@ -445,12 +446,14 @@
       render();
     };
     $("resetBtn").onclick = () => {
+      if (pocketOn) { setStatus("Pocket lock on. Hold unlock first."); return; }
       clearInterval(state.tick);
       Object.assign(state, { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false });
       setStatus("Reset.");
       stopPhoneSteps();
       render();
     };
+    
     document.querySelectorAll("[data-points]").forEach((btn) => {
       btn.onclick = () => {
         if (pocketOn) { setStatus("Pocket lock on. Hold unlock to score."); return; }
