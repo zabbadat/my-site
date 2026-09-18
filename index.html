@@ -618,7 +618,8 @@
       } else {
         currentUser = null;
         $("whoName").textContent = "Not signed in";
-        $("player").value = "";
+                $("player").value = "";
+        $("player").disabled = true;
         $("signInBtn").hidden = false;
         $("signInXBtn").hidden = false;
         $("signOutBtn").hidden = true;
