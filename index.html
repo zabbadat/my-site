@@ -594,9 +594,10 @@
     function showUser(user) {
       currentUser = user;
       const signedIn = !!(user && user.uid);
-      if (signedIn) {
+          if (signedIn) {
         $("whoName").textContent = displayNameOf(user);
-        $("player").value = displayNameOf(user);
+        $("player").disabled = false;
+        if (!$("player").value.trim()) $("player").value = displayNameOf(user);
         $("signInBtn").hidden = true;
         $("signInXBtn").hidden = true;
         $("signOutBtn").hidden = false;
