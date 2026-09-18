@@ -536,7 +536,10 @@
       stopPhoneSteps();
       const ms = state.elapsed + (state.startedAt ? Date.now() - state.startedAt : 0);
       state.elapsed = ms;
-      const name = currentUser ? displayNameOf(currentUser) : ($("player").value || "Player").trim().slice(0, 40);
+            const typed = ($("player").value || "").trim().slice(0, 20);
+      const name = currentUser
+        ? (typed || displayNameOf(currentUser))
+        : (typed || "Player");
       const handle = ($("xHandle").value || "").trim().replace(/^@/, "");
       const record = { name, xHandle: handle ? "@" + handle : "", score: 21, steps: state.steps, ms, when: new Date().toLocaleString() };
       const local = localBoard();
