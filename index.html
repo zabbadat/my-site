@@ -52,7 +52,16 @@
   font-weight: 600;
   color: var(--text);
 }
-    nav a { color: var(--muted); text-decoration: none; margin-left: 1.4rem; font-size: .92rem; }
+  nav a:not(.logo) {
+  color: var(--muted);
+  text-decoration: none;
+  margin-left: 1.4rem;
+  font-size: .92rem;
+}
+.logo {
+  margin-left: 0;
+  color: var(--accent);
+}
     .hero {
       min-height: 80vh; display: flex; flex-direction: column; justify-content: center;
       padding: 8rem 8% 4rem;
