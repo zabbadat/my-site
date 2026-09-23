@@ -61,7 +61,25 @@
       margin-left: 1.4rem;
       font-size: .92rem;
     }
-        .hero-mark {
+        .hero-mark 
+           .hero-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+      width: 100%;
+    }
+    .hero-copy { max-width: 36rem; }
+    .hero-side {
+      width: min(168px, 28vw);
+      height: auto;
+      flex: 0 0 auto;
+      border-radius: 50%;
+    }
+    @media (max-width: 700px) {
+      .hero-top { flex-direction: column; align-items: flex-start; }
+      .hero-side { width: 96px; }
+    }   
       width: 88px;
       height: 88px;
       display: block;
