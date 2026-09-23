@@ -668,7 +668,12 @@ async function finishGame() {
 
 paintRows(localBoard());
 render();
-
+setTimeout(() => {
+  const el = $("cloudStatus");
+  if (el && el.textContent.trim() === "Connecting…") {
+    el.textContent = "Live board unavailable. You can still play on this device.";
+  }
+}, 4000);
 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js");
 const {
   getAuth, GoogleAuthProvider,TwitterAuthProvider, signInWithPopup, signInWithRedirect,
