@@ -61,8 +61,7 @@
       margin-left: 1.4rem;
       font-size: .92rem;
     }
-        .hero-mark 
-           .hero-top {
+    .hero-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -76,15 +75,12 @@
       flex: 0 0 auto;
       border-radius: 50%;
     }
-    @media (max-width: 700px) {
-      .hero-top { flex-direction: column; align-items: flex-start; }
-      .hero-side { width: 96px; }
-    }   
-      width: 88px;
-      height: 88px;
-      display: block;
-      margin: 0 0 1.1rem;
-      border-radius: 50%;
+    .jingle {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1.2rem, 2.4vw, 1.7rem);
+      font-style: italic;
+      color: var(--accent-2);
+      margin: -.35rem 0 1.2rem;
     }
     .footer-brand {
       display: inline-flex;
@@ -98,6 +94,10 @@
       width: 28px;
       height: 28px;
       border-radius: 50%;
+    }
+    @media (max-width: 700px) {
+      .hero-top { flex-direction: column; align-items: flex-start; }
+      .hero-side { width: 96px; }
     }
     .hero {
       min-height: 80vh; display: flex; flex-direction: column; justify-content: center;
