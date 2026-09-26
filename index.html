@@ -668,8 +668,17 @@ async function finishGame() {
   const record = { name, xHandle: handle ? "@" + handle : "", score: 21, steps: state.steps, ms, when: new Date().toLocaleString() };
   const local = localBoard();
   local.push(record);
-  localStorage.setItem("zabbadat-washers", JSON.stringify(local));
+    localStorage.setItem("zabbadat-washers", JSON.stringify(local));
   render();
+  const tweet = encodeURIComponent(
+    name + " finished Zabbadat: 21 in " + formatTime(ms) +
+    " with " + state.steps.toLocaleString() + " steps. Breathe. Activate. Score."
+  );
+  const share = document.getElementById("shareX");
+  if (share) {
+    share.hidden = false;
+    share.href = "https://x.com/intent/tweet?text=" + tweet + "&url=" + encodeURIComponent("https://www.zabbadat.com/");
+  }
   if (!currentUser) {
     paintRows(local);
     setStatus("Finished on this device only. Sign in to post to the live board.");
