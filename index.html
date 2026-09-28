@@ -792,9 +792,17 @@ $("signInBtn").onclick = async () => {
 $("signInXBtn").onclick = async () => {
   try {
     await signInWithPopup(auth, xProvider);
+    setStatus("Signed in with X.");
   } catch (e) {
+    if (auth.currentUser) {
+      setStatus("Signed in with X.");
+      return;
+    }
     if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
       await signInWithRedirect(auth, xProvider);
+      return;
+    }
+    if (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request") {
       return;
     }
     setStatus("X sign-in failed: " + (e.code || "") + " " + (e.message || e));
