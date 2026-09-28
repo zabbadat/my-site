@@ -813,10 +813,8 @@ getRedirectResult(auth)
   .then((res) => {
     if (res && res.user) setStatus("Signed in with X.");
   })
-  .catch(() => {}); 
-    setStatus("X return failed: " + (e.code || "") + " " + (e.message || e));
-  });
- onAuthStateChanged(auth, showUser);
+  .catch(() => {});
+onAuthStateChanged(auth, showUser);
 $("pocketBtn").onclick = () => {
   if (pocketOn) return;
   setPocket(true);
