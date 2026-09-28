@@ -523,7 +523,12 @@ function formatTime(ms) {
   return h > 0 ? h + ":" + pad(m % 60) + ":" + pad(s) : pad(m) + ":" + pad(s);
 }
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ "&":"&","<":"<",">":">",'"':""","'":"'" }[c]));
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
     let boardFilter = "all";
 let lastBoardRows = [];
