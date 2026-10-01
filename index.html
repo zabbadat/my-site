@@ -913,18 +913,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 const xProvider = new TwitterAuthProvider();
-saveRemote = async (record) => { ... };
-saveRemotePush = async (record) => {
-  if (!auth.currentUser) throw new Error("Sign in required");
-  await addDoc(collection(db, "pushups"), {
-    name: record.name,
-    xHandle: record.xHandle || "",
-    uid: auth.currentUser.uid,
-    reps: Number(record.reps),
-    ms: Number(record.ms),
-    createdAt: serverTimestamp()
-  });
-};  
+
   if (!auth.currentUser) throw new Error("Sign in required");
     await addDoc(collection(db, "games"), {
          name: record.name,
