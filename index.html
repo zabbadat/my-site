@@ -529,12 +529,12 @@ const $ = (id) => document.getElementById(id);
 const configured = firebaseConfig.apiKey !== "PASTE_API_KEY";
 
 const state = { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
-let currentUser = null;
-    let pocketOn = false;
-unlockHold = null;
-  }
-}
+let pocketOn = false;
+let unlockHold = null;
+const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
+let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
+
 function setPocket(on) {
   pocketOn = !!on;
   const bar = $("pocketBar");
@@ -546,10 +546,8 @@ function setPocket(on) {
   if (!pocketOn && unlockHold) {
     clearTimeout(unlockHold);
     unlockHold = null;
- const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
-let saveRemotePush = async () => { throw new Error("Push board is not connected"); 
+  }
 }
-let saveRemote = async () => { throw new Error("Live board is not connected"); };
 
 function pad(n) { return String(n).padStart(2, "0"); }
 function formatTime(ms) {
