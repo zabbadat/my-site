@@ -1044,7 +1044,7 @@ onSnapshot(q, (snap) => {
   const rows = snap.docs.map((d) => {
     const x = d.data();
     const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleString() : "";
-            return {
+   return {
       name: x.name,
       xHandle: x.xHandle || "",
       steps: x.steps,
@@ -1052,7 +1052,12 @@ onSnapshot(q, (snap) => {
       when,
       created: x.createdAt && x.createdAt.toDate ? x.createdAt.toDate() : null,
       season: x.season || ""
-    const pq = query(collection(db, "pushups"), orderBy("reps", "desc"), limit(80));
+    };
+  }).sort((a, b) => a.steps - b.steps || a.ms - b.ms);
+  paintRows(rows);
+}, () => paintRows(localBoard()));
+
+const pq = query(collection(db, "pushups"), orderBy("reps", "desc"), limit(80));
 onSnapshot(pq, (snap) => {
   const rows = snap.docs.map((d) => {
     const x = d.data();
@@ -1061,8 +1066,6 @@ onSnapshot(pq, (snap) => {
   });
   paintPushRows(rows);
 }, () => paintPushRows(localPush()));
-    };
-  }).sort((a, b) => a.steps - b.steps || a.ms - b.ms);
-  paintRows(rows);
-}, () => paintRows(localBoard()));  </script></body>
+</script> 
+</body>
 </html>
