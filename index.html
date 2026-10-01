@@ -346,7 +346,40 @@
 <p class="note" id="status">Ready. Sign in, then press start.</p>
 <p><a class="btn ghost" id="shareX" hidden target="_blank" rel="noopener">Share this game on X</a></p>
 </section>
-
+<section id="push">
+    <h2>Floor set — pushups</h2>
+    <p class="lead">Same login as washers. Start the clock, tap each clean rep, or set the phone on the floor and face the camera. Honor system. Not a form judge and not medical treatment.</p>
+    <div class="stats">
+      <div class="stat"><b id="pushReps">0</b><span>Reps</span></div>
+      <div class="stat"><b id="pushClock">00:00</b><span>Time</span></div>
+      <div class="stat"><b id="pushBest">—</b><span>This device best</span></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="pushStartBtn" type="button">Start set</button>
+      <button class="btn ghost" id="pushPauseBtn" type="button">Pause</button>
+      <button class="btn danger" id="pushResetBtn" type="button">Reset</button>
+      <button class="btn" id="pushFinishBtn" type="button">Finish set</button>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="pushPlusBtn" type="button">+1 rep</button>
+      <button class="btn ghost" id="pushMinusBtn" type="button">−1</button>
+      <button class="btn ghost" id="camBtn" type="button">Phone on floor</button>
+      <button class="btn ghost" id="camStopBtn" type="button" hidden>Stop camera</button>
+    </div>
+    <div id="camWrap" hidden style="margin-top:1rem;max-width:22rem">
+      <video id="camVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video>
+      <canvas id="camCvs" hidden></canvas>
+    </div>
+    <p class="note" id="camNote">Optional. Phone on the floor, camera toward your chest. Start the set, then move. You can still tap +1.</p>
+    <p class="note" id="pushStatus">Ready. Start, then tap each rep.</p>
+    <p class="fine">Signed-in finishes post to the push board. Unsigned stays on this phone. Video never uploads.</p>
+    <h3 style="margin-top:1.6rem">Push board</h3>
+    <p class="lead">Most reps, then fastest time.</p>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>Reps</th><th>Time</th><th>When</th></tr></thead>
+      <tbody id="pushBoardBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
+    </table>
+  </section>
 
   <section id="board">
     <h2>Live board</h2>
