@@ -742,9 +742,166 @@ async function finishGame() {
     setStatus("Saved locally. Live post failed: " + (err.message || err));
   }
 }
-
 paintRows(localBoard());
 render();
+
+function localPush() {
+  try { return JSON.parse(localStorage.getItem("zabbadat-pushups") || "[]"); }
+  catch { return []; }
+}
+function renderPush() {
+  if ($("pushReps")) $("pushReps").textContent = pushState.reps;
+  const now = pushState.running ? Date.now() - pushState.startedAt + pushState.elapsed : pushState.elapsed;
+  if ($("pushClock")) $("pushClock").textContent = formatTime(now);
+  const best = localPush().reduce((m, r) => Math.max(m, Number(r.reps) || 0), 0);
+  if ($("pushBest")) $("pushBest").textContent = best ? String(best) : "—";
+}
+function paintPushRows(rows) {
+  const sorted = [...(rows || [])].sort((a, b) => b.reps - a.reps || a.ms - b.ms).slice(0, 50);
+  const body = $("pushBoardBody");
+  if (!body) return;
+  body.innerHTML = sorted.length
+    ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.reps)}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td></tr>`).join("")
+    : `<tr><td colspan="5">No finished sets yet.</td></tr>`;
+}
+function finishPushSet() {
+  if (pushState.finished) return;
+  if (!pushState.running && pushState.elapsed === 0 && pushState.reps === 0) {
+    $("pushStatus").textContent = "Start the set first.";
+    return;
+  }
+  pushState.running = false;
+  pushState.finished = true;
+  clearInterval(pushState.tick);
+  const ms = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
+  pushState.elapsed = ms;
+  const typed = ($("player").value || "").trim().slice(0, 20);
+  const name = currentUser ? (typed || displayNameOf(currentUser)) : (typed || "Player");
+  const handle = ($("xHandle").value || "").trim().replace(/^@/, "");
+  const record = { name, xHandle: handle ? "@" + handle : "", reps: pushState.reps, ms, when: new Date().toLocaleString() };
+  const local = localPush();
+  local.push(record);
+  localStorage.setItem("zabbadat-pushups", JSON.stringify(local));
+  renderPush();
+  paintPushRows(local);
+  if (!currentUser) {
+    $("pushStatus").textContent = "Set saved on this device. Sign in to post.";
+    return;
+  }
+  saveRemotePush(record)
+    .then(() => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "."; })
+    .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
+}
+if ($("pushStartBtn")) $("pushStartBtn").onclick = () => {
+  if (pushState.finished || pushState.running) return;
+  pushState.running = true;
+  pushState.startedAt = Date.now();
+  pushState.tick = setInterval(renderPush, 200);
+  $("pushStatus").textContent = "Set on. Tap each rep.";
+  renderPush();
+};
+if ($("pushPauseBtn")) $("pushPauseBtn").onclick = () => {
+  if (!pushState.running || pushState.finished) return;
+  pushState.elapsed += Date.now() - pushState.startedAt;
+  pushState.running = false;
+  clearInterval(pushState.tick);
+  $("pushStatus").textContent = "Paused.";
+  renderPush();
+};
+if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
+  clearInterval(pushState.tick);
+  Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false });
+  $("pushStatus").textContent = "Reset.";
+  renderPush();
+};
+if ($("pushPlusBtn")) $("pushPlusBtn").onclick = () => {
+  if (pushState.finished) return;
+  if (!pushState.running && pushState.elapsed === 0) { $("pushStatus").textContent = "Start the set first."; return; }
+  pushState.reps += 1;
+  renderPush();
+};
+if ($("pushMinusBtn")) $("pushMinusBtn").onclick = () => {
+  if (pushState.finished) return;
+  pushState.reps = Math.max(0, pushState.reps - 1);
+  renderPush();
+};
+if ($("pushFinishBtn")) $("pushFinishBtn").onclick = finishPushSet;
+
+let camStream = null;
+let camOn = false;
+let camRaf = 0;
+let camLast = 0;
+let camRising = false;
+let camPeak = 0;
+function setCamNote(msg) {
+  const el = $("camNote");
+  if (el) el.textContent = msg;
+}
+function camScore() {
+  const vid = $("camVid");
+  const cvs = $("camCvs");
+  if (!vid || !cvs || !camOn || vid.readyState < 2) return;
+  const w = 64, h = 48;
+  cvs.width = w;
+  cvs.height = h;
+  const ctx = cvs.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(vid, 0, 0, w, h);
+  const data = ctx.getImageData(16, 8, 32, 32).data;
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 4) sum += data[i] + data[i + 1] + data[i + 2];
+  const mag = sum / (data.length / 4);
+  const now = Date.now();
+  if (mag > camLast + 6) camRising = true;
+  if (camRising && mag < camLast - 4 && now - camPeak > 700) {
+    camPeak = now;
+    camRising = false;
+    if (pushState.running && !pushState.finished) {
+      pushState.reps += 1;
+      renderPush();
+    }
+  }
+  camLast = mag;
+  camRaf = requestAnimationFrame(camScore);
+}
+async function startCam() {
+  try {
+    if (camStream) camStream.getTracks().forEach((t) => t.stop());
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    const vid = $("camVid");
+    vid.srcObject = camStream;
+    await vid.play();
+    camOn = true;
+    $("camWrap").hidden = false;
+    $("camStopBtn").hidden = false;
+    $("camBtn").textContent = "Camera on";
+    setCamNote("Camera on. Phone on the floor, face the lens, start the set. Auto-count is a bounce guess — correct with +1 / −1.");
+    cancelAnimationFrame(camRaf);
+    camRaf = requestAnimationFrame(camScore);
+  } catch (e) {
+    setCamNote("Camera blocked. Allow camera for this site, or tap reps by hand.");
+  }
+}
+function stopCam() {
+  camOn = false;
+  cancelAnimationFrame(camRaf);
+  if (camStream) camStream.getTracks().forEach((t) => t.stop());
+  camStream = null;
+  const vid = $("camVid");
+  if (vid) vid.srcObject = null;
+  if ($("camWrap")) $("camWrap").hidden = true;
+  if ($("camStopBtn")) $("camStopBtn").hidden = true;
+  if ($("camBtn")) $("camBtn").textContent = "Phone on floor";
+  setCamNote("Camera off. Tap +1 still works.");
+}
+if ($("camBtn")) $("camBtn").onclick = startCam;
+if ($("camStopBtn")) $("camStopBtn").onclick = stopCam;
+paintPushRows(localPush());
+renderPush();
+
+setTimeout(() => {
 setTimeout(() => {
   const el = $("cloudStatus");
   if (el && el.textContent.trim() === "Connecting…") {
