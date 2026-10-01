@@ -1070,6 +1070,15 @@ onSnapshot(q, (snap) => {
       when,
       created: x.createdAt && x.createdAt.toDate ? x.createdAt.toDate() : null,
       season: x.season || ""
+    const pq = query(collection(db, "pushups"), orderBy("reps", "desc"), limit(80));
+onSnapshot(pq, (snap) => {
+  const rows = snap.docs.map((d) => {
+    const x = d.data();
+    const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleString() : "";
+    return { name: x.name, xHandle: x.xHandle || "", reps: x.reps, ms: x.ms, when };
+  });
+  paintPushRows(rows);
+}, () => paintPushRows(localPush()));
     };
   }).sort((a, b) => a.steps - b.steps || a.ms - b.ms);
   paintRows(rows);
