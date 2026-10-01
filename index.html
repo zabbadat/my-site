@@ -543,7 +543,8 @@ function setPocket(on) {
   if (!pocketOn && unlockHold) {
     clearTimeout(unlockHold);
     unlockHold = null;
-  }
+ const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
+let saveRemotePush = async () => { throw new Error("Push board is not connected"); 
 }
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 
