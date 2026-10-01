@@ -531,9 +531,10 @@ const configured = firebaseConfig.apiKey !== "PASTE_API_KEY";
 const state = { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
 let currentUser = null;
     let pocketOn = false;
-let unlockHold = null;
-const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
-let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
+unlockHold = null;
+  }
+}
+let saveRemote = async () => { throw new Error("Live board is not connected"); };
 function setPocket(on) {
   pocketOn = !!on;
   const bar = $("pocketBar");
