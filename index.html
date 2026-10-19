@@ -817,17 +817,7 @@ if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
   $("pushStatus").textContent = "Reset.";
   renderPush();
 };
-if ($("pushPlusBtn")) $("pushPlusBtn").onclick = () => {
-  if (pushState.finished) return;
-  if (!pushState.running && pushState.elapsed === 0) { $("pushStatus").textContent = "Start the set first."; return; }
-  pushState.reps += 1;
-  renderPush();
-};
-if ($("pushMinusBtn")) $("pushMinusBtn").onclick = () => {
-  if (pushState.finished) return;
-  pushState.reps = Math.max(0, pushState.reps - 1);
-  renderPush();
-};
+
 if ($("pushFinishBtn")) $("pushFinishBtn").onclick = finishPushSet;
 let camStream = null;
     let camOn = false;
