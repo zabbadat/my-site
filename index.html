@@ -830,16 +830,19 @@ if ($("pushMinusBtn")) $("pushMinusBtn").onclick = () => {
   renderPush();
 };
 if ($("pushFinishBtn")) $("pushFinishBtn").onclick = finishPushSet;
-    let camStream = null;
+let camStream = null;
     let camOn = false;
     let poseDetector = null;
     let poseLoopOn = false;
     let poseStage = "up";
     let lastPoseRep = 0;
+    let smoothY = null;
+    let upBaseline = null;
+    let baselineSamples = 0;
 
     function kp(pose, name) {
       const p = pose && pose.keypoints ? pose.keypoints.find((k) => k.name === name) : null;
-      return p && p.score >= 0.35 ? p : null;
+      return p && p.score >= 0.4 ? p : null;
     }
     function angleDeg(a, b, c) {
       const ang = Math.abs(Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x)) * 180 / Math.PI;
@@ -852,15 +855,18 @@ if ($("pushFinishBtn")) $("pushFinishBtn").onclick = finishPushSet;
       if (!s || !e || !w) return null;
       return angleDeg(s, e, w);
     }
-    function torsoDrop(pose, h) {
+    function shoulderY(pose, h) {
       const ls = kp(pose, "left_shoulder");
       const rs = kp(pose, "right_shoulder");
-      const lh = kp(pose, "left_hip");
-      const rh = kp(pose, "right_hip");
       if (!ls && !rs) return null;
-      const sy = ((ls ? ls.y : rs.y) + (rs ? rs.y : ls.y)) / 2;
-      const hy = (lh || rh) ? ((lh ? lh.y : rh.y) + (rh ? rh.y : lh.y)) / 2 : sy + h * 0.25;
-      return (sy - hy) / h;
+      const y = ((ls ? ls.y : rs.y) + (rs ? rs.y : ls.y)) / 2;
+      return y / h;
+    }
+    function shoulderWidth(pose, w) {
+      const ls = kp(pose, "left_shoulder");
+      const rs = kp(pose, "right_shoulder");
+      if (!ls || !rs) return null;
+      return Math.abs(ls.x - rs.x) / w;
     }
 
     async function ensurePose() {
@@ -878,26 +884,42 @@ if ($("pushFinishBtn")) $("pushFinishBtn").onclick = finishPushSet;
     async function poseTick() {
       if (!poseLoopOn || !camOn) return;
       const vid = $("camVid");
+      const h = vid.videoHeight || 480;
+      const w = vid.videoWidth || 640;
       try {
         const det = await ensurePose();
         const poses = await det.estimatePoses(vid, { flipHorizontal: true });
         const pose = poses && poses[0];
         if (pose && pushState.running && !pushState.finished) {
-          const left = armAngle(pose, "left");
-          const right = armAngle(pose, "right");
-          const elbow = [left, right].filter((n) => n != null);
-          const meanElbow = elbow.length ? elbow.reduce((a, b) => a + b, 0) / elbow.length : null;
-          const drop = torsoDrop(pose, vid.videoHeight || 480);
-          const down = (meanElbow != null && meanElbow < 100) || (drop != null && drop > -0.08);
-          const up = (meanElbow != null && meanElbow > 145) || (drop != null && drop < -0.18);
-          const now = Date.now();
-          if (down) poseStage = "down";
-          if (up && poseStage === "down" && now - lastPoseRep > 650) {
-            poseStage = "up";
-            lastPoseRep = now;
-            pushState.reps += 1;
-            renderPush();
-            $("camNote").textContent = "Pose counted " + pushState.reps + ". Fix with +1 / −1 if needed.";
+          const rawY = shoulderY(pose, h);
+          if (rawY != null) {
+            smoothY = smoothY == null ? rawY : smoothY * 0.7 + rawY * 0.3;
+            // learn an "up" baseline in the first ~1s of the set
+            if (baselineSamples < 15 && smoothY < 0.55) {
+              upBaseline = upBaseline == null ? smoothY : upBaseline * 0.8 + smoothY * 0.2;
+              baselineSamples++;
+            }
+            const baseline = upBaseline != null ? upBaseline : 0.42;
+            const downThresh = baseline + 0.12;   // closer / lower in frame
+            const upThresh   = baseline + 0.04;
+
+            const left = armAngle(pose, "left");
+            const right = armAngle(pose, "right");
+            const elbow = [left, right].filter(n => n != null);
+            const meanElbow = elbow.length ? elbow.reduce((a, b) => a + b, 0) / elbow.length : null;
+
+            const isDown = smoothY > downThresh || (meanElbow != null && meanElbow < 95);
+            const isUp   = smoothY < upThresh   || (meanElbow != null && meanElbow > 150);
+
+            const now = Date.now();
+            if (isDown) poseStage = "down";
+            if (isUp && poseStage === "down" && now - lastPoseRep > 700) {
+              poseStage = "up";
+              lastPoseRep = now;
+              pushState.reps += 1;
+              renderPush();
+              $("camNote").textContent = "Pose counted " + pushState.reps + ". Fix with +1 / −1 if needed.";
+            }
           }
         }
       } catch (e) {
@@ -922,6 +944,9 @@ if ($("pushFinishBtn")) $("pushFinishBtn").onclick = finishPushSet;
         camOn = true;
         poseLoopOn = true;
         poseStage = "up";
+        smoothY = null;
+        upBaseline = null;
+        baselineSamples = 0;
         $("camWrap").hidden = false;
         $("camStopBtn").hidden = false;
         $("camBtn").textContent = "Camera on";
