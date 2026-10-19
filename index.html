@@ -823,32 +823,11 @@ Find this block near the end of the camera code:
 js
     $("camBtn").onclick = startCam;
     $("camStopBtn").onclick = stopCam;
-      poseLoopOn = false;
-      camOn = false;
-      if (camStream) camStream.getTracks().forEach((t) => t.stop());
-      camStream = null;
-      $("camWrap").hidden = true;
-      $("camStopBtn").hidden = true;
-      $("camBtn").textContent = "Phone on floor";
-      $("camNote").textContent = "Camera off.";
-    }
-    $("camBtn").onclick = startCam;
-    $("camStopBtn").onclick = stopCam;
-Delete the whole thing and leave only this clean version (the real end of the camera section):
-
-js
-    $("camBtn").onclick = startCam;
-    $("camStopBtn").onclick = stopCam;
 4. Clean the camera note text
 In the HTML, find:
 
 html
 <p class="note" id="camNote">Optional. Phone on the floor, camera toward your chest. Pose model counts a down-then-up. Fix misses with +1 / −1. Video stays on this phone.</p>
-Change it to:
-
-html
-<p class="note" id="camNote">Optional. Phone on the floor, camera toward your chest. Pose model counts a down-then-up. Video stays on this phone.</p>
-After these four changes, commit and hard-refresh. The +1/−1 buttons are already gone from the HTML, and the script will no longer have the syntax error or the wrong reset call.
 
 
 
