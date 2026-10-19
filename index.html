@@ -920,7 +920,44 @@ async function poseTick() {
   }
   if (poseLoopOn) requestAnimationFrame(poseTick);
 }
-      
+
+async function startCam() {
+  try {
+    $("camNote").textContent = "Loading pose model…";
+    if (camStream) camStream.getTracks().forEach((t) => t.stop());
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    const vid = $("camVid");
+    vid.srcObject = camStream;
+    vid.setAttribute("playsinline", "");
+    await vid.play();
+    await ensurePose();
+    camOn = true;
+    poseLoopOn = true;
+    resetPoseBaseline();
+    $("camWrap").hidden = false;
+    $("camStopBtn").hidden = false;
+    $("camBtn").textContent = "Camera on";
+    $("camNote").textContent = "Pose on. Stay high for 2 seconds, then do full pushups.";
+    poseTick();
+  } catch (e) {
+    $("camNote").textContent = "Camera or pose blocked.";
+  }
+}
+function stopCam() {
+  poseLoopOn = false;
+  camOn = false;
+  if (camStream) camStream.getTracks().forEach((t) => t.stop());
+  camStream = null;
+  $("camWrap").hidden = true;
+  $("camStopBtn").hidden = true;
+  $("camBtn").textContent = "Phone on floor";
+  $("camNote").textContent = "Camera off.";
+}
+$("camBtn").onclick = startCam;
+$("camStopBtn").onclick = stopCam;
 paintPushRows(localPush());
 renderPush();
 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js");
