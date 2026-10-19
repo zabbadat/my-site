@@ -819,153 +819,147 @@ if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
 };
 if ($("pushFinishBtn")) $("pushFinishBtn").onclick = finishPushSet;
 let camStream = null;
-    let camOn = false;
-    let poseDetector = null;
-    let poseLoopOn = false;
-    let poseStage = "up";
-    let lastPoseRep = 0;
-    let smoothY = null;
-    let upBaseline = null;
-    let baselineSamples = 0;
-    let lastWidth = null;
+let camOn = false;
+let poseDetector = null;
+let poseLoopOn = false;
+let poseStage = "up";
+let lastPoseRep = 0;
+let smoothY = null;
+let upBaseline = null;
+let baselineSamples = 0;
+let minYSeen = 1;
+let maxYSeen = 0;
 
-    function kp(pose, name) {
-      const p = pose && pose.keypoints ? pose.keypoints.find((k) => k.name === name) : null;
-      return p && p.score >= 0.45 ? p : null;
-    }
-    function angleDeg(a, b, c) {
-      const ang = Math.abs(Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x)) * 180 / Math.PI;
-      return ang > 180 ? 360 - ang : ang;
-    }
-    function armAngle(pose, side) {
-      const s = kp(pose, side + "_shoulder");
-      const e = kp(pose, side + "_elbow");
-      const w = kp(pose, side + "_wrist");
-      if (!s || !e || !w) return null;
-      return angleDeg(s, e, w);
-    }
-    function shoulderY(pose, h) {
-      const ls = kp(pose, "left_shoulder");
-      const rs = kp(pose, "right_shoulder");
-      if (!ls && !rs) return null;
-      return (((ls ? ls.y : rs.y) + (rs ? rs.y : ls.y)) / 2) / h;
-    }
-    function shoulderWidth(pose, w) {
-      const ls = kp(pose, "left_shoulder");
-      const rs = kp(pose, "right_shoulder");
-      if (!ls || !rs) return null;
-      return Math.abs(ls.x - rs.x) / w;
-    }
+function kp(pose, name) {
+  const p = pose && pose.keypoints ? pose.keypoints.find((k) => k.name === name) : null;
+  return p && p.score >= 0.5 ? p : null;
+}
+function angleDeg(a, b, c) {
+  const ang = Math.abs(Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x)) * 180 / Math.PI;
+  return ang > 180 ? 360 - ang : ang;
+}
+function armAngle(pose, side) {
+  const s = kp(pose, side + "_shoulder");
+  const e = kp(pose, side + "_elbow");
+  const w = kp(pose, side + "_wrist");
+  if (!s || !e || !w) return null;
+  return angleDeg(s, e, w);
+}
+function shoulderY(pose, h) {
+  const ls = kp(pose, "left_shoulder");
+  const rs = kp(pose, "right_shoulder");
+  if (!ls || !rs) return null; // require both
+  return ((ls.y + rs.y) / 2) / h;
+}
 
-    function resetPoseBaseline() {
-      smoothY = null;
-      upBaseline = null;
-      baselineSamples = 0;
-      lastWidth = null;
-      poseStage = "up";
-    }
+function resetPoseBaseline() {
+  smoothY = null;
+  upBaseline = null;
+  baselineSamples = 0;
+  minYSeen = 1;
+  maxYSeen = 0;
+  poseStage = "up";
+}
 
-    async function ensurePose() {
-      if (poseDetector) return poseDetector;
-      if (!window.poseDetection) throw new Error("Pose library not loaded");
-      await tf.setBackend("webgl");
-      await tf.ready();
-      poseDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
-        modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-        enableSmoothing: true
-      });
-      return poseDetector;
-    }
+async function ensurePose() {
+  if (poseDetector) return poseDetector;
+  if (!window.poseDetection) throw new Error("Pose library not loaded");
+  await tf.setBackend("webgl");
+  await tf.ready();
+  poseDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
+    modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+    enableSmoothing: true
+  });
+  return poseDetector;
+}
 
-    async function poseTick() {
-      if (!poseLoopOn || !camOn) return;
-      const vid = $("camVid");
-      const h = vid.videoHeight || 480;
-      const w = vid.videoWidth || 640;
-      try {
-        const det = await ensurePose();
-        const poses = await det.estimatePoses(vid, { flipHorizontal: true });
-        const pose = poses && poses[0];
-        if (pose && pushState.running && !pushState.finished) {
-          const rawY = shoulderY(pose, h);
-          const rawW = shoulderWidth(pose, w);
-          if (rawY != null) {
-            smoothY = smoothY == null ? rawY : smoothY * 0.65 + rawY * 0.35;
-            if (rawW != null) lastWidth = lastWidth == null ? rawW : lastWidth * 0.7 + rawW * 0.3;
+async function poseTick() {
+  if (!poseLoopOn || !camOn) return;
+  const vid = $("camVid");
+  const h = vid.videoHeight || 480;
+  try {
+    const det = await ensurePose();
+    const poses = await det.estimatePoses(vid, { flipHorizontal: true });
+    const pose = poses && poses[0];
+    if (pose && pushState.running && !pushState.finished) {
+      const rawY = shoulderY(pose, h);
+      const left = armAngle(pose, "left");
+      const right = armAngle(pose, "right");
+      const meanElbow = (left != null && right != null) ? (left + right) / 2 : null;
 
-            // Learn “up” baseline for the first ~1 second while you stay high
-            if (baselineSamples < 18 && smoothY < 0.52) {
-              upBaseline = upBaseline == null ? smoothY : upBaseline * 0.75 + smoothY * 0.25;
-              baselineSamples++;
-            }
-            const baseline = upBaseline != null ? upBaseline : 0.40;
-            const downThresh = baseline + 0.13;
-            const upThresh   = baseline + 0.035;
+      if (rawY != null && meanElbow != null) {
+        smoothY = smoothY == null ? rawY : smoothY * 0.6 + rawY * 0.4;
+        minYSeen = Math.min(minYSeen, smoothY);
+        maxYSeen = Math.max(maxYSeen, smoothY);
 
-            const left = armAngle(pose, "left");
-            const right = armAngle(pose, "right");
-            const elbow = [left, right].filter(n => n != null);
-            const meanElbow = elbow.length ? elbow.reduce((a, b) => a + b, 0) / elbow.length : null;
-
-            // Primary signal: body gets closer (shoulders lower in frame)
-            // Secondary: elbows bend
-            const isDown = (smoothY > downThresh) || (meanElbow != null && meanElbow < 90);
-            const isUp   = (smoothY < upThresh)   || (meanElbow != null && meanElbow > 155);
-
-            const now = Date.now();
-            if (isDown) poseStage = "down";
-            if (isUp && poseStage === "down" && now - lastPoseRep > 750) {
-              poseStage = "up";
-              lastPoseRep = now;
-              pushState.reps += 1;
-              renderPush();
-             $("camNote").textContent = "Counted " + pushState.reps + ".";
-            }
-          }
+        // Learn upright baseline for the first ~1.5 s while staying high
+        if (baselineSamples < 25 && smoothY < 0.55) {
+          upBaseline = upBaseline == null ? smoothY : upBaseline * 0.7 + smoothY * 0.3;
+          baselineSamples++;
         }
-      } catch (e) {
-      $("camNote").textContent = "Pose paused.";
-      }
-      if (poseLoopOn) requestAnimationFrame(poseTick);
-    }
+        const baseline = upBaseline != null ? upBaseline : 0.42;
 
-    async function startCam() {
-      try {
-        $("camNote").textContent = "Loading pose model…";
-        if (camStream) camStream.getTracks().forEach((t) => t.stop());
-        camStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false
-        });
-        const vid = $("camVid");
-        vid.srcObject = camStream;
-        vid.setAttribute("playsinline", "");
-        await vid.play();
-        await ensurePose();
-        camOn = true;
-        poseLoopOn = true;
-        resetPoseBaseline();
-        $("camWrap").hidden = false;
-        $("camStopBtn").hidden = false;
-        $("camBtn").textContent = "Camera on";
-        $("camNote").textContent = "Pose on. Chest & shoulders in frame. Start the set, stay high for 1 second, then move.";
-        poseTick();
-      } catch (e) {
-$("camNote").textContent = "Camera or pose blocked.";
+        // Tighter thresholds — require clear depth
+        const downThresh = baseline + 0.16;
+        const upThresh   = baseline + 0.045;
+
+        const isDown = smoothY > downThresh && meanElbow < 95;
+        const isUp   = smoothY < upThresh   && meanElbow > 150;
+
+        const now = Date.now();
+        if (isDown) poseStage = "down";
+        if (isUp && poseStage === "down" && now - lastPoseRep > 800) {
+          poseStage = "up";
+          lastPoseRep = now;
+          pushState.reps += 1;
+          renderPush();
+          $("camNote").textContent = "Counted " + pushState.reps + ".";
+        }
       }
     }
-    function stopCam() {
-      poseLoopOn = false;
-      camOn = false;
-      if (camStream) camStream.getTracks().forEach((t) => t.stop());
-      camStream = null;
-      $("camWrap").hidden = true;
-      $("camStopBtn").hidden = true;
-      $("camBtn").textContent = "Phone on floor";
-      $("camNote").textContent = "Camera off.";
-    }
-    $("camBtn").onclick = startCam;
-    $("camStopBtn").onclick = stopCam;
+  } catch (e) {
+    $("camNote").textContent = "Pose paused.";
+  }
+  if (poseLoopOn) requestAnimationFrame(poseTick);
+}
+
+async function startCam() {
+  try {
+    $("camNote").textContent = "Loading pose model…";
+    if (camStream) camStream.getTracks().forEach((t) => t.stop());
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    const vid = $("camVid");
+    vid.srcObject = camStream;
+    vid.setAttribute("playsinline", "");
+    await vid.play();
+    await ensurePose();
+    camOn = true;
+    poseLoopOn = true;
+    resetPoseBaseline();
+    $("camWrap").hidden = false;
+    $("camStopBtn").hidden = false;
+    $("camBtn").textContent = "Camera on";
+    $("camNote").textContent = "Pose on. Stay high for 1–2 seconds, then do full pushups.";
+    poseTick();
+  } catch (e) {
+    $("camNote").textContent = "Camera or pose blocked.";
+  }
+}
+function stopCam() {
+  poseLoopOn = false;
+  camOn = false;
+  if (camStream) camStream.getTracks().forEach((t) => t.stop());
+  camStream = null;
+  $("camWrap").hidden = true;
+  $("camStopBtn").hidden = true;
+  $("camBtn").textContent = "Phone on floor";
+  $("camNote").textContent = "Camera off.";
+}
+$("camBtn").onclick = startCam;
+$("camStopBtn").onclick = stopCam;
       
 paintPushRows(localPush());
 renderPush();
