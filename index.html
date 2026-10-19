@@ -966,17 +966,7 @@ let camStream = null;
     }
     $("camBtn").onclick = startCam;
     $("camStopBtn").onclick = stopCam;
-      poseLoopOn = false;
-      camOn = false;
-      if (camStream) camStream.getTracks().forEach((t) => t.stop());
-      camStream = null;
-      $("camWrap").hidden = true;
-      $("camStopBtn").hidden = true;
-      $("camBtn").textContent = "Phone on floor";
-      $("camNote").textContent = "Camera off.";
-    }
-    $("camBtn").onclick = startCam;
-    $("camStopBtn").onclick = stopCam;
+      
 paintPushRows(localPush());
 renderPush();
 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js");
