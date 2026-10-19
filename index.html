@@ -634,7 +634,6 @@ $("resetBtn").onclick = () => {
   if (pocketOn) { setStatus("Pocket lock on. Hold unlock first."); return; }
   clearInterval(state.tick);
   Object.assign(state, { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false });
-resetPoseBaseline();
   setStatus("Reset.");
   stopPhoneSteps();
   render();
