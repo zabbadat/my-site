@@ -830,78 +830,119 @@ if ($("pushMinusBtn")) $("pushMinusBtn").onclick = () => {
   renderPush();
 };
 if ($("pushFinishBtn")) $("pushFinishBtn").onclick = finishPushSet;
+    let camStream = null;
+    let camOn = false;
+    let poseDetector = null;
+    let poseLoopOn = false;
+    let poseStage = "up";
+    let lastPoseRep = 0;
 
-let camStream = null;
-let camOn = false;
-let camRaf = 0;
-let camLast = 0;
-let camRising = false;
-let camPeak = 0;
-function setCamNote(msg) {
-  const el = $("camNote");
-  if (el) el.textContent = msg;
-}
-function camScore() {
-  const vid = $("camVid");
-  const cvs = $("camCvs");
-  if (!vid || !cvs || !camOn || vid.readyState < 2) return;
-  const w = 64, h = 48;
-  cvs.width = w;
-  cvs.height = h;
-  const ctx = cvs.getContext("2d", { willReadFrequently: true });
-  ctx.drawImage(vid, 0, 0, w, h);
-  const data = ctx.getImageData(16, 8, 32, 32).data;
-  let sum = 0;
-  for (let i = 0; i < data.length; i += 4) sum += data[i] + data[i + 1] + data[i + 2];
-  const mag = sum / (data.length / 4);
-  const now = Date.now();
-  if (mag > camLast + 6) camRising = true;
-  if (camRising && mag < camLast - 4 && now - camPeak > 700) {
-    camPeak = now;
-    camRising = false;
-    if (pushState.running && !pushState.finished) {
-      pushState.reps += 1;
-      renderPush();
+    function kp(pose, name) {
+      const p = pose && pose.keypoints ? pose.keypoints.find((k) => k.name === name) : null;
+      return p && p.score >= 0.35 ? p : null;
     }
-  }
-  camLast = mag;
-  camRaf = requestAnimationFrame(camScore);
-}
-async function startCam() {
-  try {
-    if (camStream) camStream.getTracks().forEach((t) => t.stop());
-    camStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-      audio: false
-    });
-    const vid = $("camVid");
-    vid.srcObject = camStream;
-    await vid.play();
-    camOn = true;
-    $("camWrap").hidden = false;
-    $("camStopBtn").hidden = false;
-    $("camBtn").textContent = "Camera on";
-    setCamNote("Camera on. Phone on the floor, face the lens, start the set. Auto-count is a bounce guess — correct with +1 / −1.");
-    cancelAnimationFrame(camRaf);
-    camRaf = requestAnimationFrame(camScore);
-  } catch (e) {
-    setCamNote("Camera blocked. Allow camera for this site, or tap reps by hand.");
-  }
-}
-function stopCam() {
-  camOn = false;
-  cancelAnimationFrame(camRaf);
-  if (camStream) camStream.getTracks().forEach((t) => t.stop());
-  camStream = null;
-  const vid = $("camVid");
-  if (vid) vid.srcObject = null;
-  if ($("camWrap")) $("camWrap").hidden = true;
-  if ($("camStopBtn")) $("camStopBtn").hidden = true;
-  if ($("camBtn")) $("camBtn").textContent = "Phone on floor";
-  setCamNote("Camera off. Tap +1 still works.");
-}
-if ($("camBtn")) $("camBtn").onclick = startCam;
-if ($("camStopBtn")) $("camStopBtn").onclick = stopCam;
+    function angleDeg(a, b, c) {
+      const ang = Math.abs(Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x)) * 180 / Math.PI;
+      return ang > 180 ? 360 - ang : ang;
+    }
+    function armAngle(pose, side) {
+      const s = kp(pose, side + "_shoulder");
+      const e = kp(pose, side + "_elbow");
+      const w = kp(pose, side + "_wrist");
+      if (!s || !e || !w) return null;
+      return angleDeg(s, e, w);
+    }
+    function torsoDrop(pose, h) {
+      const ls = kp(pose, "left_shoulder");
+      const rs = kp(pose, "right_shoulder");
+      const lh = kp(pose, "left_hip");
+      const rh = kp(pose, "right_hip");
+      if (!ls && !rs) return null;
+      const sy = ((ls ? ls.y : rs.y) + (rs ? rs.y : ls.y)) / 2;
+      const hy = (lh || rh) ? ((lh ? lh.y : rh.y) + (rh ? rh.y : lh.y)) / 2 : sy + h * 0.25;
+      return (sy - hy) / h;
+    }
+
+    async function ensurePose() {
+      if (poseDetector) return poseDetector;
+      if (!window.poseDetection) throw new Error("Pose library not loaded");
+      await tf.setBackend("webgl");
+      await tf.ready();
+      poseDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
+        modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+        enableSmoothing: true
+      });
+      return poseDetector;
+    }
+
+    async function poseTick() {
+      if (!poseLoopOn || !camOn) return;
+      const vid = $("camVid");
+      try {
+        const det = await ensurePose();
+        const poses = await det.estimatePoses(vid, { flipHorizontal: true });
+        const pose = poses && poses[0];
+        if (pose && pushState.running && !pushState.finished) {
+          const left = armAngle(pose, "left");
+          const right = armAngle(pose, "right");
+          const elbow = [left, right].filter((n) => n != null);
+          const meanElbow = elbow.length ? elbow.reduce((a, b) => a + b, 0) / elbow.length : null;
+          const drop = torsoDrop(pose, vid.videoHeight || 480);
+          const down = (meanElbow != null && meanElbow < 100) || (drop != null && drop > -0.08);
+          const up = (meanElbow != null && meanElbow > 145) || (drop != null && drop < -0.18);
+          const now = Date.now();
+          if (down) poseStage = "down";
+          if (up && poseStage === "down" && now - lastPoseRep > 650) {
+            poseStage = "up";
+            lastPoseRep = now;
+            pushState.reps += 1;
+            renderPush();
+            $("camNote").textContent = "Pose counted " + pushState.reps + ". Fix with +1 / −1 if needed.";
+          }
+        }
+      } catch (e) {
+        $("camNote").textContent = "Pose paused. Use +1.";
+      }
+      if (poseLoopOn) requestAnimationFrame(poseTick);
+    }
+
+    async function startCam() {
+      try {
+        $("camNote").textContent = "Loading pose model…";
+        if (camStream) camStream.getTracks().forEach((t) => t.stop());
+        camStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+        const vid = $("camVid");
+        vid.srcObject = camStream;
+        vid.setAttribute("playsinline", "");
+        await vid.play();
+        await ensurePose();
+        camOn = true;
+        poseLoopOn = true;
+        poseStage = "up";
+        $("camWrap").hidden = false;
+        $("camStopBtn").hidden = false;
+        $("camBtn").textContent = "Camera on";
+        $("camNote").textContent = "Pose on. Chest in frame. Start the set, then move.";
+        poseTick();
+      } catch (e) {
+        $("camNote").textContent = "Camera or pose blocked. Use +1.";
+      }
+    }
+    function stopCam() {
+      poseLoopOn = false;
+      camOn = false;
+      if (camStream) camStream.getTracks().forEach((t) => t.stop());
+      camStream = null;
+      $("camWrap").hidden = true;
+      $("camStopBtn").hidden = true;
+      $("camBtn").textContent = "Phone on floor";
+      $("camNote").textContent = "Camera off.";
+    }
+    $("camBtn").onclick = startCam;
+    $("camStopBtn").onclick = stopCam;
 paintPushRows(localPush());
 renderPush();
 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js");
