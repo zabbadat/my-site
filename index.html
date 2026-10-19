@@ -817,15 +817,6 @@ if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
   $("pushStatus").textContent = "Reset.";
   renderPush();
 };
-
-    $("camBtn").onclick = startCam;
-    $("camStopBtn").onclick = stopCam;
-
-html
-<p class="note" id="camNote">Optional. Phone on the floor, camera toward your chest. Pose model counts a down-then-up. Fix misses with +1 / −1. Video stays on this phone.</p>
-
-
-
 if ($("pushFinishBtn")) $("pushFinishBtn").onclick = finishPushSet;
 let camStream = null;
     let camOn = false;
