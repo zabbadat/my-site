@@ -335,10 +335,13 @@
     <input id="player" type="text" placeholder="Sign in, then pick a board name" maxlength="20" disabled>
     <label for="xHandle">X handle (optional)</label>
     <input id="xHandle" type="text" placeholder="@yourhandle" maxlength="20">
-   <div class="stats">
-      <div class="stat"><b id="pushReps">0</b><span>Reps</span></div>
-      <div class="stat"><b id="pushClock">00:00</b><span>Time</span></div>
+<div class="stats">
+      <div class="stat"><b id="score">0</b><span>Score / 21</span></div>
+      <div class="stat"><b id="steps">0</b><span>Steps</span></div>
+      <div class="stat"><b id="clock">00:00</b><span>Time</span></div>
     </div>
+    <div class="row">
+      <button class="btn" id="startBtn" type="button">Start game</button>
     <p class="reps-display" id="pushRepsBig">0</p>
     <div class="row">
       <button class="btn" id="startBtn" type="button">Start game</button>
