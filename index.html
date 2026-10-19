@@ -951,7 +951,7 @@ let camStream = null;
         $("camNote").textContent = "Pose on. Chest & shoulders in frame. Start the set, stay high for 1 second, then move.";
         poseTick();
       } catch (e) {
-        $("camNote").textContent = "Camera or pose blocked. Use +1.";
+$("camNote").textContent = "Camera or pose blocked.";
       }
     }
     function stopCam() {
