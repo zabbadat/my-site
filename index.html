@@ -487,7 +487,7 @@
       <button type="button" id="modeLongBtn" aria-pressed="true">One long set<span class="btn-tut">TUT</span></button>
       <button type="button" id="modeSetsBtn" aria-pressed="false">Sets</button>
     </div>
-    <div class="olt-banner"><span>ONE LONG SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
+    <div class="olt-banner" id="oltBanner"><span>ONE LONG SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
     <p class="note" id="longNote" hidden>One long set: the clock runs nonstop from Start. Stay in plank. Standing up or dropping to your knees is flagged (the clock keeps running). Rule breaks: <span class="vcount" id="pushViol">0</span></p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
@@ -1049,7 +1049,7 @@ function renderPushMode() {
   const set = (id, k, v) => { if ($(id)) $(id)[k] = v; };
   set("modeSetsBtn", "disabled", lockMode); set("modeLongBtn", "disabled", lockMode);
   if ($("modeSetsBtn")) $("modeSetsBtn").setAttribute("aria-pressed", String(!long));
-  if ($("modeLongBtn")) $("modeLongBtn").setAttribute("aria-pressed", String(long));
+  if ($("modeLongBtn")) $("modeLongBtn").setAttribute("aria-pressed", String(long)); if ($("oltBanner")) $("oltBanner").hidden = !long;
   set("pushFinishBtn", "hidden", long); set("pushPauseBtn", "hidden", long); set("pushEndBtn", "hidden", !long);
   set("longNote", "hidden", !long);
   set("pushTutLabel", "textContent", long ? "Total time (under tension)" : "Total time");
