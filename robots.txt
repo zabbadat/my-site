@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://zabbadat.com/sitemap.xml
+Sitemap: https://www.zabbadat.com/sitemap.xml
