@@ -1,7 +1,7 @@
 // Synthetic tests for push-counter.js. Run: node test/push-counter.test.js
 // A pinhole camera lies face-up under the chest; going down shrinks distance D,
 // so the shoulders look wider. Keypoints are projected from a simple 3D body.
-const { createCounter } = require("../push-counter.js");
+const { createCounter, tutForRep, formatTut } = require("../push-counter.js");
 let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(2 * Math.PI * rnd());
 
@@ -13,7 +13,7 @@ function hold(ms) { return [[ms, 0, 0]]; }
 function run(name, segs, expected, cfg = {}) {
   const c = Object.assign({ W: 640, H: 480, f: 0.5, Dtop: 0.6, Dbot: 0.3, cx: 0, cy: 0, fps: 30, noise: 0,
     drop: 0, elbowTop: 165, elbowBot: 85, arms: 2, nose: true, glitchAt: null, gone: null, drift: 0 }, cfg);
-  const ctr = createCounter(); const dt = 1000 / c.fps; let t = 0, statuses = new Set(), total = 0;
+  const ctr = createCounter(); const dt = 1000 / c.fps; let t = 0, statuses = new Set(), total = 0, tut = 0, badRepMs = false;
   for (const [dur, a, b] of segs) total += dur;
   let segIdx = 0, segT = 0;
   for (t = 0; t <= total; t += dt) {
@@ -42,11 +42,12 @@ function run(name, segs, expected, cfg = {}) {
     if (c.glitchAt != null && Math.abs(t - c.glitchAt) < dt / 2) frame = kps.map((k) => k.name === "right_shoulder" ? { ...k, x: k.x + 0.9 * c.W } : k);
     if (c.gone && t >= c.gone[0] && t < c.gone[1]) frame = [];
     const r = ctr.update(frame, t, c.W);
+    if (r.counted) tut += tutForRep(r.repMs, 10000); else if (r.repMs) badRepMs = true;
     statuses.add(r.status.replace(/\d+/g, "N"));
   }
   const got = ctr.state().reps, pass = got === expected;
   console.log(`${pass ? "PASS" : "FAIL"}  ${name.padEnd(48)} expected ${String(expected).padStart(2)}  got ${String(got).padStart(2)}`);
-  return { pass, statuses };
+  return { pass: pass && !badRepMs, statuses, tut, reps: got };
 }
 const reps = (n, ms) => Array.from({ length: n }, () => full(ms)).flat();
 const cal = hold(1600);
@@ -74,6 +75,17 @@ R.push(run("heavier noise 1% + 20% low-score frames", [...cal, ...reps(10, 1500)
 // head/chest dip with straight arms: first rep normal, then elbows stay straight
 { const segs = [...cal, ...reps(1, 1500), ...reps(5, 1500), ...hold(500)];
   R.push(run("dips with straight arms after calib rep: elbow check", segs, 1, { elbowBotAfter: 1600 + 1500 })); }
+// time under tension
+function check(name, ok) { console.log(`${ok ? "PASS" : "FAIL"}  ${name}`); R.push({ pass: !!ok }); }
+{ const r = run("TUT: 10 reps of 1.5s", [...cal, ...reps(10, 1500), ...hold(500)], 10);
+  console.log("  tut ms:", Math.round(r.tut));
+  check("TUT ~ 10 x rep cycle (each 0.8-2.2s)", r.tut >= 8000 && r.tut <= 22000); }
+{ const r = run("TUT: 5 reps of 3s", [...cal, ...reps(5, 3000), ...hold(500)], 5);
+  check("TUT 3s reps ~ 5 x (2-4s)", r.tut >= 10000 && r.tut <= 20000); }
+check("tutForRep caps at 10s", tutForRep(25000, 10000) === 10000 && tutForRep(1500) === 1500);
+check("tutForRep ignores bad input", tutForRep(undefined) === 0 && tutForRep(-5) === 0 && tutForRep(NaN) === 0);
+check("formatTut m:ss", formatTut(0) === "0:00" && formatTut(65400) === "1:05" && formatTut(3599999) === "59:59");
+check("formatTut h:mm:ss", formatTut(3600000) === "1:00:00" && formatTut(3725000) === "1:02:05");
 const fails = R.filter((r) => !r.pass).length;
 console.log(`\n${R.length - fails}/${R.length} passed`);
 process.exit(fails ? 1 : 0);

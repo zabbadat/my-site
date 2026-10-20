@@ -83,8 +83,8 @@
       return { size: size, elbow: elbow };
     }
 
-    function result(counted) {
-      return { counted: counted, reps: s.reps, phase: s.phase, status: s.status, stage: s.stage,
+    function result(counted, repMs) {
+      return { counted: counted, repMs: counted ? repMs : 0, reps: s.reps, phase: s.phase, status: s.status, stage: s.stage,
                rom: s.top != null && s.bottom != null && s.smooth != null ? (s.smooth - s.top) / (s.bottom - s.top) : null };
     }
 
@@ -141,10 +141,11 @@
             s.bottom = s.peak; s.bottomElbow = s.minElbow;
             s.phase = "ready"; s.reps += 1; counted = true;
             s.status = "Ready. Counted " + s.reps;
+            s.lastRepMs = dur;
           } else s.status = depth < o.minDepth ? "Go lower on the first rep to calibrate" : "Calibrated. Do one full, slow pushup";
           s.repStart = null; s.peak = null; s.minElbow = null;
         }
-        return result(counted);
+        return result(counted, s.lastRepMs);
       }
 
       // ready: count by % range of motion with hysteresis
@@ -172,7 +173,7 @@
             if (s.minElbow > need) ok = false;
           }
           if (ok) {
-            s.reps += 1; counted = true; s.status = "Counted " + s.reps;
+            s.reps += 1; counted = true; s.status = "Counted " + s.reps; s.lastRepMs = d;
             // slow adaptation with outlier rejection (no ever-growing range)
             var pr = (s.peak - s.top) / range;
             if (pr > 0.7 && pr < 1.6) s.bottom += o.adapt * (s.peak - s.bottom);
@@ -183,13 +184,26 @@
         } else if (t - s.repStart > o.maxRepMs) { s.stage = "up"; s.repStart = null; s.needTop = true; s.status = "Too slow, not counted"; }
       }
       if (!counted && /view|calibrat/i.test(s.status)) s.status = "Ready";
-      return result(counted);
+      return result(counted, s.lastRepMs);
     }
 
     return { update: update, reset: reset, state: function () { return s; } };
   }
 
-  var api = { createCounter: createCounter, DEFAULTS: DEFAULTS };
+  // Time under tension credited for one counted rep: its measured cycle, capped to ignore stalls.
+  function tutForRep(repMs, capMs) {
+    var cap = capMs == null ? 10000 : capMs, v = Number(repMs);
+    if (!isFinite(v) || v <= 0) return 0;
+    return Math.min(v, cap);
+  }
+  // m:ss, or h:mm:ss from one hour.
+  function formatTut(ms) {
+    var t = Math.max(0, Math.floor((Number(ms) || 0) / 1000)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = t % 60;
+    var ss = (sec < 10 ? "0" : "") + sec;
+    return h ? h + ":" + (m < 10 ? "0" : "") + m + ":" + ss : m + ":" + ss;
+  }
+
+  var api = { createCounter: createCounter, DEFAULTS: DEFAULTS, tutForRep: tutForRep, formatTut: formatTut };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatPush = api;
 })(this);

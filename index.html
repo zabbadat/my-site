@@ -250,6 +250,7 @@
       border: 1px solid rgba(143,191,168,.12);
     }
     .stat b { display: block; font-family: 'Cormorant Garamond', serif; font-size: clamp(1.8rem, 5vw, 2.6rem); }
+    .stats.duo { grid-template-columns: 1fr 1fr; }
     .stat span { color: var(--muted); font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; }
     label { display: block; font-size: .85rem; color: var(--muted); margin: .8rem 0 .35rem; }
     input {
@@ -272,6 +273,9 @@
         nav a:not(.logo) { margin-left: .75rem; font-size: .8rem; }
       .hero, section { padding-left: 6%; padding-right: 6%; }
       .stats { grid-template-columns: 1fr; }
+      .stats.duo { grid-template-columns: 1fr 1fr; gap: .6rem; }
+      .stats.duo .stat { padding: .8rem .5rem; }
+      .stats.duo .stat span { font-size: .68rem; letter-spacing: .05em; }
     }
         .price { font-family: 'Cormorant Garamond', serif; font-size: 1.55rem; color: var(--accent-2); margin: .35rem 0 .5rem; }
     .tag { display: inline-block; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: .4rem; }
@@ -430,12 +434,12 @@
 <section id="push">
     <h2>Floor set — pushups</h2>
     <p class="lead">Same login as washers. Start the clock and set the phone on the floor under your chest; the camera counts each full rep. Honor system. Not a form judge and not medical treatment.</p>
-<div class="stats">
+<div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
-      <div class="stat"><b id="pushClock">00:00</b><span>Time</span></div>
+      <div class="stat"><b id="pushTut">0:00</b><span>Total time (under tension)</span></div>
     </div>
     <p class="reps-display" id="pushRepsBig">0</p>
-    <p class="note" style="text-align:center;margin-top:-1rem">This set</p>
+    <p class="note" style="text-align:center;margin-top:-1rem">This set &middot; <span id="pushClock">00:00</span></p>
     <div class="row">
       <button class="btn" id="pushStartBtn" type="button">Start set</button>
       <button class="btn ghost" id="pushPauseBtn" type="button">Pause</button>
@@ -614,7 +618,7 @@ const state = { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, ti
 let currentUser = null;
 let pocketOn = false;
 let unlockHold = null;
-const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
+const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 };
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
 
@@ -923,10 +927,19 @@ function pushTotalKey() {
 function savedPushTotal() {
   return Number(localStorage.getItem(pushTotalKey())) || 0;
 }
+// Time under tension (ms) for today's finished sets, same per-user, per-day scheme.
+function pushTutKey() { return pushTotalKey().replace("zabbadat-push-total-", "zabbadat-push-tut-"); }
+function savedPushTut() { return Number(localStorage.getItem(pushTutKey())) || 0; }
+function clearPushTotals() { localStorage.removeItem(pushTotalKey()); localStorage.removeItem(pushTutKey()); }
+function formatTut(ms) {
+  const t = Math.max(0, Math.floor((Number(ms) || 0) / 1000)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = String(t % 60).padStart(2, "0");
+  return h ? h + ":" + String(m).padStart(2, "0") + ":" + sec : m + ":" + sec;
+}
 // Total = reps from finished sets today + live reps of the set in progress.
 // A set's reps are added to the stored total once, when "Finish set" is pressed.
 function renderPush() {
   if ($("pushReps")) $("pushReps").textContent = savedPushTotal() + (pushState.finished ? 0 : pushState.reps);
+  if ($("pushTut")) $("pushTut").textContent = formatTut(savedPushTut() + (pushState.finished ? 0 : pushState.tut));
   if ($("pushRepsBig")) $("pushRepsBig").textContent = pushState.reps;
   const now = pushState.running ? Date.now() - pushState.startedAt + pushState.elapsed : pushState.elapsed;
   if ($("pushClock")) $("pushClock").textContent = formatTime(now);
@@ -960,6 +973,7 @@ function finishPushSet() {
   local.push(record);
   localStorage.setItem("zabbadat-pushups", JSON.stringify(local));
   localStorage.setItem(pushTotalKey(), String(savedPushTotal() + record.reps));
+  localStorage.setItem(pushTutKey(), String(savedPushTut() + pushState.tut));
   renderPush();
   paintPushRows(local);
   if (!currentUser) {
@@ -988,14 +1002,14 @@ if ($("pushPauseBtn")) $("pushPauseBtn").onclick = () => {
 };
 if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
   clearInterval(pushState.tick);
-  Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false });
+  Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 });
   resetPoseBaseline();
   $("pushStatus").textContent = "Reset.";
   renderPush();
 };
 if ($("pushFinishBtn")) $("pushFinishBtn").onclick = finishPushSet;
 if ($("pushTotalResetBtn")) $("pushTotalResetBtn").onclick = () => {
-  localStorage.removeItem(pushTotalKey());
+  clearPushTotals();
   $("pushStatus").textContent = "Total reset.";
   renderPush();
 };
@@ -1073,6 +1087,7 @@ async function poseTick() {
     setCamStatus(r.status);
     if (r.counted && pushState.running && !pushState.finished) {
       pushState.reps += 1;
+      pushState.tut += window.ZabbadatPush.tutForRep(r.repMs, 10000);
       renderPush();
       $("camNote").textContent = "Counted " + pushState.reps + ".";
     }
@@ -1238,7 +1253,7 @@ $("signInXBtn").onclick = async () => {
   }
 };
 $("signOutBtn").onclick = () => {
-  if (currentUser) localStorage.removeItem(pushTotalKey());
+  if (currentUser) clearPushTotals();
   signOut(auth);
 };
 getRedirectResult(auth)
