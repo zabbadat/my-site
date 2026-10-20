@@ -228,8 +228,8 @@
     .hero h1 { font-size: clamp(2.6rem, 7vw, 5.2rem); line-height: 1.08; max-width: 18ch; margin-bottom: 1.3rem; }
     [hidden] { display: none !important; }
     .motto, .hero .motto { font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--accent); font-size: .8rem; line-height: 1.6; margin: 0 0 .8rem; overflow-wrap: anywhere; }
-    .motto a { color: var(--accent-2); font-weight: 800; text-transform: uppercase; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: .22em; }
-    .motto a:hover, .motto a:focus-visible { color: var(--accent); text-decoration-thickness: 3px; }
+    .motto a, .jingle a.tut-link { color: var(--accent-2); font-weight: 800; text-transform: uppercase; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: .22em; }
+    .motto a:hover, .motto a:focus-visible, .jingle a.tut-link:hover, .jingle a.tut-link:focus-visible { color: var(--accent); text-decoration-thickness: 3px; }
     .tut-hero { margin: 0 0 1.8rem; padding: 1.2rem 1.3rem 1.3rem; max-width: 36rem; border-radius: 18px;
       background: linear-gradient(160deg, rgba(143,191,168,.16), rgba(143,191,168,.04)); border: 1px solid rgba(143,191,168,.28); }
     .tut-hero h2 { font-size: clamp(1.45rem, 3.6vw, 2.1rem); line-height: 1.15; margin-bottom: .35rem; }
@@ -352,8 +352,7 @@
             <a class="btn ghost" href="#push" id="heroSetsBtn">Regular sets</a>
           </div>
         </div>
-        <p class="motto">BREATHE. ACTIVATE. <a href="#tut-board">TUT</a>. SCORE. WIN. RANK. REWARD.</p>
-       <p class="jingle">Breathe. Activate. Score. Win Rank &amp; Reward.</p>
+       <p class="jingle">Breathe. Activate. <a class="tut-link" href="#tut-board">TUT</a>. Score. Win Rank &amp; Reward.</p>
         <p><a href="/rules">Official regulations — Version 1.9 · Bariboshi style</a></p>
         <p>Zabbadat is a movement toward better health through coordination, breathing, and meditation. The Game of Washers turns steps into a contest. Sign in so your name stays the same on every device.</p>
         <div class="actions">
