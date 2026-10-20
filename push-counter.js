@@ -1,0 +1,195 @@
+/* Zabbadat pushup counter: pure rep-counting logic (no DOM, no camera).
+ * Phone lies face-up under the chest. Going down brings the chest toward the
+ * camera, so the shoulders look wider. We track that apparent size, not
+ * vertical screen position.
+ * Usage: const c = ZabbadatPush.createCounter();
+ *        const r = c.update(keypoints, timeMs, frameWidth);  // r.counted, r.status, r.phase
+ */
+(function (root) {
+  "use strict";
+  var DEFAULTS = {
+    minScore: 0.3,        // per-keypoint confidence gate
+    holdMs: 300,          // reuse last good value this long when a point drops out
+    poorMs: 1000,         // after this long without a usable signal, show a framing message
+    tauMs: 70,            // time constant of the EMA smoothing
+    glitchRatio: 0.45,    // single-frame jumps bigger than this (relative) are ignored
+    glitchMaxMs: 250,     // ...unless they persist this long (then they are real)
+    calibMs: 1000,        // how long the top must be steady
+    steadyTol: 0.05,      // steady = size within +/-5% over calibMs
+    minDepth: 0.12,       // first rep must make the shoulders >= 12% wider than the top
+    downRom: 0.7,         // % range of motion to be "down"
+    upRom: 0.3,           // % range of motion to be back "up"
+    minBottomMs: 120,
+    minRepMs: 400,
+    maxRepMs: 6000,
+    adapt: 0.15,          // how fast top/bottom follow the user after each good rep
+    elbowFrac: 0.4        // rep must bend at least 40% of the user's own elbow range
+  };
+
+  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  function angleDeg(a, b, c) {
+    var ang = Math.abs(Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x)) * 180 / Math.PI;
+    return ang > 180 ? 360 - ang : ang;
+  }
+
+  function createCounter(opts) {
+    var o = {}, k;
+    for (k in DEFAULTS) o[k] = DEFAULTS[k];
+    for (k in (opts || {})) o[k] = opts[k];
+    var s;
+
+    function reset() {
+      s = {
+        held: {},             // name -> {x,y,t}
+        smooth: null, lastT: null, glitchSince: null,
+        lastGoodT: null, firstT: null,
+        phase: "calibrate",   // calibrate -> first -> ready
+        win: [],              // [t, size] for steadiness check
+        top: null, bottom: null,
+        topElbow: null, bottomElbow: null, elbowTopSamples: [],
+        stage: "up", needTop: false, repStart: null, lastTopT: null, bottomT: null, bottomMs: 0,
+        peak: null, minElbow: null, repTopMin: null,
+        reps: 0, status: "Hold the top to calibrate"
+      };
+    }
+    reset();
+
+    function point(kps, name, t) {
+      var p = null;
+      for (var i = 0; i < kps.length; i++) if (kps[i].name === name) { p = kps[i]; break; }
+      if (p && (p.score == null || p.score >= o.minScore)) { s.held[name] = { x: p.x, y: p.y, t: t }; return s.held[name]; }
+      var h = s.held[name];
+      return h && t - h.t <= o.holdMs ? h : null;
+    }
+
+    // Apparent size relative to frame width. Shoulder width is primary; when the
+    // nose is visible we blend in the nose-shoulder triangle (sqrt of area).
+    function measure(kps, t, w) {
+      var ls = point(kps, "left_shoulder", t), rs = point(kps, "right_shoulder", t);
+      if (!ls || !rs) return null;
+      var sw = dist(ls, rs) / w;
+      var n = point(kps, "nose", t), size = sw;
+      if (n) {
+        var area = Math.abs((rs.x - ls.x) * (n.y - ls.y) - (n.x - ls.x) * (rs.y - ls.y)) / 2;
+        var tri = Math.sqrt(area) / w * 1.6; // ~same scale as shoulder width for a typical body
+        if (tri > sw * 0.4 && tri < sw * 2.5) size = 0.7 * sw + 0.3 * tri;
+      }
+      var angs = [];
+      ["left", "right"].forEach(function (side) {
+        var a = point(kps, side + "_shoulder", t), e = point(kps, side + "_elbow", t), wr = point(kps, side + "_wrist", t);
+        if (a && e && wr) angs.push(angleDeg(a, e, wr));
+      });
+      var elbow = angs.length ? angs.reduce(function (x, y) { return x + y; }, 0) / angs.length : null;
+      return { size: size, elbow: elbow };
+    }
+
+    function result(counted) {
+      return { counted: counted, reps: s.reps, phase: s.phase, status: s.status, stage: s.stage,
+               rom: s.top != null && s.bottom != null && s.smooth != null ? (s.smooth - s.top) / (s.bottom - s.top) : null };
+    }
+
+    function update(kps, t, frameW) {
+      if (s.firstT == null) s.firstT = t;
+      var m = kps && frameW ? measure(kps, t, frameW) : null;
+      if (!m) {
+        var since = s.lastGoodT == null ? t - s.firstT : t - s.lastGoodT;
+        if (since > o.poorMs) s.status = "Move so shoulders are in view";
+        return result(false);
+      }
+      // glitch rejection: ignore a sudden jump unless it persists
+      if (s.smooth != null && Math.abs(m.size - s.smooth) / s.smooth > o.glitchRatio) {
+        if (s.glitchSince == null) s.glitchSince = t;
+        if (t - s.glitchSince < o.glitchMaxMs) return result(false);
+        s.smooth = m.size; // persisted: accept as the new reality
+      } else s.glitchSince = null;
+      s.lastGoodT = t;
+      // time-based EMA
+      if (s.smooth == null) s.smooth = m.size;
+      else { var a = 1 - Math.exp(-(t - s.lastT) / o.tauMs); s.smooth += a * (m.size - s.smooth); }
+      s.lastT = t;
+      var v = s.smooth, counted = false;
+
+      if (s.phase === "calibrate") {
+        s.win.push([t, v]); if (m.elbow != null) s.elbowTopSamples.push(m.elbow);
+        while (s.win.length && t - s.win[0][0] > o.calibMs) s.win.shift();
+        var vals = s.win.map(function (x) { return x[1]; });
+        var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), mean = (lo + hi) / 2;
+        var span = s.win.length ? t - s.win[0][0] : 0;
+        if (span >= o.calibMs * 0.9 && (hi - lo) / mean <= o.steadyTol * 2) {
+          s.top = mean;
+          var es = s.elbowTopSamples.slice(-30);
+          s.topElbow = es.length ? es.reduce(function (x, y) { return x + y; }, 0) / es.length : null;
+          s.phase = "first"; s.stage = "up"; s.peak = null; s.minElbow = null;
+          s.status = "Calibrated. Do one full, slow pushup";
+        } else {
+          if (hi - lo > mean * o.steadyTol * 2) { s.win = s.win.slice(-1); s.elbowTopSamples = []; }
+          s.status = "Hold the top to calibrate";
+        }
+        return result(false);
+      }
+
+      if (s.phase === "first") {
+        // learn bottom from the first rep's peak
+        var returned = s.repStart != null && v < s.top + o.upRom * (s.peak - s.top);
+        if (!returned && v > s.top * (1 + o.minDepth * 0.5)) {
+          if (s.repStart == null) s.repStart = t;
+          if (s.peak == null || v > s.peak) s.peak = v;
+          if (m.elbow != null && (s.minElbow == null || m.elbow < s.minElbow)) s.minElbow = m.elbow;
+        } else if (returned) {
+          var depth = (s.peak - s.top) / s.top, dur = t - s.repStart;
+          if (depth >= o.minDepth && dur >= o.minRepMs && dur <= o.maxRepMs * 2) {
+            s.bottom = s.peak; s.bottomElbow = s.minElbow;
+            s.phase = "ready"; s.reps += 1; counted = true;
+            s.status = "Ready. Counted " + s.reps;
+          } else s.status = depth < o.minDepth ? "Go lower on the first rep to calibrate" : "Calibrated. Do one full, slow pushup";
+          s.repStart = null; s.peak = null; s.minElbow = null;
+        }
+        return result(counted);
+      }
+
+      // ready: count by % range of motion with hysteresis
+      var range = s.bottom - s.top, rom = (v - s.top) / range;
+      if (s.stage === "up") {
+        if (rom < o.upRom * 0.5) s.lastTopT = t;   // rep timing starts when the user leaves the top
+        if (rom < o.upRom) s.needTop = false;
+        if (s.needTop) return result(false);
+        if (rom < o.upRom) { s.repTopMin = s.repTopMin == null ? v : Math.min(s.repTopMin, v); s.repStart = null; }
+        else if (s.repStart == null) { s.repStart = s.lastTopT != null ? s.lastTopT : t; s.peak = v; s.minElbow = m.elbow; }
+        if (s.repStart != null) {
+          if (v > s.peak) s.peak = v;
+          if (m.elbow != null && (s.minElbow == null || m.elbow < s.minElbow)) s.minElbow = m.elbow;
+        }
+        if (rom > o.downRom && s.repStart != null) { s.stage = "down"; s.bottomT = t; s.bottomMs = 0; }
+        else if (s.repStart != null && t - s.repStart > o.maxRepMs) { s.repStart = null; s.needTop = true; }
+      } else {
+        if (v > s.peak) s.peak = v;
+        if (m.elbow != null && (s.minElbow == null || m.elbow < s.minElbow)) s.minElbow = m.elbow;
+        if (rom > o.downRom) { s.bottomMs += t - s.bottomT; } s.bottomT = t;
+        if (rom < o.upRom) {
+          var d = t - s.repStart, ok = d >= o.minRepMs && d <= o.maxRepMs && s.bottomMs >= o.minBottomMs;
+          if (ok && s.topElbow != null && s.bottomElbow != null && s.minElbow != null) {
+            var need = s.topElbow - o.elbowFrac * (s.topElbow - s.bottomElbow);
+            if (s.minElbow > need) ok = false;
+          }
+          if (ok) {
+            s.reps += 1; counted = true; s.status = "Counted " + s.reps;
+            // slow adaptation with outlier rejection (no ever-growing range)
+            var pr = (s.peak - s.top) / range;
+            if (pr > 0.7 && pr < 1.6) s.bottom += o.adapt * (s.peak - s.bottom);
+            if (s.repTopMin != null) { var tr = (s.repTopMin - s.top) / range; if (tr > -0.4 && tr < 0.3) s.top += o.adapt * (s.repTopMin - s.top); }
+            if (s.minElbow != null && s.bottomElbow != null) s.bottomElbow += o.adapt * (s.minElbow - s.bottomElbow);
+          } else s.status = d > o.maxRepMs ? "Too slow, not counted" : "Not counted: go all the way down";
+          s.stage = "up"; s.repStart = null; s.repTopMin = null; s.lastTopT = t;
+        } else if (t - s.repStart > o.maxRepMs) { s.stage = "up"; s.repStart = null; s.needTop = true; s.status = "Too slow, not counted"; }
+      }
+      if (!counted && /view|calibrat/i.test(s.status)) s.status = "Ready";
+      return result(counted);
+    }
+
+    return { update: update, reset: reset, state: function () { return s; } };
+  }
+
+  var api = { createCounter: createCounter, DEFAULTS: DEFAULTS };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  else root.ZabbadatPush = api;
+})(this);
