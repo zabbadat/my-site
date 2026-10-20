@@ -226,6 +226,7 @@
     .eyebrow { letter-spacing: .32em; text-transform: uppercase; font-size: .72rem; color: var(--accent); margin-bottom: 1.2rem; }
     h1, h2, h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
     .hero h1 { font-size: clamp(2.6rem, 7vw, 5.2rem); line-height: 1.08; max-width: 18ch; margin-bottom: 1.3rem; }
+    [hidden] { display: none !important; }
     .tut-hero { margin: 0 0 1.8rem; padding: 1.2rem 1.3rem 1.3rem; max-width: 36rem; border-radius: 18px;
       background: linear-gradient(160deg, rgba(143,191,168,.16), rgba(143,191,168,.04)); border: 1px solid rgba(143,191,168,.28); }
     .tut-hero h2 { font-size: clamp(1.45rem, 3.6vw, 2.1rem); line-height: 1.15; margin-bottom: .35rem; }
@@ -340,6 +341,7 @@
             <div class="tut-side"><b id="heroReps">0</b><span>Reps today</span></div>
           </div>
           <p class="tut-best" id="heroBest" hidden></p>
+          <p class="tut-best"><a href="#tut-board">See the Time Under Tension board</a></p>
           <div class="actions">
             <a class="btn" href="#push" id="heroLongBtn">Start One Long Set</a>
             <a class="btn ghost" href="#push" id="heroSetsBtn">Regular sets</a>
@@ -505,6 +507,32 @@
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Reps</th><th>Time</th><th>When</th></tr></thead>
       <tbody id="pushBoardBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="washers" id="tut-board">
+    <h2>Time Under Tension</h2>
+    <p class="lead">Longest time under the bar. Sets count their set time; One Long Set counts the whole session.</p>
+    <h3>TUT leaderboard</h3>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Reps</th><th>When</th></tr></thead>
+      <tbody id="tutBoardBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
+    </table>
+    <h3 style="margin-top:1.6rem">Your time under tension</h3>
+    <p class="fine">Saved on this phone for the signed-in player (or guest).</p>
+    <div class="stats">
+      <div class="stat"><b id="tutToday">0:00</b><span id="tutTodayReps">Today · 0 reps</span></div>
+      <div class="stat"><b id="tutBestDay">—</b><span id="tutBestDayInfo">Best day</span></div>
+      <div class="stat"><b id="tutAll">0:00</b><span id="tutAllReps">All time · 0 reps</span></div>
+    </div>
+    <table>
+      <thead><tr><th>Day</th><th>Time</th><th>Reps</th></tr></thead>
+      <tbody id="tutDaysBody"><tr><td colspan="3">No sets yet.</td></tr></tbody>
+    </table>
+    <h3 style="margin-top:1.6rem">Recent One Long Sets</h3>
+    <table>
+      <thead><tr><th>When</th><th>Time</th><th>Reps</th><th>Rule breaks</th></tr></thead>
+      <tbody id="tutSessBody"><tr><td colspan="4">No sessions yet.</td></tr></tbody>
     </table>
   </section>
 
@@ -991,6 +1019,7 @@ function renderPush() {
   renderPushMode();
   if ($("heroTut") && $("pushTut")) $("heroTut").textContent = $("pushTut").textContent;
   if ($("heroReps") && $("pushReps")) $("heroReps").textContent = $("pushReps").textContent;
+  renderTutHistory();
   if ($("pushClock")) $("pushClock").textContent = formatTime(now);
   const best = localPush().reduce((m, r) => Math.max(m, Number(r.reps) || 0), 0);
   if ($("pushBest")) $("pushBest").textContent = best ? String(best) : "—";
@@ -1032,6 +1061,41 @@ function heroGo(mode, e) {
 }
 if ($("heroLongBtn")) $("heroLongBtn").onclick = (e) => heroGo("long", e);
 if ($("heroSetsBtn")) $("heroSetsBtn").onclick = (e) => heroGo("sets", e);
+function renderTutHistory() {
+  if (!$("tutDaysBody")) return;
+  const who = currentUser ? currentUser.uid : "guest", d = new Date();
+  const entries = [];
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); entries.push([k, localStorage.getItem(k)]); }
+  const h = window.ZabbadatSession.tutHistory(entries, "zabbadat-push-tut-" + who + "-", d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(), "zabbadat-push-total-" + who + "-");
+  const sig = JSON.stringify([who, h.total, h.totalReps, h.days.length, localStorage.getItem("zabbadat-push-sessions") || ""]);
+  // live part (today) updates every tick; tables only when data changes
+  $("tutToday").textContent = $("pushTut") ? $("pushTut").textContent : formatTut(h.today);
+  $("tutTodayReps").textContent = "Today · " + ($("pushReps") ? $("pushReps").textContent : h.todayReps) + " reps";
+  if (renderTutHistory.sig === sig) return;
+  renderTutHistory.sig = sig;
+  const dayName = (x) => new Date(x.y, x.m - 1, x.d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  $("tutBestDay").textContent = h.best ? formatTut(h.best.ms) : "—";
+  $("tutBestDayInfo").textContent = h.best ? "Best day · " + dayName(h.best) + " · " + h.best.reps + " reps" : "Best day";
+  $("tutAll").textContent = formatTut(h.total);
+  $("tutAllReps").textContent = "All time · " + h.totalReps + " reps";
+  $("tutDaysBody").innerHTML = h.days.length
+    ? h.days.slice(0, 14).map((x) => `<tr><td>${escapeHtml(dayName(x))}</td><td>${formatTut(x.ms)}</td><td>${Number(x.reps)}</td></tr>`).join("")
+    : `<tr><td colspan="3">No sets yet.</td></tr>`;
+  let sess = [];
+  try { sess = JSON.parse(localStorage.getItem("zabbadat-push-sessions") || "[]"); } catch {}
+  sess = sess.filter((x) => (x.who || "guest") === who).slice(-10).reverse();
+  $("tutSessBody").innerHTML = sess.length
+    ? sess.map((x) => `<tr><td>${escapeHtml(x.when || "")}</td><td>${formatTut(x.ms)}</td><td>${Number(x.reps) || 0}</td><td>${Number(x.violations) || 0}</td></tr>`).join("")
+    : `<tr><td colspan="4">No sessions yet.</td></tr>`;
+}
+function paintTutRows(rows) {
+  const body = $("tutBoardBody");
+  if (!body) return;
+  const ranked = window.ZabbadatSession.rankTut(rows, 50);
+  body.innerHTML = ranked.length
+    ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${formatTut(r.ms)}</td><td>${Number(r.reps)}</td><td>${escapeHtml(r.when || "")}</td></tr>`).join("")
+    : `<tr><td colspan="5">No timed sets with reps yet.</td></tr>`;
+}
 function paintPushRows(rows) {
   const sorted = [...(rows || [])].sort((a, b) => b.reps - a.reps || a.ms - b.ms).slice(0, 50);
   const body = $("pushBoardBody");
@@ -1064,7 +1128,7 @@ function finishPushSet() {
     const v = postureGuard.state().count;
     try {
       const log = JSON.parse(localStorage.getItem("zabbadat-push-sessions") || "[]");
-      log.push({ reps: record.reps, ms, violations: v, when: record.when });
+      log.push({ reps: record.reps, ms, violations: v, when: record.when, who: currentUser ? currentUser.uid : "guest" });
       localStorage.setItem("zabbadat-push-sessions", JSON.stringify(log.slice(-100)));
     } catch {}
     if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
@@ -1441,6 +1505,17 @@ onSnapshot(pq, (snap) => {
     $("heroBest").hidden = false;
   }
 }, () => paintPushRows(localPush()));
+
+// Time Under Tension board: longest ms first (fallback: recent docs, sorted on this page).
+const tutRowsOf = (snap) => snap.docs.map((d) => {
+  const x = d.data();
+  const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "";
+  return { name: x.name, xHandle: x.xHandle || "", reps: x.reps, ms: x.ms, when };
+});
+onSnapshot(query(collection(db, "pushups"), orderBy("ms", "desc"), limit(80)), (snap) => paintTutRows(tutRowsOf(snap)), () => {
+  onSnapshot(query(collection(db, "pushups"), orderBy("createdAt", "desc"), limit(300)), (snap) => paintTutRows(tutRowsOf(snap)),
+    () => paintTutRows(localPush()));
+});
 </script> 
 </body>
 </html>

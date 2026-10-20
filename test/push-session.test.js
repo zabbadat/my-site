@@ -1,5 +1,5 @@
 // Tests for push-session.js. Run: node test/push-session.test.js
-const { tutToAdd, canSwitchMode, classify, createPostureGuard } = require("../push-session.js");
+const { tutHistory, rankTut, tutToAdd, canSwitchMode, classify, createPostureGuard } = require("../push-session.js");
 const R = [];
 const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
 const K = (o, score = 0.9) => Object.entries(o).map(([name, [x, y]]) => ({ name, x, y, score }));
@@ -39,6 +39,19 @@ check("no re-arm without plank in between", play([[plank, 500], [away, 800], [kn
 check("uncertain frames never flag", play([[plank, 500], [lowConf, 3000], [plank, 500]]).count === 0);
 check("uncertain gap does not re-arm", play([[plank, 500], [away, 800], [lowConf, 2000], [away, 800]]).count === 1);
 check("event types recorded", play([[plank, 500], [kneesDown, 800], [plank, 500]]).evs.join() === "knees");
+{ const P = "zabbadat-push-tut-u1-";
+  const e = [[P + "2026-10-19", "90000"], [P + "2026-10-17", "300000"], [P + "2026-9-30", "60000"], ["zabbadat-push-tut-other-2026-10-19", "999999"],
+    [P + "2026-10-18", "0"], [P + "junk", "5"], ["zabbadat-push-total-u1-2026-10-19", "40"], ["zabbadat-push-total-u1-2026-10-17", "120"], ["zabbadat-push-total-u1-2026-10-16", "15"]];
+  const h = tutHistory(e, P, "2026-10-19", "zabbadat-push-total-u1-");
+  check("history: today", h.today === 90000);
+  check("history: best day", h.best && h.best.key === "2026-10-17" && h.best.ms === 300000);
+  check("history: all-time total, own user only, zero/junk ignored", h.total === 450000 && h.days.length === 4);
+  check("history: newest first across months", h.days.map((d) => d.key).join() === "2026-10-19,2026-10-17,2026-10-16,2026-9-30");
+  check("history: reps per day / best-day reps / all-time reps", h.todayReps === 40 && h.best.reps === 120 && h.totalReps === 175 && h.days[2].reps === 15 && h.days[2].ms === 0);
+  check("history: without reps prefix still works", tutHistory(e, P, "2026-10-19").totalReps === 0);
+  check("history: empty", tutHistory([], P, "2026-10-19").best === null); }
+{ const r = rankTut([{ reps: 0, ms: 9e5 }, { reps: 5, ms: 3000 }, { reps: 30, ms: 120000 }, { reps: 2, ms: 0 }]);
+  check("rankTut: longest first, 0 reps dropped", r.length === 2 && r[0].ms === 120000); }
 const fails = R.filter((x) => !x).length;
 console.log(`\n${R.length - fails}/${R.length} passed`);
 process.exit(fails ? 1 : 0);

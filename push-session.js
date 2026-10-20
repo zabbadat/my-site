@@ -71,7 +71,41 @@
     }
     return { update: update, reset: reset, state: function () { return g; } };
   }
-  var api = { tutToAdd: tutToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, GUARD: GUARD };
+  // Personal history from localStorage entries [[key, value], ...]: per-day time under tension
+  // (tutPrefix, e.g. "zabbadat-push-tut-guest-") and reps (repsPrefix, "zabbadat-push-total-guest-").
+  // Returns today, best day (by time), all-time totals and days (newest first).
+  function tutHistory(entries, tutPrefix, today, repsPrefix) {
+    var map = {};
+    function day(k, prefix) {
+      var m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(k.slice(prefix.length));
+      if (!m) return null;
+      var key = m[1] + "-" + m[2] + "-" + m[3];
+      return map[key] || (map[key] = { y: +m[1], m: +m[2], d: +m[3], key: key, ms: 0, reps: 0 });
+    }
+    (entries || []).forEach(function (kv) {
+      var k = kv[0], v = Number(kv[1]);
+      if (typeof k !== "string" || !(v > 0)) return;
+      var x;
+      if (k.indexOf(tutPrefix) === 0 && (x = day(k, tutPrefix))) x.ms = v;
+      else if (repsPrefix && k.indexOf(repsPrefix) === 0 && (x = day(k, repsPrefix))) x.reps = v;
+    });
+    var days = Object.keys(map).map(function (k) { return map[k]; });
+    days.sort(function (a, b) { return (b.y - a.y) || (b.m - a.m) || (b.d - a.d); });
+    var best = null, total = 0, reps = 0, t = { ms: 0, reps: 0 };
+    days.forEach(function (x) {
+      total += x.ms; reps += x.reps;
+      if (x.ms > 0 && (!best || x.ms > best.ms)) best = x;
+      if (x.key === today) t = x;
+    });
+    return { today: t.ms, todayReps: t.reps, best: best, total: total, totalReps: reps, days: days };
+  }
+  // Public TUT ranking from push board rows: longest ms first, 0-rep entries dropped.
+  function rankTut(rows, n) {
+    return (rows || []).filter(function (r) { return Number(r.reps) > 0 && Number(r.ms) > 0; })
+      .sort(function (a, b) { return Number(b.ms) - Number(a.ms); }).slice(0, n || 50);
+  }
+
+  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, GUARD: GUARD };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);
