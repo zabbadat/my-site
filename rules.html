@@ -29,7 +29,9 @@
     h1, h2 { font-family: system-ui, sans-serif; }
     h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
     .sub { color: #444; margin-top: 0; }
-    a { color: #0b57d0; }
+    :where(a):link, :where(a):visited { color: #2f6b55; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .18em; }
+    :where(a):hover, :where(a):focus-visible { color: #1f4d3c; text-decoration-thickness: 2px; }
+    :where(a):focus-visible { outline: 2px solid #1f4d3c; outline-offset: 2px; border-radius: 2px; }
     table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
     td, th { border: 1px solid #ccc; padding: 0.4rem 0.5rem; text-align: left; vertical-align: top; }
     dt { font-weight: 700; margin-top: 0.75rem; }
