@@ -435,15 +435,17 @@
     <h2>Floor set — pushups</h2>
     <p class="lead">Same login as washers. Start the clock and set the phone on the floor under your chest; the camera counts each full rep. Honor system. Not a form judge and not medical treatment.</p>
 <div class="stats">
-      <div class="stat"><b id="pushReps">0</b><span>Reps</span></div>
+      <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
       <div class="stat"><b id="pushClock">00:00</b><span>Time</span></div>
     </div>
     <p class="reps-display" id="pushRepsBig">0</p>
+    <p class="note" style="text-align:center;margin-top:-1rem">This set</p>
     <div class="row">
       <button class="btn" id="pushStartBtn" type="button">Start set</button>
       <button class="btn ghost" id="pushPauseBtn" type="button">Pause</button>
       <button class="btn danger" id="pushResetBtn" type="button">Reset</button>
       <button class="btn" id="pushFinishBtn" type="button">Finish set</button>
+      <button class="btn ghost" id="pushTotalResetBtn" type="button">Reset total</button>
     </div>
     <div class="row">
       <button class="btn ghost" id="camBtn" type="button">Phone on floor</button>
@@ -918,8 +920,18 @@ function localPush() {
   try { return JSON.parse(localStorage.getItem("zabbadat-pushups") || "[]"); }
   catch { return []; }
 }
+function pushTotalKey() {
+  const d = new Date();
+  const who = currentUser ? currentUser.uid : "guest";
+  return "zabbadat-push-total-" + who + "-" + d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+}
+function savedPushTotal() {
+  return Number(localStorage.getItem(pushTotalKey())) || 0;
+}
+// Total = reps from finished sets today + live reps of the set in progress.
+// A set's reps are added to the stored total once, when "Finish set" is pressed.
 function renderPush() {
-  if ($("pushReps")) $("pushReps").textContent = pushState.reps;
+  if ($("pushReps")) $("pushReps").textContent = savedPushTotal() + (pushState.finished ? 0 : pushState.reps);
   if ($("pushRepsBig")) $("pushRepsBig").textContent = pushState.reps;
   const now = pushState.running ? Date.now() - pushState.startedAt + pushState.elapsed : pushState.elapsed;
   if ($("pushClock")) $("pushClock").textContent = formatTime(now);
@@ -952,6 +964,7 @@ function finishPushSet() {
   const local = localPush();
   local.push(record);
   localStorage.setItem("zabbadat-pushups", JSON.stringify(local));
+  localStorage.setItem(pushTotalKey(), String(savedPushTotal() + record.reps));
   renderPush();
   paintPushRows(local);
   if (!currentUser) {
@@ -986,6 +999,11 @@ if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
   renderPush();
 };
 if ($("pushFinishBtn")) $("pushFinishBtn").onclick = finishPushSet;
+if ($("pushTotalResetBtn")) $("pushTotalResetBtn").onclick = () => {
+  localStorage.removeItem(pushTotalKey());
+  $("pushStatus").textContent = "Total reset.";
+  renderPush();
+};
 let camStream = null;
 let camOn = false;
 let poseDetector = null;
@@ -1189,13 +1207,16 @@ $("signInXBtn").onclick = async () => {
     setStatus("X sign-in failed: " + (e.code || "") + " " + (e.message || e));
   }
 };
-$("signOutBtn").onclick = () => signOut(auth);
+$("signOutBtn").onclick = () => {
+  if (currentUser) localStorage.removeItem(pushTotalKey());
+  signOut(auth);
+};
 getRedirectResult(auth)
   .then((res) => {
     if (res && res.user) setStatus("Signed in with X.");
   })
   .catch(() => {});
-onAuthStateChanged(auth, showUser);
+onAuthStateChanged(auth, (u) => { showUser(u); renderPush(); });
 $("pocketBtn").onclick = () => {
   if (pocketOn) return;
   setPocket(true);
