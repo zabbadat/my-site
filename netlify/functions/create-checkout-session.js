@@ -1,4 +1,4 @@
-const { SITE, json, notConfigured, missingEnv, admin, stripe, uidFrom } = require("./lib/common");
+const { SITE, json, notConfigured, missingEnv, admin, stripe, uidFrom } = require("../lib/common");
 const NEED = ["STRIPE_SECRET_KEY", "STRIPE_PRICE_ID", "FIREBASE_SERVICE_ACCOUNT"];
 exports.handler = async (event) => {
   const missing = missingEnv(NEED);

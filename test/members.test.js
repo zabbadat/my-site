@@ -1,6 +1,6 @@
 // Tests for members.js. Run: node test/members.test.js
 const M = require("../members.js");
-const S = require("../netlify/functions/lib/status.js");
+const S = require("../netlify/lib/status.js");
 const R = [];
 const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
 for (const s of ["active", "trialing"]) check("active: " + s, M.isActiveStatus(s) && S.isActiveStatus(s));

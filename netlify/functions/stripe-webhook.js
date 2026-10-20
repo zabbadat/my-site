@@ -1,5 +1,5 @@
-const { json, notConfigured, missingEnv, admin, stripe } = require("./lib/common");
-const { rawBody, memberRecord } = require("./lib/status");
+const { json, notConfigured, missingEnv, admin, stripe } = require("../lib/common");
+const { rawBody, memberRecord } = require("../lib/status");
 const NEED = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "FIREBASE_SERVICE_ACCOUNT"];
 
 async function uidForCustomer(s, customerId, hint) {
