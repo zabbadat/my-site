@@ -1,5 +1,7 @@
 [build]
-  publish = "."
+  # Publish only the static site (not node_modules / function sources).
+  command = "rm -rf dist && mkdir dist && cp *.html *.js *.png *.txt *.xml dist/"
+  publish = "dist"
 
 [functions]
   directory = "netlify/functions"
