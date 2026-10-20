@@ -320,6 +320,10 @@
       nav { flex-wrap: wrap; gap: .4rem; }
       nav a:not(.logo) { margin-left: .55rem; }
     }
+  @media (max-width: 700px) {
+    /* clear the taller wrapped mobile header so the hero mark is fully visible */
+    .hero { padding-top: 11rem; justify-content: flex-start; }
+  }
   </style> <link rel="icon" type="image/png" href="/zd-square.png"><link rel="apple-touch-icon" href="/zd-1024.png">
 </head>
 <body>
