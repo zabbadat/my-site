@@ -469,8 +469,8 @@
     <h2>Floor set — pushups</h2>
     <p class="lead">Same login as washers. Start the clock and set the phone on the floor under your chest; the camera counts each full rep. Honor system. Not a form judge and not medical treatment.</p>
 <div class="mode-toggle" role="group" aria-label="Pushup mode">
-      <button type="button" id="modeSetsBtn" aria-pressed="true">Sets</button>
-      <button type="button" id="modeLongBtn" aria-pressed="false">One long set</button>
+      <button type="button" id="modeLongBtn" aria-pressed="true">One long set</button>
+      <button type="button" id="modeSetsBtn" aria-pressed="false">Sets</button>
     </div>
     <p class="note" id="longNote" hidden>One long set: the clock runs nonstop from Start. Stay in plank. Standing up or dropping to your knees is flagged (the clock keeps running). Rule breaks: <span class="vcount" id="pushViol">0</span></p>
 <div class="stats duo">
@@ -661,7 +661,7 @@ let currentUser = null;
 let pocketOn = false;
 let unlockHold = null;
 const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 };
-let pushMode = localStorage.getItem("zabbadat-push-mode") === "long" ? "long" : "sets";
+let pushMode = localStorage.getItem("zabbadat-push-mode") === "sets" ? "sets" : "long";
 const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostureGuard() : null;
 let lastViolFlag = 0;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
