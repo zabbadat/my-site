@@ -85,6 +85,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Stripe membership status. Written only by the server (Netlify stripe-webhook via firebase-admin).
+    match /members/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

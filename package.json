@@ -1,0 +1,6 @@
+{
+  "name": "zabbadat-site",
+  "private": true,
+  "scripts": { "test": "for f in test/*.js; do node $f || exit 1; done" },
+  "dependencies": { "firebase-admin": "^12.7.0", "stripe": "^17.3.1" }
+}

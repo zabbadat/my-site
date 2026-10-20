@@ -329,7 +329,12 @@
     /* clear the taller wrapped mobile header so the hero mark is fully visible */
     .hero { padding-top: 11rem; justify-content: flex-start; }
   }
-  </style> <link rel="icon" type="image/png" href="/zd-square.png"><link rel="apple-touch-icon" href="/zd-1024.png">
+      body:not(.is-member) [data-premium]:not([data-premium="lock"]) { display: none !important; }
+    body:not(.is-member) [data-premium="lock"] { position: relative; opacity: .55; filter: grayscale(1); pointer-events: none; user-select: none; }
+    body:not(.is-member) [data-premium="lock"]::after { content: "Members only"; position: absolute; top: .6rem; right: .8rem; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .premium-demo { margin-top: 1.2rem; }
+    .premium-tag { font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 .3rem; }
+</style> <link rel="icon" type="image/png" href="/zd-square.png"><link rel="apple-touch-icon" href="/zd-1024.png">
 </head>
 <body>
   <nav>
@@ -348,6 +353,7 @@
     <a href="#cooling-box">Cooling box</a>
     <a href="#corporate">Companies</a>
     <a href="#order">Order</a>
+    <a href="#membership">Membership</a>
     </div>
   </nav>
   <section class="hero">
@@ -739,6 +745,21 @@
     </form>
     <p class="fine">Same list we use for league and companies. Subject line will read board / pack inquiry.</p>
   </section>
+  <section id="membership">
+    <h2>Membership</h2>
+    <p class="lead">Monthly ZabbaDat membership. Billing is handled securely by Stripe. Cancel any time from Manage membership.</p>
+    <div class="row">
+      <button class="btn" id="memberJoinBtn" type="button" hidden>Join monthly</button>
+      <button class="btn ghost" id="memberManageBtn" type="button" hidden>Manage membership</button>
+    </div>
+    <p class="note" id="memberStatus" aria-live="polite">Checking membership…</p>
+    <div class="card premium-demo" data-premium="lock">
+      <p class="premium-tag">Premium preview (placeholder)</p>
+      <h3>Members-only block</h3>
+      <p>This placeholder demonstrates premium gating. It unlocks for active members. Real premium features have not been chosen yet.</p>
+    </div>
+  </section>
+
    <footer>
     <a class="footer-brand" href="/">
       <img src="/zd-square.png" width="28" height="28" alt="">
@@ -750,6 +771,7 @@
   <script src="/push-session.js"></script>
   <script src="/plank-session.js"></script>
   <script src="/daily-steps.js"></script>
+  <script src="/members.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
     const firebaseConfig = {
@@ -1669,7 +1691,7 @@ getRedirectResult(auth)
     if (res && res.user) setStatus("Signed in with X.");
   })
   .catch(() => {});
-onAuthStateChanged(auth, (u) => { showUser(u); renderPush(); });
+onAuthStateChanged(auth, (u) => { showUser(u); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("pocketBtn").onclick = () => {
   if (pocketOn) return;
   setPocket(true);
