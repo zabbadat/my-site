@@ -212,6 +212,9 @@
     @media (max-width: 700px) {
       .hero-top { flex-direction: column; align-items: flex-start; }
       .hero-side { width: 140px; margin: 1rem auto 0; } 
+      .hero { padding-top: 6.2rem; }
+      .hero-mark { width: 56px; height: 56px; margin-bottom: .8rem; }
+      .hero h1 { margin-bottom: .9rem; }
     }
     .hero {
       min-height: 80vh; display: flex; flex-direction: column; justify-content: center;
@@ -223,6 +226,18 @@
     .eyebrow { letter-spacing: .32em; text-transform: uppercase; font-size: .72rem; color: var(--accent); margin-bottom: 1.2rem; }
     h1, h2, h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
     .hero h1 { font-size: clamp(2.6rem, 7vw, 5.2rem); line-height: 1.08; max-width: 18ch; margin-bottom: 1.3rem; }
+    .tut-hero { margin: 0 0 1.8rem; padding: 1.2rem 1.3rem 1.3rem; max-width: 36rem; border-radius: 18px;
+      background: linear-gradient(160deg, rgba(143,191,168,.16), rgba(143,191,168,.04)); border: 1px solid rgba(143,191,168,.28); }
+    .tut-hero h2 { font-size: clamp(1.45rem, 3.6vw, 2.1rem); line-height: 1.15; margin-bottom: .35rem; }
+    .tut-hero h2 em { font-style: italic; color: var(--accent-2); }
+    .hero .tut-rules { color: var(--accent); letter-spacing: .14em; text-transform: uppercase; font-size: .74rem; margin-bottom: .9rem; }
+    .tut-stats { display: flex; align-items: flex-end; gap: 1.4rem; margin-bottom: .9rem; }
+    .tut-stats b { display: block; font-family: 'Cormorant Garamond', serif; line-height: 1; font-variant-numeric: tabular-nums; }
+    .tut-main b { font-size: clamp(3.4rem, 11vw, 5.6rem); color: var(--accent); font-weight: 600; }
+    .tut-side b { font-size: clamp(1.8rem, 5vw, 2.6rem); }
+    .tut-stats span { color: var(--muted); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+    .hero .tut-best { font-size: .88rem; margin: -.3rem 0 .9rem; }
+    .tut-hero .actions { margin: 0; }
     .hero h1 em { font-style: italic; color: var(--accent-2); }
     .hero p, .lead { color: var(--muted); max-width: 36rem; margin-bottom: 1.8rem; }
     .actions, .row { display: flex; gap: .8rem; flex-wrap: wrap; }
@@ -317,6 +332,19 @@
         <img class="hero-mark" src="/zd.png" width="88" height="88" alt="">
         <div class="eyebrow">Movement · Breath · 10,000 steps</div>
         <h1>Gamified <em>wellness</em></h1>
+        <div class="tut-hero" id="tutHero">
+          <h2>One Long Set: <em>how long can you stay under tension?</em></h2>
+          <p class="tut-rules">Nonstop timer &middot; No standing &middot; No knees</p>
+          <div class="tut-stats">
+            <div class="tut-main"><b id="heroTut">0:00</b><span>Your time under tension today</span></div>
+            <div class="tut-side"><b id="heroReps">0</b><span>Reps today</span></div>
+          </div>
+          <p class="tut-best" id="heroBest" hidden></p>
+          <div class="actions">
+            <a class="btn" href="#push" id="heroLongBtn">Start One Long Set</a>
+            <a class="btn ghost" href="#push" id="heroSetsBtn">Regular sets</a>
+          </div>
+        </div>
        <p class="jingle">Breathe. Activate. Score. Win Rank &amp; Reward.</p>
         <p><a href="/rules">Official regulations — Version 1.9 · Bariboshi style</a></p>
         <p>Zabbadat is a movement toward better health through coordination, breathing, and meditation. The Game of Washers turns steps into a contest. Sign in so your name stays the same on every device.</p>
@@ -961,6 +989,8 @@ function renderPush() {
   if ($("pushTut")) $("pushTut").textContent = formatTut(savedPushTut() + (pushState.finished ? 0 : liveTut));
   if ($("pushRepsBig")) $("pushRepsBig").textContent = pushState.reps;
   renderPushMode();
+  if ($("heroTut") && $("pushTut")) $("heroTut").textContent = $("pushTut").textContent;
+  if ($("heroReps") && $("pushReps")) $("heroReps").textContent = $("pushReps").textContent;
   if ($("pushClock")) $("pushClock").textContent = formatTime(now);
   const best = localPush().reduce((m, r) => Math.max(m, Number(r.reps) || 0), 0);
   if ($("pushBest")) $("pushBest").textContent = best ? String(best) : "—";
@@ -990,6 +1020,17 @@ function setPushMode(m) {
 }
 if ($("modeSetsBtn")) $("modeSetsBtn").onclick = () => setPushMode("sets");
 if ($("modeLongBtn")) $("modeLongBtn").onclick = () => setPushMode("long");
+// Hero CTAs: jump to the counter and preselect a mode (never mid-session; the camera still loads only from the counter).
+function heroGo(mode, e) {
+  if (e) e.preventDefault();
+  if (pushMode !== mode) {
+    if (window.ZabbadatSession.canSwitchMode(pushState)) setPushMode(mode);
+    else $("pushStatus").textContent = "A session is running. End or reset it to switch modes.";
+  }
+  $("push").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+if ($("heroLongBtn")) $("heroLongBtn").onclick = (e) => heroGo("long", e);
+if ($("heroSetsBtn")) $("heroSetsBtn").onclick = (e) => heroGo("sets", e);
 function paintPushRows(rows) {
   const sorted = [...(rows || [])].sort((a, b) => b.reps - a.reps || a.ms - b.ms).slice(0, 50);
   const body = $("pushBoardBody");
@@ -1393,6 +1434,11 @@ onSnapshot(pq, (snap) => {
     return { name: x.name, xHandle: x.xHandle || "", reps: x.reps, ms: x.ms, when };
   });
   paintPushRows(rows);
+  const best = rows.reduce((m, r) => (Number(r.reps) > 0 && Number(r.ms) > (m ? m.ms : 0) ? { ms: Number(r.ms), name: r.name, reps: r.reps } : m), null);
+  if (best && $("heroBest")) {
+    $("heroBest").textContent = "Longest on the push board: " + formatTut(best.ms) + " by " + publicName(best.name) + " (" + Number(best.reps) + " reps)";
+    $("heroBest").hidden = false;
+  }
 }, () => paintPushRows(localPush()));
 </script> 
 </body>
