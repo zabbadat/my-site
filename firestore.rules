@@ -59,6 +59,32 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Daily steps: one doc per person per local day, id = uid + "_" + YYYY-MM-DD.
+    // Steps can only go up, capped at 60,000. No deletes.
+    function dailyStepsOk(d) {
+      return d.keys().hasOnly(['name','xHandle','uid','date','steps','source','updatedAt'])
+        && d.keys().hasAll(['name','uid','date','steps','source','updatedAt'])
+        && shortString(d.name, 40) && d.name.size() > 0
+        && (!('xHandle' in d) || shortString(d.xHandle, 21))
+        && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.steps is int && d.steps > 0 && d.steps <= 60000
+        && d.source in ['native', 'web']
+        && d.updatedAt == request.time;
+    }
+    match /dailySteps/{id} {
+      allow read: if true;
+      allow create: if signedIn() && ownsNew()
+        && id == request.auth.uid + '_' + request.resource.data.date
+        && dailyStepsOk(request.resource.data);
+      allow update: if signedIn() && ownsNew()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.date == resource.data.date
+        && id == request.auth.uid + '_' + request.resource.data.date
+        && dailyStepsOk(request.resource.data)
+        && request.resource.data.steps >= resource.data.steps;
+      allow delete: if false;
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }
