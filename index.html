@@ -381,7 +381,7 @@
     <p class="lead">Reach 21 with the fewest steps and the quickest time. The public board uses your name so repeat games & stack under one identity.</p>
     <div class="grid">
       <div class="card"><h3>21</h3><p>Add points as washers score. The game ends at 21.</p></div>
-      <div class="card"><h3>Steps</h3><p>Log steps from your watch or phone as you walk between throws.</p></div>
+      <div class="card"><h3>Steps</h3><p>Your phone counts steps as you walk between throws. Keep this page open with the phone on you.</p></div>
       <div class="card"><h3>Time</h3><p>The clock stops at 21 and can post to the live board.</p></div>
     </div>
   </section>
@@ -423,7 +423,11 @@
       <button class="btn ghost" type="button" data-points="3">+3 shoot</button>
       <button class="btn ghost" type="button" data-points="-1">−1</button>
     </div>
-<p class="note" id="phoneStepsNote">Optional. Keep this page open and walk with the phone on you.</p>
+<div class="row">
+      <button class="btn ghost" id="stepSensorBtn" type="button">Enable step sensor</button>
+      <span class="note" id="sensorDot" aria-live="polite">○ Step sensor off</span>
+    </div>
+<p class="note" id="phoneStepsNote">Enable the step sensor, keep this page open and the screen on, and walk with the phone on you. Only verified games post to the live board.</p>
 <p class="note" id="status">Ready. Sign in, then press start.</p>
 <p><a class="btn ghost" id="shareX" hidden target="_blank" rel="noopener">Share this game on X</a></p>
 </section>
@@ -594,6 +598,7 @@
 <span> · <a href="https://x.com/ZabbaDat" rel="me">X</a></span>
   </footer>
   <script src="/push-counter.js"></script>
+  <script src="/step-detector.js"></script>
   <script type="module">
     const firebaseConfig = {
       apiKey: "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4",
@@ -669,6 +674,7 @@ function render() {
   $("steps").textContent = state.steps.toLocaleString();
   const now = state.running ? Date.now() - state.startedAt + state.elapsed : state.elapsed;
   $("clock").textContent = formatTime(now);
+  if (state.running) stepVerifier.tick(performance.now());
 }
 function setStatus(msg) { $("status").textContent = msg; }
 function displayNameOf(user) {
@@ -683,19 +689,26 @@ function localBoard() {
   const filtered = boardFilter === "tonight"
     ? lastBoardRows.filter((r) => isTonight(r.when, r.created))
     : lastBoardRows;
-  const sorted = [...filtered].sort((a, b) => a.steps - b.steps || a.ms - b.ms).slice(0, 50);
+  const rank = (r) => (r.verified === true ? 0 : r.verified === false ? 2 : 1);
+  const sorted = [...filtered].sort((a, b) => rank(a) - rank(b) || a.steps - b.steps || a.ms - b.ms).slice(0, 50);
+  const tag = (r) => r.verified === true ? ""
+    : r.verified === false ? `<br><small class="fine">Unverified: ${escapeHtml(r.reason || "sensor check failed")}</small>`
+    : ` <small class="fine">(older, unverified)</small>`;
   $("boardBody").innerHTML = sorted.length
-    ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.steps).toLocaleString()}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td><td>${escapeHtml(r.season || "—")}</td></tr>`).join("")
+    ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}${tag(r)}</td><td>${Number(r.steps).toLocaleString()}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td><td>${escapeHtml(r.season || "—")}</td></tr>`).join("")
     : `<tr><td colspan="6">${boardFilter === "tonight" ? "No games posted tonight yet." : "No finished games yet."}</td></tr>`;
 }
 $("startBtn").onclick = () => {
   if (pocketOn) { setStatus("Pocket lock on. Hold unlock first."); return; }
   if (state.finished || state.running) return;
+  if (state.elapsed === 0) { stepDetector.reset(); stepVerifier.reset(); }
   state.running = true;
   state.startedAt = Date.now();
+  stepVerifier.resume(performance.now());
   state.tick = setInterval(render, 200);
   setStatus("Game on.");
   startPhoneSteps();
+  keepAwake();
   render();
 };
 $("pauseBtn").onclick = () => {
@@ -703,6 +716,7 @@ $("pauseBtn").onclick = () => {
   if (!state.running || state.finished) return;
   state.elapsed += Date.now() - state.startedAt;
   state.running = false;
+  stepVerifier.pause(performance.now());
   clearInterval(state.tick);
   setStatus("Paused.");
   stopPhoneSteps();
@@ -712,6 +726,9 @@ $("resetBtn").onclick = () => {
   if (pocketOn) { setStatus("Pocket lock on. Hold unlock first."); return; }
   clearInterval(state.tick);
   Object.assign(state, { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false });
+  stepDetector.reset();
+  stepVerifier.reset();
+  releaseAwake();
   setStatus("Reset.");
   stopPhoneSteps();
   render();
@@ -722,6 +739,7 @@ document.querySelectorAll("[data-points]").forEach((btn) => {
     if (pocketOn) { setStatus("Pocket lock on. Hold unlock to score."); return; }
     if (state.finished) return;
     if (!state.running && state.elapsed === 0) { setStatus("Start the game before scoring."); return; }
+    if (Number(btn.dataset.points) > 0) stepVerifier.scoreTap(performance.now());
     state.score = Math.max(0, state.score + Number(btn.dataset.points));
     render();
     if (state.score >= TARGET) finishGame();
@@ -735,67 +753,133 @@ function addSteps(n) {
 }
 
 let phoneStepsOn = false;
-let lastPeak = 0;
-let lastMag = 0;
-let rising = false;
+const stepDetector = window.ZabbadatSteps.createStepDetector();
+const stepVerifier = window.ZabbadatSteps.createVerifier();
+let sensorSamples = 0;
+let sensorWindowStart = 0;
+let sensorLastAt = 0;
+let sensorDotTimer = null;
+let wakeLock = null;
 
 function setPhoneNote(msg) {
   const el = $("phoneStepsNote");
   if (el) el.textContent = msg;
 }
+function setSensorDot(msg) {
+  const el = $("sensorDot");
+  if (el) el.textContent = msg;
+}
+
+// Keep the screen on while playing: the browser stops motion events when the screen locks.
+async function keepAwake() {
+  if (!("wakeLock" in navigator)) return;
+  try {
+    if (wakeLock && !wakeLock.released) return;
+    wakeLock = await navigator.wakeLock.request("screen");
+  } catch (err) { /* not allowed right now (e.g. battery saver) */ }
+}
+function releaseAwake() {
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    if (state.running && !state.finished) stepVerifier.hidden();
+  } else if (state.running && !state.finished) {
+    keepAwake();
+    setStatus("Page was hidden during play, so this game can't be verified for the live board.");
+  }
+});
 
 function onMotion(e) {
-  if (!phoneStepsOn || !state.running || state.finished) return;
-  const a = e.accelerationIncludingGravity || e.acceleration;
-  if (!a) return;
-  const mag = Math.sqrt((a.x || 0) ** 2 + (a.y || 0) ** 2 + (a.z || 0) ** 2);
-  const now = Date.now();
-  if (mag > lastMag && mag > 11.2) rising = true;
-  if (rising && mag < lastMag && mag > 10.4 && now - lastPeak > 280) {
-    lastPeak = now;
-    rising = false;
-    addSteps(1);
-  }
-  lastMag = mag;
+  if (!phoneStepsOn) return;
+  const g = e.accelerationIncludingGravity;
+  const a = (g && g.x != null) ? g : e.acceleration;
+  if (!a || a.x == null) return;
+  const now = performance.now();
+  sensorSamples++;
+  sensorLastAt = now;
+  if (!state.running || state.finished) return;
+  stepVerifier.sample(now);
+  const r = e.rotationRate || null;
+  const res = stepDetector.update({
+    t: now, x: a.x, y: a.y, z: a.z, gravity: a === g,
+    rot: r ? { alpha: r.alpha || 0, beta: r.beta || 0, gamma: r.gamma || 0 } : null
+  });
+  if (res.added) addSteps(res.added);
+}
+
+function startSensorDot() {
+  if (sensorDotTimer) return;
+  sensorWindowStart = performance.now();
+  sensorSamples = 0;
+  sensorDotTimer = setInterval(() => {
+    const now = performance.now();
+    const hz = Math.round(sensorSamples * 1000 / Math.max(1, now - sensorWindowStart));
+    sensorSamples = 0;
+    sensorWindowStart = now;
+    if (!phoneStepsOn) { setSensorDot("○ Step sensor off"); return; }
+    if (now - sensorLastAt < 1500) setSensorDot("● Step sensor active (" + hz + " Hz)");
+    else setSensorDot("○ No motion data. On a laptop? Practice only, won't post to the board.");
+  }, 1000);
+}
+function stopSensorDot() {
+  if (sensorDotTimer) clearInterval(sensorDotTimer);
+  sensorDotTimer = null;
+  setSensorDot("○ Step sensor off");
 }
 
 async function startPhoneSteps() {
   try {
-    if (typeof DeviceMotionEvent !== "undefined" &&
-        typeof DeviceMotionEvent.requestPermission === "function") {
+    if (typeof DeviceMotionEvent === "undefined") {
+      if (state.running) stepVerifier.noSensor();
+      setPhoneNote("This browser has no motion sensor. Practice only: games here won't post to the live board.");
+      return;
+    }
+    if (typeof DeviceMotionEvent.requestPermission === "function") {
       const perm = await DeviceMotionEvent.requestPermission();
       if (perm !== "granted") {
-        setPhoneNote("Motion permission denied. Use manual steps or allow motion on this phone.");
+        if (state.running) stepVerifier.denied();
+        setPhoneNote("Motion access is off, so steps can't be counted and this game won't post. On iPhone: close this tab, reopen zabbadat.com, tap Enable step sensor and choose Allow. If it doesn't ask, go to Settings > Apps > Safari > Advanced > Website Data, remove zabbadat.com, and try again.");
         return;
       }
     }
     window.removeEventListener("devicemotion", onMotion);
     window.addEventListener("devicemotion", onMotion);
     phoneStepsOn = true;
-    setPhoneNote("Phone counter on. Start the game, keep this tab open, walk with the phone.");
+    sensorLastAt = 0;
+    startSensorDot();
+    setPhoneNote("Step sensor on. Keep this page open and the screen on, and walk with the phone on you.");
   } catch (err) {
-    setPhoneNote("This browser cannot use the motion sensor. Enter steps from your watch.");
-   }
+    if (state.running) stepVerifier.noSensor();
+    setPhoneNote("This browser can't use the motion sensor. Practice only: games here won't post to the live board.");
+  }
 }
 function stopPhoneSteps() {
   phoneStepsOn = false;
   window.removeEventListener("devicemotion", onMotion);
-  setPhoneNote("Phone counter off. You can still add steps manually.");
+  stopSensorDot();
+  setPhoneNote("Step sensor off. It turns on again when you start or resume the game.");
 }
+$("stepSensorBtn").onclick = () => { startPhoneSteps(); };
 async function finishGame() {
   if (state.finished) return;
   state.running = false;
   state.finished = true;
   clearInterval(state.tick);
+  stepVerifier.pause(performance.now());
   stopPhoneSteps();
+  releaseAwake();
   const ms = state.elapsed + (state.startedAt ? Date.now() - state.startedAt : 0);
   state.elapsed = ms;
+  const check = stepVerifier.result(state.steps, ms);
         const typed = ($("player").value || "").trim().slice(0, 20);
   const name = currentUser
     ? (typed || displayNameOf(currentUser))
     : (typed || "Player");
   const handle = ($("xHandle").value || "").trim().replace(/^@/, "");
-  const record = { name, xHandle: handle ? "@" + handle : "", score: 21, steps: state.steps, ms, when: new Date().toLocaleString() };
+  const record = { name, xHandle: handle ? "@" + handle : "", score: 21, steps: state.steps, ms, when: new Date().toLocaleString(),
+    verified: check.verified, reason: check.reasons.join("; "),
+    sensor: { samples: check.samples, maxGapMs: check.maxGapMs, packs: check.packs } };
   const local = localBoard();
   local.push(record);
     localStorage.setItem("zabbadat-washers", JSON.stringify(local));
@@ -808,6 +892,11 @@ async function finishGame() {
   if (share) {
     share.hidden = false;
     share.href = "https://x.com/intent/tweet?text=" + tweet + "&url=" + encodeURIComponent("https://zabbadat.com/");
+  }
+  if (!check.verified) {
+    paintRows(local);
+    setStatus("Unverified: " + record.reason + ". Saved on this device only, not posted to the live board.");
+    return;
   }
   if (!currentUser) {
     paintRows(local);
@@ -1010,8 +1099,12 @@ saveRemote = async (record) => {
     xHandle: record.xHandle || "",
     uid: auth.currentUser.uid,
     score: 21,
-    steps: Number(record.steps),
-    ms: Number(record.ms),
+    steps: Math.round(Number(record.steps)),
+    ms: Math.round(Number(record.ms)),
+    verified: true,
+    sensorSamples: Math.round(Number(record.sensor.samples)),
+    maxGapMs: Math.round(Number(record.sensor.maxGapMs)),
+    packs: Math.round(Number(record.sensor.packs)),
     createdAt: serverTimestamp()
   });
 };
@@ -1140,7 +1233,7 @@ $("boardTonightBtn").onclick = () => {
   paintRows(lastBoardRows);
 };
 
-const q = query(collection(db, "games"), orderBy("steps", "asc"), limit(80));  
+const q = query(collection(db, "games"), orderBy("steps", "asc"), limit(200));  
 
 onSnapshot(q, (snap) => {
   const rows = snap.docs.map((d) => {
@@ -1153,9 +1246,10 @@ onSnapshot(q, (snap) => {
       ms: x.ms,
       when,
       created: x.createdAt && x.createdAt.toDate ? x.createdAt.toDate() : null,
-      season: x.season || ""
+      season: x.season || "",
+      verified: x.verified === true ? true : undefined
     };
-  }).sort((a, b) => a.steps - b.steps || a.ms - b.ms);
+  });
   paintRows(rows);
 }, () => paintRows(localBoard()));
 
