@@ -475,7 +475,7 @@
     <p class="note" id="longNote" hidden>One long set: the clock runs nonstop from Start. Stay in plank. Standing up or dropping to your knees is flagged (the clock keeps running). Rule breaks: <span class="vcount" id="pushViol">0</span></p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
-      <div class="stat"><b id="pushTut">0:00</b><span>Total time (under tension)</span></div>
+      <div class="stat"><b id="pushTut">0:00</b><span id="pushTutLabel">Total time (under tension)</span></div>
     </div>
     <p class="reps-display" id="pushRepsBig">0</p>
     <p class="note" style="text-align:center;margin-top:-1rem"><span id="pushSetLabel">This set</span> &middot; <span id="pushClock">00:00</span></p>
@@ -1003,6 +1003,7 @@ function renderPushMode() {
   if ($("modeLongBtn")) $("modeLongBtn").setAttribute("aria-pressed", String(long));
   set("pushFinishBtn", "hidden", long); set("pushPauseBtn", "hidden", long); set("pushEndBtn", "hidden", !long);
   set("longNote", "hidden", !long);
+  set("pushTutLabel", "textContent", long ? "Total time (under tension)" : "Total time");
   set("pushStartBtn", "textContent", long ? "Start session" : "Start set");
   set("pushSetLabel", "textContent", long ? "This session" : "This set");
   set("pushViol", "textContent", String(postureGuard ? postureGuard.state().count : 0));
