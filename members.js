@@ -19,7 +19,7 @@
     return { active: active, status: status, currentPeriodEnd: typeof end === "number" ? end : null, hasCustomer: !!d.stripeCustomerId };
   }
   function statusText(m, signedIn, configured) {
-    if (configured === false) return "Membership is coming soon.";
+    if (configured !== true) return "Membership is coming soon.";
     if (!signedIn) return "Sign in to join or manage your membership.";
     if (m.active) return "Member: active" + (m.currentPeriodEnd ? " · renews " + new Date(m.currentPeriodEnd).toLocaleDateString() : "") + ".";
     if (m.status && m.status !== "none") return "Membership status: " + m.status + ".";
@@ -28,6 +28,8 @@
   var api = { isActiveStatus: isActiveStatus, memberFromDoc: memberFromDoc, statusText: statusText, ACTIVE: ACTIVE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
 
+  /* Store rules: no web checkout inside the native iOS/Android app. Members can still manage/see status there. */
+  function inApp() { try { return !!(root.Capacitor && root.Capacitor.isNativePlatform && root.Capacitor.isNativePlatform()); } catch (e) { return false; } }
   var $ = function (id) { return document.getElementById(id); };
   var state = { user: null, member: { active: false, status: "none" }, configured: null };
   function apply() {
@@ -35,8 +37,8 @@
     root.zabbadatMember = on;
     document.body.classList.toggle("is-member", on);
     var join = $("memberJoinBtn"), manage = $("memberManageBtn"), st = $("memberStatus");
-    if (join) { join.hidden = on || state.configured === false; join.disabled = !state.user; }
-    if (manage) manage.hidden = !(state.user && (on || m.hasCustomer)) || state.configured === false;
+    if (join) { join.hidden = on || state.configured !== true || inApp(); join.disabled = !state.user; }
+    if (manage) manage.hidden = !(state.user && (on || m.hasCustomer)) || state.configured !== true;
     if (st) st.textContent = statusText(m, !!state.user, state.configured);
     document.dispatchEvent(new CustomEvent("zabbadat:membership", { detail: { active: on, status: m.status, uid: state.user && state.user.uid } }));
   }
@@ -56,7 +58,7 @@
     catch (e) { if (st) st.textContent = e.message; if (btn) btn.disabled = false; }
   }
   async function probe() {
-    try { var r = await fetch("/.netlify/functions/create-checkout-session", { method: "GET" }); var j = await r.json(); state.configured = !!j.configured; }
+    try { var r = await fetch("/.netlify/functions/create-checkout-session", { method: "GET" }); var j = r.ok ? await r.json() : {}; state.configured = !!j.configured; }
     catch (e) { state.configured = null; }
     apply();
   }

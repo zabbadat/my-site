@@ -1,5 +1,7 @@
 # Membership setup (Stripe + Firebase + Netlify)
 
+> **Status (Oct 20, 2026): functions are parked in `netlify/functions-pending/`.** Every deploy that contains any Netlify Function (even a one-line test) fails on this site, so they are not active yet. Fix that first: open the failed deploy log in Netlify (Deploys) — likely Functions are disabled/blocked for the account or plan. Then `git mv netlify/functions-pending netlify/functions` and push. Until then the site shows "Membership is coming soon." with no buttons.
+
 The code is deployed but stays dormant until these env vars exist. Until then the functions return `503 {"error":"Membership not configured"}` and the site shows "Membership is coming soon." with the buttons hidden.
 
 ## 1. Stripe account
