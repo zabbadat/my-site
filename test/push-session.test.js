@@ -1,5 +1,5 @@
 // Tests for push-session.js. Run: node test/push-session.test.js
-const { tutHistory, rankTut, tutToAdd, canSwitchMode, classify, createPostureGuard } = require("../push-session.js");
+const { tutHistory, rankTut, tutToAdd, setsToAdd, canSwitchMode, classify, createPostureGuard } = require("../push-session.js");
 const R = [];
 const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
 const K = (o, score = 0.9) => Object.entries(o).map(([name, [x, y]]) => ({ name, x, y, score }));
@@ -14,6 +14,7 @@ const TOP = 200;
 check("tutToAdd long = full session time", tutToAdd("long", 125000, 40000) === 125000);
 check("tutToAdd sets = rep time", tutToAdd("sets", 125000, 40000) === 40000);
 check("tutToAdd bad input = 0", tutToAdd("long", NaN, 0) === 0 && tutToAdd("sets", 1, -3) === 0);
+check("setsToAdd: +1 only with reps", setsToAdd(12) === 1 && setsToAdd(0) === 0 && setsToAdd(undefined) === 0 && setsToAdd("3") === 1);
 check("no switching mid-session", !canSwitchMode({ running: true, elapsed: 0, reps: 0 }) && !canSwitchMode({ running: false, elapsed: 5000, reps: 3 }));
 check("switch allowed idle / finished", canSwitchMode({ running: false, elapsed: 0, reps: 0 }) && canSwitchMode({ running: false, elapsed: 9000, reps: 4, finished: true }));
 

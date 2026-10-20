@@ -272,7 +272,7 @@
       border: 1px solid rgba(143,191,168,.12);
     }
     .stat b { display: block; font-family: 'Cormorant Garamond', serif; font-size: clamp(1.8rem, 5vw, 2.6rem); }
-    .stats.duo { grid-template-columns: 1fr 1fr; }
+    .stats.duo { grid-template-columns: 1fr 1fr 1fr; }
     .stat span { color: var(--muted); font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; }
     label { display: block; font-size: .85rem; color: var(--muted); margin: .8rem 0 .35rem; }
     input {
@@ -295,8 +295,9 @@
         nav a:not(.logo) { margin-left: .75rem; font-size: .8rem; }
       .hero, section { padding-left: 6%; padding-right: 6%; }
       .stats { grid-template-columns: 1fr; }
-      .stats.duo { grid-template-columns: 1fr 1fr; gap: .6rem; }
-      .stats.duo .stat { padding: .8rem .5rem; }
+      .stats.duo { grid-template-columns: 1fr 1fr 1fr; gap: .45rem; }
+      .stats.duo .stat { padding: .75rem .35rem; min-width: 0; }
+      .stats.duo .stat b { font-size: clamp(1.5rem, 7vw, 2.1rem); }
       .stats.duo .stat span { font-size: .68rem; letter-spacing: .05em; }
     }
         .price { font-family: 'Cormorant Garamond', serif; font-size: 1.55rem; color: var(--accent-2); margin: .35rem 0 .5rem; }
@@ -341,7 +342,7 @@
             <div class="tut-side"><b id="heroReps">0</b><span>Reps today</span></div>
           </div>
           <p class="tut-best" id="heroBest" hidden></p>
-          <p class="tut-best"><a href="#tut-board">See the Time Under Tension board</a></p>
+          <p class="tut-best"><a href="#tut-board">See the TUTS board</a></p>
           <div class="actions">
             <a class="btn" href="#push" id="heroLongBtn">Start One Long Set</a>
             <a class="btn ghost" href="#push" id="heroSetsBtn">Regular sets</a>
@@ -477,6 +478,7 @@
     <p class="note" id="longNote" hidden>One long set: the clock runs nonstop from Start. Stay in plank. Standing up or dropping to your knees is flagged (the clock keeps running). Rule breaks: <span class="vcount" id="pushViol">0</span></p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
+      <div class="stat"><b id="pushSets">0</b><span>Total sets today</span></div>
       <div class="stat"><b id="pushTut">0:00</b><span id="pushTutLabel">Total time (under tension)</span></div>
     </div>
     <p class="reps-display" id="pushRepsBig">0</p>
@@ -511,9 +513,10 @@
   </section>
 
   <section class="washers" id="tut-board">
-    <h2>Time Under Tension</h2>
+    <h2>TUTS</h2>
+    <p class="eyebrow" style="margin:-.4rem 0 .8rem">Time Under Tension Scoreboard</p>
     <p class="lead">Longest time under the bar. Sets count their set time; One Long Set counts the whole session.</p>
-    <h3>TUT leaderboard</h3>
+    <h3>TUTS leaderboard</h3>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Reps</th><th>When</th></tr></thead>
       <tbody id="tutBoardBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
@@ -1003,7 +1006,9 @@ function savedPushTotal() {
 // Time under tension (ms) for today's finished sets, same per-user, per-day scheme.
 function pushTutKey() { return pushTotalKey().replace("zabbadat-push-total-", "zabbadat-push-tut-"); }
 function savedPushTut() { return Number(localStorage.getItem(pushTutKey())) || 0; }
-function clearPushTotals() { localStorage.removeItem(pushTotalKey()); localStorage.removeItem(pushTutKey()); }
+function pushSetsKey() { return pushTotalKey().replace("zabbadat-push-total-", "zabbadat-push-sets-"); }
+function savedPushSets() { return Number(localStorage.getItem(pushSetsKey())) || 0; }
+function clearPushTotals() { localStorage.removeItem(pushTotalKey()); localStorage.removeItem(pushTutKey()); localStorage.removeItem(pushSetsKey()); }
 function formatTut(ms) {
   const t = Math.max(0, Math.floor((Number(ms) || 0) / 1000)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = String(t % 60).padStart(2, "0");
   return h ? h + ":" + String(m).padStart(2, "0") + ":" + sec : m + ":" + sec;
@@ -1016,6 +1021,7 @@ function renderPush() {
   const liveTut = pushMode === "long" ? now : pushState.tut;
   if ($("pushTut")) $("pushTut").textContent = formatTut(savedPushTut() + (pushState.finished ? 0 : liveTut));
   if ($("pushRepsBig")) $("pushRepsBig").textContent = pushState.reps;
+  if ($("pushSets")) $("pushSets").textContent = savedPushSets();
   renderPushMode();
   if ($("heroTut") && $("pushTut")) $("heroTut").textContent = $("pushTut").textContent;
   if ($("heroReps") && $("pushReps")) $("heroReps").textContent = $("pushReps").textContent;
@@ -1123,6 +1129,7 @@ function finishPushSet() {
   local.push(record);
   localStorage.setItem("zabbadat-pushups", JSON.stringify(local));
   localStorage.setItem(pushTotalKey(), String(savedPushTotal() + record.reps));
+  localStorage.setItem(pushSetsKey(), String(savedPushSets() + window.ZabbadatSession.setsToAdd(record.reps)));
   localStorage.setItem(pushTutKey(), String(savedPushTut() + window.ZabbadatSession.tutToAdd(pushMode, ms, pushState.tut)));
   if (pushMode === "long" && postureGuard) {
     const v = postureGuard.state().count;
