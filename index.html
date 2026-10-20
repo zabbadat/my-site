@@ -841,7 +841,7 @@ let maxYSeen = 0;
 
 function kp(pose, name) {
   const p = pose && pose.keypoints ? pose.keypoints.find((k) => k.name === name) : null;
-  return p && p.score >= 0.5 ? p : null;
+  return p && p.score >= 0.55 ? p : null;
 }
 function angleDeg(a, b, c) {
   const ang = Math.abs(Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x)) * 180 / Math.PI;
@@ -897,25 +897,26 @@ async function poseTick() {
       const meanElbow = (left != null && right != null) ? (left + right) / 2 : null;
 
       if (rawY != null && meanElbow != null) {
-        smoothY = smoothY == null ? rawY : smoothY * 0.55 + rawY * 0.45;
+        smoothY = smoothY == null ? rawY : smoothY * 0.6 + rawY * 0.4;
         minYSeen = Math.min(minYSeen, smoothY);
         maxYSeen = Math.max(maxYSeen, smoothY);
 
-        if (baselineSamples < 30 && smoothY < 0.58) {
-          upBaseline = upBaseline == null ? smoothY : upBaseline * 0.65 + smoothY * 0.35;
+        // Only learn baseline while arms are relatively straight and high
+        if (baselineSamples < 40 && meanElbow > 150 && smoothY < 0.55) {
+          upBaseline = upBaseline == null ? smoothY : upBaseline * 0.7 + smoothY * 0.3;
           baselineSamples++;
         }
-        const baseline = upBaseline != null ? upBaseline : 0.42;
-        const range = Math.max(0.12, maxYSeen - minYSeen);
-        const downThresh = baseline + Math.max(0.14, range * 0.55);
-        const upThresh   = baseline + Math.max(0.04, range * 0.15);
+        const baseline = upBaseline != null ? upBaseline : 0.40;
+        const range = Math.max(0.15, maxYSeen - minYSeen);
+        const downThresh = baseline + Math.max(0.18, range * 0.62);
+        const upThresh   = baseline + Math.max(0.035, range * 0.12);
 
-        const isDown = smoothY > downThresh && meanElbow < 100;
-        const isUp   = smoothY < upThresh   && meanElbow > 145;
+        const isDown = smoothY > downThresh && meanElbow < 95;
+        const isUp   = smoothY < upThresh   && meanElbow > 155;
 
         const now = Date.now();
         if (isDown) poseStage = "down";
-        if (isUp && poseStage === "down" && now - lastPoseRep > 850) {
+        if (isUp && poseStage === "down" && now - lastPoseRep > 950) {
           poseStage = "up";
           lastPoseRep = now;
           pushState.reps += 1;
@@ -949,7 +950,7 @@ async function startCam() {
     $("camWrap").hidden = false;
     $("camStopBtn").hidden = false;
     $("camBtn").textContent = "Camera on";
-    $("camNote").textContent = "Pose on. Stay high for 2 seconds, then do full pushups.";
+    $("camNote").textContent = "Hold the high position for 2–3 seconds, then do full pushups.";
     poseTick();
   } catch (e) {
     $("camNote").textContent = "Camera or pose blocked.";
