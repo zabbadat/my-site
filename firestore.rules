@@ -173,44 +173,45 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Plank Battles rooms (step 1: lobby + countdown). DRAFT, not yet published.
+    // Plank Battles rooms: two equal players, no host. DRAFT, not yet published.
     match /battles/{code} {
       function signedIn() { return request.auth != null; }
-      function isHost() { return resource.data.hostUid == request.auth.uid; }
-      function isGuest() { return resource.data.guestUid == request.auth.uid; }
-      function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+      function me() { return request.auth.uid; }
+      function d() { return resource.data; }
+      function n() { return request.resource.data; }
+      function changed() { return n().diff(d()).affectedKeys(); }
+      function seatChanges() { return n().players.diff(d().players).affectedKeys(); }
+      function isPlayer() { return me() in d().players; }
+      function started() { return d().status in ['countdown','live','done']; }
+      function expired() { return !started() && d().createdAt < request.time - duration.value(30, 'm'); }
+      function freshSeat(p) { return p.keys().hasOnly(['name','ready','joinedAt']) && p.name is string
+        && p.name.size() <= 40 && p.ready == false && p.joinedAt == request.time; }
+      function newRoom() { return n().code == code && n().createdBy == me() && n().status == 'waiting'
+        && n().startAt == null && n().createdAt == request.time
+        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); }
       allow read: if signedIn();
-      // Host creates a fresh room, or reuses a code whose room ended/expired.
-      allow create: if signedIn() && code.matches('^[A-HJ-NP-Z2-9]{4}$')
-        && request.resource.data.code == code
-        && request.resource.data.hostUid == request.auth.uid
-        && request.resource.data.hostName is string && request.resource.data.hostName.size() <= 40
-        && request.resource.data.status == 'waiting'
-        && request.resource.data.guestUid == null
-        && request.resource.data.createdAt == request.time;
+      allow create: if signedIn() && code.matches('^[A-HJ-NP-Z2-9]{4}$') && newRoom();
       allow update: if signedIn() && (
-        // reuse of an ended/expired code by a new host (same shape as create)
-        ((resource.data.status in ['abandoned','done'] || resource.data.createdAt < request.time - duration.value(30, 'm'))
-          && request.resource.data.hostUid == request.auth.uid && request.resource.data.status == 'waiting'
-          && request.resource.data.guestUid == null && request.resource.data.createdAt == request.time)
-        // guest claims an empty seat
-        || (resource.data.guestUid == null && resource.data.hostUid != request.auth.uid
-          && resource.data.status == 'waiting'
-          && resource.data.createdAt > request.time - duration.value(30, 'm')
-          && changed().hasOnly(['guestUid','guestName','status','joinedAt'])
-          && request.resource.data.guestUid == request.auth.uid
-          && request.resource.data.guestName is string && request.resource.data.guestName.size() <= 40
-          && request.resource.data.status == 'ready' && request.resource.data.joinedAt == request.time)
-        // participants move status / startAt
-        || ((isHost() || isGuest())
-          && changed().hasOnly(['status','startAt','startedBy'])
-          && request.resource.data.status in ['waiting','ready','countdown','live','done','abandoned']
-          && (!('startAt' in changed()) || (request.resource.data.startAt is int
-              && request.resource.data.startAt > request.time.toMillis()
-              && request.resource.data.startAt < request.time.toMillis() + 15000)))
-        // guest leaves: clears own seat
-        || (isGuest() && changed().hasOnly(['guestUid','guestName','joinedAt','status'])
-          && request.resource.data.guestUid == null && request.resource.data.guestName == null)
+        // reuse an ended/expired code
+        ((d().status in ['abandoned','done'] || expired()) && newRoom())
+        // join an open seat (max 2), before start
+        || (!isPlayer() && !started() && d().status == 'waiting' && !expired() && d().players.size() < 2
+          && changed().hasOnly(['players']) && seatChanges().hasOnly([me()]) && freshSeat(n().players[me()]))
+        // a seated player: own seat fields only (ready / seenAt / leftAt); before start may also free own seat
+        || (isPlayer() && changed().hasOnly(['players','status']) && seatChanges().hasOnly([me()])
+          && (!('status' in changed()) || (!started() && !(me() in n().players)
+              && n().status == (n().players.size() == 0 ? 'abandoned' : 'waiting')))
+          && (!(me() in n().players) ? !started()
+              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt'])
+                && (!started() || !('ready' in n().players[me()].diff(d().players[me()]).affectedKeys()))))
+        // either player: both ready -> countdown with startAt = now..now+15s (only once)
+        || (isPlayer() && d().status == 'waiting' && d().startAt == null && d().players.size() == 2
+          && d().players[d().players.keys()[0]].ready == true && d().players[d().players.keys()[1]].ready == true
+          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int
+          && n().startAt > request.time.toMillis() && n().startAt < request.time.toMillis() + 15000)
+        // either player: countdown -> live once startAt has (nearly) passed
+        || (isPlayer() && d().status == 'countdown' && changed().hasOnly(['status']) && n().status == 'live'
+          && request.time.toMillis() >= d().startAt - 2000)
       );
       allow delete: if false;
     }

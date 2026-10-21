@@ -669,14 +669,14 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="row"><input id="battleCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="K7QX" style="max-width:9rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="battleJoin" type="button">Join</button></div>
     </div>
     <div class="card" id="battleLobby" hidden>
-      <p class="note" style="margin:0">Room code</p>
+      <p class="note" style="margin:0">Room code. Share it with your opponent.</p>
       <div class="battle-code" id="battleRoomCode">----</div>
       <div class="stats duo">
-        <div class="stat"><b id="battleHost">…</b><span>Host</span></div>
-        <div class="stat"><b id="battleGuest">Waiting…</b><span>Challenger</span></div>
+        <div class="stat"><b id="battleP1">…</b><span id="battleP1s">Player 1</span></div>
+        <div class="stat"><b id="battleP2">Waiting…</b><span id="battleP2s">Player 2</span></div>
       </div>
       <div class="battle-count" id="battleCount" hidden></div>
-      <div class="row"><button class="btn" id="battleGo" type="button" hidden>Start</button><button class="btn ghost" id="battleLeave" type="button">Leave</button></div>
+      <div class="row"><button class="btn" id="battleReady" type="button" hidden>I'm ready</button><button class="btn ghost" id="battleLeave" type="button">Leave</button></div>
     </div>
     <p class="note" id="battleStatus" aria-live="polite"></p>
   </section>
@@ -1798,7 +1798,7 @@ const {
       setPersistence, browserLocalPersistence
     } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js");
     const {
-      getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, doc, setDoc, where, runTransaction, updateDoc
+      getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, doc, setDoc, where, runTransaction, updateDoc, deleteField
     } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js");const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 // One shared session for every game on the site (and the app webview): persist in localStorage.
@@ -1992,6 +1992,7 @@ $("emailAuth").onsubmit = async (ev) => {
 // ---- Plank Battles (step 1: rooms + synced countdown) ----
 const BR = window.ZabbaBattles;
 const battleFs = {
+  del: () => deleteField(),
   tx: (code, fn) => runTransaction(db, async (t) => { const ref = doc(db, "battles", code); const snap = await t.get(ref); return fn({ get: () => (snap.exists() ? snap.data() : null), set: (d) => t.set(ref, d), update: (p) => t.update(ref, p) }); }),
   update: (code, p) => updateDoc(doc(db, "battles", code), p),
   watch: (code, cb) => onSnapshot(doc(db, "battles", code), (d) => cb(d.exists() ? d.data() : null), () => cb(null)),
@@ -2007,13 +2008,18 @@ function paintBattle() {
   $("battleSignIn").hidden = signed; $("battleStart").hidden = !signed || !!battleCode; $("battleLobby").hidden = !battleCode;
   if (!battleCode) return;
   $("battleRoomCode").textContent = battleCode;
-  $("battleHost").textContent = (r && r.hostName) || "…";
-  $("battleGuest").textContent = (r && r.guestName) || "Waiting…";
-  const isHost = r && currentUser && r.hostUid === currentUser.uid;
-  $("battleGo").hidden = !(isHost && r.status === "ready");
-  if (r && r.status === "abandoned") { bStatus("The host left. This battle is over."); }
-  else if (r && r.status === "waiting") bStatus(isHost ? "Share the code. Waiting for a challenger…" : "Waiting…");
-  else if (r && r.status === "ready") bStatus(isHost ? "Challenger is in. Press Start when you're both set." : "You're in. Waiting for the host to start.");
+  const ps = r ? BR.orderedPlayers(r, battleFs.toMs) : [], me = currentUser && currentUser.uid;
+  [0, 1].forEach((i) => { const p = ps[i];
+    $("battleP" + (i + 1)).textContent = p ? p.name + (p.uid === me ? " (you)" : "") : "Waiting…";
+    $("battleP" + (i + 1) + "s").textContent = "Player " + (i + 1) + (p ? (BR.started(r) ? (p.leftAt ? " · left" : "") : p.ready ? " · Ready ✓" : " · Not ready") : ""); });
+  const mine = r && me && r.players && r.players[me];
+  const pre = r && !BR.started(r) && r.status !== "abandoned";
+  $("battleReady").hidden = !(pre && mine && ps.length === 2);
+  if (mine) $("battleReady").textContent = mine.ready ? "Not ready" : "I'm ready";
+  if (!r || r.status === "abandoned") bStatus("This room is closed. Make a new one.");
+  else if (pre && ps.length < 2) bStatus("Waiting for a second player…");
+  else if (pre) bStatus(mine && mine.ready ? "Waiting for the other player to tap ready…" : "Tap I'm ready when you're in position.");
+  if (pre && BR.bothReady(r)) battle.maybeStart(battleCode).catch(() => {});
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt) { if (!battleTick) battleTick = setInterval(tickBattle, 100); tickBattle(); }
   else { clearInterval(battleTick); battleTick = null; $("battleCount").hidden = true; }
 }
@@ -2024,16 +2030,22 @@ function tickBattle() {
   else if (st.phase === "go") c.textContent = "GO!";
   else if (st.phase === "live") {
     c.textContent = "Battle on. Video and form check coming next."; bStatus("");
-    if (battleRoom.status === "countdown" && currentUser && battleRoom.hostUid === currentUser.uid) battle.markLive(battleCode).catch(() => {});
+    if (battleRoom.status === "countdown") battle.markLive(battleCode).catch(() => {});
     clearInterval(battleTick); battleTick = null;
   }
 }
 function enterBattle(code) {
-  battleCode = code; if (battleOff) battleOff();
+  battleCode = code; try { localStorage.setItem("zdBattle", code); } catch (e) {}
+  if (battleOff) battleOff();
   battleOff = battle.watch(code, (r) => { battleRoom = r; paintBattle(); });
   paintBattle();
 }
-function exitBattle() { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; clearInterval(battleTick); battleTick = null; paintBattle(); }
+function exitBattle() { try { localStorage.removeItem("zdBattle"); } catch (e) {} if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; clearInterval(battleTick); battleTick = null; paintBattle(); }
+async function resumeBattle(u) {
+  let code = null; try { code = localStorage.getItem("zdBattle"); } catch (e) {}
+  if (!code || battleCode) return;
+  try { const r = await battle.resume(code, { uid: u.uid }); if (r) enterBattle(code); else localStorage.removeItem("zdBattle"); } catch (e) {}
+}
 $("battleCreate").onclick = async () => {
   const u = battleUser(); if (!u) return bStatus("Sign in to create a battle.");
   $("battleCreate").disabled = true; bStatus("Making a room…");
@@ -2047,8 +2059,8 @@ $("battleJoin").onclick = async () => {
   finally { $("battleJoin").disabled = false; }
 };
 $("battleCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("battleJoin").click(); });
-$("battleGo").onclick = async () => { $("battleGo").hidden = true; try { await battle.start(battleCode, battleUser()); } catch (e) { bStatus("Couldn't start: " + (e.message || e)); } };
-$("battleLeave").onclick = async () => { const r = battleRoom, c = battleCode, u = battleUser(); exitBattle(); bStatus("You left the room."); if (u && r) battle.leave(c, r, u).catch(() => {}); };
+$("battleReady").onclick = async () => { const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
+$("battleLeave").onclick = async () => { const c = battleCode, u = battleUser(); exitBattle(); bStatus("You left the room."); if (u && c) battle.leave(c, u).catch(() => {}); };
 $("signOutBtn").onclick = () => {
   if (currentUser) clearPushTotals();
   signOut(auth);
@@ -2059,7 +2071,7 @@ getRedirectResult(auth)
   })
   .catch(() => {});
 let dailySyncOff = null, liveWalkOff = null;
-onAuthStateChanged(auth, (u) => { if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u) exitBattle(); else paintBattle(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+onAuthStateChanged(auth, (u) => { if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); } renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("pocketBtn").onclick = () => {
   if (pocketOn) return;
   setPocket(true);
