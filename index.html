@@ -490,12 +490,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn" id="startBtn" type="button">Start game</button>
       <button class="btn ghost" id="pauseBtn" type="button">Pause</button>
       <button class="btn danger" id="resetBtn" type="button">Reset</button>
-      <button class="btn ghost" id="pocketBtn" type="button">Pocket lock</button>
     </div>
-    <div class="row" id="pocketBar" hidden>
-      <button class="btn" id="unlockBtn" type="button" style="width:100%;max-width:22rem">Hold to unlock</button>
-    </div>
-    <p class="note" id="pocketNote" hidden>Pocket lock on. Score buttons are ignored until you hold unlock.</p>
+    <p class="note" id="gameLockNote">The screen locks when the game starts. Hold 1 second to unlock and score a pack; it locks again after you score. While unlocked, hold 1 second to end the game.</p>
        <div class="row">
       <button class="btn ghost" type="button" data-points="2">+2 box-bound</button>
       <button class="btn ghost" type="button" data-points="3">+3 shoot</button>
@@ -918,8 +914,9 @@ const configured = firebaseConfig.apiKey !== "PASTE_API_KEY";
 
 const state = { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
 let currentUser = null;
-let pocketOn = false;
-let unlockHold = null;
+let pocketOn = false; // washers game lock (main Start button)
+let walkLockOn = false; // live walk lock (steps section), independent of pocketOn
+let relockTimer = null;
 const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 };
 let pushMode = localStorage.getItem("zabbadat-push-mode") === "sets" ? "sets" : "long";
 const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostureGuard() : null;
@@ -927,36 +924,52 @@ let lastViolFlag = 0;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
 
+// Washers lock lives on #startBtn: locked = "Hold to score", unlocked = "Hold to stop", idle = "Start game".
+function paintGameBtn() {
+  const b = $("startBtn");
+  if (b) b.textContent = !state.running ? "Start game" : pocketOn ? "Hold to score" : "Hold to stop";
+}
 function setPocket(on) {
   pocketOn = !!on;
-  const bar = $("pocketBar");
-  const note = $("pocketNote");
-  const btn = $("pocketBtn");
-  if (bar) bar.hidden = !pocketOn;
-  if (note) note.hidden = !pocketOn;
-  if (btn) btn.textContent = pocketOn ? "Locked" : "Pocket lock";
-  if (!pocketOn && unlockHold) {
-    clearTimeout(unlockHold);
-    unlockHold = null;
-  }
+  if (relockTimer) { clearTimeout(relockTimer); relockTimer = null; }
+  paintGameBtn();
 }
+// Re-lock trigger: the verifier treats score taps more than packGapMs (15 s) apart as separate packs,
+// so the pack is "scored" once 15 s pass with no further score tap (timer also starts on unlock).
+const RELOCK_MS = (window.ZabbadatSteps && window.ZabbadatSteps.VERIFY && window.ZabbadatSteps.VERIFY.packGapMs) || 15000;
+function armRelock() {
+  if (relockTimer) clearTimeout(relockTimer);
+  relockTimer = setTimeout(() => { relockTimer = null; if (state.running && !state.finished && !pocketOn) { setPocket(true); setStatus("Pack scored. Locked again."); } }, RELOCK_MS);
+}
+function setWalkLock(on) { walkLockOn = !!on; }
 
-// Shared 1 s press-and-hold (pointer events cover mouse + touch; release/leave/cancel aborts).
+// Shared press-and-hold (pointer events cover mouse + touch; release/leave/cancel aborts).
+// Default: one 1 s stage calling o.done. o.stages: [{ ms, label?, fire }] for multi-stage holds.
 function bindHold(btn, o) {
-  const startHold = () => {
+  let timers = [], fired = 0;
+  const clear = () => { timers.forEach(clearTimeout); timers = []; };
+  const stages = o.stages || [{ ms: 1000, fire: o.done }];
+  btn.onpointerdown = () => {
     if (!o.active()) return;
+    clear(); fired = 0;
     btn.textContent = "Hold…";
-    unlockHold = setTimeout(() => { unlockHold = null; o.done(); }, 1000);
+    stages.forEach((st, i) => timers.push(setTimeout(() => {
+      fired = i + 1;
+      if (i === stages.length - 1) clear();
+      if (st.label) btn.textContent = st.label;
+      st.fire();
+    }, st.ms)));
   };
-  const cancelHold = () => {
-    if (unlockHold) clearTimeout(unlockHold);
-    unlockHold = null;
-    if (o.active()) btn.textContent = o.label;
+  const cancel = () => {
+    if (!timers.length) return;
+    clear();
+    const f = fired; fired = 0;
+    if (o.release) o.release(f);
+    if (o.active()) btn.textContent = typeof o.label === "function" ? o.label() : o.label;
   };
-  btn.onpointerdown = startHold;
-  btn.onpointerup = cancelHold;
-  btn.onpointerleave = cancelHold;
-  btn.onpointercancel = cancelHold;
+  btn.onpointerup = cancel;
+  btn.onpointerleave = cancel;
+  btn.onpointercancel = cancel;
 }
 function pad(n) { return String(n).padStart(2, "0"); }
 function formatTime(ms) {
@@ -1021,8 +1034,10 @@ function localBoard() {
     ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}${tag(r)}</td><td>${Number(r.steps).toLocaleString()}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td><td>${escapeHtml(r.season || "—")}</td></tr>`).join("")
     : `<tr><td colspan="6">${boardFilter === "tonight" ? "No games posted tonight yet." : "No finished games yet."}</td></tr>`;
 }
+let gameHoldDone = false;
 $("startBtn").onclick = () => {
-  if (pocketOn) { setStatus("Pocket lock on. Hold unlock first."); return; }
+  if (gameHoldDone) { gameHoldDone = false; return; } // swallow the click that follows a hold
+  if (state.running && !state.finished) { setStatus(pocketOn ? "Locked. Hold 1 second to unlock and score." : "Hold 1 second to end the game."); return; }
   if (state.finished || state.running) return;
   if (state.elapsed === 0) { stepDetector.reset(); stepVerifier.reset(); }
   state.running = true;
@@ -1033,10 +1048,23 @@ $("startBtn").onclick = () => {
   startPhoneSteps();
   keepAwake();
   render();
+  setPocket(true);
 };
+const holdGuard = () => { gameHoldDone = true; setTimeout(() => { gameHoldDone = false; }, 600); };
+bindHold($("startBtn"), {
+  active: () => state.running && !state.finished,
+  label: () => (pocketOn ? "Hold to score" : "Hold to stop"),
+  // One 1 s hold; the action depends on state: locked -> unlock to score, unlocked -> stop the game.
+  done: () => {
+    holdGuard();
+    if (pocketOn) { setPocket(false); armRelock(); setStatus("Unlocked. Score the pack."); }
+    else { setPocket(false); $("pauseBtn").onclick(); }
+  },
+});
 $("pauseBtn").onclick = () => {
-  if (pocketOn) { setStatus("Pocket lock on. Hold unlock first."); return; }
+  if (pocketOn) { setStatus("Locked. Hold the game button 1 second to unlock."); return; }
   if (!state.running || state.finished) return;
+  setPocket(false);
   state.elapsed += Date.now() - state.startedAt;
   state.running = false;
   stepVerifier.pause(performance.now());
@@ -1044,9 +1072,11 @@ $("pauseBtn").onclick = () => {
   setStatus("Paused.");
   stopPhoneSteps();
   render();
+  paintGameBtn();
 };
 $("resetBtn").onclick = () => {
-  if (pocketOn) { setStatus("Pocket lock on. Hold unlock first."); return; }
+  if (pocketOn) { setStatus("Locked. Hold the game button 1 second to unlock."); return; }
+  setPocket(false);
   clearInterval(state.tick);
   Object.assign(state, { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false });
   stepDetector.reset();
@@ -1055,15 +1085,17 @@ $("resetBtn").onclick = () => {
   setStatus("Reset.");
   stopPhoneSteps();
   render();
+  paintGameBtn();
 };
 
 document.querySelectorAll("[data-points]").forEach((btn) => {
   btn.onclick = () => {
-    if (pocketOn) { setStatus("Pocket lock on. Hold unlock to score."); return; }
+    if (pocketOn) { setStatus("Locked. Hold the game button 1 second to score."); return; }
     if (state.finished) return;
     if (!state.running && state.elapsed === 0) { setStatus("Start the game before scoring."); return; }
     if (Number(btn.dataset.points) > 0) stepVerifier.scoreTap(performance.now());
     state.score = Math.max(0, state.score + Number(btn.dataset.points));
+    if (state.running) armRelock();
     render();
     if (state.score >= TARGET) finishGame();
   };
@@ -1186,8 +1218,10 @@ function stopPhoneSteps() {
 $("stepSensorBtn").onclick = () => { startPhoneSteps(); };
 async function finishGame() {
   if (state.finished) return;
+  setPocket(false);
   state.running = false;
   state.finished = true;
+  paintGameBtn();
   clearInterval(state.tick);
   stepVerifier.pause(performance.now());
   stopPhoneSteps();
@@ -1742,11 +1776,11 @@ function paintDailyRows(rows) {
 }
 if (daily) {
   if (daily.source.kind === "native") { $("dailyWalkBtn").hidden = true; $("dailyRefreshBtn").hidden = false; daily.refreshNative().then(() => postDaily(true)); }
-  $("dailyRefreshBtn").onclick = () => { if (pocketOn) return; daily.refreshNative().then(() => postDaily(true)); };
+  $("dailyRefreshBtn").onclick = () => { if (walkLockOn) { $("dailyStatus").textContent = "Hold to stop first."; return; } daily.refreshNative().then(() => postDaily(true)); };
   $("dailyWalkBtn").onclick = async () => {
     if (daily.state().walking) { daily.stopWalk(); postDaily(true); } else await daily.startWalk();
   };
-  $("dailyPostBtn").onclick = () => { if (pocketOn) { $("dailyStatus").textContent = "Pocket lock on. Hold unlock first."; return; } postDaily(false); };
+  $("dailyPostBtn").onclick = () => { if (walkLockOn) { $("dailyStatus").textContent = "Hold to stop first."; return; } postDaily(false); };
   setInterval(() => { if (daily.state().walking) postDaily(true); }, 120000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && daily.source.kind === "native") daily.refreshNative().then(() => postDaily(true)); });
 }
@@ -1800,7 +1834,7 @@ async function endWalk(r) {
   clearInterval(walkTick); walkTick = null;
   if (!walkSession) return;
   walkSession = null;
-  setPocket(false);
+  setWalkLock(false);
   liveEnd(r);
   $("walkClock").textContent = WS.formatClock(r.ms); $("walkSteps").textContent = r.steps.toLocaleString();
   const why = r.reason === "cap" ? " (4 hour cap)" : r.reason === "hidden" ? " (page hidden too long)" : "";
@@ -1829,17 +1863,17 @@ if (WS && daily) {
     const stopAt = performance.now(), stepsNow = daily.state().steps;
     await dailyClick();
     const is = daily.state().walking;
-    if (!was && is) { beginWalk(); setPocket(true); }
+    if (!was && is) { beginWalk(); setWalkLock(true); }
     else if (was && !is && walkSession) endWalk(walkSession.stop(stopAt, stepsNow));
   };
-  // Walking: the button is pocket-locked; a tap only hints, a 1 s hold unlocks and stops (same hold as unlockBtn).
+  // Walking: the button is pocket-locked; a tap only hints, a 1 s hold unlocks and stops (shared bindHold).
   let walkHoldDone = false;
   $("dailyWalkBtn").onclick = async () => {
     if (walkHoldDone) { walkHoldDone = false; return; } // swallow the click that follows a completed hold
     if (daily.state().walking) { $("dailyStatus").textContent = "Hold to stop the walk."; return; }
     await toggleWalk();
   };
-  bindHold($("dailyWalkBtn"), { label: "Hold to stop", active: () => daily.state().walking, done: () => { walkHoldDone = true; setTimeout(() => { walkHoldDone = false; }, 600); setPocket(false); toggleWalk(); } });
+  bindHold($("dailyWalkBtn"), { label: "Hold to stop", active: () => daily.state().walking, done: () => { walkHoldDone = true; setTimeout(() => { walkHoldDone = false; }, 600); setWalkLock(false); toggleWalk(); } });
   document.addEventListener("visibilitychange", () => {
     if (!walkSession) return;
     if (document.hidden) { walkSession.hide(performance.now()); liveSync(true); }
@@ -2251,16 +2285,6 @@ getRedirectResult(auth)
   .catch(() => {});
 let dailySyncOff = null, liveWalkOff = null;
 onAuthStateChanged(auth, (u) => { if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
-$("pocketBtn").onclick = () => {
-  if (pocketOn) return;
-  setPocket(true);
-  setStatus("Pocket lock on. Hold unlock when you take the phone out.");
-};
-bindHold($("unlockBtn"), { label: "Hold to unlock", active: () => pocketOn, done: () => {
-  setPocket(false);
-  $("unlockBtn").textContent = "Hold to unlock";
-  setStatus("Unlocked. Score the pack, then Pocket lock again.");
-} });
 $("boardAllBtn").onclick = () => {
   boardFilter = "all";
   $("boardAllBtn").className = "btn";
