@@ -335,6 +335,8 @@
     .email-auth { margin: 1rem 0; max-width: 420px; }
     .battle-code { font-size: 2.6rem; font-weight: 800; letter-spacing: .3em; color: var(--accent); margin: .2rem 0 .6rem; }
     .battle-count { font-size: 5rem; font-weight: 800; text-align: center; color: var(--accent); line-height: 1.1; margin: .6rem 0; }
+    .battle-count.result { font-size: 2.6rem; }
+    #tbLobby .stat b { font-size: 1.35rem; overflow-wrap: anywhere; }
     #battleLobby .stat b { font-size: 1.35rem; overflow-wrap: anywhere; }
     .battle-count.live { font-size: 1.2rem; font-weight: 600; color: var(--text); }
 
@@ -380,6 +382,7 @@
     <div>
     <a href="#approach">The Practice</a>
     <a href="#push">Push-Ups-TUT</a>
+    <a href="#tutbattles">TUT Battles</a>
     <a href="#plank">Plank House</a>
     <a href="#battles">Battles</a>
     <a href="#steps">Steps</a>
@@ -584,6 +587,35 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Reps</th><th>Time</th><th>When</th></tr></thead>
       <tbody id="pushBoardBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section id="tutbattles">
+    <h2>TUT Battles</h2>
+    <p class="lead">One long set, head to head. Both tap ready, the countdown is shared, then each phone counts its own reps. Stand up, drop a knee, leave the frame for 2 seconds or stop repping for 8 seconds and you lose. Video never uploads.</p>
+    <p class="note" id="tbSignIn"><a href="#play">Sign in</a> to create or join a TUT battle.</p>
+    <div id="tbStart" hidden>
+      <div class="row"><button class="btn" id="tbCreate" type="button">Create room</button></div>
+      <label for="tbCode">Or join with a code</label>
+      <div class="row"><input id="tbCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="K7QX" style="max-width:9rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="tbJoin" type="button">Join</button></div>
+    </div>
+    <div class="card" id="tbLobby" hidden>
+      <p class="note" style="margin:0">Room code. Share it with your opponent.</p>
+      <div class="battle-code" id="tbRoomCode">----</div>
+      <div class="stats duo">
+        <div class="stat"><b id="tbP1">…</b><span id="tbP1s">Player 1</span></div>
+        <div class="stat"><b id="tbP2">Waiting…</b><span id="tbP2s">Player 2</span></div>
+      </div>
+      <div class="battle-count" id="tbCount" hidden></div>
+      <div id="tbCamWrap" hidden style="margin:.6rem auto;max-width:16rem"><video id="tbVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video></div>
+      <p class="note" id="tbCamNote" style="text-align:center"></p>
+      <div class="row"><button class="btn ghost" id="tbCam" type="button" hidden>Turn on camera</button><button class="btn" id="tbReady" type="button" hidden>I'm ready</button><button class="btn" id="tbRematch" type="button" hidden>Rematch</button><button class="btn ghost" id="tbLeave" type="button">Leave</button></div>
+    </div>
+    <p class="note" id="tbStatus" aria-live="polite"></p>
+    <h3 style="margin-top:1.6rem">TUT battle ranking</h3>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Best TUT</th><th>Best reps</th></tr></thead>
+      <tbody id="tbBoardBody"><tr><td colspan="6">Waiting for battles…</td></tr></tbody>
     </table>
   </section>
 
@@ -869,6 +901,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/members.js"></script>
   <script src="/email-auth.js"></script>
   <script src="/battle-rooms.js"></script>
+  <script src="/tut-battle.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
     const firebaseConfig = {
@@ -2061,6 +2094,129 @@ $("battleJoin").onclick = async () => {
 $("battleCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("battleJoin").click(); });
 $("battleReady").onclick = async () => { const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
 $("battleLeave").onclick = async () => { const c = battleCode, u = battleUser(); exitBattle(); bStatus("You left the room."); if (u && c) battle.leave(c, u).catch(() => {}); };
+// ---- TUT Battles (rooms module reused on tutBattles/{code}; solo push game untouched) ----
+const TBm = window.ZabbaTutBattle;
+const mkBattleFs = (col) => ({
+  del: () => deleteField(),
+  tx: (code, fn) => runTransaction(db, async (t) => { const ref = doc(db, col, code); const snap = await t.get(ref); return fn({ get: () => (snap.exists() ? snap.data() : null), set: (d) => t.set(ref, d), update: (p) => t.update(ref, p) }); }),
+  update: (code, p) => updateDoc(doc(db, col, code), p),
+  watch: (code, cb) => onSnapshot(doc(db, col, code), (d) => cb(d.exists() ? d.data() : null), () => cb(null)),
+  ts: () => serverTimestamp(),
+  toMs: (v) => (v && v.toMillis ? v.toMillis() : typeof v === "number" ? v : null),
+});
+const tbFs = mkBattleFs("tutBattles"), tbStatsFs = mkBattleFs("tutBattleStats");
+const tb = BR.controller(tbFs);
+let tbRoom = null, tbCodeCur = null, tbOff = null, tbTick = null, tbStream = null, tbLoop = false, tbCounter = null, tbJudge = null, tbMine = { reps: 0, tutMs: 0 }, tbPub = null, tbLostSent = false, tbRecorded = null, tbLiveT0 = null;
+const tbStat = (t) => { $("tbStatus").textContent = t || ""; };
+const fmtT = (ms) => { const t = Math.max(0, Math.floor((ms || 0) / 1000)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
+function tbPaint() {
+  const r = tbRoom, me = currentUser && currentUser.uid;
+  $("tbSignIn").hidden = !!currentUser; $("tbStart").hidden = !currentUser || !!tbCodeCur; $("tbLobby").hidden = !tbCodeCur;
+  if (!tbCodeCur) return;
+  $("tbRoomCode").textContent = tbCodeCur;
+  const ps = r ? BR.orderedPlayers(r, tbFs.toMs) : [], pre = r && !BR.started(r) && r.status !== "abandoned";
+  const inPlay = r && (r.status === "live" || r.status === "done");
+  [0, 1].forEach((i) => { const p = ps[i];
+    $("tbP" + (i + 1)).textContent = p ? p.name + (p.uid === me ? " (you)" : "") : "Waiting…";
+    let sub = "Player " + (i + 1);
+    if (p && pre) sub += p.ready ? " · Ready ✓" : " · Not ready";
+    if (p && inPlay) { const mine = p.uid === me && r.status === "live"; sub += " · " + (mine ? tbMine.reps : p.reps || 0) + " reps · " + fmtT(mine ? tbMine.tutMs : p.tutMs || 0); }
+    if (p && r.status === "done") sub += p.uid === r.winnerUid ? " · WIN" : " · " + (TBm.REASONS[r.loseReason] || "Out");
+    $("tbP" + (i + 1) + "s").textContent = sub; });
+  const mine = r && me && r.players && r.players[me];
+  $("tbReady").hidden = !(pre && mine && ps.length === 2);
+  if (mine) $("tbReady").textContent = mine.ready ? "Not ready" : "I'm ready";
+  $("tbCam").hidden = !(pre && mine) || !!tbStream;
+  $("tbRematch").hidden = !(r && r.status === "done");
+  $("tbRematch").textContent = r && r.rematchCode && r.rematchBy !== me ? "Join rematch" : "Rematch";
+  if (!r || r.status === "abandoned") tbStat("This room is closed. Make a new one.");
+  else if (pre && ps.length < 2) tbStat("Waiting for a second player… Turn on your camera and get set while you wait.");
+  else if (pre) tbStat(!tbStream ? "Turn on the camera, calibrate at the top, then tap I'm ready." : mine && mine.ready ? "Waiting for the other player…" : "Tap I'm ready when you're in position.");
+  if (pre && BR.bothReady(r)) tb.maybeStart(tbCodeCur).catch(() => {});
+  if (r && (r.status === "countdown" || r.status === "live") && r.startAt) { if (!tbTick) tbTick = setInterval(tbTickFn, 100); tbTickFn(); }
+  else { clearInterval(tbTick); tbTick = null; if (!(r && r.status === "done")) $("tbCount").hidden = true; }
+  if (r && r.status === "done") tbFinish(r);
+}
+function tbTickFn() {
+  const r = tbRoom; if (!r) return; const st = tb.state(r.startAt), c = $("tbCount");
+  c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
+  if (st.phase === "countdown") { c.textContent = st.n; tbStat("Get into plank at the top…"); }
+  else if (st.phase === "go") { c.textContent = "GO!"; tbGoLive(r); }
+  else if (st.phase === "live") { c.textContent = "Battle on: " + tbMine.reps + " reps · " + fmtT(tbMine.tutMs); tbGoLive(r); if (r.status === "countdown") tb.markLive(tbCodeCur).catch(() => {}); }
+}
+function tbGoLive(r) {
+  if (tbLiveT0 != null || !currentUser || !(currentUser.uid in r.players)) return;
+  tbLiveT0 = performance.now() - Math.max(0, BR.serverNow(Date.now(), tb.offset) - r.startAt);
+  tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false;
+  tbJudge = TBm.createJudge(window.ZabbadatSession.createPostureGuard({ holdMs: TBm.RULES.postureHoldMs })); tbJudge.reset(performance.now());
+  tbPub = TBm.throttle(TBm.RULES.publishMs, () => performance.now());
+  tbStat(tbStream ? "Go! Keep repping." : "Camera is off: turn it on to stay in the battle.");
+}
+async function tbCamOn() {
+  try {
+    $("tbCamNote").textContent = "Loading camera counter…"; await loadCamLibs();
+    tbStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+    const v = $("tbVid"); v.srcObject = tbStream; await v.play(); await ensurePose();
+    tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
+    $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Phone under your chest. Arms straight, hold still to calibrate."; requestAnimationFrame(tbPose); tbPaint();
+  } catch (e) { $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); }
+}
+function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; }
+async function tbPose() {
+  if (!tbLoop) return;
+  try {
+    const v = $("tbVid"), poses = await poseDetector.estimatePoses(v, { flipHorizontal: true }), kps = poses && poses[0] ? poses[0].keypoints : [];
+    const w = v.videoWidth || 640, now = performance.now(), r = tbCounter.update(kps, now, w);
+    if (tbLiveT0 == null) $("tbCamNote").textContent = r.status;
+    else if (tbRoom && tbRoom.status === "live" && !tbLostSent) {
+      if (r.counted) tbMine.reps += 1;
+      tbMine.tutMs = now - tbLiveT0;
+      const st = tbCounter.state(), lost = tbJudge.update(kps, now, st.top ? st.top * w : 0, r.counted);
+      if (lost) { tbLostSent = true; TBm.reportLoss(tbFs, tbCodeCur, currentUser.uid, lost, tbMine).catch(() => { tbLostSent = false; }); }
+      else if (tbPub()) TBm.publishLive(tbFs, tbCodeCur, currentUser.uid, tbMine).catch(() => {});
+      $("tbCamNote").textContent = r.counted ? "Counted " + tbMine.reps : $("tbCamNote").textContent;
+      tbPaint();
+    }
+  } catch (e) {}
+  if (tbLoop) requestAnimationFrame(tbPose);
+}
+function tbFinish(r) {
+  clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null;
+  const me = currentUser && currentUser.uid, won = r.winnerUid === me, c = $("tbCount");
+  c.hidden = false; c.className = "battle-count result"; c.textContent = won ? "You win!" : "You lose";
+  const loser = r.players && r.players[r.loserUid];
+  tbStat((loser ? loser.name : "Opponent") + ": " + (TBm.REASONS[r.loseReason] || "out") + ".");
+  if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); }
+}
+function tbEnter(code) {
+  tbCodeCur = code; tbRecorded = null; tbLiveT0 = null; try { localStorage.setItem("zdTutBattle", code); } catch (e) {}
+  if (tbOff) tbOff(); tbOff = tb.watch(code, (r) => { tbRoom = r; tbPaint(); }); tbPaint();
+}
+function tbExit() { try { localStorage.removeItem("zdTutBattle"); } catch (e) {} if (tbOff) tbOff(); tbOff = null; tbRoom = null; tbCodeCur = null; clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; tbPaint(); }
+async function tbResume(u) { let code = null; try { code = localStorage.getItem("zdTutBattle"); } catch (e) {} if (!code || tbCodeCur) return; try { if (await tb.resume(code, { uid: u.uid })) tbEnter(code); else localStorage.removeItem("zdTutBattle"); } catch (e) {} }
+$("tbCreate").onclick = async () => { const u = battleUser(); if (!u) return tbStat("Sign in to create a battle."); $("tbCreate").disabled = true; tbStat("Making a room…"); try { tbEnter(await tb.createRoom(u)); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
+$("tbJoin").onclick = async () => { const u = battleUser(); if (!u) return tbStat("Sign in to join a battle."); $("tbJoin").disabled = true; tbStat("Joining…"); try { tbEnter(await tb.joinRoom($("tbCode").value, u)); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
+$("tbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tbJoin").click(); });
+$("tbCam").onclick = tbCamOn;
+$("tbReady").onclick = async () => { const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
+$("tbRematch").onclick = async () => {
+  const u = battleUser(), r = tbRoom; if (!u || !r) return;
+  try {
+    if (r.rematchCode && r.rematchBy !== u.uid) return tbEnter(await tb.joinRoom(r.rematchCode, u));
+    const old = tbCodeCur, code = await tb.createRoom(u); await tbFs.update(old, { rematchCode: code, rematchBy: u.uid }).catch(() => {}); tbEnter(code);
+  } catch (e) { tbStat(e.message); }
+};
+$("tbLeave").onclick = async () => {
+  const c = tbCodeCur, u = battleUser(), r = tbRoom;
+  if (u && r && r.status === "live" && !tbLostSent) await TBm.reportLoss(tbFs, c, u.uid, "left", tbMine).catch(() => {});
+  tbExit(); tbStat("You left the room."); if (u && c) tb.leave(c, u).catch(() => {});
+};
+onSnapshot(query(collection(db, "tutBattleStats"), orderBy("wins", "desc"), limit(20)), (snap) => {
+  const rows = []; snap.forEach((d) => rows.push(d.data()));
+  const list = TBm.rankStats(rows), body = $("tbBoardBody");
+  body.innerHTML = list.length ? "" : '<tr><td colspan="6">Waiting for battles…</td></tr>';
+  list.forEach((x, i) => { const tr = document.createElement("tr"); [i + 1, x.name || "Player", x.wins || 0, x.losses || 0, fmtT(x.bestTutMs || 0), x.bestReps || 0].forEach((v) => { const td = document.createElement("td"); td.textContent = v; tr.append(td); }); body.append(tr); });
+}, () => {});
 $("signOutBtn").onclick = () => {
   if (currentUser) clearPushTotals();
   signOut(auth);
@@ -2071,7 +2227,7 @@ getRedirectResult(auth)
   })
   .catch(() => {});
 let dailySyncOff = null, liveWalkOff = null;
-onAuthStateChanged(auth, (u) => { if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); } renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+onAuthStateChanged(auth, (u) => { if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("pocketBtn").onclick = () => {
   if (pocketOn) return;
   setPocket(true);

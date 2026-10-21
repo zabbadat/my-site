@@ -216,6 +216,75 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // TUT Battles rooms: same model as Plank Battles plus live stats + result. DRAFT, not yet published.
+    match /tutBattles/{code} {
+      function signedIn() { return request.auth != null; }
+      function me() { return request.auth.uid; }
+      function d() { return resource.data; }
+      function n() { return request.resource.data; }
+      function changed() { return n().diff(d()).affectedKeys(); }
+      function seatChanges() { return n().players.diff(d().players).affectedKeys(); }
+      function isPlayer() { return me() in d().players; }
+      function started() { return d().status in ['countdown','live','done']; }
+      function expired() { return !started() && d().createdAt < request.time - duration.value(30, 'm'); }
+      function freshSeat(p) { return p.keys().hasOnly(['name','ready','joinedAt']) && p.name is string
+        && p.name.size() <= 40 && p.ready == false && p.joinedAt == request.time; }
+      function newRoom() { return n().code == code && n().createdBy == me() && n().status == 'waiting'
+        && n().startAt == null && n().createdAt == request.time
+        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); }
+      allow read: if signedIn();
+      allow create: if signedIn() && code.matches('^[A-HJ-NP-Z2-9]{4}$') && newRoom();
+      allow update: if signedIn() && (
+        // reuse an ended/expired code
+        ((d().status in ['abandoned','done'] || expired()) && newRoom())
+        // join an open seat (max 2), before start
+        || (!isPlayer() && !started() && d().status == 'waiting' && !expired() && d().players.size() < 2
+          && changed().hasOnly(['players']) && seatChanges().hasOnly([me()]) && freshSeat(n().players[me()]))
+        // a seated player: own seat fields only (ready / seenAt / leftAt); before start may also free own seat
+        || (isPlayer() && changed().hasOnly(['players','status']) && seatChanges().hasOnly([me()])
+          && (!('status' in changed()) || (!started() && !(me() in n().players)
+              && n().status == (n().players.size() == 0 ? 'abandoned' : 'waiting')))
+          && (!(me() in n().players) ? !started()
+              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt','reps','tutMs'])
+                && (!started() || !('ready' in n().players[me()].diff(d().players[me()]).affectedKeys()))))
+        // either player: both ready -> countdown with startAt = now..now+15s (only once)
+        || (isPlayer() && d().status == 'waiting' && d().startAt == null && d().players.size() == 2
+          && d().players[d().players.keys()[0]].ready == true && d().players[d().players.keys()[1]].ready == true
+          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int
+          && n().startAt > request.time.toMillis() && n().startAt < request.time.toMillis() + 15000)
+        // either player: countdown -> live once startAt has (nearly) passed
+        || (isPlayer() && d().status == 'countdown' && changed().hasOnly(['status']) && n().status == 'live'
+          && request.time.toMillis() >= d().startAt - 2000)
+      ) || (signedIn() && me() in d().players && (
+        // loser reports itself (first break wins the race; only while live)
+        (d().status == 'live' && !('loserUid' in d())
+          && changed().hasOnly(['status','loserUid','winnerUid','loseReason','endedAt','players'])
+          && seatChanges().hasOnly([me()]) && n().status == 'done' && n().loserUid == me()
+          && n().winnerUid != me() && n().winnerUid in d().players && n().endedAt == request.time
+          && n().loseReason in ['standing','knees','frame','stopped','left'])
+        // rematch pointer after the result
+        || (d().status == 'done' && changed().hasOnly(['rematchCode','rematchBy']) && n().rematchBy == me()
+          && n().rematchCode is string && n().rematchCode.matches('^[A-HJ-NP-Z2-9]{4}$'))
+      ));
+      allow delete: if false;
+    }
+
+    // TUT battle ranking: each player writes only their own row, from a finished battle they were in. DRAFT.
+    match /tutBattleStats/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid','name','wins','losses','battles','bestTutMs','bestReps','lastBattle','updatedAt'])
+        && request.resource.data.uid == uid && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastBattle is string
+        && get(/databases/$(database)/documents/tutBattles/$(request.resource.data.lastBattle)).data.status == 'done'
+        && uid in get(/databases/$(database)/documents/tutBattles/$(request.resource.data.lastBattle)).data.players
+        && (resource == null || resource.data.lastBattle != request.resource.data.lastBattle)
+        && request.resource.data.wins is int && request.resource.data.losses is int
+        && request.resource.data.wins + request.resource.data.losses
+           == (resource == null ? 0 : resource.data.wins + resource.data.losses) + 1;
+      allow delete: if false;
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }
