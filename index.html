@@ -1529,13 +1529,14 @@ renderPlankBest();
 paintPlankRows(localPlanks());
 // ---- Daily steps (shared module daily-steps.js; native plugin in the app, live walk on web) ----
 let saveRemoteDaily = async () => { throw new Error("Daily board is not connected"); };
-let dailyPosted = 0;
+let dailyPosted = 0, dailyLiveTimer = null; // live walk saves within ~3 s of a step so other devices update in real time
 const DS = window.ZabbadatDaily;
 const daily = DS ? DS.createController(window, { onChange: (s) => {
   $("dailyCount").textContent = s.steps.toLocaleString();
   $("dailySource").textContent = s.kind === "native" ? "Phone" : s.kind === "web" ? "Live walk" : "None";
   $("dailyWalkBtn").textContent = s.walking ? "Stop live walk" : "Start live walk";
   if (s.msg) $("dailyStatus").textContent = s.msg;
+  if (s.walking && currentUser && s.steps > dailyPosted && !dailyLiveTimer) dailyLiveTimer = setTimeout(() => { dailyLiveTimer = null; postDaily(true); }, 3000);
 } }) : null;
 function dailyName() {
   const typed = ($("player").value || "").trim().slice(0, 20);
