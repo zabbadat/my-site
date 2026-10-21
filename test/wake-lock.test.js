@@ -48,6 +48,17 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   const p = w.start(); await w.stop(); await p;
   check("stop during pending request releases it", !w.isHeld() && nav.released === 1);
 
+  // Mirrors index.html: Start -> beginWalk() -> walkWake.start(); setWalkLock(true); only endWalk() calls stop().
+  nav = fakeNav(); doc = fakeDoc();
+  w = createWakeLock({ navigator: nav, document: doc });
+  let walkLockOn = false;
+  await w.start(); walkLockOn = true;
+  check("held while walkLockOn is true", walkLockOn && w.isHeld() && nav.released === 0);
+  doc.fire(); await tick();
+  check("still held, no extra request while walk-locked", walkLockOn && w.isHeld() && nav.requests === 1);
+  walkLockOn = false; await w.stop();
+  check("released only when walk ends", !w.isHeld() && nav.released === 1);
+
   const pass = R.filter(Boolean).length;
   console.log(`\n${pass}/${R.length} passed`);
   if (pass !== R.length) process.exit(1);
