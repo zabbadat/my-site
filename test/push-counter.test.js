@@ -60,6 +60,11 @@ R.push(run("single glitch frame at the top", [...cal, ...reps(4, 1500), ...hold(
 R.push(run("fast reps 0.6s", [...cal, ...reps(10, 600), ...hold(500)], 10));
 R.push(run("half reps (40% depth) ignored", [...cal, ...reps(3, 1500), ...Array.from({ length: 5 }, () => half(1500, 0.4)).flat(), ...reps(2, 1500), ...hold(500)], 5));
 R.push(run("near-miss half reps (60% depth) ignored", [...cal, ...reps(3, 1500), ...Array.from({ length: 4 }, () => half(1200, 0.6)).flat(), ...hold(500)], 3));
+// no lockout: one full rep down, then bounce between bottom and half-way (never back near the top)
+{ const bob = Array.from({ length: 5 }, () => [[400, 1, 0.5], [400, 0.5, 1]]).flat();
+  R.push(run("bottom bounces without lockout not counted", [...cal, ...reps(3, 1500), [600, 0, 1], ...bob, [600, 1, 0], ...hold(500)], 4)); }
+// bouncy too-fast reps (0.25s) not counted
+R.push(run("bouncy 0.25s reps not counted", [...cal, ...reps(2, 1500), ...reps(6, 250), ...hold(500)], 2));
 R.push(run("no elbows visible (size only)", [...cal, ...reps(10, 1500), ...hold(500)], 10, { arms: 0 }));
 R.push(run("one arm visible", [...cal, ...reps(10, 1500), ...hold(500)], 10, { arms: 1 }));
 R.push(run("no nose (shoulders only)", [...cal, ...reps(10, 1500), ...hold(500)], 10, { nose: false }));
