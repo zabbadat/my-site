@@ -327,6 +327,11 @@
     @media (max-width: 700px) {
       nav { flex-wrap: wrap; gap: .4rem; }
       nav a:not(.logo) { margin-left: .55rem; }
+      /* nine links: one swipeable row instead of a crowded wrap */
+      nav > div { display:flex; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; width:100%; padding-bottom:.25rem; }
+      nav > div::-webkit-scrollbar { display:none; }
+      nav > div a:not(.logo) { flex:0 0 auto; white-space:nowrap; padding:.35rem 0; }
+      nav > div a:not(.logo):first-child { margin-left:0; }
     }
   @media (max-width: 700px) {
     /* clear the taller wrapped mobile header so the hero mark is fully visible */
