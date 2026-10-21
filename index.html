@@ -725,12 +725,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn" id="dailyWalkBtn" type="button">Start live walk</button>
       <button class="btn ghost" id="dailyRefreshBtn" type="button" hidden>Refresh from phone</button>
       <button class="btn ghost" id="dailyPostBtn" type="button">Post to board</button>
-      <button class="btn ghost" id="dailyPocketBtn" type="button">Pocket lock</button>
     </div>
-    <div class="row" id="stepsPocketBar" hidden>
-      <button class="btn" id="stepsUnlockBtn" type="button" style="width:100%;max-width:22rem">Hold to unlock</button>
-    </div>
-    <p class="note" id="stepsPocketNote" hidden>Pocket lock on. Buttons are ignored until you hold unlock.</p>
     <p class="note" id="dailyStatus" aria-live="polite">Signed-in totals post to the daily board. Unsigned stays on this phone.</p>
     <h3 style="margin-top:1.6rem">Daily Earn Steps Board</h3>
     <p class="lead">Top steps today.</p>
@@ -940,18 +935,29 @@ function setPocket(on) {
   if (bar) bar.hidden = !pocketOn;
   if (note) note.hidden = !pocketOn;
   if (btn) btn.textContent = pocketOn ? "Locked" : "Pocket lock";
-  const sBar = $("stepsPocketBar");
-  const sNote = $("stepsPocketNote");
-  const dBtn = $("dailyPocketBtn");
-  if (sBar) sBar.hidden = !pocketOn;
-  if (sNote) sNote.hidden = !pocketOn;
-  if (dBtn) dBtn.textContent = pocketOn ? "Locked" : "Pocket lock";
   if (!pocketOn && unlockHold) {
     clearTimeout(unlockHold);
     unlockHold = null;
   }
 }
 
+// Shared 1 s press-and-hold (pointer events cover mouse + touch; release/leave/cancel aborts).
+function bindHold(btn, o) {
+  const startHold = () => {
+    if (!o.active()) return;
+    btn.textContent = "Hold…";
+    unlockHold = setTimeout(() => { unlockHold = null; o.done(); }, 1000);
+  };
+  const cancelHold = () => {
+    if (unlockHold) clearTimeout(unlockHold);
+    unlockHold = null;
+    if (o.active()) btn.textContent = o.label;
+  };
+  btn.onpointerdown = startHold;
+  btn.onpointerup = cancelHold;
+  btn.onpointerleave = cancelHold;
+  btn.onpointercancel = cancelHold;
+}
 function pad(n) { return String(n).padStart(2, "0"); }
 function formatTime(ms) {
   const total = Math.floor(ms / 1000);
@@ -1710,7 +1716,7 @@ const DS = window.ZabbadatDaily;
 const daily = DS ? DS.createController(window, { onChange: (s) => {
   $("dailyCount").textContent = s.steps.toLocaleString();
   $("dailySource").textContent = s.kind === "native" ? "Phone" : s.kind === "web" ? "Live walk" : "None";
-  $("dailyWalkBtn").textContent = s.walking ? "Stop live walk" : "Start live walk";
+  $("dailyWalkBtn").textContent = s.walking ? "Hold to stop" : "Start live walk";
   if (s.msg) $("dailyStatus").textContent = s.msg;
   if (s.walking && currentUser && s.steps > dailyPosted && !dailyLiveTimer) dailyLiveTimer = setTimeout(() => { dailyLiveTimer = null; postDaily(true); }, 3000);
 } }) : null;
@@ -1738,11 +1744,9 @@ if (daily) {
   if (daily.source.kind === "native") { $("dailyWalkBtn").hidden = true; $("dailyRefreshBtn").hidden = false; daily.refreshNative().then(() => postDaily(true)); }
   $("dailyRefreshBtn").onclick = () => { if (pocketOn) return; daily.refreshNative().then(() => postDaily(true)); };
   $("dailyWalkBtn").onclick = async () => {
-    if (pocketOn) { $("dailyStatus").textContent = "Pocket lock on. Hold unlock first."; return; }
     if (daily.state().walking) { daily.stopWalk(); postDaily(true); } else await daily.startWalk();
   };
   $("dailyPostBtn").onclick = () => { if (pocketOn) { $("dailyStatus").textContent = "Pocket lock on. Hold unlock first."; return; } postDaily(false); };
-  $("dailyPocketBtn").onclick = () => { setPocket(true); $("stepsPocketBar").scrollIntoView({ behavior: "smooth", block: "center" }); };
   setInterval(() => { if (daily.state().walking) postDaily(true); }, 120000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && daily.source.kind === "native") daily.refreshNative().then(() => postDaily(true)); });
 }
@@ -1796,6 +1800,7 @@ async function endWalk(r) {
   clearInterval(walkTick); walkTick = null;
   if (!walkSession) return;
   walkSession = null;
+  setPocket(false);
   liveEnd(r);
   $("walkClock").textContent = WS.formatClock(r.ms); $("walkSteps").textContent = r.steps.toLocaleString();
   const why = r.reason === "cap" ? " (4 hour cap)" : r.reason === "hidden" ? " (page hidden too long)" : "";
@@ -1819,14 +1824,22 @@ if (WS && daily) {
   $("walkAllBtn").onclick = () => setWalkView("all");
   $("walkTodayBtn").onclick = () => setWalkView("today");
   const dailyClick = $("dailyWalkBtn").onclick;
-  $("dailyWalkBtn").onclick = async () => {
+  const toggleWalk = async () => {
     const was = daily.state().walking;
     const stopAt = performance.now(), stepsNow = daily.state().steps;
     await dailyClick();
     const is = daily.state().walking;
-    if (!was && is) beginWalk();
+    if (!was && is) { beginWalk(); setPocket(true); }
     else if (was && !is && walkSession) endWalk(walkSession.stop(stopAt, stepsNow));
   };
+  // Walking: the button is pocket-locked; a tap only hints, a 1 s hold unlocks and stops (same hold as unlockBtn).
+  let walkHoldDone = false;
+  $("dailyWalkBtn").onclick = async () => {
+    if (walkHoldDone) { walkHoldDone = false; return; } // swallow the click that follows a completed hold
+    if (daily.state().walking) { $("dailyStatus").textContent = "Hold to stop the walk."; return; }
+    await toggleWalk();
+  };
+  bindHold($("dailyWalkBtn"), { label: "Hold to stop", active: () => daily.state().walking, done: () => { walkHoldDone = true; setTimeout(() => { walkHoldDone = false; }, 600); setPocket(false); toggleWalk(); } });
   document.addEventListener("visibilitychange", () => {
     if (!walkSession) return;
     if (document.hidden) { walkSession.hide(performance.now()); liveSync(true); }
@@ -2243,28 +2256,11 @@ $("pocketBtn").onclick = () => {
   setPocket(true);
   setStatus("Pocket lock on. Hold unlock when you take the phone out.");
 };
-const bindUnlockHold = (unlock) => {
-  const startHold = () => {
-    if (!pocketOn) return;
-    unlock.textContent = "Hold…";
-    unlockHold = setTimeout(() => {
-      setPocket(false);
-      unlock.textContent = "Hold to unlock";
-      setStatus("Unlocked. Score the pack, then Pocket lock again.");
-    }, 1000);
-  };
-  const cancelHold = () => {
-    if (unlockHold) clearTimeout(unlockHold);
-    unlockHold = null;
-    if (pocketOn) unlock.textContent = "Hold to unlock";
-  };
-  unlock.onpointerdown = startHold;
-  unlock.onpointerup = cancelHold;
-  unlock.onpointerleave = cancelHold;
-  unlock.onpointercancel = cancelHold;
-};
-bindUnlockHold($("unlockBtn"));
-bindUnlockHold($("stepsUnlockBtn"));
+bindHold($("unlockBtn"), { label: "Hold to unlock", active: () => pocketOn, done: () => {
+  setPocket(false);
+  $("unlockBtn").textContent = "Hold to unlock";
+  setStatus("Unlocked. Score the pack, then Pocket lock again.");
+} });
 $("boardAllBtn").onclick = () => {
   boardFilter = "all";
   $("boardAllBtn").className = "btn";
