@@ -478,7 +478,7 @@
     </div>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Steps</th><th>Time</th><th>When</th><th>Season</th></tr></thead>
-      <tbody id="boardBody"><tr><td colspan="6">Loading board…</td></tr></tbody>
+      <tbody id="boardBody"><tr><td colspan="6">Waiting for games…</td></tr></tbody>
     </table>
   </section>
   <section id="cooling-box">
@@ -546,7 +546,7 @@
     <p class="lead">Most reps, then fastest time.</p>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Reps</th><th>Time</th><th>When</th></tr></thead>
-      <tbody id="pushBoardBody"><tr><td colspan="5">Loading board…</td></tr></tbody>
+      <tbody id="pushBoardBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
     </table>
   </section>
 
@@ -558,7 +558,7 @@
     <h3>TUTS leaderboard</h3>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Reps</th><th>When</th></tr></thead>
-      <tbody id="tutBoardBody"><tr><td colspan="5">Loading board…</td></tr></tbody>
+      <tbody id="tutBoardBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
     </table>
     <h3 style="margin-top:1.6rem">Your time under tension</h3>
     <p class="fine">Saved on this phone for the signed-in player (or guest).</p>
@@ -606,7 +606,7 @@
     <p class="lead">Longest hold first.</p>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Hold</th><th>When</th></tr></thead>
-      <tbody id="plankBoardBody"><tr><td colspan="4">Loading board…</td></tr></tbody>
+      <tbody id="plankBoardBody"><tr><td colspan="4">Waiting for holds…</td></tr></tbody>
     </table>
     <h3 style="margin-top:1.6rem">Your plank days</h3>
     <p class="fine">Saved on this phone. Last 7 days.</p>
@@ -618,7 +618,7 @@
     <p class="lead">Today's live board: most sets, then most total time.</p>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Sets</th><th>Total</th><th>Best hold</th></tr></thead>
-      <tbody id="plankDailyBody"><tr><td colspan="5">Loading board…</td></tr></tbody>
+      <tbody id="plankDailyBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
     </table>
   </section>
 
@@ -641,7 +641,7 @@
     <p class="lead">Top steps today.</p>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Steps</th><th>Source</th></tr></thead>
-      <tbody id="dailyBoardBody"><tr><td colspan="4">Loading board…</td></tr></tbody>
+      <tbody id="dailyBoardBody"><tr><td colspan="4">Waiting for walkers…</td></tr></tbody>
     </table>
     <h3 style="margin-top:1.6rem">Live walk sessions</h3>
     <p class="lead">Start a live walk and the session clock runs. Stop it to log the session: 1 minute minimum, 30+ steps a minute on average, 4 hour cap. Hiding the page or turning the screen off pauses the clock; hidden over 2 minutes ends the session.</p>
@@ -655,7 +655,7 @@
     </div>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Steps</th></tr></thead>
-      <tbody id="walkBoardBody"><tr><td colspan="4">Loading board…</td></tr></tbody>
+      <tbody id="walkBoardBody"><tr><td colspan="4">Waiting for walkers…</td></tr></tbody>
     </table>
   </section>
 
@@ -903,7 +903,7 @@ function localBoard() {
     : ` <small class="fine">(older, unverified)</small>`;
   $("boardBody").innerHTML = sorted.length
     ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}${tag(r)}</td><td>${Number(r.steps).toLocaleString()}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td><td>${escapeHtml(r.season || "—")}</td></tr>`).join("")
-    : `<tr><td colspan="6">${boardFilter === "tonight" ? "No games posted tonight yet — be the first." : "No finished games yet — be the first."}</td></tr>`;
+    : `<tr><td colspan="6">${boardFilter === "tonight" ? "No games posted tonight yet." : "No finished games yet."}</td></tr>`;
 }
 $("startBtn").onclick = () => {
   if (pocketOn) { setStatus("Pocket lock on. Hold unlock first."); return; }
@@ -1232,7 +1232,7 @@ function paintTutRows(rows) {
   const ranked = window.ZabbadatSession.rankTut(rows, 50);
   body.innerHTML = ranked.length
     ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${formatTut(r.ms)}</td><td>${Number(r.reps)}</td><td>${escapeHtml(r.when || "")}</td></tr>`).join("")
-    : `<tr><td colspan="5">No timed sets yet — be the first.</td></tr>`;
+    : `<tr><td colspan="5">No timed sets with reps yet.</td></tr>`;
 }
 function paintPushRows(rows) {
   const sorted = [...(rows || [])].sort((a, b) => b.reps - a.reps || a.ms - b.ms).slice(0, 50);
@@ -1240,7 +1240,7 @@ function paintPushRows(rows) {
   if (!body) return;
   body.innerHTML = sorted.length
     ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.reps)}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td></tr>`).join("")
-    : `<tr><td colspan="5">No sets yet — be the first.</td></tr>`;
+    : `<tr><td colspan="5">No finished sets yet.</td></tr>`;
 }
 function finishPushSet() {
   if (pushState.finished) return;
@@ -1496,7 +1496,7 @@ function paintPlankDailyRows(rows) {
   const ranked = PD.rankDaily(rows, PD.localDateKey(), 50);
   $("plankDailyBody").innerHTML = ranked.length
     ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.sets)}</td><td>${secText(r.totalSec)}</td><td>${secText(r.bestSec)}</td></tr>`).join("")
-    : '<tr><td colspan="5">No sets yet today — be the first.</td></tr>';
+    : '<tr><td colspan="5">No sets posted today yet.</td></tr>';
 }
 function plankBest() { return Number(localStorage.getItem(PLANK_BEST_KEY)) || 0; }
 function renderPlankBest() { const b = plankBest(); $("plankBest").textContent = b ? formatTut(b) : "—"; }
@@ -1507,7 +1507,7 @@ function paintPlankRows(rows) {
   const ranked = window.ZabbadatPlank.rankPlanks(rows, 50);
   body.innerHTML = ranked.length
     ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${formatTut(r.ms)}</td><td>${escapeHtml(r.when || "")}</td></tr>`).join("")
-    : `<tr><td colspan="4">No holds yet — be the first.</td></tr>`;
+    : `<tr><td colspan="4">No holds yet.</td></tr>`;
 }
 function plankEnded(r) {
   if (plankSaved) return;
@@ -1622,7 +1622,7 @@ function paintDailyRows(rows) {
   const ranked = DS.rankDaily(rows, DS.localDateKey(), 50);
   $("dailyBoardBody").innerHTML = ranked.length
     ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.steps).toLocaleString()}</td><td>${r.source === "native" ? "Phone" : "Walk"}</td></tr>`).join("")
-    : '<tr><td colspan="4">No steps posted today yet — be the first.</td></tr>';
+    : '<tr><td colspan="4">No steps posted today yet.</td></tr>';
 }
 if (daily) {
   if (daily.source.kind === "native") { $("dailyWalkBtn").hidden = true; $("dailyRefreshBtn").hidden = false; daily.refreshNative().then(() => postDaily(true)); }
