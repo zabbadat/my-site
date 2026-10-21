@@ -332,6 +332,9 @@
     .tag { display: inline-block; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: .4rem; }
     form.signup { display: grid; gap: .55rem; margin-top: 1rem; max-width: 28rem; }
     form.signup .btn { justify-self: start; }
+    .email-auth { margin: 1rem 0; max-width: 420px; }
+    .email-auth a { color: var(--accent); }
+    .note.err { color: var(--warn); }
     .fine { font-size: .8rem; color: var(--muted); margin-top: .6rem; }
     @media (max-width: 700px) {
       nav { flex-wrap: wrap; gap: .4rem; }
@@ -444,7 +447,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="play">
     <h2>Play, Pitch &amp; Post</h2>
-    <p class="lead">Sign in to post. You can still practice a game without signing in; it stays on this device only.</p>
+    <p class="lead" id="playSignInLead">Sign in to post. You can still practice a game without signing in; it stays on this device only.</p>
       <p class="note" id="cloudStatus">Play on this device. Sign in to post to the live board.</p>
     <div class="who" id="who">
       <div>
@@ -455,6 +458,16 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn ghost" id="signInXBtn" type="button">Sign in with X</button>
       <button class="btn ghost" id="signOutBtn" type="button" hidden>Sign out</button>
     </div>
+    <form class="email-auth" id="emailAuth" novalidate>
+      <p class="note" style="margin:0 0 .2rem"><strong id="emailAuthTitle">Or create an account with email</strong></p>
+      <div id="eaNameRow"><label for="eaName">Name</label><input id="eaName" type="text" autocomplete="name" maxlength="40"></div>
+      <label for="eaEmail">Email</label><input id="eaEmail" type="email" autocomplete="email">
+      <div id="eaPwRow"><label for="eaPw">Password</label><input id="eaPw" type="password" autocomplete="new-password" minlength="6"></div>
+      <div id="eaConfirmRow"><label for="eaConfirm">Confirm password</label><input id="eaConfirm" type="password" autocomplete="new-password"></div>
+      <p class="note err" id="eaMsg" role="alert" hidden></p>
+      <div class="row"><button class="btn" id="eaSubmit" type="submit">Create account</button></div>
+      <p class="note"><a href="#" id="eaToggle">Already have an account? Sign in</a> <span id="eaForgotWrap" hidden>· <a href="#" id="eaForgot">Forgot password?</a></span></p>
+    </form>
     <label for="player">Board name</label>
     <input id="player" type="text" placeholder="Sign in, then pick a board name" maxlength="20" disabled>
     <label for="xHandle">X handle (optional)</label>
@@ -826,6 +839,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/walk-session.js"></script>
   <script src="/live-walk.js"></script>
   <script src="/members.js"></script>
+  <script src="/email-auth.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
     const firebaseConfig = {
@@ -1750,12 +1764,17 @@ if (WS && daily) {
 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js");
 const {
   getAuth, GoogleAuthProvider,TwitterAuthProvider, signInWithPopup, signInWithRedirect,
-      getRedirectResult, signOut, onAuthStateChanged
+      getRedirectResult, signOut, onAuthStateChanged,
+      createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile,
+      setPersistence, browserLocalPersistence
     } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js");
     const {
       getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, doc, setDoc, where
     } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js");const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+// One shared session for every game on the site (and the app webview): persist in localStorage.
+await setPersistence(auth, browserLocalPersistence).catch(() => {});
+window.zabbaAuth = auth;
 const db = getFirestore(app);
 writeLiveWalk = async (rec) => { if (!auth.currentUser) return; await setDoc(doc(db, "liveWalk", auth.currentUser.uid), { ...rec, updatedAt: serverTimestamp() }); };
 const provider = new GoogleAuthProvider();
@@ -1838,11 +1857,14 @@ function showUser(user) {
     if (!$("player").value.trim()) $("player").value = displayNameOf(user);
     $("signInBtn").hidden = true;
     $("signInXBtn").hidden = true;
+    $("emailAuth").hidden = true;
+    $("playSignInLead").hidden = true;
     $("signOutBtn").hidden = false;
     const screen = user.reloadUserInfo && user.reloadUserInfo.screenName;
     if (screen) $("xHandle").value = "@" + screen;
     $("cloudStatus").className = "note ok";
     $("cloudStatus").textContent = "Signed in. Finished games post under this name.";
+    if (/Sign in, then/.test($("status").textContent)) $("status").textContent = "Ready. Press start.";
     if (user.photoURL) {
       let img = document.getElementById("avatar");
       if (!img) {
@@ -1860,11 +1882,14 @@ function showUser(user) {
     $("player").disabled = true;
     $("signInBtn").hidden = false;
     $("signInXBtn").hidden = false;
+    $("emailAuth").hidden = false;
+    $("playSignInLead").hidden = false;
     $("signOutBtn").hidden = true;
     const img = document.getElementById("avatar");
     if (img) img.remove();
     $("cloudStatus").className = "note";
     $("cloudStatus").textContent = "Live board is on. Pitch & post your legacy.";
+    if ($("status").textContent === "Ready. Press start.") $("status").textContent = "Ready. Sign in, then press start.";
   }
 }
 
@@ -1897,6 +1922,43 @@ $("signInXBtn").onclick = async () => {
     }
     setStatus("X sign-in failed: " + (e.code || "") + " " + (e.message || e));
   }
+};
+let eaMode = "signup";
+function eaShow(msg, good) { const m = $("eaMsg"); m.hidden = !msg; m.textContent = msg || ""; m.className = "note " + (good ? "ok" : "err"); }
+function eaSetMode(mode) {
+  eaMode = mode; const up = mode === "signup";
+  $("eaNameRow").hidden = !up; $("eaConfirmRow").hidden = !up; $("eaForgotWrap").hidden = up;
+  $("eaPw").autocomplete = up ? "new-password" : "current-password";
+  $("emailAuthTitle").textContent = up ? "Or create an account with email" : "Sign in with email";
+  $("eaSubmit").textContent = up ? "Create account" : "Sign in";
+  $("eaToggle").textContent = up ? "Already have an account? Sign in" : "New here? Create an account";
+  eaShow("");
+}
+$("eaToggle").onclick = (ev) => { ev.preventDefault(); eaSetMode(eaMode === "signup" ? "signin" : "signup"); };
+$("eaForgot").onclick = async (ev) => {
+  ev.preventDefault();
+  const email = $("eaEmail").value.trim(), bad = window.ZabbaEmailAuth.validate("reset", { email });
+  if (bad) return eaShow(bad);
+  try { await sendPasswordResetEmail(auth, email); eaShow("If that email has an account, a reset link is on its way.", true); }
+  catch (e) { eaShow(window.ZabbaEmailAuth.friendlyError(e)); }
+};
+$("emailAuth").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const EA = window.ZabbaEmailAuth;
+  const f = { name: $("eaName").value, email: $("eaEmail").value.trim(), password: $("eaPw").value, confirm: $("eaConfirm").value };
+  const bad = EA.validate(eaMode, f); if (bad) return eaShow(bad);
+  $("eaSubmit").disabled = true; eaShow("");
+  try {
+    if (eaMode === "signup") {
+      const cred = await createUserWithEmailAndPassword(auth, f.email, f.password);
+      await updateProfile(cred.user, { displayName: f.name.trim() });
+      showUser(auth.currentUser);
+    } else {
+      await signInWithEmailAndPassword(auth, f.email, f.password);
+    }
+    $("eaPw").value = ""; $("eaConfirm").value = "";
+  } catch (e) { eaShow(EA.friendlyError(e)); }
+  finally { $("eaSubmit").disabled = false; }
 };
 $("signOutBtn").onclick = () => {
   if (currentUser) clearPushTotals();
