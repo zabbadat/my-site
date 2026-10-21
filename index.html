@@ -480,7 +480,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="who" id="who">
       <div>
         <strong id="whoName">Not signed in</strong>
-        <div class="note" id="zabaTokensRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Zaba Tokens: <span id="zabaBal" style="color:var(--accent-2)">0</span></div>
+        <div class="note" id="zabaTokensRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Zabba Tokens: <span id="zabaBal" style="color:var(--accent-2)">0</span></div>
         <div class="note" style="margin:0">Google or X sign-in keeps your board name consistent.</div>
       </div>
       <button class="btn" id="signInBtn" type="button">Sign in with Google</button>
@@ -974,10 +974,10 @@ const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostu
 let lastViolFlag = 0;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
-// Zaba Tokens: awardTokens(source, qty, setId) is wired to Firestore after sign-in setup; no-op until then.
+// Zabba Tokens: awardTokens(source, qty, setId) is wired to Firestore after sign-in setup; no-op until then.
 const ZT = window.ZabaTokens || null;
 let awardTokens = async () => ({ credited: 0 });
-function tokenNote(r) { return r && r.credited > 0 ? " +" + r.credited + " Zaba Token" + (r.credited === 1 ? "" : "s") + "." : ""; }
+function tokenNote(r) { return r && r.credited > 0 ? " +" + r.credited + " Zabba Token" + (r.credited === 1 ? "" : "s") + "." : ""; }
 
 // Washers lock lives on #startBtn: locked = "Hold to score", unlocked = "Hold to stop", idle = "Start game".
 function paintGameBtn() {

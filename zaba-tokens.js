@@ -1,4 +1,4 @@
-/* Zaba Tokens: earn-only balance + transaction log (no wagering, no spend yet).
+/* Zabba Tokens: earn-only balance + transaction log (no wagering, no spend yet).
  * Data model (Firestore):
  *   users/{uid}                 { uid, zabaTokens:int, lastTxId, createdAt, updatedAt }
  *   users/{uid}/tokenTx/{txId}  { uid, type:'earn', source, amount, units, qty, setId, createdAt }

@@ -343,7 +343,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Zaba Tokens (earn only; no spend/wagering yet). Owner-only read.
+    // Zabba Tokens (earn only; no spend/wagering yet). Owner-only read.
     // users/{uid}.zabaTokens may only change together with a NEW tokenTx entry in the same
     // transaction/batch (lastTxId points at it, delta == its amount). Tx entries are create-once
     // (id = source-setId => retries can't double-credit) and capped by the rate for their units.
