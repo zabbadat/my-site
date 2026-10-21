@@ -102,8 +102,10 @@
       if (onMotion) win.removeEventListener("devicemotion", onMotion);
       onMotion = null; walking = false; st.msg = "Walk stopped. " + st.steps.toLocaleString() + " steps today."; emit();
     }
+    // Manual entry: steps already on the phone (built-in counter or health app), added to today's total.
+    function addManual(n) { n = clampSteps(n); if (!n) return st.steps; setSteps(addWeb(st.steps, n)); st.msg = "Added " + n.toLocaleString() + " steps. Total today: " + st.steps.toLocaleString() + "."; emit(); return st.steps; }
     emit();
-    return { state: function () { return st; }, source: src, refreshNative: refreshNative, startWalk: startWalk, stopWalk: stopWalk, rollDay: rollDay };
+    return { state: function () { return st; }, source: src, refreshNative: refreshNative, startWalk: startWalk, stopWalk: stopWalk, addManual: addManual, rollDay: rollDay };
   }
 
   var api = { MAX_STEPS: MAX_STEPS, localDateKey: localDateKey, docId: docId, clampSteps: clampSteps, addWeb: addWeb,
