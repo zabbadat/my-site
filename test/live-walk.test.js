@@ -1,0 +1,21 @@
+// Tests for live-walk.js. Run: node test/live-walk.test.js
+const L = require("../live-walk.js");
+const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
+const r = L.record("u", 1000.4, 99999999, 50000, 0, 1);
+check("record clamps", r.activeMs === 14400000 && r.steps === 40000 && r.paused === false && r.active === true);
+check("first push", L.shouldPush(null, r, 0));
+const last = { steps: 10, paused: false, active: true, at: 1000 };
+check("no push unchanged", !L.shouldPush(last, { steps: 10, paused: false, active: true }, 5000));
+check("throttle steps", !L.shouldPush(last, { steps: 11, paused: false, active: true }, 2000));
+check("push steps after 3s", L.shouldPush(last, { steps: 11, paused: false, active: true }, 4000));
+check("pause pushes now", L.shouldPush(last, { steps: 10, paused: true, active: true }, 1001));
+check("end pushes now", L.shouldPush(last, { steps: 10, paused: false, active: false }, 1001));
+check("keepalive", L.shouldPush(last, { steps: 10, paused: false, active: true }, 61000));
+const d = { active: true, activeMs: 60000, steps: 120, paused: false };
+const v = L.view(d, 1000, 1000, 6000);
+check("view extrapolates", v.ms === 65000 && v.steps === 120);
+check("paused no tick", L.view({ ...d, paused: true }, 1000, 1000, 6000).ms === 60000);
+check("inactive null", L.view({ ...d, active: false }, 1000, 1000, 1000) === null);
+check("stale null", L.view(d, 1000, 1000, 1000 + L.STALE_MS + 1) === null);
+check("old server doc null", L.view(d, 1000, 500000, 500000) === null);
+const ok = R.every(Boolean); console.log(ok ? "ALL PASS" : "FAILURES"); process.exit(ok ? 0 : 1);

@@ -155,6 +155,24 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Live walk mirror: one doc per user, the active session shown on their other devices.
+    match /liveWalk/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid','active','startedAt','activeMs','steps','paused','updatedAt'])
+        && request.resource.data.keys().hasAll(['uid','active','startedAt','activeMs','steps','paused','updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.active is bool
+        && request.resource.data.paused is bool
+        && request.resource.data.startedAt is int
+        && request.resource.data.activeMs is number
+        && request.resource.data.activeMs >= 0 && request.resource.data.activeMs <= 14400000
+        && request.resource.data.steps is int
+        && request.resource.data.steps >= 0 && request.resource.data.steps <= 40000
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

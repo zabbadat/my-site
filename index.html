@@ -806,6 +806,7 @@
   <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>
   <script src="/walk-session.js"></script>
+  <script src="/live-walk.js"></script>
   <script src="/members.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
@@ -1624,17 +1625,45 @@ if (daily) {
 const WS = window.ZabbadatWalk;
 let saveRemoteWalk = async () => { throw new Error("Walk board is not connected"); };
 let walkSession = null, walkTick = null, walkRows = [], walkView = "all";
+// Live mirror (live-walk.js): the walking device writes liveWalk/{uid}; other signed-in devices show it.
+const LW = window.ZabbadatLiveWalk;
+let writeLiveWalk = async () => {}, liveLast = null, walkStartedAt = 0, liveRemote = null, liveShown = false, liveTick = null;
+function liveSync(force) {
+  if (!LW || !currentUser || !walkSession || !daily) return;
+  const now = performance.now(), st = daily.state().steps, t = Date.now();
+  const rec = LW.record(currentUser.uid, walkStartedAt, walkSession.elapsed(now), walkSession.steps(st), walkSession.isPaused(), true);
+  if (!force && !LW.shouldPush(liveLast, rec, t)) return;
+  liveLast = { ...rec, at: t }; writeLiveWalk(rec).catch(() => {});
+}
+function liveEnd(r) {
+  liveLast = null;
+  if (LW && currentUser) writeLiveWalk(LW.record(currentUser.uid, walkStartedAt, r.ms, r.steps, false, false)).catch(() => {});
+}
+function paintLiveRemote() {
+  if (!LW || walkSession) return;
+  const v = liveRemote && LW.view(liveRemote.d, liveRemote.u, liveRemote.rx, Date.now());
+  if (!v) {
+    if (liveShown) { liveShown = false; clearInterval(liveTick); liveTick = null; $("walkClock").textContent = "00:00"; $("walkSteps").textContent = "0"; $("walkStatus").textContent = "Signed-in sessions post to the board. Signed out, your session time stays on this phone."; }
+    return;
+  }
+  if (!liveShown) { liveShown = true; clearInterval(liveTick); liveTick = setInterval(paintLiveRemote, 500); }
+  $("walkClock").textContent = WS.formatClock(v.ms) + (v.paused ? " ⏸" : "");
+  $("walkSteps").textContent = v.steps.toLocaleString();
+  $("walkStatus").textContent = "Live on another device.";
+}
 function paintWalk() {
   if (!walkSession || !daily) return;
   const now = performance.now(), st = daily.state().steps;
   const capped = walkSession.tick(now, st);
   $("walkClock").textContent = WS.formatClock(walkSession.elapsed(now)) + (walkSession.isPaused() ? " ⏸" : "");
   $("walkSteps").textContent = walkSession.steps(st).toLocaleString();
-  if (capped) { daily.stopWalk(); endWalk(capped); postDaily(true); }
+  if (capped) { daily.stopWalk(); endWalk(capped); postDaily(true); } else liveSync(false);
 }
 function beginWalk() {
   if (!WS || !daily) return;
   walkSession = WS.createSession(performance.now(), daily.state().steps);
+  walkStartedAt = Date.now(); liveLast = null;
+  if (liveShown) { liveShown = false; clearInterval(liveTick); liveTick = null; }
   $("walkStatus").textContent = "Session clock running.";
   clearInterval(walkTick); walkTick = setInterval(paintWalk, 500); paintWalk();
 }
@@ -1642,6 +1671,7 @@ async function endWalk(r) {
   clearInterval(walkTick); walkTick = null;
   if (!walkSession) return;
   walkSession = null;
+  liveEnd(r);
   $("walkClock").textContent = WS.formatClock(r.ms); $("walkSteps").textContent = r.steps.toLocaleString();
   const why = r.reason === "cap" ? " (4 hour cap)" : r.reason === "hidden" ? " (page hidden too long)" : "";
   const q = WS.qualifies(r), label = WS.formatClock(r.ms) + " with " + r.steps.toLocaleString() + " steps" + why;
@@ -1674,7 +1704,7 @@ if (WS && daily) {
   };
   document.addEventListener("visibilitychange", () => {
     if (!walkSession) return;
-    if (document.hidden) walkSession.hide(performance.now());
+    if (document.hidden) { walkSession.hide(performance.now()); liveSync(true); }
     else { const r = walkSession.show(performance.now()); if (r) { daily.stopWalk(); endWalk(r); postDaily(true); } else paintWalk(); }
   });
 }
@@ -1688,6 +1718,7 @@ const {
     } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js");const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+writeLiveWalk = async (rec) => { if (!auth.currentUser) return; await setDoc(doc(db, "liveWalk", auth.currentUser.uid), { ...rec, updatedAt: serverTimestamp() }); };
 const provider = new GoogleAuthProvider();
 const xProvider = new TwitterAuthProvider();
 
@@ -1837,8 +1868,8 @@ getRedirectResult(auth)
     if (res && res.user) setStatus("Signed in with X.");
   })
   .catch(() => {});
-let dailySyncOff = null;
-onAuthStateChanged(auth, (u) => { if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+let dailySyncOff = null, liveWalkOff = null;
+onAuthStateChanged(auth, (u) => { if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("pocketBtn").onclick = () => {
   if (pocketOn) return;
   setPocket(true);
