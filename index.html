@@ -330,6 +330,10 @@
       /* nine links: one swipeable row instead of a crowded wrap */
       nav > div { display:flex; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; width:100%; padding-bottom:.25rem; }
       nav > div::-webkit-scrollbar { display:none; }
+      /* swipe hint: fade the edge that has more links behind it */
+      nav > div.fade-r { -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 2.2rem),transparent); mask-image:linear-gradient(to right,#000 calc(100% - 2.2rem),transparent); }
+      nav > div.fade-l { -webkit-mask-image:linear-gradient(to left,#000 calc(100% - 2.2rem),transparent); mask-image:linear-gradient(to left,#000 calc(100% - 2.2rem),transparent); }
+      nav > div.fade-l.fade-r { -webkit-mask-image:linear-gradient(to right,transparent,#000 2.2rem,#000 calc(100% - 2.2rem),transparent); mask-image:linear-gradient(to right,transparent,#000 2.2rem,#000 calc(100% - 2.2rem),transparent); }
       nav > div a:not(.logo) { flex:0 0 auto; white-space:nowrap; padding:.35rem 0; }
       nav > div a:not(.logo):first-child { margin-left:0; }
     }
@@ -369,6 +373,11 @@
     <a href="#membership">Membership</a>
     </div>
   </nav>
+<script>
+(function(){var n=document.querySelector("nav > div");if(!n)return;
+function f(){var m=n.scrollWidth-n.clientWidth;n.classList.toggle("fade-l",n.scrollLeft>2);n.classList.toggle("fade-r",m>2&&n.scrollLeft<m-2);}
+n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f);f();})();
+</script>
   <section class="hero">
     <div class="hero-top">
       <div class="hero-copy">
