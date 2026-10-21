@@ -269,6 +269,64 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Zabba washer Battle Gate rooms: same model as TUT/Plank Battles; seats keyed by request.auth.uid. Each player
+    // writes only their own seat: opener pick, live score/steps, and a write-once result. DRAFT, not yet published.
+    match /washersBattles/{code} {
+      function signedIn() { return request.auth != null; }
+      function me() { return request.auth.uid; }
+      function d() { return resource.data; }
+      function n() { return request.resource.data; }
+      function changed() { return n().diff(d()).affectedKeys(); }
+      function seatChanges() { return n().players.diff(d().players).affectedKeys(); }
+      function isPlayer() { return me() in d().players; }
+      function started() { return d().status in ['countdown','live','done']; }
+      function expired() { return !started() && d().createdAt < request.time - duration.value(30, 'm'); }
+      function freshSeat(p) { return p.keys().hasOnly(['name','ready','joinedAt']) && p.name is string
+        && p.name.size() <= 40 && p.ready == false && p.joinedAt == request.time; }
+      function newRoom() { return n().code == code && n().createdBy == me() && n().status == 'waiting'
+        && n().startAt == null && n().createdAt == request.time
+        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); }
+      // Own-seat battle fields: result is write-once (absent before, never changed after) and only while live.
+      function resOk(x) { return (x.keys().hasOnly(['forfeit','at']) && x.forfeit == true && x.at == request.time)
+        || (x.keys().hasOnly(['score','steps','ms','verified','reasons','at']) && x.score == 21
+          && x.steps is int && x.steps >= 0 && x.steps <= 100000 && x.ms is int && x.ms > 0 && x.ms <= 14400000
+          && x.verified is bool && x.reasons is list && x.reasons.size() <= 8 && x.at == request.time); }
+      function seatOk(o, p) {
+        return (!('opener' in p) || p.opener in n().players)
+          && (!('score' in p) || (p.score is int && p.score >= 0 && p.score <= 21))
+          && (!('steps' in p) || (p.steps is int && p.steps >= 0 && p.steps <= 100000))
+          && ('result' in o ? p.diff(o).affectedKeys().hasOnly(['seenAt','leftAt','opener'])
+              : (!('result' in p) || (d().status == 'live' && resOk(p.result))))
+          && (!(('score' in p.diff(o).affectedKeys()) || ('steps' in p.diff(o).affectedKeys())) || d().status == 'live');
+      }
+      allow read: if signedIn();
+      allow create: if signedIn() && code.matches('^[A-HJ-NP-Z2-9]{4}$') && newRoom();
+      allow update: if signedIn() && (
+        // reuse an ended/expired code
+        ((d().status in ['abandoned','done'] || expired()) && newRoom())
+        // join an open seat (max 2), before start
+        || (!isPlayer() && !started() && d().status == 'waiting' && !expired() && d().players.size() < 2
+          && changed().hasOnly(['players']) && seatChanges().hasOnly([me()]) && freshSeat(n().players[me()]))
+        // a seated player: own seat fields only (ready / seenAt / leftAt); before start may also free own seat
+        || (isPlayer() && changed().hasOnly(['players','status']) && seatChanges().hasOnly([me()])
+          && (!('status' in changed()) || (!started() && !(me() in n().players)
+              && n().status == (n().players.size() == 0 ? 'abandoned' : 'waiting')))
+          && (!(me() in n().players) ? !started()
+              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt','opener','score','steps','result'])
+                && seatOk(d().players[me()], n().players[me()])
+                && (!started() || !('ready' in n().players[me()].diff(d().players[me()]).affectedKeys()))))
+        // either player: both ready -> countdown with startAt = now..now+15s (only once)
+        || (isPlayer() && d().status == 'waiting' && d().startAt == null && d().players.size() == 2
+          && d().players[d().players.keys()[0]].ready == true && d().players[d().players.keys()[1]].ready == true
+          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int
+          && n().startAt > request.time.toMillis() && n().startAt < request.time.toMillis() + 15000)
+        // either player: countdown -> live once startAt has (nearly) passed
+        || (isPlayer() && d().status == 'countdown' && changed().hasOnly(['status']) && n().status == 'live'
+          && request.time.toMillis() >= d().startAt - 2000)
+      );
+      allow delete: if false;
+    }
+
     // TUT battle ranking: each player writes only their own row, from a finished battle they were in. DRAFT.
     match /tutBattleStats/{uid} {
       allow read: if true;
