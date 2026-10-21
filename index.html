@@ -346,7 +346,7 @@
     <div>
     <a href="#approach">The Practice</a>
     <a href="#push">Push-Ups-TUT</a>
-    <a href="#plank">Plank Press</a>
+    <a href="#plank">Plank</a>
     <a href="#steps">Steps</a>
     <a href="#washers">Zabba Washers</a>
     <a href="#league">League</a>
@@ -560,7 +560,7 @@
     <h2>TUTS</h2>
     <p class="eyebrow" style="margin:-.4rem 0 .8rem">Time Under Tension Scoreboard</p>
     <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
-    <p class="lead">Longest time in plank press. Sets count their set time; One Long Set counts the whole session.</p>
+    <p class="lead">Longest time in plank. Sets count their set time; One Long Set counts the whole session.</p>
     <h3>TUTS leaderboard</h3>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Reps</th><th>When</th></tr></thead>
@@ -585,7 +585,7 @@
   </section>
 
   <section id="plank">
-    <h2>Plank Press</h2>
+    <h2>Plank</h2>
     <p class="lead">Longest good plank wins. The camera times your hold. Same login as washers and pushups. Honor system. Not a form judge and not medical treatment.</p>
     <p class="note" id="plankSetup"><b>Set up:</b> prop the phone on the floor off to your side, a few steps away, screen facing you, so your whole body shows side-on, head to heels.</p>
     <div class="stats duo">
@@ -1529,12 +1529,14 @@ async function plankTick() {
     else if (r.phase === "ready") {
       $("plankMsg").textContent = r.countdownMs != null ? "Hold it… " + Math.ceil(r.countdownMs / 500) / 2 + "s" : (r.frame === "missing" ? "Show your whole body" : "Get into plank");
     } else {
+      if (r.ms >= PLANK_SET_MS && !plankSaved) { plankEnded(plankHold.stop(performance.now())); $("plankStatus").textContent = "Minute set done! " + $("plankStatus").textContent + " Tap New hold for the next set."; if (plankLoop) requestAnimationFrame(plankTick); return; }
       $("plankClock").textContent = formatTut(r.ms);
       $("plankMsg").textContent = r.frame === "ok" ? "Holding" : r.frame === "missing" ? "Back in frame!" : window.ZabbadatPlank.reasonText(r.frame) + "! Fix it";
     }
   } catch (e) { $("plankStatus").textContent = "Pose paused."; }
   if (plankLoop) requestAnimationFrame(plankTick);
 }
+const PLANK_SET_MS = 60000; // a full set is one minute; the hold auto-ends there and counts as a set
 function newPlankHold() {
   plankHold = window.ZabbadatPlank.createPlankHold(); plankSaved = false;
   $("plankClock").textContent = "0:00"; $("plankMsg").textContent = "Get into plank";
