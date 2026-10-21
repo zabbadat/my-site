@@ -1775,7 +1775,8 @@ getRedirectResult(auth)
     if (res && res.user) setStatus("Signed in with X.");
   })
   .catch(() => {});
-onAuthStateChanged(auth, (u) => { showUser(u); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+let dailySyncOff = null;
+onAuthStateChanged(auth, (u) => { if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("pocketBtn").onclick = () => {
   if (pocketOn) return;
   setPocket(true);
