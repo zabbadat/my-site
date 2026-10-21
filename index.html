@@ -592,6 +592,11 @@
       <div class="stat"><b id="plankClock">0:00</b><span>This hold</span></div>
       <div class="stat"><b id="plankBest">—</b><span>Your best</span></div>
     </div>
+    <div class="stats">
+      <div class="stat"><b id="plankSetsToday">0</b><span>Sets today</span></div>
+      <div class="stat"><b id="plankTotalToday">0:00</b><span>Total time today</span></div>
+      <div class="stat"><b id="plankBestToday">—</b><span>Best hold today</span></div>
+    </div>
     <p class="reps-display" id="plankMsg" style="font-size:clamp(1.4rem,6vw,2rem)">Ready</p>
     <div class="row">
       <button class="btn" id="plankCamBtn" type="button">Start plank camera</button>
@@ -602,12 +607,24 @@
       <video id="plankVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video>
     </div>
     <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. The clock starts after 1.5 seconds of good form. Sagging or piking hips, dropping to your knees or leaving the frame for more than a second ends the hold.</p>
-    <p class="fine">Signed-in holds post to the plank board. Unsigned stays on this phone. Video never uploads.</p>
+    <p class="fine">Every camera hold of 10 seconds or more counts as one set. New hold starts the next set without stopping the camera. Signed-in holds post to the plank board and today's sets board. Unsigned stays on this phone. Video never uploads.</p>
     <h3 style="margin-top:1.6rem">Plank board</h3>
     <p class="lead">Longest hold first.</p>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Hold</th><th>When</th></tr></thead>
       <tbody id="plankBoardBody"><tr><td colspan="4">Waiting for holds…</td></tr></tbody>
+    </table>
+    <h3 style="margin-top:1.6rem">Your plank days</h3>
+    <p class="fine">Saved on this phone. Last 7 days.</p>
+    <table>
+      <thead><tr><th>Day</th><th>Sets</th><th>Total</th><th>Best hold</th></tr></thead>
+      <tbody id="plankDaysBody"><tr><td colspan="4">No sets yet.</td></tr></tbody>
+    </table>
+    <h3 style="margin-top:1.6rem">Sets today</h3>
+    <p class="lead">Today's live board: most sets, then most total time.</p>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>Sets</th><th>Total</th><th>Best hold</th></tr></thead>
+      <tbody id="plankDailyBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
     </table>
   </section>
 
@@ -786,6 +803,7 @@
   <script src="/step-detector.js"></script>
   <script src="/push-session.js"></script>
   <script src="/plank-session.js"></script>
+  <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>
   <script src="/walk-session.js"></script>
   <script src="/members.js"></script>
@@ -1442,6 +1460,28 @@ renderPush();
 let plankStream = null, plankLoop = false, plankHold = null, plankSaved = false;
 const PLANK_BEST_KEY = "zabbadat-plank-best";
 let saveRemotePlank = async () => { throw new Error("Plank board is not connected"); };
+let saveRemotePlankDaily = async () => { throw new Error("Sets board is not connected"); };
+let plankSessionStartedAt = 0; // wall-clock ms when the plank camera started; 0 = no camera session
+const PD = window.ZabbadatPlankDaily;
+const secText = (sec) => formatTut((Number(sec) || 0) * 1000);
+function renderPlankDays() {
+  if (!PD) return;
+  const t = PD.getDay(localStorage, PD.localDateKey());
+  $("plankSetsToday").textContent = String(t.sets);
+  $("plankTotalToday").textContent = secText(t.totalSec);
+  $("plankBestToday").textContent = t.bestSec ? secText(t.bestSec) : "—";
+  const days = PD.lastDays(localStorage, 7);
+  $("plankDaysBody").innerHTML = days.length
+    ? days.map((d) => `<tr><td>${escapeHtml(d.date)}</td><td>${Number(d.sets)}</td><td>${secText(d.totalSec)}</td><td>${d.bestSec ? secText(d.bestSec) : "—"}</td></tr>`).join("")
+    : '<tr><td colspan="4">No sets yet.</td></tr>';
+}
+function paintPlankDailyRows(rows) {
+  if (!PD) return;
+  const ranked = PD.rankDaily(rows, PD.localDateKey(), 50);
+  $("plankDailyBody").innerHTML = ranked.length
+    ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.sets)}</td><td>${secText(r.totalSec)}</td><td>${secText(r.bestSec)}</td></tr>`).join("")
+    : '<tr><td colspan="5">No sets posted today yet.</td></tr>';
+}
 function plankBest() { return Number(localStorage.getItem(PLANK_BEST_KEY)) || 0; }
 function renderPlankBest() { const b = plankBest(); $("plankBest").textContent = b ? formatTut(b) : "—"; }
 function localPlanks() { try { return JSON.parse(localStorage.getItem("zabbadat-plank-local") || "[]"); } catch (e) { return []; } }
@@ -1455,6 +1495,7 @@ function paintPlankRows(rows) {
 }
 function plankEnded(r) {
   if (plankSaved) return;
+  if (!plankSessionStartedAt) return; // only a live camera session can end (and save) a hold
   plankSaved = true;
   const why = window.ZabbadatPlank.reasonText(r.reason);
   $("plankClock").textContent = formatTut(r.ms);
@@ -1467,10 +1508,14 @@ function plankEnded(r) {
   const typed = ($("player").value || "").trim().slice(0, 20);
   const name = currentUser ? (typed || displayNameOf(currentUser)) : (typed || "Player");
   const handle = ($("xHandle").value || "").trim().replace(/^@/, "");
-  const record = { name, xHandle: handle ? "@" + handle : "", ms: r.ms, when: new Date().toLocaleString() };
+  const record = { name, xHandle: handle ? "@" + handle : "", ms: r.ms, when: new Date().toLocaleString(), sessionStartedAt: plankSessionStartedAt };
+  const isSet = PD && PD.countsAsSet(r.ms);
+  const day = isSet ? PD.recordHold(localStorage, r.ms, PD.localDateKey()) : null;
+  renderPlankDays();
   const local = localPlanks(); local.push(record); localStorage.setItem("zabbadat-plank-local", JSON.stringify(local.slice(-100)));
-  $("plankStatus").textContent = "Hold ended: " + why + ". Time " + formatTut(r.ms) + ".";
+  $("plankStatus").textContent = "Hold ended: " + why + ". Time " + formatTut(r.ms) + "." + (isSet ? " Set " + day.sets + " today." : " Under 10 seconds, not counted as a set.");
   if (!currentUser) { $("plankStatus").textContent += " Sign in to post to the plank board."; paintPlankRows(localPlanks()); return; }
+  if (day) saveRemotePlankDaily(day, record).catch(() => { $("plankStatus").textContent += " Sets saved on this phone (sets board offline)."; });
   saveRemotePlank(record).then(() => { $("plankStatus").textContent += " Posted to the plank board."; })
     .catch(() => { $("plankStatus").textContent += " Saved on this phone (board offline)."; paintPlankRows(localPlanks()); });
 }
@@ -1504,6 +1549,7 @@ async function startPlankCam() {
     if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
     plankStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
     const vid = $("plankVid"); vid.srcObject = plankStream; await vid.play();
+    plankSessionStartedAt = Date.now();
     await ensurePose();
     $("plankWrap").hidden = false;
     $("plankCamBtn").textContent = "Stop camera";
@@ -1516,16 +1562,18 @@ async function startPlankCam() {
 function stopPlankCam() {
   if (plankHold && !plankSaved) { const r = plankHold.stop(performance.now()); plankEnded(r); }
   plankLoop = false;
+  plankSessionStartedAt = 0;
   if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
   plankStream = null;
   $("plankWrap").hidden = true; $("plankStopBtn").hidden = true;
   $("plankCamBtn").textContent = "Start plank camera";
 }
 $("plankCamBtn").onclick = () => (plankLoop ? stopPlankCam() : startPlankCam());
-$("plankStopBtn").onclick = () => { if (plankHold && !plankSaved) plankEnded(plankHold.stop(performance.now())); };
+$("plankStopBtn").onclick = () => { if (plankLoop && plankHold && !plankSaved) plankEnded(plankHold.stop(performance.now())); };
 $("plankAgainBtn").onclick = () => { if (plankLoop) newPlankHold(); };
 if ($("camBtn")) $("camBtn").addEventListener("click", () => { if (plankLoop) stopPlankCam(); });
 renderPlankBest();
+renderPlankDays();
 paintPlankRows(localPlanks());
 // ---- Daily steps (shared module daily-steps.js; native plugin in the app, live walk on web) ----
 let saveRemoteDaily = async () => { throw new Error("Daily board is not connected"); };
@@ -1676,8 +1724,20 @@ saveRemotePlank = async (record) => {
     xHandle: record.xHandle || "",
     uid: auth.currentUser.uid,
     ms: Math.round(Number(record.ms)),
+    holdSec: Math.floor(Number(record.ms) / 1000),
+    source: "camera",
+    sessionStartedAt: Math.round(Number(record.sessionStartedAt)),
     createdAt: serverTimestamp()
   });
+};
+
+saveRemotePlankDaily = async (day, record) => {
+  if (!auth.currentUser || !PD) throw new Error("Sign in required");
+  const handle = ($("xHandle").value || "").trim();
+  const rec = PD.buildRecord({ name: record.name, xHandle: handle, uid: auth.currentUser.uid, date: day.date, sets: day.sets, totalSec: day.totalSec, bestSec: day.bestSec, sessionStartedAt: record.sessionStartedAt });
+  const id = PD.docId(rec.uid, rec.date);
+  if (!PD.validateRecord(rec, id).ok) throw new Error("Invalid plank day");
+  await setDoc(doc(db, "plankDaily", id), { ...rec, updatedAt: serverTimestamp() });
 };
 
 saveRemoteDaily = async (s) => {
@@ -1862,6 +1922,8 @@ onSnapshot(query(collection(db, "pushups"), orderBy("ms", "desc"), limit(80)), (
 // Plank board: longest hold first.
 const plankRowsOf = (snap) => snap.docs.map((d) => { const x = d.data(); return { name: x.name, xHandle: x.xHandle || "", ms: x.ms, when: x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "" }; });
 onSnapshot(query(collection(db, "planks"), orderBy("ms", "desc"), limit(80)), (snap) => paintPlankRows(plankRowsOf(snap)), () => paintPlankRows(localPlanks()));
+// Plank sets today: today's docs (equality only), ranked client-side.
+onSnapshot(query(collection(db, "plankDaily"), where("date", "==", PD ? PD.localDateKey() : ""), limit(300)), (snap) => paintPlankDailyRows(snap.docs.map((d) => d.data())), () => paintPlankDailyRows([]));
 // Daily steps board: today's docs (equality only, no composite index), ranked client-side.
 onSnapshot(query(collection(db, "dailySteps"), where("date", "==", DS ? DS.localDateKey() : ""), limit(300)), (snap) => paintDailyRows(snap.docs.map((d) => d.data())), () => paintDailyRows([]));
 onSnapshot(query(collection(db, "walkSessions"), orderBy("ms", "desc"), limit(200)), (snap) => paintWalkRows(snap.docs.map((d) => { const x = d.data(); return { ...x, at: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now() }; })), () => paintWalkRows([]));
