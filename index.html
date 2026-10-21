@@ -618,6 +618,21 @@
       <thead><tr><th>#</th><th>Player</th><th>Steps</th><th>Source</th></tr></thead>
       <tbody id="dailyBoardBody"><tr><td colspan="4">Waiting for walkers…</td></tr></tbody>
     </table>
+    <h3 style="margin-top:1.6rem">Live walk sessions</h3>
+    <p class="lead">Start a live walk and the session clock runs. Stop it to log the session: 1 minute minimum, 30+ steps a minute on average, 4 hour cap. Hiding the page or turning the screen off pauses the clock; hidden over 2 minutes ends the session.</p>
+    <div class="stats">
+      <div class="stat"><b id="walkClock">00:00</b><span>Session time</span></div>
+      <div class="stat"><b id="walkSteps">0</b><span>Session steps</span></div>
+    </div>
+    <p class="note" id="walkStatus" aria-live="polite">Signed-in sessions post to the board. Signed out, your session time stays on this phone.</p>
+    <div class="row">
+      <button class="btn ghost" id="walkAllBtn" type="button" aria-pressed="true">All-time top 20</button>
+      <button class="btn ghost" id="walkTodayBtn" type="button" aria-pressed="false">Today</button>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Steps</th></tr></thead>
+      <tbody id="walkBoardBody"><tr><td colspan="4">Waiting for walkers…</td></tr></tbody>
+    </table>
   </section>
 
   <section id="board">
@@ -771,6 +786,7 @@
   <script src="/push-session.js"></script>
   <script src="/plank-session.js"></script>
   <script src="/daily-steps.js"></script>
+  <script src="/walk-session.js"></script>
   <script src="/members.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
@@ -1552,6 +1568,64 @@ if (daily) {
   setInterval(() => { if (daily.state().walking) postDaily(true); }, 120000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && daily.source.kind === "native") daily.refreshNative().then(() => postDaily(true)); });
 }
+// ---- Live walk sessions (walk-session.js): session clock + walkSessions board. Wraps the daily walk button; daily steps untouched. ----
+const WS = window.ZabbadatWalk;
+let saveRemoteWalk = async () => { throw new Error("Walk board is not connected"); };
+let walkSession = null, walkTick = null, walkRows = [], walkView = "all";
+function paintWalk() {
+  if (!walkSession || !daily) return;
+  const now = performance.now(), st = daily.state().steps;
+  const capped = walkSession.tick(now, st);
+  $("walkClock").textContent = WS.formatClock(walkSession.elapsed(now)) + (walkSession.isPaused() ? " ⏸" : "");
+  $("walkSteps").textContent = walkSession.steps(st).toLocaleString();
+  if (capped) { daily.stopWalk(); endWalk(capped); postDaily(true); }
+}
+function beginWalk() {
+  if (!WS || !daily) return;
+  walkSession = WS.createSession(performance.now(), daily.state().steps);
+  $("walkStatus").textContent = "Session clock running.";
+  clearInterval(walkTick); walkTick = setInterval(paintWalk, 500); paintWalk();
+}
+async function endWalk(r) {
+  clearInterval(walkTick); walkTick = null;
+  if (!walkSession) return;
+  walkSession = null;
+  $("walkClock").textContent = WS.formatClock(r.ms); $("walkSteps").textContent = r.steps.toLocaleString();
+  const why = r.reason === "cap" ? " (4 hour cap)" : r.reason === "hidden" ? " (page hidden too long)" : "";
+  const q = WS.qualifies(r), label = WS.formatClock(r.ms) + " with " + r.steps.toLocaleString() + " steps" + why;
+  if (!q.ok) { $("walkStatus").textContent = "Session " + label + ". Not logged: " + q.why; return; }
+  if (!currentUser) { $("walkStatus").textContent = "Session " + label + ". Sign in to post sessions to the board."; return; }
+  try { await saveRemoteWalk(r); $("walkStatus").textContent = "Posted session " + label + "."; }
+  catch (e) { $("walkStatus").textContent = "Session " + label + ". Board offline, not posted."; }
+}
+function paintWalkRows(rows) {
+  if (!WS) return;
+  if (rows) walkRows = rows;
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  const ranked = WS.rankSessions(walkRows, 20, walkView === "today" ? d.getTime() : 0);
+  $("walkBoardBody").innerHTML = ranked.length
+    ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${WS.formatClock(r.ms)}</td><td>${Number(r.steps).toLocaleString()}</td></tr>`).join("")
+    : `<tr><td colspan="4">${walkView === "today" ? "No sessions logged today yet." : "No sessions logged yet."}</td></tr>`;
+}
+function setWalkView(v) { walkView = v; $("walkAllBtn").setAttribute("aria-pressed", v === "all"); $("walkTodayBtn").setAttribute("aria-pressed", v === "today"); paintWalkRows(); }
+if (WS && daily) {
+  $("walkAllBtn").onclick = () => setWalkView("all");
+  $("walkTodayBtn").onclick = () => setWalkView("today");
+  const dailyClick = $("dailyWalkBtn").onclick;
+  $("dailyWalkBtn").onclick = async () => {
+    const was = daily.state().walking;
+    const stopAt = performance.now(), stepsNow = daily.state().steps;
+    await dailyClick();
+    const is = daily.state().walking;
+    if (!was && is) beginWalk();
+    else if (was && !is && walkSession) endWalk(walkSession.stop(stopAt, stepsNow));
+  };
+  document.addEventListener("visibilitychange", () => {
+    if (!walkSession) return;
+    if (document.hidden) walkSession.hide(performance.now());
+    else { const r = walkSession.show(performance.now()); if (r) { daily.stopWalk(); endWalk(r); postDaily(true); } else paintWalk(); }
+  });
+}
 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js");
 const {
   getAuth, GoogleAuthProvider,TwitterAuthProvider, signInWithPopup, signInWithRedirect,
@@ -1611,6 +1685,14 @@ saveRemoteDaily = async (s) => {
   const id = DS.docId(rec.uid, rec.date);
   if (!DS.validateRecord(rec, id).ok) throw new Error("Invalid daily record");
   await setDoc(doc(db, "dailySteps", id), { ...rec, updatedAt: serverTimestamp() });
+};
+
+saveRemoteWalk = async (r) => {
+  if (!auth.currentUser) throw new Error("Sign in required");
+  const handle = ($("xHandle").value || "").trim();
+  const rec = WS.buildRecord({ name: dailyName(), xHandle: handle, uid: auth.currentUser.uid, ms: r.ms, steps: r.steps });
+  if (!WS.validateRecord(rec).ok) throw new Error("Invalid walk session");
+  await addDoc(collection(db, "walkSessions"), { ...rec, createdAt: serverTimestamp() });
 };
 
 function showUser(user) {
@@ -1779,6 +1861,7 @@ const plankRowsOf = (snap) => snap.docs.map((d) => { const x = d.data(); return 
 onSnapshot(query(collection(db, "planks"), orderBy("ms", "desc"), limit(80)), (snap) => paintPlankRows(plankRowsOf(snap)), () => paintPlankRows(localPlanks()));
 // Daily steps board: today's docs (equality only, no composite index), ranked client-side.
 onSnapshot(query(collection(db, "dailySteps"), where("date", "==", DS ? DS.localDateKey() : ""), limit(300)), (snap) => paintDailyRows(snap.docs.map((d) => d.data())), () => paintDailyRows([]));
+onSnapshot(query(collection(db, "walkSessions"), orderBy("ms", "desc"), limit(200)), (snap) => paintWalkRows(snap.docs.map((d) => { const x = d.data(); return { ...x, at: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now() }; })), () => paintWalkRows([]));
 </script> 
 </body>
 </html>

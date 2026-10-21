@@ -85,6 +85,23 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Live walk sessions: one doc per finished web live walk. Create only.
+    // 1 min to 4 h, steps 0..40,000 (client also requires 30+ steps/min). No edits or deletes.
+    match /walkSessions/{id} {
+      allow read: if true;
+      allow create: if signedIn() && ownsNew()
+        && request.resource.data.keys().hasOnly(['name','xHandle','uid','ms','steps','createdAt'])
+        && request.resource.data.keys().hasAll(['name','uid','ms','steps','createdAt'])
+        && shortString(request.resource.data.name, 40) && request.resource.data.name.size() > 0
+        && (!('xHandle' in request.resource.data) || shortString(request.resource.data.xHandle, 21))
+        && request.resource.data.ms is int
+        && request.resource.data.ms >= 60000 && request.resource.data.ms <= 14400000
+        && request.resource.data.steps is int
+        && request.resource.data.steps >= 0 && request.resource.data.steps <= 40000
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
     // Stripe membership status. Written only by the server (Netlify stripe-webhook via firebase-admin).
     match /members/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
