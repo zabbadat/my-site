@@ -348,7 +348,7 @@
     <div>
     <a href="#approach">The Practice</a>
     <a href="#push">Push-Ups-TUT</a>
-    <a href="#plank">Plank</a>
+    <a href="#plank">Plank House</a>
     <a href="#steps">Steps</a>
     <a href="#washers">Zabba Washers</a>
     <a href="#league">League</a>
@@ -587,8 +587,8 @@
   </section>
 
   <section id="plank">
-    <h2>Plank</h2>
-    <p class="lead">Longest good plank wins. The camera times your hold. Same login as washers and pushups. Honor system. Not a form judge and not medical treatment.</p>
+    <h2>Plank House</h2>
+    <p class="lead">Longest good plank in the House wins. The camera times your hold. Same login as washers and pushups. Honor system. Not a form judge and not medical treatment.</p>
     <p class="note" id="plankSetup"><b>Set up:</b> prop the phone on the floor off to your side, a few steps away, screen facing you, so your whole body shows side-on, head to heels.</p>
     <div class="stats duo">
       <div class="stat"><b id="plankClock">0:00</b><span>This hold</span></div>
@@ -609,8 +609,8 @@
       <video id="plankVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video>
     </div>
     <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. The clock starts after 1.5 seconds of good form. Sagging or piking hips, dropping to your knees or leaving the frame for more than a second ends the hold.</p>
-    <p class="fine">Every camera hold of 10 seconds or more counts as one set. New hold starts the next set without stopping the camera. Signed-in holds post to the plank board and today's sets board. Unsigned stays on this phone. Video never uploads.</p>
-    <h3 style="margin-top:1.6rem">Plank board</h3>
+    <p class="fine">Every camera hold of 10 seconds or more counts as one set. New hold starts the next set without stopping the camera. Signed-in holds post to the Plank House board and today's sets board. Unsigned stays on this phone. Video never uploads.</p>
+    <h3 style="margin-top:1.6rem">Plank House board</h3>
     <p class="lead">Longest hold first.</p>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Hold</th><th>When</th></tr></thead>
@@ -1517,9 +1517,9 @@ function plankEnded(r) {
   renderPlankDays();
   const local = localPlanks(); local.push(record); localStorage.setItem("zabbadat-plank-local", JSON.stringify(local.slice(-100)));
   $("plankStatus").textContent = "Hold ended: " + why + ". Time " + formatTut(r.ms) + "." + (isSet ? " Set " + day.sets + " today." : " Under 10 seconds, not counted as a set.");
-  if (!currentUser) { $("plankStatus").textContent += " Sign in to post to the plank board."; paintPlankRows(localPlanks()); return; }
+  if (!currentUser) { $("plankStatus").textContent += " Sign in to post to the Plank House board."; paintPlankRows(localPlanks()); return; }
   if (day) saveRemotePlankDaily(day, record).catch(() => { $("plankStatus").textContent += " Sets saved on this phone (sets board offline)."; });
-  saveRemotePlank(record).then(() => { $("plankStatus").textContent += " Posted to the plank board."; })
+  saveRemotePlank(record).then(() => { $("plankStatus").textContent += " Posted to the Plank House board."; })
     .catch(() => { $("plankStatus").textContent += " Saved on this phone (board offline)."; paintPlankRows(localPlanks()); });
 }
 async function plankTick() {

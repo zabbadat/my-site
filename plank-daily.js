@@ -1,4 +1,4 @@
-/* Zabbadat Plank Press sets: pure logic (no DOM, no Firestore).
+/* Zabbadat Plank House sets: pure logic (no DOM, no Firestore).
  * - A completed camera hold >= MIN_SET_SEC counts as one set.
  * - Per-day history kept on the phone (localStorage), one entry per local date.
  * - Today's board: rank sets desc, then totalSec desc. */
