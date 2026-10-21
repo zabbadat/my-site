@@ -911,6 +911,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>
   <script src="/walk-session.js"></script>
+  <script src="/wake-lock.js"></script>
   <script src="/live-walk.js"></script>
   <script src="/members.js"></script>
   <script src="/zaba-tokens.js"></script>
@@ -1856,13 +1857,17 @@ function beginWalk() {
   walkStartedAt = Date.now(); liveLast = null;
   if (liveShown) { liveShown = false; clearInterval(liveTick); liveTick = null; }
   $("walkStatus").textContent = "Session clock running.";
+  if (walkWake) walkWake.start().catch(() => {});
   clearInterval(walkTick); walkTick = setInterval(paintWalk, 500); paintWalk();
 }
+// Screen Wake Lock (wake-lock.js): keep the screen awake during a live walk; one-time note if unsupported.
+const walkWake = window.WakeLock ? window.WakeLock.createWakeLock({ onNote: (m) => { const el = $("walkStatus"); if (el) el.textContent = m; } }) : null;
 async function endWalk(r) {
   clearInterval(walkTick); walkTick = null;
   if (!walkSession) return;
   walkSession = null;
   setWalkLock(false);
+  if (walkWake) walkWake.stop().catch(() => {});
   liveEnd(r);
   $("walkClock").textContent = WS.formatClock(r.ms); $("walkSteps").textContent = r.steps.toLocaleString();
   const why = r.reason === "cap" ? " (4 hour cap)" : r.reason === "hidden" ? " (page hidden too long)" : "";
