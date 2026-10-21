@@ -616,7 +616,7 @@
     <p class="lead">Bank earn steps, post to the daily board. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk: steps count while this page stays open with the screen on. Same login as washers.</p>
     <div class="stats">
       <div class="stat"><b id="dailyCount">0</b><span>Steps today</span></div>
-      <div class="stat"><b id="dailySource">—</b><span>Source</span></div>
+      <div class="stat"><b><span id="walkClock" style="font:inherit;color:inherit;letter-spacing:0;text-transform:none">00:00</span> · <span id="walkSteps" style="font:inherit;color:inherit;letter-spacing:0;text-transform:none">0</span></b><span>Session time · steps</span></div>
     </div>
     <div class="row">
       <button class="btn" id="dailyWalkBtn" type="button">Start live walk</button>
@@ -634,8 +634,7 @@
     <h3 style="margin-top:1.6rem">Live walk sessions</h3>
     <p class="lead">Start a live walk and the session clock runs. Stop it to log the session: 1 minute minimum, 30+ steps a minute on average, 4 hour cap. Hiding the page or turning the screen off pauses the clock; hidden over 2 minutes ends the session.</p>
     <div class="stats">
-      <div class="stat"><b id="walkClock">00:00</b><span>Session time</span></div>
-      <div class="stat"><b id="walkSteps">0</b><span>Session steps</span></div>
+      <div class="stat"><b id="dailySource">—</b><span>Source</span></div>
     </div>
     <p class="note" id="walkStatus" aria-live="polite">Signed-in sessions post to the board. Signed out, your session time stays on this phone.</p>
     <div class="row">
