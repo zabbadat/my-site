@@ -479,6 +479,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="who" id="who">
       <div>
         <strong id="whoName">Not signed in</strong>
+        <div class="note" id="zabaTokensRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Zaba Tokens: <span id="zabaBal" style="color:var(--accent-2)">0</span></div>
         <div class="note" style="margin:0">Google or X sign-in keeps your board name consistent.</div>
       </div>
       <button class="btn" id="signInBtn" type="button">Sign in with Google</button>
@@ -912,6 +913,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/walk-session.js"></script>
   <script src="/live-walk.js"></script>
   <script src="/members.js"></script>
+  <script src="/zaba-tokens.js"></script>
   <script src="/email-auth.js"></script>
   <script src="/battle-rooms.js"></script>
   <script src="/tut-battle.js"></script>
@@ -941,6 +943,10 @@ const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostu
 let lastViolFlag = 0;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
+// Zaba Tokens: awardTokens(source, qty, setId) is wired to Firestore after sign-in setup; no-op until then.
+const ZT = window.ZabaTokens || null;
+let awardTokens = async () => ({ credited: 0 });
+function tokenNote(r) { return r && r.credited > 0 ? " +" + r.credited + " Zaba Token" + (r.credited === 1 ? "" : "s") + "." : ""; }
 
 // Washers lock lives on #startBtn: locked = "Hold to score", unlocked = "Hold to stop", idle = "Start game".
 function paintGameBtn() {
@@ -1448,8 +1454,11 @@ function finishPushSet() {
     $("pushStatus").textContent = what + " saved on this device. Sign in to post." + viol;
     return;
   }
+  const tokSet = ZT ? ZT.newSetId() : "";
+  const tokP = Promise.all([awardTokens("pushups", record.reps, tokSet), pushMode === "long" && ZT ? awardTokens("tut", ZT.qtyFrom("tut", window.ZabbadatSession.tutToAdd(pushMode, ms, pushState.tut)), tokSet) : null])
+    .then((a) => ({ credited: a.reduce((n, x) => n + ((x && x.credited) || 0), 0) }), () => null);
   saveRemotePush(record)
-    .then(() => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + viol; })
+    .then(() => tokP).then((tk) => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + viol + tokenNote(tk); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
 if ($("pushStartBtn")) $("pushStartBtn").onclick = () => {
@@ -1700,6 +1709,7 @@ function plankEnded(r) {
   $("plankStatus").textContent = "Hold ended: " + why + ". Time " + formatTut(r.ms) + "." + (isSet ? " Set " + day.sets + " today." : " Under 10 seconds, not counted as a set.");
   if (!currentUser) { $("plankStatus").textContent += " Sign in to post to the Plank House board."; paintPlankRows(localPlanks()); return; }
   if (day) saveRemotePlankDaily(day, record).catch(() => { $("plankStatus").textContent += " Sets saved on this phone (sets board offline)."; });
+  if (ZT) awardTokens("plank", ZT.qtyFrom("plank", r.ms), ZT.newSetId()).then((tk) => { $("plankStatus").textContent += tokenNote(tk); }, () => {});
   saveRemotePlank(record).then(() => { $("plankStatus").textContent += " Posted to the Plank House board."; })
     .catch(() => { $("plankStatus").textContent += " Saved on this phone (board offline)."; paintPlankRows(localPlanks()); });
 }
@@ -1859,7 +1869,8 @@ async function endWalk(r) {
   const q = WS.qualifies(r), label = WS.formatClock(r.ms) + " with " + r.steps.toLocaleString() + " steps" + why;
   if (!q.ok) { $("walkStatus").textContent = "Session " + label + ". Not logged: " + q.why; return; }
   if (!currentUser) { $("walkStatus").textContent = "Session " + label + ". Sign in to post sessions to the board."; return; }
-  try { await saveRemoteWalk(r); $("walkStatus").textContent = "Posted session " + label + "."; }
+  const tokP = ZT ? awardTokens("walk", ZT.qtyFrom("walk", r.ms), ZT.newSetId()).catch(() => null) : Promise.resolve(null);
+  try { await saveRemoteWalk(r); $("walkStatus").textContent = "Posted session " + label + "." + tokenNote(await tokP); }
   catch (e) { $("walkStatus").textContent = "Session " + label + ". Board offline, not posted."; }
 }
 function paintWalkRows(rows) {
@@ -1984,6 +1995,25 @@ saveRemoteWalk = async (r) => {
   if (!WS.validateRecord(rec).ok) throw new Error("Invalid walk session");
   await addDoc(collection(db, "walkSessions"), { ...rec, createdAt: serverTimestamp() });
 };
+
+const ztFs = { ts: () => serverTimestamp(), tx: (fn) => runTransaction(db, (t) => fn({ get: (p) => t.get(doc(db, ...p)).then((x) => (x.exists() ? x.data() : null)), set: (p, d) => t.set(doc(db, ...p), d), update: (p, d) => t.update(doc(db, ...p), d) })) };
+let ztOff = null;
+function paintTokens(n) { const row = $("zabaTokensRow"); if (!row) return; row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); }
+awardTokens = async (source, qty, setId) => {
+  if (!ZT || !auth.currentUser) return { credited: 0 };
+  const e = ZT.buildEarn(auth.currentUser.uid, source, qty, setId);
+  const r = await ZT.earnAndQueue(ztFs, localStorage, e);
+  if (r && r.balance != null) paintTokens(r.balance);
+  return r;
+};
+function tokensOnUser(u) {
+  if (ztOff) { ztOff(); ztOff = null; }
+  paintTokens(null);
+  if (!u || !ZT) return;
+  ZT.ensureProfile(ztFs, u.uid).then((p) => { paintTokens(p.zabaTokens); return ZT.flush(ztFs, localStorage, u.uid); }).catch(() => {}).finally(() => {
+    if (auth.currentUser && auth.currentUser.uid === u.uid && !ztOff) ztOff = onSnapshot(doc(db, "users", u.uid), (d) => { if (d.exists()) paintTokens(ZT.profileFrom(d.data(), u.uid).zabaTokens); }, () => {});
+  });
+}
 
 function showUser(user) {
   currentUser = user;
@@ -2261,7 +2291,7 @@ function tbFinish(r) {
   c.hidden = false; c.className = "battle-count result"; c.textContent = won ? "You win!" : "You lose";
   const loser = r.players && r.players[r.loserUid];
   tbStat((loser ? loser.name : "Opponent") + ": " + (TBm.REASONS[r.loseReason] || "out") + ".");
-  if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); }
+  if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); if (ZT) awardTokens("tut", ZT.qtyFrom("tut", tbMine.tutMs), "b" + r.code).catch(() => {}); }
 }
 function tbEnter(code) {
   tbCodeCur = code; tbRecorded = null; tbLiveT0 = null; try { localStorage.setItem("zdTutBattle", code); } catch (e) {}
@@ -2302,7 +2332,7 @@ getRedirectResult(auth)
   })
   .catch(() => {});
 let dailySyncOff = null, liveWalkOff = null;
-onAuthStateChanged(auth, (u) => { if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+onAuthStateChanged(auth, (u) => { tokensOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("boardAllBtn").onclick = () => {
   boardFilter = "all";
   $("boardAllBtn").className = "btn";

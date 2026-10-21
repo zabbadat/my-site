@@ -285,6 +285,50 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Zaba Tokens (earn only; no spend/wagering yet). Owner-only read.
+    // users/{uid}.zabaTokens may only change together with a NEW tokenTx entry in the same
+    // transaction/batch (lastTxId points at it, delta == its amount). Tx entries are create-once
+    // (id = source-setId => retries can't double-credit) and capped by the rate for their units.
+    match /users/{uid} {
+      function txPath(id) { return /databases/$(database)/documents/users/$(uid)/tokenTx/$(id); }
+      function u() { return request.resource.data; }
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && u().keys().hasOnly(['uid','zabaTokens','lastTxId','createdAt','updatedAt'])
+        && u().uid == uid && u().zabaTokens is int && u().lastTxId is string
+        && u().createdAt == request.time && u().updatedAt == request.time
+        && (u().zabaTokens == 0 && u().lastTxId == ''
+            || (!exists(txPath(u().lastTxId)) && existsAfter(txPath(u().lastTxId))
+                && getAfter(txPath(u().lastTxId)).data.amount == u().zabaTokens));
+      allow update: if request.auth != null && request.auth.uid == uid
+        && u().diff(resource.data).affectedKeys().hasOnly(['zabaTokens','lastTxId','updatedAt'])
+        && u().zabaTokens is int && u().zabaTokens >= 0 && u().updatedAt == request.time
+        && u().lastTxId is string && u().lastTxId != resource.data.lastTxId
+        && !exists(txPath(u().lastTxId)) && existsAfter(txPath(u().lastTxId))
+        && u().zabaTokens == resource.data.zabaTokens + getAfter(txPath(u().lastTxId)).data.amount;
+      allow delete: if false;
+
+      match /tokenTx/{txId} {
+        function t() { return request.resource.data; }
+        function userPath() { return /databases/$(database)/documents/users/$(uid); }
+        function before() { return exists(userPath()) ? get(userPath()).data.zabaTokens : 0; }
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null && request.auth.uid == uid
+          && t().keys().hasOnly(['uid','type','source','amount','units','qty','setId','createdAt'])
+          && t().uid == uid && t().type == 'earn' && t().createdAt == request.time
+          && t().setId is string && t().setId.matches('^[A-Za-z0-9_-]{1,60}$')
+          && txId == t().source + '-' + t().setId
+          && t().qty is int && t().qty >= 0 && t().amount is int && t().amount >= 1
+          && ((t().source == 'pushups' && t().units == 'reps'    && t().qty <= 5000 && t().amount * 10 <= t().qty)
+           || (t().source == 'plank'   && t().units == 'seconds' && t().qty <= 7200 && t().amount * 60 <= t().qty)
+           || (t().source == 'tut'     && t().units == 'seconds' && t().qty <= 7200 && t().amount * 60 <= t().qty)
+           || (t().source == 'walk'    && t().units == 'minutes' && t().qty <= 240  && t().amount * 10 <= t().qty))
+          && getAfter(userPath()).data.lastTxId == txId
+          && getAfter(userPath()).data.zabaTokens == before() + t().amount;
+        allow update, delete: if false;
+      }
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }
