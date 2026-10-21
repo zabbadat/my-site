@@ -372,6 +372,24 @@
 #camWrap:fullscreen video,#camWrap:-webkit-full-screen video,#camWrap.cam-fs video{width:100%;height:100%;object-fit:contain;border-radius:0}
 #camFsBtn{position:absolute;right:calc(8px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));z-index:3;padding:.35rem .6rem;font-size:.85rem}
 </style> <link rel="icon" type="image/png" href="/zd-v2-icon-512.png"><link rel="apple-touch-icon" href="/zd-v2-icon-1024.png">
+<style id="palette">
+/* Electric lime + hot pink palette */
+:root{--accent:#C6FF00;--accent-2:#FF3CAC;--lime:#C6FF00;--lime-2:#B8FF2E;--pink:#FF2E93;--pink-2:#FF3CAC;--grad:linear-gradient(135deg,#C6FF00,#FF2E93);}
+nav{border-bottom-color:rgba(198,255,0,.25)!important}
+.card,.stat,.who,th,td,input,select,textarea{border-color:rgba(255,46,147,.28)!important}
+.card:hover{border-color:rgba(198,255,0,.5)!important}
+footer{border-top-color:rgba(198,255,0,.25)!important}
+.eyebrow,.tag,.motto,.hero .tut-rules,.ok{color:var(--lime)!important}
+.stat b,.tut-main b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent!important}
+h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
+.tut-hero{background:linear-gradient(160deg,rgba(198,255,0,.12),rgba(255,46,147,.08))!important;border-color:rgba(255,60,172,.4)!important}
+.mode-toggle{border-color:rgba(198,255,0,.45)!important}
+.mode-toggle button[aria-pressed="true"]{background:var(--grad)!important;color:#0e1412!important}
+.btn:not(.ghost):not(.danger){background:var(--grad)!important;color:#0e1412!important;font-weight:700;box-shadow:0 4px 18px rgba(255,46,147,.25)}
+.btn.ghost{border:1px solid transparent!important;background:linear-gradient(#0e1412,#0e1412) padding-box,var(--grad) border-box!important;color:var(--lime-2)!important}
+:where(a):focus-visible,button:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--pink-2)!important;outline-offset:2px}
+.social-btn:not([data-brand]){border-color:rgba(198,255,0,.4)}
+</style>
 </head>
 <body>
   <nav>
