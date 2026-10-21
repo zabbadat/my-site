@@ -337,6 +337,12 @@
     body:not(.is-member) [data-premium="lock"]::after { content: "Members only"; position: absolute; top: .6rem; right: .8rem; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .premium-demo { margin-top: 1.2rem; }
     .premium-tag { font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 .3rem; }
+.cam-hud{position:absolute;top:calc(8px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:3;background:rgba(0,0,0,.55);color:#fff;padding:.3rem .8rem;border-radius:10px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;line-height:1.25;pointer-events:none;white-space:nowrap}
+.cam-hud small{font-weight:500;opacity:.9}
+#camWrap:fullscreen,#camWrap:-webkit-full-screen,#camWrap.cam-fs{max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;align-items:center;justify-content:center}
+#camWrap.cam-fs{position:fixed!important;inset:0;z-index:9999}
+#camWrap:fullscreen video,#camWrap:-webkit-full-screen video,#camWrap.cam-fs video{width:100%;height:100%;object-fit:contain;border-radius:0}
+#camFsBtn{position:absolute;right:calc(8px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));z-index:3;padding:.35rem .6rem;font-size:.85rem}
 </style> <link rel="icon" type="image/png" href="/zd-v2-icon-512.png"><link rel="apple-touch-icon" href="/zd-v2-icon-1024.png">
 </head>
 <body>
@@ -543,6 +549,8 @@
     </div>
     <div id="camWrap" hidden style="margin-top:1rem;max-width:22rem;position:relative">
       <div class="violation" id="pushViolFlag" hidden></div>
+      <div class="cam-hud" id="camHud" aria-hidden="true"><span id="camHudReps">0</span> reps<br><small id="camHudClock">00:00</small></div>
+      <button class="btn ghost" id="camFsBtn" type="button">Full screen</button>
       <video id="camVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video>
       <canvas id="camCvs" hidden></canvas>
     </div>
@@ -1165,6 +1173,8 @@ function renderPush() {
   if ($("heroReps") && $("pushReps")) $("heroReps").textContent = $("pushReps").textContent;
   renderTutHistory();
   if ($("pushClock")) $("pushClock").textContent = formatTime(now);
+  if ($("camHudReps")) $("camHudReps").textContent = pushState.reps;
+  if ($("camHudClock")) $("camHudClock").textContent = formatTime(now);
   const best = localPush().reduce((m, r) => Math.max(m, Number(r.reps) || 0), 0);
   if ($("pushBest")) $("pushBest").textContent = best ? String(best) : "—";
 }
@@ -1449,6 +1459,7 @@ function stopCam() {
   camOn = false;
   if (camStream) camStream.getTracks().forEach((t) => t.stop());
   camStream = null;
+  camExitFs();
   $("camWrap").hidden = true;
   $("camStopBtn").hidden = true;
   $("camBtn").textContent = "Phone on floor";
@@ -1457,6 +1468,24 @@ function stopCam() {
 }
 $("camBtn").onclick = startCam;
 $("camStopBtn").onclick = stopCam;
+// Full screen keeps the reps/time HUD: fullscreen the wrapper (not the video),
+// falling back to a fixed-position class where element fullscreen is missing (iPhone).
+function camIsFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement) || $("camWrap").classList.contains("cam-fs"); }
+function camExitFs() {
+  $("camWrap").classList.remove("cam-fs");
+  if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+}
+function camFsLabel() { $("camFsBtn").textContent = camIsFs() ? "Exit full screen" : "Full screen"; }
+$("camFsBtn").onclick = () => {
+  const w = $("camWrap");
+  if (camIsFs()) { camExitFs(); camFsLabel(); return; }
+  const req = w.requestFullscreen || w.webkitRequestFullscreen;
+  if (req) Promise.resolve(req.call(w)).catch(() => w.classList.add("cam-fs")).then(camFsLabel);
+  else { w.classList.add("cam-fs"); camFsLabel(); }
+};
+document.addEventListener("fullscreenchange", camFsLabel);
+document.addEventListener("webkitfullscreenchange", camFsLabel);
 paintPushRows(localPush());
 renderPush();
 // ---- Plank contest (side camera, pure logic in plank-session.js) ----
