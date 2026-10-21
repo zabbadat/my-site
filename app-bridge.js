@@ -46,7 +46,7 @@
       }
       P.LocalNotifications.requestPermissions().then(function (p) {
         if (p.display !== "granted") { b.textContent = "Notifications blocked in Settings"; return; }
-        return P.LocalNotifications.schedule({ notifications: [{ id: 7001, title: "ZabbaDat", body: "Time for today's push-ups and plank. Beat your best!", schedule: { on: { hour: 18, minute: 0 }, allowWhileIdle: true } }] }).then(function () { label(true); });
+        return P.LocalNotifications.schedule({ notifications: [{ id: 7001, title: "ZabbaDat™", body: "Time for today's push-ups and plank. Beat your best!", schedule: { on: { hour: 18, minute: 0 }, allowWhileIdle: true } }] }).then(function () { label(true); });
       }).catch(function () {});
     };
     document.body.appendChild(b);

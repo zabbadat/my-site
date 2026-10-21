@@ -9,7 +9,7 @@ The code is deployed but stays dormant until these env vars exist. Until then th
 2. Use **Test mode** first; repeat steps 2–5 in Live mode when ready.
 
 ## 2. Product and monthly price
-Product catalog → **Add product** → name it (e.g. "ZabbaDat Membership") → Recurring, Monthly, set the price → Save. Open the price and copy its ID (`price_...`) → `STRIPE_PRICE_ID`.
+Product catalog → **Add product** → name it (e.g. "ZabbaDat™ Membership") → Recurring, Monthly, set the price → Save. Open the price and copy its ID (`price_...`) → `STRIPE_PRICE_ID`.
 
 ## 3. API keys
 Developers → API keys → copy the **Secret key** (`sk_test_...` / `sk_live_...`) → `STRIPE_SECRET_KEY`. (No publishable key is needed; Checkout is hosted.)
