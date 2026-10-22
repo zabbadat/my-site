@@ -1326,9 +1326,12 @@ async function finishGame() {
     setStatus("Finished on this device only. Sign in to post to the live board.");
     return;
   }
+  if (!state.gameId) state.gameId = ZT ? ZT.newSetId() : "";
+  const winTok = ZT && currentUser ? awardTokens("washers", ZT.qtyFrom("washers", 1), state.gameId).catch(() => null) : Promise.resolve(null);
   try {
     await saveRemote(record);
     setStatus(name + " posted: 21 in " + formatTime(ms) + " with " + state.steps.toLocaleString() + " steps.");
+    winTok.then((tk) => { if (tk && tk.credited) setStatus($("status").textContent + tokenNote(tk)); }, () => {});
   } catch (err) {
     paintRows(local);
     setStatus("Saved locally. Live post failed: " + (err.message || err));

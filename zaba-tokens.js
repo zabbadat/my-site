@@ -8,6 +8,7 @@
  * Rates (floor per completed set/session, remainders are NOT carried — each set stands alone,
  * which keeps every log entry independently checkable against its own units):
  *   pushups: 10 reps = 1 · plank: 60 s = 1 · walk: 10 min = 1 · tut: 60 s = 1
+ *   washers: 1 Zabba Washers game won (reached 21, signed in, verified) = 1 (setId = game id)
  * Browser: window.ZabaTokens. Node: require("./zaba-tokens.js").
  */
 (function (root) {
@@ -16,7 +17,8 @@
     pushups: { units: "reps", per: 10, max: 5000 },
     plank: { units: "seconds", per: 60, max: 7200 },
     walk: { units: "minutes", per: 10, max: 240 },
-    tut: { units: "seconds", per: 60, max: 7200 }
+    tut: { units: "seconds", per: 60, max: 7200 },
+    washers: { units: "wins", per: 1, max: 1 }
   };
   var PENDING_KEY = "zdTokenPending";
   // qty from raw measurements: reps as-is; ms -> whole seconds / minutes.
@@ -25,6 +27,7 @@
     if (source === "pushups") return Math.max(0, Math.floor(n));
     if (source === "walk") return Math.max(0, Math.floor(n / 60000));
     if (source === "plank" || source === "tut") return Math.max(0, Math.floor(n / 1000));
+    if (source === "washers") return n > 0 ? 1 : 0;
     return 0;
   }
   function tokensFor(source, qty) {
@@ -42,6 +45,8 @@
     if (amount < 1) return null;
     return { id: txId(source, setId), tx: { uid: uid, type: "earn", source: source, amount: amount, units: r.units, qty: q, setId: cleanId(setId) } };
   }
+  // Zabba Washers: 1 token for a won game, once per gameId; null on loss / no user / no id.
+  function washersWinEarn(uid, won, gameId) { return won ? buildEarn(uid, "washers", 1, gameId) : null; }
   function validEarn(t) {
     var r = t && RATES[t.source];
     return !!(r && t.type === "earn" && t.units === r.units && Number.isInteger(t.qty) && t.qty >= 0 && t.qty <= r.max
@@ -87,13 +92,14 @@
     var q = readQ(store).filter(function (e) { return e.tx && e.tx.uid === uid; });
     return q.reduce(function (p, e) { return p.then(function () { return award(fs, e).then(function () { drop(store, e.id); }, function () {}); }); }, Promise.resolve());
   }
-  var LABEL = { pushups: "Push-ups", plank: "Plank", walk: "Walking", tut: "TUT" };
+  var LABEL = { pushups: "Push-ups", plank: "Plank", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers" };
   function mins(m) { m = Math.floor(m); return m + " minute" + (m === 1 ? "" : "s"); }
   var UNIT = { pushups: function (n) { return n + " push-up" + (n === 1 ? "" : "s"); }, plank: function (n) { return mins(n / 60); },
-    tut: function (n) { return mins(n / 60); }, walk: function (n) { return mins(n); } };
+    tut: function (n) { return mins(n / 60); }, walk: function (n) { return mins(n); },
+    washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; } };
   var OF = { pushups: "", plank: " of plank", tut: " of TUT", walk: " of walking" };
   // Display lines built from RATES so the page always matches the earn math.
-  function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { return UNIT[k](RATES[k].per) + OF[k] + " = 1 token"; }); }
+  function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { return UNIT[k](RATES[k].per) + OF[k] + " = 1 token"; }).concat(["Won Zabba Washers game = 1 token"]); }
   function txLine(t) {
     t = t || {};
     var src = LABEL[t.source] || String(t.source || "?"), q = Number(t.qty) || 0;
@@ -104,7 +110,7 @@
     if (!list || !list.length) return '<tr><td colspan="4">No tokens earned yet. Finish a set, plank or walk to earn your first.</td></tr>';
     return list.map(function (t) { var l = txLine(t); return "<tr><td>" + esc(l.source) + "</td><td>" + esc(l.amount) + "</td><td>" + esc(l.qty) + "</td><td>" + esc(l.when) + "</td></tr>"; }).join("");
   }
-  var api = { rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, tokensFor: tokensFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, validEarn: validEarn,
+  var api = { rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, tokensFor: tokensFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
     profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabaTokens = api;
 })(typeof window !== "undefined" ? window : this);

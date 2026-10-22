@@ -380,7 +380,8 @@ service cloud.firestore {
           && ((t().source == 'pushups' && t().units == 'reps'    && t().qty <= 5000 && t().amount * 10 <= t().qty)
            || (t().source == 'plank'   && t().units == 'seconds' && t().qty <= 7200 && t().amount * 60 <= t().qty)
            || (t().source == 'tut'     && t().units == 'seconds' && t().qty <= 7200 && t().amount * 60 <= t().qty)
-           || (t().source == 'walk'    && t().units == 'minutes' && t().qty <= 240  && t().amount * 10 <= t().qty))
+           || (t().source == 'walk'    && t().units == 'minutes' && t().qty <= 240  && t().amount * 10 <= t().qty)
+           || (t().source == 'washers' && t().units == 'wins'    && t().qty == 1    && t().amount == 1))
           && getAfter(userPath()).data.lastTxId == txId
           && getAfter(userPath()).data.zabaTokens == before() + t().amount;
         allow update, delete: if false;

@@ -13,7 +13,7 @@ check("walk 9m59 = 0", Z.tokensFor("walk", Z.qtyFrom("walk", 599999)) === 0);
 check("walk 10 min = 1", Z.tokensFor("walk", Z.qtyFrom("walk", 600000)) === 1);
 check("walk 4h cap = 24", Z.tokensFor("walk", Z.qtyFrom("walk", 14400000)) === 24);
 check("tut 61 s = 1", Z.tokensFor("tut", Z.qtyFrom("tut", 61000)) === 1);
-check("unknown source = 0", Z.tokensFor("washers", 1000) === 0);
+check("unknown source = 0", Z.tokensFor("bogus", 1000) === 0 && Z.tokensFor("washers", 1000) === 1);
 check("negative = 0", Z.tokensFor("pushups", -50) === 0);
 check("over max clamps", Z.tokensFor("pushups", 99999) === 500);
 // buildEarn
