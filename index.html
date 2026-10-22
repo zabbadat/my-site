@@ -601,7 +601,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
     <div class="note" id="challengeResult" hidden></div>
    <p class="note" id="camNote">Phone on the floor, screen up, under your chest. The camera counts each full rep. Video stays on this phone.</p>
-    <p class="note" id="pushGetSetNote">Get set first: tapping Start turns on your camera after a 2-second "Start, get, set" count. Hold the top for a second to calibrate, then the clock starts.</p>
+    <p class="note" id="pushGetSetNote">Get set first: tapping Start turns on your camera. Hold the top for a second to calibrate, then a 3-2-1 count and the clock starts.</p>
     <p class="note" id="camStatus" aria-live="polite"></p>
     <p class="note" id="pushStatus">Ready. Get set, then tap Start.</p>
     <p class="fine">Signed-in finishes post to the push board. Unsigned stays on this phone. Video never uploads.</p>
@@ -714,7 +714,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div id="plankWrap" hidden style="margin-top:1rem;max-width:22rem">
       <video id="plankVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video>
     </div>
-    <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. The clock starts after 1.5 seconds of good form. Sagging or piking hips, dropping to your knees or leaving the frame for more than a second ends the hold.</p>
+    <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. After a 3-2-1 count, the clock starts after 1.5 seconds of good form. Sagging or piking hips, dropping to your knees or leaving the frame for more than a second ends the hold.</p>
     <p class="fine">Every camera hold of 10 seconds or more counts as one set. New hold starts the next set without stopping the camera. Signed-in holds post to the Plank House board and today's sets board. Unsigned stays on this phone. Video never uploads.</p>
     <h3 style="margin-top:1.6rem">Plank House board</h3>
     <p class="lead">Longest hold first.</p>
@@ -1537,14 +1537,16 @@ function finishPushSet() {
     .then(() => tokP).then((tk) => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + viol + tokenNote(tk); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
-// One Start button: gate -> wake (in the tap) -> 2 s get-set -> camera -> pose -> calibrate -> clock.
+// One Start button: gate -> wake + speech unlock (in the tap) -> camera -> pose -> calibrate -> 3-2-1 (2 s) -> clock.
 const GET_SET_MS = 2000;
 const getSet = window.ZabbadatGetSet ? window.ZabbadatGetSet.makeGetSet({ ms: GET_SET_MS }) : null;
 function getSetCountdown(show, cancelled) {
   if (getSet) return getSet.run(show, cancelled);
+  show("3");
   return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), GET_SET_MS));
 }
 function cancelGetSet() { if (getSet) getSet.cancel(); }
+function unlockGetSet() { if (getSet) getSet.unlock(); }
 let pushStarting = false, pushStartToken = 0;
 function cancelPushStart(msg) {
   if (!pushStarting) return;
@@ -1564,17 +1566,19 @@ async function startPush() {
   if (pushState.finished || pushState.running || pushStarting) return;
   if (!requireSignIn("pushups", () => startPush(), { practice: true })) return;
   if (pushWake) pushWake.start().catch(() => {}); // inside the tap, before any await or timer
+  unlockGetSet(); // iOS: silent utterance inside the tap so the 3-2-1 can speak later
   if (typeof plankLoop !== "undefined" && plankLoop) stopPlankCam();
   const my = ++pushStartToken; const live = () => my === pushStartToken;
   pushStarting = true; $("pushStartBtn").disabled = true;
   const fail = (msg) => { if (!live()) return; cancelPushStart(msg); };
   try {
-    if (!(await getSetCountdown((t) => { $("pushStatus").textContent = t; }, () => !live()))) return;
-    if (!camOn) { const ok = await openCam(); if (!live()) return; if (!ok) return fail("Camera or pose blocked."); }
+    if (!camOn) { $("pushStatus").textContent = "Turning on camera…"; const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail("Camera or pose blocked."); }
     if (pushCounter && (pushCounter.state() || {}).phase === "calibrate") {
       $("pushStatus").textContent = "Hold the top to calibrate";
       if (!(await waitCalibrated(live))) return;
     }
+    if (!live()) return;
+    if (!(await getSetCountdown((t) => { $("pushStatus").textContent = t; }, () => !live()))) return;
     if (!live()) return;
     pushStarting = false; $("pushStartBtn").disabled = false;
     beginPushClock();
@@ -1876,33 +1880,38 @@ function newPlankHold() {
 async function startPlankCam() {
   if (!requireSignIn("plank", () => startPlankCam(), { practice: true })) return;
   if (plankWake) plankWake.start().catch(() => {}); // inside the tap, before any await or timer
+  unlockGetSet(); // iOS: silent utterance inside the tap so the 3-2-1 can speak later
   const my = ++plankStartToken; const live = () => my === plankStartToken;
   plankStarting = true;
   try {
     if (camOn) stopCam();
     if (pushStarting) cancelPushStart();
     $("plankCamBtn").textContent = "Stop camera";
-    if (!(await getSetCountdown((t) => { $("plankStatus").textContent = t; }, () => !live()))) return;
-    plankStarting = false;
-    $("plankCamBtn").disabled = true;
     $("plankStatus").textContent = "Loading camera…";
     await loadCamLibs();
+    if (!live()) return;
     if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
-    plankStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+    if (!live()) { stream.getTracks().forEach((t) => t.stop()); return; }
+    plankStream = stream;
     const vid = $("plankVid"); vid.srcObject = plankStream; await vid.play();
-    plankSessionStartedAt = Date.now();
     await ensurePose();
+    if (!live()) return;
     $("plankWrap").hidden = false;
-    $("plankCamBtn").textContent = "Stop camera";
+    $("plankStatus").textContent = "Phone off to your side, whole body in view. Get into your plank.";
+    if (!(await getSetCountdown((t) => { $("plankStatus").textContent = t; }, () => !live()))) return;
+    if (!live()) return;
+    plankStarting = false;
+    plankSessionStartedAt = Date.now();
     newPlankHold();
     $("plankStatus").textContent = "Phone off to your side, whole body in view. Hold a straight plank for 1.5 seconds to start the clock.";
     plankLoop = true; plankTick();
-  } catch (e) { if (live()) { plankStarting = false; if (plankWake && !plankLoop) plankWake.stop().catch(() => {}); $("plankStatus").textContent = "Camera or pose blocked."; $("plankCamBtn").textContent = "Start plank camera"; } }
-  finally { $("plankCamBtn").disabled = false; }
+  } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = "Camera or pose blocked."; } }
 }
 let plankStarting = false, plankStartToken = 0;
 function cancelPlankStart() {
   plankStartToken += 1; plankStarting = false; cancelGetSet();
+  if (plankStream && !plankLoop) { plankStream.getTracks().forEach((t) => t.stop()); plankStream = null; $("plankWrap").hidden = true; }
   if (plankWake && !plankLoop) plankWake.stop().catch(() => {});
   $("plankCamBtn").textContent = "Start plank camera";
   $("plankStatus").textContent = "Start cancelled.";
