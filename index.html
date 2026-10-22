@@ -2155,6 +2155,8 @@ $("emailAuth").onsubmit = async (ev) => {
     if (eaMode === "signup") {
       const cred = await createUserWithEmailAndPassword(auth, f.email, f.password);
       await updateProfile(cred.user, { displayName: f.name.trim() });
+      // onAuthStateChanged ran before the name was set and filled the board name with the email; use the chosen name.
+      if ($("player").value.trim() === (cred.user.email || "")) $("player").value = "";
       showUser(auth.currentUser);
     } else {
       await signInWithEmailAndPassword(auth, f.email, f.password);
@@ -2176,7 +2178,8 @@ const battleFs = {
 const battle = BR.controller(battleFs);
 let battleRoom = null, battleCode = null, battleOff = null, battleTick = null;
 const bStatus = (t) => { $("battleStatus").textContent = t || ""; };
-function battleUser() { return currentUser ? { uid: currentUser.uid, name: ($("player").value.trim() || displayNameOf(currentUser)).slice(0, 20) } : null; }
+// Seat names are shown to the opponent: never an email address (publicName strips it to the local part).
+function battleUser() { return currentUser ? { uid: currentUser.uid, name: publicName($("player").value.trim() || displayNameOf(currentUser)).slice(0, 20) } : null; }
 function paintBattle() {
   const signed = !!currentUser, r = battleRoom;
   $("battleSignIn").hidden = signed; $("battleStart").hidden = !signed || !!battleCode; $("battleLobby").hidden = !battleCode;
