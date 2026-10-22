@@ -77,26 +77,24 @@ function fakeFb(fail) { const f = { made: 0, plays: 0, stops: 0, playing: false,
   // Non-interference with walk lock + washers lock in index.html.
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   const src = fs.readFileSync(path.join(__dirname, "..", "wake-lock.js"), "utf8");
-  check("wake-lock.js never touches walkLockOn/setWalkLock/pocketOn/releaseAwake", !/walkLockOn|setWalkLock|pocketOn|setPocket|releaseAwake|keepAwake/.test(src));
+  check("wake-lock.js never touches walkLockOn/setWalkLock/pocketOn/setPocket", !/walkLockOn|setWalkLock|pocketOn|setPocket|releaseAwake|keepAwake/.test(src));
   const fn = (name) => { const i = html.indexOf("function " + name + "("); const j = html.indexOf("\n}", i); return html.slice(i, j + 2); };
-  check("washers keepAwake/releaseAwake don't reference walkWake", !/walkWake/.test(fn("keepAwake") + fn("releaseAwake")) && !/walkWake/.test(fn("setPocket")));
-  check("beginWalk/endWalk don't touch washers wakeLock/pocketOn", !/\bwakeLock\b|pocketOn|releaseAwake|keepAwake/.test(fn("beginWalk") + html.slice(html.indexOf("async function endWalk("), html.indexOf("async function endWalk(") + 600)));
+  check("washers game uses shared gameWake, never walkWake; setPocket untouched", /gameWake\.start\(\)/.test(html) && !/walkWake|Wake/.test(fn("setPocket")) && !/keepAwake|releaseAwake/.test(html));
+  check("beginWalk/endWalk don't touch washers gameWake/pocketOn", !/gameWake|pocketOn|setPocket/.test(fn("beginWalk") + html.slice(html.indexOf("async function endWalk("), html.indexOf("async function endWalk(") + 600)));
 
-  // Runtime: washers' own sentinel and walkWake's sentinel are separate on a shared navigator.
+  // Runtime: washers' shared instance and walkWake hold separate sentinels on a shared navigator.
   nav = fakeNav();
-  const ctx = { navigator: nav, console };
-  vm.createContext(ctx);
-  vm.runInContext("let wakeLock = null;\nasync " + fn("keepAwake") + "\n" + fn("releaseAwake") + "\nthis.keepAwake = keepAwake; this.releaseAwake = releaseAwake; this.get = () => wakeLock;", ctx);
   let walkLockOn = false; const setWalkLock = (on) => { walkLockOn = !!on; };
+  const game = createWakeLock({ navigator: nav, document: fakeDoc(), createFallback: fakeFb().factory });
   w = createWakeLock({ navigator: nav, document: fakeDoc(), createFallback: fakeFb().factory });
-  await ctx.keepAwake(); const washersS = ctx.get();
+  await game.start(); const washersS = nav.sentinels[0];
   await w.start(); setWalkLock(true); const walkS = nav.sentinels[1];
   check("separate sentinels for washers and walk", washersS && walkS && washersS !== walkS);
   await w.stop(); setWalkLock(false);
-  check("walk stop leaves washers lock held", walkS.released && !washersS.released && ctx.get() === washersS);
+  check("walk stop leaves washers lock held", walkS.released && !washersS.released && game.isHeld());
   await w.start(); setWalkLock(true);
-  ctx.releaseAwake(); await tick();
-  check("washers releaseAwake leaves walk lock held and walkLockOn unchanged", washersS.released && w.isHeld() && !nav.sentinels[2].released && walkLockOn === true);
+  await game.stop(); await tick();
+  check("washers stop leaves walk lock held and walkLockOn unchanged", washersS.released && w.isHeld() && !nav.sentinels[2].released && walkLockOn === true);
   await w.stop();
   check("walkWake.start/stop never changed walkLockOn itself", walkLockOn === true);
 

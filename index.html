@@ -1101,7 +1101,7 @@ $("startBtn").onclick = () => {
   state.tick = setInterval(render, 200);
   setStatus("Game on.");
   startPhoneSteps();
-  keepAwake();
+  if (gameWake) gameWake.start().catch(() => {});
   render();
   setPocket(true);
 };
@@ -1125,6 +1125,7 @@ $("pauseBtn").onclick = () => {
   stepVerifier.pause(performance.now());
   clearInterval(state.tick);
   setStatus("Paused.");
+  if (gameWake) gameWake.stop().catch(() => {});
   stopPhoneSteps();
   render();
   paintGameBtn();
@@ -1136,7 +1137,7 @@ $("resetBtn").onclick = () => {
   Object.assign(state, { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false });
   stepDetector.reset();
   stepVerifier.reset();
-  releaseAwake();
+  if (gameWake) gameWake.stop().catch(() => {});
   setStatus("Reset.");
   stopPhoneSteps();
   render();
@@ -1169,7 +1170,6 @@ let sensorSamples = 0;
 let sensorWindowStart = 0;
 let sensorLastAt = 0;
 let sensorDotTimer = null;
-let wakeLock = null;
 
 function setPhoneNote(msg) {
   const el = $("phoneStepsNote");
@@ -1180,22 +1180,19 @@ function setSensorDot(msg) {
   if (el) el.textContent = msg;
 }
 
-// Keep the screen on while playing: the browser stops motion events when the screen locks.
-async function keepAwake() {
-  if (!("wakeLock" in navigator)) return;
-  try {
-    if (wakeLock && !wakeLock.released) return;
-    wakeLock = await navigator.wakeLock.request("screen");
-  } catch (err) { /* not allowed right now (e.g. battery saver) */ }
+// Shared screen wake (wake-lock.js): one instance per feature, started in its Start tap, stopped on its end actions.
+// The browser stops motion events when the screen sleeps. Re-acquire on visible is handled inside each instance.
+const WAKE_NOTE = "Keep the screen on during this session; this phone can't hold it awake.";
+function makeWake(statusId, note) {
+  if (!window.WakeLock) return null;
+  return window.WakeLock.createWakeLock({ note: note || WAKE_NOTE, onNote: (m) => { const el = $(statusId); if (el) el.textContent = m; } });
 }
-function releaseAwake() {
-  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
-}
+const gameWake = makeWake("status"), pushWake = makeWake("pushStatus"), camWake = makeWake("camNote"), plankWake = makeWake("plankStatus");
+const plankBattleWake = makeWake("battleStatus"), tbWake = makeWake("tbStatus"), wbWake = makeWake("wbStatus");
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     if (state.running && !state.finished) stepVerifier.hidden();
   } else if (state.running && !state.finished) {
-    keepAwake();
     setStatus("Page was hidden during play, so this game can't be verified for the live board.");
   }
 });
@@ -1280,7 +1277,7 @@ async function finishGame() {
   clearInterval(state.tick);
   stepVerifier.pause(performance.now());
   stopPhoneSteps();
-  releaseAwake();
+  if (gameWake) gameWake.stop().catch(() => {});
   const ms = state.elapsed + (state.startedAt ? Date.now() - state.startedAt : 0);
   state.elapsed = ms;
   const check = stepVerifier.result(state.steps, ms);
@@ -1457,6 +1454,7 @@ function finishPushSet() {
   pushState.running = false;
   pushState.finished = true;
   clearInterval(pushState.tick);
+  if (pushWake) pushWake.stop().catch(() => {});
   const ms = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
   pushState.elapsed = ms;
   const typed = ($("player").value || "").trim().slice(0, 20);
@@ -1498,6 +1496,7 @@ if ($("pushStartBtn")) $("pushStartBtn").onclick = () => {
   pushState.running = true;
   pushState.startedAt = Date.now();
   pushState.tick = setInterval(renderPush, 200);
+  if (pushWake) pushWake.start().catch(() => {});
   if (pushMode === "long" && postureGuard) postureGuard.reset();
   $("pushStatus").textContent = pushMode === "long" ? "Session on. The clock runs nonstop; the camera counts each full rep." : "Set on. The camera counts each full rep.";
   renderPush();
@@ -1507,11 +1506,13 @@ if ($("pushPauseBtn")) $("pushPauseBtn").onclick = () => {
   pushState.elapsed += Date.now() - pushState.startedAt;
   pushState.running = false;
   clearInterval(pushState.tick);
+  if (pushWake) pushWake.stop().catch(() => {});
   $("pushStatus").textContent = "Paused.";
   renderPush();
 };
 if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
   clearInterval(pushState.tick);
+  if (pushWake) pushWake.stop().catch(() => {});
   Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 });
   resetPoseBaseline();
   if (postureGuard) postureGuard.reset();
@@ -1618,6 +1619,7 @@ async function poseTick() {
 }
 
 async function startCam() {
+  if (camWake) camWake.start().catch(() => {}); // inside the tap, before any await
   try {
     $("camNote").textContent = "Loading camera counter…";
     $("camBtn").disabled = true;
@@ -1642,6 +1644,7 @@ async function startCam() {
     $("camNote").textContent = "Arms straight, hold still for a second to calibrate, then do one full, slow pushup.";
     poseTick();
   } catch (e) {
+    if (camWake && !camOn) camWake.stop().catch(() => {});
     $("camNote").textContent = "Camera or pose blocked.";
   } finally {
     $("camBtn").disabled = false;
@@ -1652,6 +1655,7 @@ function stopCam() {
   camOn = false;
   if (camStream) camStream.getTracks().forEach((t) => t.stop());
   camStream = null;
+  if (camWake) camWake.stop().catch(() => {});
   camExitFs();
   $("camWrap").hidden = true;
   $("camStopBtn").hidden = true;
@@ -1769,6 +1773,7 @@ function newPlankHold() {
   $("plankStopBtn").hidden = false; $("plankAgainBtn").hidden = true;
 }
 async function startPlankCam() {
+  if (plankWake) plankWake.start().catch(() => {}); // inside the tap, before any await
   try {
     if (camOn) stopCam();
     $("plankCamBtn").disabled = true;
@@ -1784,7 +1789,7 @@ async function startPlankCam() {
     newPlankHold();
     $("plankStatus").textContent = "Phone off to your side, whole body in view. Hold a straight plank for 1.5 seconds to start the clock.";
     plankLoop = true; plankTick();
-  } catch (e) { $("plankStatus").textContent = "Camera or pose blocked."; }
+  } catch (e) { if (plankWake && !plankLoop) plankWake.stop().catch(() => {}); $("plankStatus").textContent = "Camera or pose blocked."; }
   finally { $("plankCamBtn").disabled = false; }
 }
 function stopPlankCam() {
@@ -1793,6 +1798,7 @@ function stopPlankCam() {
   plankSessionStartedAt = 0;
   if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
   plankStream = null;
+  if (plankWake) plankWake.stop().catch(() => {});
   $("plankWrap").hidden = true; $("plankStopBtn").hidden = true;
   $("plankCamBtn").textContent = "Start plank camera";
 }
@@ -1891,7 +1897,7 @@ function beginWalk() {
   if (walkWake) walkWake.start().catch(() => {});
   clearInterval(walkTick); walkTick = setInterval(paintWalk, 500); paintWalk();
 }
-// Screen Wake Lock (wake-lock.js): keep the screen awake during a live walk; one-time note if unsupported.
+// Shared screen wake (wake-lock.js): keep the screen awake during a live walk; one-time note if unsupported.
 const walkWake = window.WakeLock ? window.WakeLock.createWakeLock({ onNote: (m) => { const el = $("walkStatus"); if (el) el.textContent = m; } }) : null;
 async function endWalk(r) {
   clearInterval(walkTick); walkTick = null;
@@ -2183,7 +2189,7 @@ function battleUser() { return currentUser ? { uid: currentUser.uid, name: publi
 function paintBattle() {
   const signed = !!currentUser, r = battleRoom;
   $("battleSignIn").hidden = signed; $("battleStart").hidden = !signed || !!battleCode; $("battleLobby").hidden = !battleCode;
-  if (!battleCode) return;
+  if (!battleCode) { if (plankBattleWake) plankBattleWake.stop().catch(() => {}); return; }
   $("battleRoomCode").textContent = battleCode;
   const ps = r ? BR.orderedPlayers(r, battleFs.toMs) : [], me = currentUser && currentUser.uid;
   [0, 1].forEach((i) => { const p = ps[i];
@@ -2197,6 +2203,7 @@ function paintBattle() {
   else if (pre && ps.length < 2) bStatus("Waiting for a second player…");
   else if (pre) bStatus(mine && mine.ready ? "Waiting for the other player to tap ready…" : "Tap I'm ready when you're in position.");
   if (pre && BR.bothReady(r)) battle.maybeStart(battleCode).catch(() => {});
+  if (plankBattleWake) plankBattleWake.want(!!(mine && r && r.status !== "abandoned" && (mine.ready || r.status === "countdown" || r.status === "live"))).catch(() => {});
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt) { if (!battleTick) battleTick = setInterval(tickBattle, 100); tickBattle(); }
   else { clearInterval(battleTick); battleTick = null; $("battleCount").hidden = true; }
 }
@@ -2236,7 +2243,7 @@ $("battleJoin").onclick = async () => {
   finally { $("battleJoin").disabled = false; }
 };
 $("battleCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("battleJoin").click(); });
-$("battleReady").onclick = async () => { const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
+$("battleReady").onclick = async () => { const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; if (plankBattleWake && !(mine && mine.ready)) plankBattleWake.start().catch(() => {}); try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
 $("battleLeave").onclick = async () => { const c = battleCode, u = battleUser(); exitBattle(); bStatus("You left the room."); if (u && c) battle.leave(c, u).catch(() => {}); };
 // ---- TUT Battles (rooms module reused on tutBattles/{code}; solo push game untouched) ----
 const TBm = window.ZabbaTutBattle;
@@ -2256,7 +2263,7 @@ const fmtT = (ms) => { const t = Math.max(0, Math.floor((ms || 0) / 1000)); retu
 function tbPaint() {
   const r = tbRoom, me = currentUser && currentUser.uid;
   $("tbSignIn").hidden = !!currentUser; $("tbStart").hidden = !currentUser || !!tbCodeCur; $("tbLobby").hidden = !tbCodeCur;
-  if (!tbCodeCur) return;
+  if (!tbCodeCur) { if (tbWake) tbWake.stop().catch(() => {}); return; }
   $("tbRoomCode").textContent = tbCodeCur;
   const ps = r ? BR.orderedPlayers(r, tbFs.toMs) : [], pre = r && !BR.started(r) && r.status !== "abandoned";
   const inPlay = r && (r.status === "live" || r.status === "done");
@@ -2277,6 +2284,7 @@ function tbPaint() {
   else if (pre && ps.length < 2) tbStat("Waiting for a second player… Turn on your camera and get set while you wait.");
   else if (pre) tbStat(!tbStream ? "Turn on the camera, calibrate at the top, then tap I'm ready." : mine && mine.ready ? "Waiting for the other player…" : "Tap I'm ready when you're in position.");
   if (pre && BR.bothReady(r)) tb.maybeStart(tbCodeCur).catch(() => {});
+  if (tbWake) tbWake.want(!!(mine && r && (pre || r.status === "countdown" || r.status === "live") && (tbStream || mine.ready || r.status === "countdown" || r.status === "live"))).catch(() => {});
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt) { if (!tbTick) tbTick = setInterval(tbTickFn, 100); tbTickFn(); }
   else { clearInterval(tbTick); tbTick = null; if (!(r && r.status === "done")) $("tbCount").hidden = true; }
   if (r && r.status === "done") tbFinish(r);
@@ -2303,7 +2311,7 @@ async function tbCamOn() {
     const v = $("tbVid"); v.srcObject = tbStream; await v.play(); await ensurePose();
     tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
     $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Phone under your chest. Arms straight, hold still to calibrate."; requestAnimationFrame(tbPose); tbPaint();
-  } catch (e) { $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); }
+  } catch (e) { $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
 }
 function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; }
 async function tbPose() {
@@ -2325,7 +2333,7 @@ async function tbPose() {
   if (tbLoop) requestAnimationFrame(tbPose);
 }
 function tbFinish(r) {
-  clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null;
+  clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; if (tbWake) tbWake.stop().catch(() => {});
   const me = currentUser && currentUser.uid, won = r.winnerUid === me, c = $("tbCount");
   c.hidden = false; c.className = "battle-count result"; c.textContent = won ? "You win!" : "You lose";
   const loser = r.players && r.players[r.loserUid];
@@ -2341,8 +2349,8 @@ async function tbResume(u) { let code = null; try { code = localStorage.getItem(
 $("tbCreate").onclick = async () => { const u = battleUser(); if (!u) return tbStat("Sign in to create a battle."); $("tbCreate").disabled = true; tbStat("Making a room…"); try { tbEnter(await tb.createRoom(u)); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
 $("tbJoin").onclick = async () => { const u = battleUser(); if (!u) return tbStat("Sign in to join a battle."); $("tbJoin").disabled = true; tbStat("Joining…"); try { tbEnter(await tb.joinRoom($("tbCode").value, u)); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
 $("tbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tbJoin").click(); });
-$("tbCam").onclick = tbCamOn;
-$("tbReady").onclick = async () => { const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
+$("tbCam").onclick = () => { if (tbWake) tbWake.start().catch(() => {}); return tbCamOn(); };
+$("tbReady").onclick = async () => { const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; if (tbWake && !(m && m.ready)) tbWake.start().catch(() => {}); try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
 $("tbRematch").onclick = async () => {
   const u = battleUser(), r = tbRoom; if (!u || !r) return;
   try {
@@ -2381,7 +2389,7 @@ function wbPaint() {
   $("wbSignIn").hidden = !!currentUser; $("wbStart").hidden = !currentUser || !!wbCodeCur; $("wbLobby").hidden = !wbCodeCur;
   $("wbInviteJoin").hidden = !(currentUser && wbInvite && !wbCodeCur); if (wbInvite) $("wbInviteJoin").textContent = "Join battle " + wbInvite;
   if (!currentUser && wbInvite && !wbCodeCur) wbStat("Sign in, then tap Join battle " + wbInvite + ".");
-  if (!wbCodeCur) { wbHook = null; return; }
+  if (!wbCodeCur) { wbHook = null; if (wbWake) wbWake.stop().catch(() => {}); return; }
   $("wbRoomCode").textContent = wbCodeCur;
   const ps = r ? BR.orderedPlayers(r, wbFs.toMs) : [], pre = r && !BR.started(r) && r.status !== "abandoned", mine = r && me && r.players && r.players[me];
   const dec = r ? WBm.decide(r) : { phase: "waiting" };
@@ -2407,6 +2415,7 @@ function wbPaint() {
   else if (dec.phase === "waiting-opponent") wbStat("Your result is in. Waiting for opponent…");
   else if (dec.phase === "done") { const w = dec.winnerUid && r.players[dec.winnerUid]; wbStat((dec.winnerUid == null ? "No winner. " : dec.winnerUid === me ? "You win! " : (w ? w.name : "Opponent") + " wins. ") + (WBm.WHY[dec.why] || "") + "."); }
   if (pre && BR.bothReady(r)) wb.maybeStart(wbCodeCur).catch(() => {});
+  if (wbWake) wbWake.want(!!(mine && !mine.result && r.status !== "abandoned" && dec.phase !== "done" && (pre ? mine.ready : r.status === "countdown" || r.status === "live"))).catch(() => {});
   if (r && r.status === "countdown" && r.startAt) { if (!wbTick) wbTick = setInterval(wbTickFn, 100); wbTickFn(); }
   else { clearInterval(wbTick); wbTick = null; $("wbCount").hidden = true; }
   if (playing && !wbPub) wbPub = setInterval(() => { if (wbCodeCur && currentUser) WBm.publishProgress(wbFs, wbCodeCur, currentUser.uid, state.score, state.steps).catch(() => {}); }, 2000);
@@ -2438,7 +2447,7 @@ $("wbShare").onclick = async () => {
   try { if (navigator.share) { await navigator.share({ title: WBm.NAME, text: "Join my " + WBm.NAME + ":", url }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
   try { await navigator.clipboard.writeText(text); wbStat("Invite link copied."); } catch (e) { wbStat(text); }
 };
-$("wbReady").onclick = async () => { const u = battleUser(), m = wbRoom && wbRoom.players && wbRoom.players[u.uid]; try { await wb.setReady(wbCodeCur, u, !(m && m.ready)); } catch (e) { wbStat(e.message); } };
+$("wbReady").onclick = async () => { const u = battleUser(), m = wbRoom && wbRoom.players && wbRoom.players[u.uid]; if (wbWake && !(m && m.ready)) wbWake.start().catch(() => {}); try { await wb.setReady(wbCodeCur, u, !(m && m.ready)); } catch (e) { wbStat(e.message); } };
 [["wbOp1", 0], ["wbOp2", 1]].forEach(([id, i]) => { $(id).onclick = () => { const ps = wbRoom ? BR.orderedPlayers(wbRoom, wbFs.toMs) : []; if (ps[i] && currentUser) WBm.setOpener(wbFs, wbCodeCur, currentUser.uid, ps[i].uid).catch(() => {}); }; });
 $("wbQuit").onclick = async () => { if (!currentUser || !confirm("Forfeit this Zabba washer Battle Gate?")) return; try { await WBm.forfeit(wbFs, wbCodeCur, currentUser.uid); } catch (e) { wbStat(e.message); } };
 $("wbLeave").onclick = async () => {

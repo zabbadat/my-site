@@ -1,4 +1,5 @@
-// Screen Wake Lock for live walks: keeps the screen from idle-sleeping while a walk is active.
+// Shared Screen Wake Lock for every Start button: one instance per feature keeps the screen from idle-sleeping
+// while that feature's session is active. Instances never share or release each other's sentinel or video.
 // Fallback (only when navigator.wakeLock is missing or its request rejects): a NoSleep-style hidden,
 // muted, playsinline, looping video (/walk-wake.mp4, no audio track). The one-time note shows only if both fail.
 (function (root) {
@@ -34,11 +35,12 @@
     const nav = opts.navigator || (typeof navigator !== "undefined" ? navigator : null);
     const doc = opts.document || (typeof document !== "undefined" ? document : null);
     const onNote = opts.onNote || function () {};
+    const noteText = opts.note || NOTE;
     const makeFallback = opts.createFallback || (() => videoFallback(doc));
     let active = false, sentinel = null, noted = false, pending = null;
     let fb = null, fbOn = false, gen = 0;
     const supported = () => !!(nav && nav.wakeLock && typeof nav.wakeLock.request === "function");
-    function note() { if (!noted) { noted = true; try { onNote(NOTE); } catch (e) {} } }
+    function note() { if (!noted) { noted = true; try { onNote(noteText); } catch (e) {} } }
     // When the API is missing this runs synchronously inside start(), so play() stays in the Start tap's gesture.
     function startFallback() {
       if (!active) return Promise.resolve(false);
@@ -86,6 +88,8 @@
         const s = sentinel; sentinel = null;
         if (s) { try { await s.release(); } catch (e) {} }
       },
+      // Idempotent: hold while `on` is true, release once it goes false (for state-driven features like battles).
+      want(on) { if (on && !active) return this.start(); if (!on && active) return this.stop(); return Promise.resolve(on ? this.isHeld() : false); },
       isActive: () => active,
       isHeld: () => !!sentinel || fbOn,
       usingFallback: () => fbOn,
