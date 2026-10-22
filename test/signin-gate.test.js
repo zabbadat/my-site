@@ -26,7 +26,7 @@ const INV = [
   ["push-up camera Phone on floor (startCam)", 'requireSignIn("pushcam", () => startCam(), { practice: true })', true, 1],
   ["plank camera (startPlankCam)", 'requireSignIn("plank", () => startPlankCam(), { practice: true })', true, 1],
   ["plank battle create/join/ready", 'requireSignIn("plank battle")', false, 3],
-  ["TUT battle create/join/ready/camera", 'requireSignIn("tut battle")', false, 4],
+  ["TUT battle create/join/Start battle", 'requireSignIn("tut battle")', false, 3],
 ];
 for (const [name, snip, practice, n] of INV) {
   const c = html.split(snip).length - 1;

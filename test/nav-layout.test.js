@@ -8,7 +8,7 @@ const NAV = ["#approach", "#washers", "#push", "#plank", "#steps", "#battles-hub
 check("nav order: Zabba Washers right after The Practice, Step Equity before Battles, others keep relative order", JSON.stringify(links) === JSON.stringify(NAV));
 check("nav: Zabba Washers link immediately follows The Practice", /<a href="#approach">The Practice<\/a>\s*<a href="#washers">Zabba Washers<\/a>/.test(nav));
 check("nav: TUT Battles link absent", !/href="#tutbattles"/.test(nav) && !/TUT Battles<\/a>/.test(nav));
-check("TUT battles section still present with its buttons", /<section id="tutbattles">/.test(html) && /id="tbCreate"/.test(html) && /id="tbJoin"/.test(html) && /id="tbReady"/.test(html));
+check("TUT battles section still present with its buttons", /<section id="tutbattles">/.test(html) && /id="tbCreate"/.test(html) && /id="tbJoin"/.test(html) && /id="tbGo"/.test(html));
 const sections = [...html.matchAll(/<section[^>]*id="([^"]+)"/g)].map((m) => m[1]);
 const SECT = ["approach", "washers", "play", "board", "cooling-box", "push", "battles-hub", "tokens", "tutbattles", "tut-board", "plank", "battles", "steps", "league", "corporate", "order", "membership"];
 check("section order: Tokens moved under Battles hub, others unchanged", JSON.stringify(sections) === JSON.stringify(SECT));
