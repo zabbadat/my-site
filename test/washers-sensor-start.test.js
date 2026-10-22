@@ -20,7 +20,7 @@ function run(perm){
    const onMotion=()=>{};const stepDetector={reset(){}},stepVerifier={reset(){},resume(){},denied(){log.push('denied')},noSensor(){log.push('nosensor')}};
    const performance={now:()=>1};const setInterval=()=>0;const render=()=>{};
    const setStatus=(m)=>log.push('status:'+m);const setPhoneNote=(m)=>log.push('note:'+m);const startSensorDot=()=>log.push('dot');
-   const gameWake={start(){log.push('wake');return Promise.resolve();}};const setPocket=(v)=>log.push('pocket:'+v);
+   const requireSignIn=()=>true;const gameWake={start(){log.push('wake');return Promise.resolve();}};const setPocket=(v)=>log.push('pocket:'+v);
    const $=()=>({});const _o={};const $$=_o;
    ${src}
    const btn={}; ${clk.replace('$("startBtn").onclick','btn.onclick')}

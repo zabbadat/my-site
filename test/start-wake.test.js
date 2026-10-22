@@ -32,7 +32,7 @@ const WAKES = line("const gameWake = makeWake(") + line("const plankBattleWake =
 const BASE = [line("const WAKE_NOTE"), fnSrc("makeWake"), WAKES].join("\n");
 const STATE = [line("const state = {"), line("let pocketOn = false;"), line("let walkLockOn = false;"), line("let relockTimer = null;"), line("let wbHook = null;"),
   line("const pushState = {"), "let pushMode = 'sets';", fnSrc("paintGameBtn"), fnSrc("setPocket"), fnSrc("setWalkLock")].join("\n");
-const STUBS = `let gameHoldDone = false; let currentUser = null; const postureGuard = null; const ZT = null; let saveRemotePush = async () => {}; let awardTokens = async () => ({});
+const STUBS = `function requireSignIn() { return true; } let gameHoldDone = false; let currentUser = null; const postureGuard = null; const ZT = null; let saveRemotePush = async () => {}; let awardTokens = async () => ({});
 function render() {} function setStatus() {} function startPhoneSteps() {} function stopPhoneSteps() {} function renderPush() {} function resetPoseBaseline() {}
 function paintPushRows() {} function localPush() { return []; } function pushTotalKey() { return "a"; } function pushSetsKey() { return "b"; } function pushTutKey() { return "c"; }
 function savedPushTotal() { return 0; } function savedPushSets() { return 0; } function savedPushTut() { return 0; } function formatTime() { return ""; } function tokenNote() { return ""; }
@@ -140,7 +140,7 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
 
   // ---- Static wiring for battles (tap-start inside gesture + exit paths); runtime of full paint needs Firestore.
   check("static: plank battle I'm ready tap starts wake", /\$\("battleReady"\)\.onclick = async \(\) => \{[^\n]*plankBattleWake\.start\(\)/.test(html));
-  check("static: TUT battle I'm ready + camera taps start wake", /\$\("tbReady"\)\.onclick[^\n]*tbWake\.start\(\)/.test(html) && /\$\("tbCam"\)\.onclick = \(\) => \{ if \(tbWake\) tbWake\.start\(\)/.test(html));
+  check("static: TUT battle I'm ready + camera taps start wake", /\$\("tbReady"\)\.onclick[^\n]*tbWake\.start\(\)/.test(html) && /\$\("tbCam"\)\.onclick = \(\) => \{[^\n]*if \(tbWake\) tbWake\.start\(\)/.test(html));
   check("static: Battle Gate I'm ready tap starts wake", /\$\("wbReady"\)\.onclick[^\n]*wbWake\.start\(\)/.test(html));
   check("static: leave/exit/sign-out (no room code) stops each battle wake", /if \(!battleCode\) \{ if \(plankBattleWake\) plankBattleWake\.stop\(\)/.test(html) && /if \(!tbCodeCur\) \{ if \(tbWake\) tbWake\.stop\(\)/.test(html) && /if \(!wbCodeCur\) \{ wbHook = null; if \(wbWake\) wbWake\.stop\(\)/.test(html));
   check("static: tbFinish stops TUT battle wake", /function tbFinish[^\n]*\n[^\n]*tbWake\.stop\(\)/.test(html));

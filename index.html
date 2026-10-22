@@ -386,6 +386,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .mode-toggle{border-color:rgba(198,255,0,.45)!important}
 .mode-toggle button[aria-pressed="true"]{background:var(--grad)!important;color:#0e1412!important}
 .btn:not(.ghost):not(.danger){background:var(--grad)!important;color:#0e1412!important;font-weight:700;box-shadow:0 4px 18px rgba(255,46,147,.25)}
+.sign-gate{position:fixed;inset:0;z-index:1000;background:rgba(5,8,7,.72);display:flex;align-items:center;justify-content:center;padding:1rem}.sign-gate-box{max-width:22rem;width:100%;background:#0e1412;border:1px solid #ff2e93;border-radius:16px;padding:1.2rem;color:#eaffd0;box-shadow:0 0 0 1px #b6ff3b inset}.sign-gate-box h2{margin:0 0 .4rem;color:#b6ff3b}.sign-gate-box .row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
 .btn.ghost{border:1px solid transparent!important;background:linear-gradient(#0e1412,#0e1412) padding-box,var(--grad) border-box!important;color:var(--lime-2)!important}
 :where(a):focus-visible,button:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--pink-2)!important;outline-offset:2px}
 .social-btn:not([data-brand]){border-color:rgba(198,255,0,.4)}
@@ -957,6 +958,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/daily-steps.js"></script>
   <script src="/walk-session.js"></script>
   <script src="/wake-lock.js"></script>
+  <script src="/signin-gate.js"></script>
   <script src="/live-walk.js"></script>
   <script src="/members.js"></script>
   <script src="/zaba-tokens.js"></script>
@@ -981,6 +983,10 @@ const configured = firebaseConfig.apiKey !== "PASTE_API_KEY";
 
 const state = { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
 let currentUser = null;
+// Shared sign-in gate (signin-gate.js) for every Start button; Sign in jumps to the sign-in box in #play.
+const signGate = window.SignInGate ? window.SignInGate.createSignInGate({ document, storage: (() => { try { return window.sessionStorage; } catch (e) { return null; } })(), isSignedIn: () => !!currentUser,
+  onSignIn: () => { const b = document.getElementById("signInBtn"), s = document.getElementById("play"); if (s && s.scrollIntoView) s.scrollIntoView({ behavior: "smooth", block: "start" }); if (b && b.focus) setTimeout(() => b.focus(), 300); } }) : null;
+function requireSignIn(feature, startFn, opts) { return signGate ? signGate.requireSignIn(feature, startFn, opts) : !!currentUser || !!(opts && opts.practice); }
 let pocketOn = false; // washers game lock (main Start button)
 let walkLockOn = false; // live walk lock (steps section), independent of pocketOn
 let relockTimer = null;
@@ -1112,6 +1118,7 @@ $("startBtn").onclick = () => {
   if (gameHoldDone) { gameHoldDone = false; return; } // swallow the click that follows a hold
   if (state.running && !state.finished) { setStatus(pocketOn ? "Locked. Hold 1 second to unlock and score." : "Hold 1 second to end the game."); return; }
   if (state.finished || state.running) return;
+  if (!requireSignIn("washers", () => $("startBtn").onclick(), { practice: true })) return;
   if (state.elapsed === 0) { stepDetector.reset(); stepVerifier.reset(); }
   state.running = true;
   state.startedAt = Date.now();
@@ -1511,6 +1518,7 @@ function finishPushSet() {
 }
 if ($("pushStartBtn")) $("pushStartBtn").onclick = () => {
   if (pushState.finished || pushState.running) return;
+  if (!requireSignIn("pushups", () => $("pushStartBtn").onclick(), { practice: true })) return;
   pushState.running = true;
   pushState.startedAt = Date.now();
   pushState.tick = setInterval(renderPush, 200);
@@ -1637,6 +1645,7 @@ async function poseTick() {
 }
 
 async function startCam() {
+  if (!requireSignIn("pushcam", () => startCam(), { practice: true })) return;
   if (camWake) camWake.start().catch(() => {}); // inside the tap, before any await
   try {
     $("camNote").textContent = "Loading camera counter…";
@@ -1791,6 +1800,7 @@ function newPlankHold() {
   $("plankStopBtn").hidden = false; $("plankAgainBtn").hidden = true;
 }
 async function startPlankCam() {
+  if (!requireSignIn("plank", () => startPlankCam(), { practice: true })) return;
   if (plankWake) plankWake.start().catch(() => {}); // inside the tap, before any await
   try {
     if (camOn) stopCam();
@@ -1862,7 +1872,7 @@ if (daily) {
   if (daily.source.kind === "native") { $("dailyWalkBtn").hidden = true; $("dailyRefreshBtn").hidden = false; daily.refreshNative().then(() => postDaily(true)); }
   $("dailyRefreshBtn").onclick = () => { if (walkLockOn) { $("dailyStatus").textContent = "Hold to stop first."; return; } daily.refreshNative().then(() => postDaily(true)); };
   $("dailyWalkBtn").onclick = async () => {
-    if (daily.state().walking) { daily.stopWalk(); postDaily(true); } else await daily.startWalk();
+    if (daily.state().walking) { daily.stopWalk(); postDaily(true); } else { if (!requireSignIn("walk", () => $("dailyWalkBtn").onclick(), { practice: true })) return; await daily.startWalk(); }
   };
   $("dailyPostBtn").onclick = () => { if (walkLockOn) { $("dailyStatus").textContent = "Hold to stop first."; return; } postDaily(false); };
   setInterval(() => { if (daily.state().walking) postDaily(true); }, 120000);
@@ -1960,6 +1970,7 @@ if (WS && daily) {
   $("dailyWalkBtn").onclick = async () => {
     if (walkHoldDone) { walkHoldDone = false; return; } // swallow the click that follows a completed hold
     if (daily.state().walking) { $("dailyStatus").textContent = "Hold to stop the walk."; return; }
+    if (!requireSignIn("walk", () => $("dailyWalkBtn").onclick(), { practice: true })) return;
     await toggleWalk();
   };
   bindHold($("dailyWalkBtn"), { label: "Hold to stop", active: () => daily.state().walking, done: () => { walkHoldDone = true; setTimeout(() => { walkHoldDone = false; }, 600); setWalkLock(false); toggleWalk(); } });
@@ -2255,19 +2266,19 @@ async function resumeBattle(u) {
   try { const r = await battle.resume(code, { uid: u.uid }); if (r) enterBattle(code); else localStorage.removeItem("zdBattle"); } catch (e) {}
 }
 $("battleCreate").onclick = async () => {
-  const u = battleUser(); if (!u) return bStatus("Sign in to create a battle.");
+  const u = battleUser(); if (!u) { requireSignIn("plank battle"); return void bStatus("Sign in to create a battle."); };
   $("battleCreate").disabled = true; bStatus("Making a room…");
   try { enterBattle(await battle.createRoom(u)); } catch (e) { bStatus(e.message || "Couldn't create a room."); }
   finally { $("battleCreate").disabled = false; }
 };
 $("battleJoin").onclick = async () => {
-  const u = battleUser(); if (!u) return bStatus("Sign in to join a battle.");
+  const u = battleUser(); if (!u) { requireSignIn("plank battle"); return void bStatus("Sign in to join a battle."); };
   $("battleJoin").disabled = true; bStatus("Joining…");
   try { enterBattle(await battle.joinRoom($("battleCode").value, u)); } catch (e) { bStatus(e.code === "permission-denied" ? "Couldn't join that room." : e.message); }
   finally { $("battleJoin").disabled = false; }
 };
 $("battleCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("battleJoin").click(); });
-$("battleReady").onclick = async () => { const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; if (plankBattleWake && !(mine && mine.ready)) plankBattleWake.start().catch(() => {}); try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
+$("battleReady").onclick = async () => { if (!requireSignIn("plank battle")) return; const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; if (plankBattleWake && !(mine && mine.ready)) plankBattleWake.start().catch(() => {}); try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
 $("battleLeave").onclick = async () => { const c = battleCode, u = battleUser(); exitBattle(); bStatus("You left the room."); if (u && c) battle.leave(c, u).catch(() => {}); };
 // ---- TUT Battles (rooms module reused on tutBattles/{code}; solo push game untouched) ----
 const TBm = window.ZabbaTutBattle;
@@ -2370,11 +2381,11 @@ function tbEnter(code) {
 }
 function tbExit() { try { localStorage.removeItem("zdTutBattle"); } catch (e) {} if (tbOff) tbOff(); tbOff = null; tbRoom = null; tbCodeCur = null; clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; tbPaint(); }
 async function tbResume(u) { let code = null; try { code = localStorage.getItem("zdTutBattle"); } catch (e) {} if (!code || tbCodeCur) return; try { if (await tb.resume(code, { uid: u.uid })) tbEnter(code); else localStorage.removeItem("zdTutBattle"); } catch (e) {} }
-$("tbCreate").onclick = async () => { const u = battleUser(); if (!u) return tbStat("Sign in to create a battle."); $("tbCreate").disabled = true; tbStat("Making a room…"); try { tbEnter(await tb.createRoom(u)); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
-$("tbJoin").onclick = async () => { const u = battleUser(); if (!u) return tbStat("Sign in to join a battle."); $("tbJoin").disabled = true; tbStat("Joining…"); try { tbEnter(await tb.joinRoom($("tbCode").value, u)); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
+$("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making a room…"); try { tbEnter(await tb.createRoom(u)); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
+$("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { tbEnter(await tb.joinRoom($("tbCode").value, u)); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
 $("tbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tbJoin").click(); });
-$("tbCam").onclick = () => { if (tbWake) tbWake.start().catch(() => {}); return tbCamOn(); };
-$("tbReady").onclick = async () => { const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; if (tbWake && !(m && m.ready)) tbWake.start().catch(() => {}); try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
+$("tbCam").onclick = () => { if (!requireSignIn("tut battle")) return; if (tbWake) tbWake.start().catch(() => {}); return tbCamOn(); };
+$("tbReady").onclick = async () => { if (!requireSignIn("tut battle")) return; const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; if (tbWake && !(m && m.ready)) tbWake.start().catch(() => {}); try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
 $("tbRematch").onclick = async () => {
   const u = battleUser(), r = tbRoom; if (!u || !r) return;
   try {
@@ -2461,8 +2472,8 @@ function wbEnter(code) {
 }
 function wbExit() { try { localStorage.removeItem("zdWashersBattle"); } catch (e) {} if (wbOff) wbOff(); wbOff = null; wbRoom = null; wbCodeCur = null; clearInterval(wbTick); wbTick = null; clearInterval(wbPub); wbPub = null; wbHook = null; wbPaint(); }
 async function wbResume(u) { let code = null; try { code = localStorage.getItem("zdWashersBattle"); } catch (e) {} if (!code || wbCodeCur) return; try { if (await wb.resume(code, { uid: u.uid })) wbEnter(code); else localStorage.removeItem("zdWashersBattle"); } catch (e) {} }
-async function wbJoinCode(raw) { const u = battleUser(); if (!u) return wbStat("Sign in to join a Zabba washer Battle Gate."); wbStat("Joining…"); try { wbEnter(await wb.joinRoom(raw, u)); } catch (e) { wbStat(e.code === "permission-denied" ? "Couldn't join that Zabba washer Battle Gate." : e.message); } }
-$("wbCreate").onclick = async () => { const u = battleUser(); if (!u) return wbStat("Sign in to create a Zabba washer Battle Gate."); $("wbCreate").disabled = true; wbStat("Making a Zabba washer Battle Gate…"); try { wbEnter(await wb.createRoom(u)); } catch (e) { wbStat(e.message); } finally { $("wbCreate").disabled = false; } };
+async function wbJoinCode(raw) { const u = battleUser(); if (!u) { requireSignIn("battle gate"); return void wbStat("Sign in to join a Zabba washer Battle Gate."); }; wbStat("Joining…"); try { wbEnter(await wb.joinRoom(raw, u)); } catch (e) { wbStat(e.code === "permission-denied" ? "Couldn't join that Zabba washer Battle Gate." : e.message); } }
+$("wbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("battle gate"); return void wbStat("Sign in to create a Zabba washer Battle Gate."); }; $("wbCreate").disabled = true; wbStat("Making a Zabba washer Battle Gate…"); try { wbEnter(await wb.createRoom(u)); } catch (e) { wbStat(e.message); } finally { $("wbCreate").disabled = false; } };
 $("wbJoin").onclick = () => wbJoinCode($("wbCode").value);
 $("wbInviteJoin").onclick = () => wbJoinCode(wbInvite);
 $("wbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("wbJoin").click(); });
@@ -2471,7 +2482,7 @@ $("wbShare").onclick = async () => {
   try { if (navigator.share) { await navigator.share({ title: WBm.NAME, text: "Join my " + WBm.NAME + ":", url }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
   try { await navigator.clipboard.writeText(text); wbStat("Invite link copied."); } catch (e) { wbStat(text); }
 };
-$("wbReady").onclick = async () => { const u = battleUser(), m = wbRoom && wbRoom.players && wbRoom.players[u.uid]; if (wbWake && !(m && m.ready)) wbWake.start().catch(() => {}); try { await wb.setReady(wbCodeCur, u, !(m && m.ready)); } catch (e) { wbStat(e.message); } };
+$("wbReady").onclick = async () => { if (!requireSignIn("battle gate")) return; const u = battleUser(), m = wbRoom && wbRoom.players && wbRoom.players[u.uid]; if (wbWake && !(m && m.ready)) wbWake.start().catch(() => {}); try { await wb.setReady(wbCodeCur, u, !(m && m.ready)); } catch (e) { wbStat(e.message); } };
 [["wbOp1", 0], ["wbOp2", 1]].forEach(([id, i]) => { $(id).onclick = () => { const ps = wbRoom ? BR.orderedPlayers(wbRoom, wbFs.toMs) : []; if (ps[i] && currentUser) WBm.setOpener(wbFs, wbCodeCur, currentUser.uid, ps[i].uid).catch(() => {}); }; });
 $("wbQuit").onclick = async () => { if (!currentUser || !confirm("Forfeit this Zabba washer Battle Gate?")) return; try { await WBm.forfeit(wbFs, wbCodeCur, currentUser.uid); } catch (e) { wbStat(e.message); } };
 $("wbLeave").onclick = async () => {
