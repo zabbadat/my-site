@@ -1,0 +1,10 @@
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+const s=html.indexOf('<section id="steps">'),e=html.indexOf('</section>',s);
+const sec=html.slice(s,e);
+const live=sec.indexOf('>Live walk sessions</h3>'),daily=sec.indexOf('>Daily Earn Steps Board</h3>');
+assert(live>0&&daily>0,'both boards present in Step Equity');
+assert(live<daily,'Live walk sessions board appears above Daily Earn Steps Board');
+assert(sec.indexOf('id="walkBoardBody"')<sec.indexOf('id="dailyBoardBody"'),'tables follow headings');
+assert(sec.indexOf('id="dailyWalkBtn"')<live,'walk controls stay above both boards');
+console.log('PASS step-equity layout (4 checks)');
