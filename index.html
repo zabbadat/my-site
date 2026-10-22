@@ -406,11 +406,12 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
     <a href="#approach">The Practice</a>
     <a href="#push">Push-Ups-TUT</a>
     <a href="#tutbattles">TUT Battles</a>
+    <a href="#tutbattles">TUT Battles</a>
     <a href="#plank">Plank House</a>
     <a href="#battles">Battles</a>
-    <a href="#battle-gate">Zabba washer Battle Gate</a>
     <a href="#steps">Step Equity</a>
     <a href="#tokens">Zabba Tokens</a>
+    <a href="#washers">Zabba Washers</a>
     <a href="#washers">Zabba Washers</a>
     <a href="#league">League</a>
     <a href="#cooling-box">Cooling box</a>
@@ -735,33 +736,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="note" id="battleStatus" aria-live="polite"></p>
   </section>
 
-  <section id="battle-gate">
-    <h2>Zabba washer Battle Gate</h2>
-    <p class="lead">Zabba Washers, one on one, each on your own phone. First to 21 with the fewest steps wins. No tokens or money at stake.</p>
-    <div class="card"><p class="note" style="margin:0"><strong>Rules (v1.9, short):</strong> Bariboshi first: one minute of breath, then each side pitches one opening washer; closest to the box pitches first. Packs of 3, underhand, from 20 ft at one box. Score after both packs are down; fouls score 0. First to 21. Zabba may be summoned as a blocker. <a href="/rules">Full rules</a></p>
-    <p class="note" style="margin:.5rem 0 0"><strong>Who wins:</strong> both players must reach 21. A sensor-verified game beats an unverified one; then fewest steps; tie on steps goes to the faster time. Stop before 21 and you forfeit once your opponent finishes.</p></div>
-    <p class="note" id="wbSignIn"><a href="#play">Sign in</a> to create or join a Zabba washer Battle Gate.</p>
-    <div id="wbStart" hidden>
-      <div class="row"><button class="btn" id="wbCreate" type="button">Create Zabba washer Battle Gate</button></div>
-      <label for="wbCode">Or join with a code</label>
-      <div class="row"><input id="wbCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="K7QX" style="max-width:9rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="wbJoin" type="button">Join</button></div>
-      <div class="row"><button class="btn" id="wbInviteJoin" type="button" hidden>Join battle</button></div>
-    </div>
-    <div class="card" id="wbLobby" hidden>
-      <p class="note" style="margin:0">Room code. Share it with your opponent.</p>
-      <div class="battle-code" id="wbRoomCode">----</div>
-      <div class="row"><button class="btn ghost" id="wbShare" type="button">Share invite</button></div>
-      <div class="stats duo">
-        <div class="stat"><b id="wbP1">…</b><span id="wbP1s">Player 1</span></div>
-        <div class="stat"><b id="wbP2">Waiting…</b><span id="wbP2s">Player 2</span></div>
-      </div>
-      <div id="wbOpener" hidden><p class="note" style="margin:.4rem 0">Bariboshi (optional, honor system): who pitches first?</p><div class="row"><button class="btn ghost" id="wbOp1" type="button">P1</button><button class="btn ghost" id="wbOp2" type="button">P2</button></div></div>
-      <div class="battle-count" id="wbCount" hidden></div>
-      <div class="row"><button class="btn" id="wbReady" type="button" hidden>I'm ready</button><a class="btn" id="wbGo" href="#play" hidden>Go to my game</a><button class="btn ghost" id="wbQuit" type="button" hidden>Forfeit</button><button class="btn ghost" id="wbLeave" type="button">Leave</button></div>
-    </div>
-    <p class="note" id="wbStatus" aria-live="polite"></p>
-  </section>
-
   <section id="steps">
     <h2>Step Equity</h2>
     <p class="lead">Step Equity: post to the daily board. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk: steps count while this page stays open with the screen on. Same login as washers.</p>
@@ -964,7 +938,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/zaba-tokens.js"></script>
   <script src="/email-auth.js"></script>
   <script src="/battle-rooms.js"></script>
-  <script src="/washers-battle.js"></script>
   <script src="/tut-battle.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
@@ -990,7 +963,6 @@ function requireSignIn(feature, startFn, opts) { return signGate ? signGate.requ
 let pocketOn = false; // washers game lock (main Start button)
 let walkLockOn = false; // live walk lock (steps section), independent of pocketOn
 let relockTimer = null;
-let wbHook = null; // Zabba washer Battle Gate: set while a battle is live; gets the finished solo result
 const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 };
 let pushMode = localStorage.getItem("zabbadat-push-mode") === "sets" ? "sets" : "long";
 const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostureGuard() : null;
@@ -1213,7 +1185,7 @@ function makeWake(statusId, note) {
   return window.WakeLock.createWakeLock({ note: note || WAKE_NOTE, onNote: (m) => { const el = $(statusId); if (el) el.textContent = m; } });
 }
 const gameWake = makeWake("status"), pushWake = makeWake("pushStatus"), camWake = makeWake("camNote"), plankWake = makeWake("plankStatus");
-const plankBattleWake = makeWake("battleStatus"), tbWake = makeWake("tbStatus"), wbWake = makeWake("wbStatus");
+const plankBattleWake = makeWake("battleStatus"), tbWake = makeWake("tbStatus");
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     if (state.running && !state.finished) stepVerifier.hidden();
@@ -1306,7 +1278,6 @@ async function finishGame() {
   const ms = state.elapsed + (state.startedAt ? Date.now() - state.startedAt : 0);
   state.elapsed = ms;
   const check = stepVerifier.result(state.steps, ms);
-  if (wbHook) wbHook({ score: 21, steps: state.steps, ms: Math.round(ms), verified: !!check.verified, reasons: check.reasons.slice(0, 8).map((x) => String(x).slice(0, 120)) });
         const typed = ($("player").value || "").trim().slice(0, 20);
   const name = currentUser
     ? (typed || displayNameOf(currentUser))
@@ -2414,84 +2385,7 @@ getRedirectResult(auth)
   })
   .catch(() => {});
 let dailySyncOff = null, liveWalkOff = null;
-// ---- Zabba washer Battle Gate (rooms module on washersBattles/{code}; solo washers engine reused unchanged) ----
-const WBm = window.ZabbaWashersBattle;
-const wbFs = mkBattleFs("washersBattles"), wb = BR.controller(wbFs);
-let wbRoom = null, wbCodeCur = null, wbOff = null, wbTick = null, wbPub = null, wbInvite = WBm.parseInvite(location.search);
-const wbStat = (t) => { $("wbStatus").textContent = t || ""; };
-function wbPaint() {
-  const r = wbRoom, me = currentUser && currentUser.uid;
-  $("wbSignIn").hidden = !!currentUser; $("wbStart").hidden = !currentUser || !!wbCodeCur; $("wbLobby").hidden = !wbCodeCur;
-  $("wbInviteJoin").hidden = !(currentUser && wbInvite && !wbCodeCur); if (wbInvite) $("wbInviteJoin").textContent = "Join battle " + wbInvite;
-  if (!currentUser && wbInvite && !wbCodeCur) wbStat("Sign in, then tap Join battle " + wbInvite + ".");
-  if (!wbCodeCur) { wbHook = null; if (wbWake) wbWake.stop().catch(() => {}); return; }
-  $("wbRoomCode").textContent = wbCodeCur;
-  const ps = r ? BR.orderedPlayers(r, wbFs.toMs) : [], pre = r && !BR.started(r) && r.status !== "abandoned", mine = r && me && r.players && r.players[me];
-  const dec = r ? WBm.decide(r) : { phase: "waiting" };
-  [0, 1].forEach((i) => { const p = ps[i];
-    $("wbP" + (i + 1)).textContent = p ? p.name + (p.uid === me ? " (you)" : "") : "Waiting…";
-    let sub = "Player " + (i + 1);
-    if (p && pre) sub += p.ready ? " · Ready ✓" : " · Not ready";
-    if (p && r.status === "live") { const x = p.result; sub += x ? (x.forfeit ? " · Forfeit" : " · 21 · " + x.steps.toLocaleString() + " steps · " + formatTime(x.ms) + (x.verified ? "" : " · unverified")) : " · " + (p.score || 0) + " pts · " + (p.steps || 0).toLocaleString() + " steps"; }
-    if (p && dec.phase === "done") sub += dec.winnerUid == null ? " · Draw" : p.uid === dec.winnerUid ? " · WIN" : " · Loss";
-    $("wbP" + (i + 1) + "s").textContent = sub; });
-  const os = r ? WBm.openerState(r) : {};
-  $("wbOpener").hidden = !(r && ps.length === 2 && r.status !== "abandoned" && dec.phase !== "done");
-  ["wbOp1", "wbOp2"].forEach((id, i) => { const p = ps[i]; if (p) $(id).textContent = p.name + (mine && mine.opener === p.uid ? " ✓" : ""); });
-  $("wbReady").hidden = !(pre && mine && ps.length === 2);
-  if (mine) $("wbReady").textContent = mine.ready ? "Not ready" : "I'm ready";
-  const playing = r && r.status === "live" && mine && !mine.result;
-  $("wbGo").hidden = !playing; $("wbQuit").hidden = !playing;
-  wbHook = playing ? wbOnFinish : null;
-  if (!r || r.status === "abandoned") wbStat("This Zabba washer Battle Gate is closed. Make a new one.");
-  else if (pre && ps.length < 2) wbStat("Waiting for your opponent. Share the code or invite link.");
-  else if (pre) wbStat((os.agreed ? "Bariboshi: " + r.players[os.opener].name + " pitches first. " : os.conflict ? "Bariboshi picks don't match. " : "") + (mine && mine.ready ? "Waiting for the other player…" : "Tap I'm ready, then start your game when the countdown ends."));
-  else if (playing) wbStat("Battle on. Reset if needed, then Start your Zabba Washers game. Reaching 21 posts your result here.");
-  else if (dec.phase === "waiting-opponent") wbStat("Your result is in. Waiting for opponent…");
-  else if (dec.phase === "done") { const w = dec.winnerUid && r.players[dec.winnerUid]; wbStat((dec.winnerUid == null ? "No winner. " : dec.winnerUid === me ? "You win! " : (w ? w.name : "Opponent") + " wins. ") + (WBm.WHY[dec.why] || "") + "."); }
-  if (pre && BR.bothReady(r)) wb.maybeStart(wbCodeCur).catch(() => {});
-  if (wbWake) wbWake.want(!!(mine && !mine.result && r.status !== "abandoned" && dec.phase !== "done" && (pre ? mine.ready : r.status === "countdown" || r.status === "live"))).catch(() => {});
-  if (r && r.status === "countdown" && r.startAt) { if (!wbTick) wbTick = setInterval(wbTickFn, 100); wbTickFn(); }
-  else { clearInterval(wbTick); wbTick = null; $("wbCount").hidden = true; }
-  if (playing && !wbPub) wbPub = setInterval(() => { if (wbCodeCur && currentUser) WBm.publishProgress(wbFs, wbCodeCur, currentUser.uid, state.score, state.steps).catch(() => {}); }, 2000);
-  if (!playing && wbPub) { clearInterval(wbPub); wbPub = null; }
-}
-function wbTickFn() {
-  const r = wbRoom; if (!r) return; const st = wb.state(r.startAt), c = $("wbCount");
-  c.hidden = st.phase === "wait"; c.className = "battle-count";
-  if (st.phase === "countdown") c.textContent = st.n;
-  else { c.textContent = "GO!"; wb.markLive(wbCodeCur).catch(() => {}); }
-}
-async function wbOnFinish(x) {
-  const c = wbCodeCur, u = currentUser; if (!c || !u) return;
-  try { const ok = await WBm.postResult(wbFs, c, u.uid, x); wbStat(ok ? "Zabba washer Battle Gate: result posted." : "Result was already posted."); } catch (e) { wbStat("Couldn't post battle result: " + (e.message || e)); }
-}
-function wbEnter(code) {
-  wbCodeCur = code; wbInvite = null; try { localStorage.setItem("zdWashersBattle", code); } catch (e) {}
-  if (wbOff) wbOff(); wbOff = wb.watch(code, (r) => { wbRoom = r; wbPaint(); }); wbPaint();
-}
-function wbExit() { try { localStorage.removeItem("zdWashersBattle"); } catch (e) {} if (wbOff) wbOff(); wbOff = null; wbRoom = null; wbCodeCur = null; clearInterval(wbTick); wbTick = null; clearInterval(wbPub); wbPub = null; wbHook = null; wbPaint(); }
-async function wbResume(u) { let code = null; try { code = localStorage.getItem("zdWashersBattle"); } catch (e) {} if (!code || wbCodeCur) return; try { if (await wb.resume(code, { uid: u.uid })) wbEnter(code); else localStorage.removeItem("zdWashersBattle"); } catch (e) {} }
-async function wbJoinCode(raw) { const u = battleUser(); if (!u) { requireSignIn("battle gate"); return void wbStat("Sign in to join a Zabba washer Battle Gate."); }; wbStat("Joining…"); try { wbEnter(await wb.joinRoom(raw, u)); } catch (e) { wbStat(e.code === "permission-denied" ? "Couldn't join that Zabba washer Battle Gate." : e.message); } }
-$("wbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("battle gate"); return void wbStat("Sign in to create a Zabba washer Battle Gate."); }; $("wbCreate").disabled = true; wbStat("Making a Zabba washer Battle Gate…"); try { wbEnter(await wb.createRoom(u)); } catch (e) { wbStat(e.message); } finally { $("wbCreate").disabled = false; } };
-$("wbJoin").onclick = () => wbJoinCode($("wbCode").value);
-$("wbInviteJoin").onclick = () => wbJoinCode(wbInvite);
-$("wbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("wbJoin").click(); });
-$("wbShare").onclick = async () => {
-  const url = WBm.inviteUrl(wbCodeCur), text = WBm.shareText(wbCodeCur);
-  try { if (navigator.share) { await navigator.share({ title: WBm.NAME, text: "Join my " + WBm.NAME + ":", url }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
-  try { await navigator.clipboard.writeText(text); wbStat("Invite link copied."); } catch (e) { wbStat(text); }
-};
-$("wbReady").onclick = async () => { if (!requireSignIn("battle gate")) return; const u = battleUser(), m = wbRoom && wbRoom.players && wbRoom.players[u.uid]; if (wbWake && !(m && m.ready)) wbWake.start().catch(() => {}); try { await wb.setReady(wbCodeCur, u, !(m && m.ready)); } catch (e) { wbStat(e.message); } };
-[["wbOp1", 0], ["wbOp2", 1]].forEach(([id, i]) => { $(id).onclick = () => { const ps = wbRoom ? BR.orderedPlayers(wbRoom, wbFs.toMs) : []; if (ps[i] && currentUser) WBm.setOpener(wbFs, wbCodeCur, currentUser.uid, ps[i].uid).catch(() => {}); }; });
-$("wbQuit").onclick = async () => { if (!currentUser || !confirm("Forfeit this Zabba washer Battle Gate?")) return; try { await WBm.forfeit(wbFs, wbCodeCur, currentUser.uid); } catch (e) { wbStat(e.message); } };
-$("wbLeave").onclick = async () => {
-  const c = wbCodeCur, u = battleUser(), r = wbRoom, m = r && u && r.players && r.players[u.uid];
-  if (r && r.status === "live" && m && !m.result) { if (!confirm("Leaving now forfeits the battle. Leave?")) return; await WBm.forfeit(wbFs, c, u.uid).catch(() => {}); }
-  wbExit(); wbStat("You left the Zabba washer Battle Gate."); if (u && c) wb.leave(c, u).catch(() => {});
-};
-if (wbInvite) { $("wbCode").value = wbInvite; setTimeout(() => { const s = $("battle-gate"); if (s) s.scrollIntoView(); }, 300); }
-onAuthStateChanged(auth, (u) => { tokensOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u && wbCodeCur) wbExit(); if (u) wbResume(u); wbPaint(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+onAuthStateChanged(auth, (u) => { tokensOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("boardAllBtn").onclick = () => {
   boardFilter = "all";
   $("boardAllBtn").className = "btn";

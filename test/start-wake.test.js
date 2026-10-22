@@ -30,7 +30,7 @@ function env(apiMode) {
 }
 const WAKES = line("const gameWake = makeWake(") + line("const plankBattleWake = makeWake(");
 const BASE = [line("const WAKE_NOTE"), fnSrc("makeWake"), WAKES].join("\n");
-const STATE = [line("const state = {"), line("let pocketOn = false;"), line("let walkLockOn = false;"), line("let relockTimer = null;"), line("let wbHook = null;"),
+const STATE = [line("const state = {"), line("let pocketOn = false;"), line("let walkLockOn = false;"), line("let relockTimer = null;"),
   line("const pushState = {"), "let pushMode = 'sets';", fnSrc("paintGameBtn"), fnSrc("setPocket"), fnSrc("setWalkLock")].join("\n");
 const STUBS = `function requireSignIn() { return true; } let gameHoldDone = false; let currentUser = null; const postureGuard = null; const ZT = null; let saveRemotePush = async () => {}; let awardTokens = async () => ({});
 function render() {} function setStatus() {} function startPhoneSteps() {} function stopPhoneSteps() {} function renderPush() {} function resetPoseBaseline() {}
@@ -46,9 +46,9 @@ const PUSH = [fnSrc("finishPushSet"), between('if ($("pushStartBtn")) $("pushSta
   between('if ($("pushResetBtn")) $("pushResetBtn").onclick = ', "\n};"), "this.finishPushSet = finishPushSet;"].join("\n");
 const CAM = ["async " + fnSrc("startCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), fnSrc("stopPlankCam"),
   "this.startCam = startCam; this.stopCam = stopCam; this.startPlankCam = startPlankCam; this.stopPlankCam = stopPlankCam;"].join("\n");
-const ALL_WAKES = ["gameWake", "pushWake", "camWake", "plankWake", "plankBattleWake", "tbWake", "wbWake"];
+const ALL_WAKES = ["gameWake", "pushWake", "camWake", "plankWake", "plankBattleWake", "tbWake"];
 const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUSH, CAM,
-  "this.W = { gameWake, pushWake, camWake, plankWake, plankBattleWake, tbWake, wbWake }; this.S = () => ({ pocketOn, walkLockOn, relockTimer }); this.setPocket = setPocket; this.setWalkLock = setWalkLock;"].join("\n")); return e; };
+  "this.W = { gameWake, pushWake, camWake, plankWake, plankBattleWake, tbWake }; this.S = () => ({ pocketOn, walkLockOn, relockTimer }); this.setPocket = setPocket; this.setWalkLock = setWalkLock;"].join("\n")); return e; };
 
 (async () => {
   for (const api of [true, false]) {
@@ -102,21 +102,21 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
       check(`${tag} plank camera blocked: wake released`, !e.ctx.W.plankWake.isActive()); }
     // ---- Independence: every instance holds its own sentinel/video; ending one leaves the rest held.
     { const e = load(api); for (const w of ALL_WAKES) await e.ctx.W[w].start();
-      check(`${tag} 7 features hold 7 separate locks`, ALL_WAKES.every((w) => held(e, w)) && (api ? new Set(e.sent).size === 7 : e.vids.length === 7));
+      check(`${tag} 6 features hold 6 separate locks`, ALL_WAKES.every((w) => held(e, w)) && (api ? new Set(e.sent).size === 6 : e.vids.length === 6));
       e.ctx.$("startBtn"); e.run("state.running = true;"); e.ctx.setPocket(false); e.ctx.$("pauseBtn").onclick(); await tick();
       check(`${tag} ending washers leaves the other 6 held`, !e.ctx.W.gameWake.isHeld() && ALL_WAKES.filter((w) => w !== "gameWake").every((w) => held(e, w)));
       e.ctx.$("pushResetBtn").onclick(); e.ctx.stopCam(); await tick();
-      check(`${tag} ending push + camera leaves plank/battles held`, ["plankWake", "plankBattleWake", "tbWake", "wbWake"].every((w) => held(e, w)));
+      check(`${tag} ending push + camera leaves plank/battles held`, ["plankWake", "plankBattleWake", "tbWake"].every((w) => held(e, w)));
       // shared walk instance (as created in index.html) is independent too
       const walk = WL.createWakeLock({ navigator: e.nav, document: e.doc, createFallback: () => ({ playing: false, play() { this.playing = true; return Promise.resolve(); }, stop() { this.playing = false; } }) });
-      await walk.start(); await e.ctx.W.wbWake.stop();
-      check(`${tag} ending Battle Gate leaves live walk held; walk stop leaves plank held`, walk.isHeld() && (await walk.stop(), held(e, "plankWake"))); }
+      await walk.start(); await e.ctx.W.tbWake.stop();
+      check(`${tag} ending TUT battle leaves live walk held; walk stop leaves plank held`, walk.isHeld() && (await walk.stop(), held(e, "plankWake"))); }
   }
 
-  // ---- Battles: state-driven want() expressions sliced from paintBattle / tbPaint / wbPaint and evaluated on room states.
+  // ---- Battles: state-driven want() expressions sliced from paintBattle / tbPaint and evaluated on room states.
   const wantExpr = (w) => { const s = between("  if (" + w + ") " + w + ".want(", ").catch"); return s.slice(s.indexOf(".want(") + 6, -7); };
   const evalWant = (expr, vars) => vm.runInNewContext("!!(" + expr + ")", vars);
-  const pb = wantExpr("plankBattleWake"), tbx = wantExpr("tbWake"), wbx = wantExpr("wbWake");
+  const pb = wantExpr("plankBattleWake"), tbx = wantExpr("tbWake");
   const pr = (status, ready) => ({ status, players: {} , _m: { ready } });
   const P = (m, status) => ({ mine: m, r: { status } });
   check("plank battle: not held before ready", !evalWant(pb, P({ ready: false }, "waiting")));
@@ -128,9 +128,6 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
   check("TUT battle: held through countdown and live", evalWant(tbx, T({}, "countdown", null)) && evalWant(tbx, T({}, "live", null)));
   check("TUT battle: released when done/abandoned", !evalWant(tbx, T({ ready: true }, "done", {})) && !evalWant(tbx, T({ ready: true }, "abandoned", {})));
   const G = (m, status, phase) => ({ mine: m, r: { status }, pre: status === "waiting", dec: { phase: phase || "playing" } });
-  check("Battle Gate: held when ready, countdown, live", evalWant(wbx, G({ ready: true }, "waiting")) && evalWant(wbx, G({}, "countdown")) && evalWant(wbx, G({}, "live")));
-  check("Battle Gate: not held before ready", !evalWant(wbx, G({ ready: false }, "waiting")));
-  check("Battle Gate: released once my result (21 or forfeit) posts, when done, abandoned", !evalWant(wbx, G({ result: { forfeit: true } }, "live")) && !evalWant(wbx, G({}, "live", "done")) && !evalWant(wbx, G({ ready: true }, "abandoned")));
   void pr;
   // Runtime: want() itself is idempotent and releases on false.
   { const nav = { n: 0, wakeLock: { request: async () => { nav.n++; return { released: false, addEventListener() {}, release: async function () { this.released = true; } }; } } };
@@ -141,10 +138,9 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
   // ---- Static wiring for battles (tap-start inside gesture + exit paths); runtime of full paint needs Firestore.
   check("static: plank battle I'm ready tap starts wake", /\$\("battleReady"\)\.onclick = async \(\) => \{[^\n]*plankBattleWake\.start\(\)/.test(html));
   check("static: TUT battle I'm ready + camera taps start wake", /\$\("tbReady"\)\.onclick[^\n]*tbWake\.start\(\)/.test(html) && /\$\("tbCam"\)\.onclick = \(\) => \{[^\n]*if \(tbWake\) tbWake\.start\(\)/.test(html));
-  check("static: Battle Gate I'm ready tap starts wake", /\$\("wbReady"\)\.onclick[^\n]*wbWake\.start\(\)/.test(html));
-  check("static: leave/exit/sign-out (no room code) stops each battle wake", /if \(!battleCode\) \{ if \(plankBattleWake\) plankBattleWake\.stop\(\)/.test(html) && /if \(!tbCodeCur\) \{ if \(tbWake\) tbWake\.stop\(\)/.test(html) && /if \(!wbCodeCur\) \{ wbHook = null; if \(wbWake\) wbWake\.stop\(\)/.test(html));
+  check("static: leave/exit/sign-out (no room code) stops each battle wake", /if \(!battleCode\) \{ if \(plankBattleWake\) plankBattleWake\.stop\(\)/.test(html) && /if \(!tbCodeCur\) \{ if \(tbWake\) tbWake\.stop\(\)/.test(html));
   check("static: tbFinish stops TUT battle wake", /function tbFinish[^\n]*\n[^\n]*tbWake\.stop\(\)/.test(html));
-  check("static: exitBattle/tbExit/wbExit repaint (which stops wake)", /function exitBattle\(\)[^\n]*paintBattle\(\)/.test(html) && /function tbExit\(\)[^\n]*tbPaint\(\)/.test(html) && /function wbExit\(\)[^\n]*wbPaint\(\)/.test(html));
+  check("static: exitBattle/tbExit repaint (which stops wake)", /function exitBattle\(\)[^\n]*paintBattle\(\)/.test(html) && /function tbExit\(\)[^\n]*tbPaint\(\)/.test(html));
   // ---- No ad-hoc wake code left; walk uses the shared module.
   check("static: no ad-hoc navigator.wakeLock / keepAwake / releaseAwake in index.html", !/navigator\.wakeLock|keepAwake|releaseAwake|\bwakeLock\s*=/.test(html));
   check("static: every wake instance comes from wake-lock.js", (html.match(/createWakeLock\(/g) || []).length === 2 && /const walkWake = window\.WakeLock \? window\.WakeLock\.createWakeLock/.test(html));
