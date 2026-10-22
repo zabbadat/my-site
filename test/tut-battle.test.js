@@ -17,7 +17,24 @@ check("brief 0.5s stand blip is ignored", play(judge(), [[plank, 3000, 1500], [a
 r = play(judge(), [[plank, 3000, 1500], [kneesDown, 2000, 1500]]); check("knee down -> knees ~0.75s", r.out === "knees" && r.at - 3000 < 900);
 r = play(judge(), [[plank, 3000, 1500], [[], 3000, 1500]]); check("out of frame -> frame after ~2s", r.out === "frame" && r.at - 3000 >= 1950 && r.at - 3000 < 2100);
 check("1.5s dropout tolerated", play(judge(), [[plank, 3000, 1500], [[], 1500, 1500], [plank, 3000, 1500]]).out === null);
-r = play(judge(), [[plank, 2000, 1000], [plank, 9000]]); check("no rep for 8s -> stopped", r.out === "stopped" && r.at >= 2000 + 7900 - 1000);
+check("no 8 s no-rep loss: 30 s top rest in plank is fine", play(judge(), [[plank, 2000, 1000], [plank, 30000]]).out === null);
+check("RULES: no noRepMs, 3:00 clock, 10 s top cap, 2 s frame", !("noRepMs" in TB.RULES) && TB.RULES.durationMs === 180000 && TB.RULES.topCapMs === 10000 && TB.RULES.outOfFrameMs === 2000);
+check("flag texts", TB.REASONS.standing === "Stood up / left plank flagged" && TB.REASONS.knees === "Knees down flagged");
+check("3:00 clock from startAt: time left", TB.endAt({ startAt: 1000 }) === 181000 && TB.timeLeft({ startAt: 1000 }, 61000) === 120000 && TB.timeLeft({ startAt: 1000 }, 999999) === 0 && TB.timeLeft({ startAt: null }, 5) === null);
+{ const CH = require("../push-challenge.js"); const c = CH.createChallenge({ durationMs: TB.RULES.durationMs, topCapMs: TB.RULES.topCapMs }); c.start(0); let x;
+  for (let t = 0; t <= 25000; t += 100) x = c.update(t, { atTop: true });
+  check("battle top hold capped at 10 s with note flag", x.topTutMs === 10000 && x.capped);
+  x = c.update(181000, {}); check("battle clock ends at 3:00", x.ended && c.update(200000, { counted: true, repMs: 1000 }).reps === 0); }
+const RM = (a, b) => ({ status: "live", players: { a: { reps: a[0], tutMs: a[1] }, b: { reps: b[0], tutMs: b[1] } } });
+check("time-up: higher TUT wins", TB.timeUpLoser(RM([10, 50000], [30, 40000])) === "b");
+check("time-up: TUT tie -> more reps wins", TB.timeUpLoser(RM([10, 50000], [12, 50000])) === "a");
+check("time-up: full tie -> draw (null)", TB.timeUpLoser(RM([10, 50000], [10, 50000])) === null);
+check("result text both sides", TB.resultText({ status: "done", loseReason: "stopped", winnerUid: "a" }, "a") === "Time: more time under tension" && TB.resultText({ status: "done", loseReason: "stopped", winnerUid: "a" }, "b") === "Time: less time under tension" && TB.resultText({ status: "done", loseReason: "knees" }, "b") === "Knees down flagged");
+{ const html = require("fs").readFileSync(require("path").join(__dirname, "..", "index.html"), "utf8");
+  check("static: scoreboard shows both players' reps + clock", html.includes('id="tbP1s"') && html.includes('id="tbP2s"') && html.includes('" reps · " + fmtT(mine ? tbMine.tutMs : p.tutMs || 0)'));
+  check("static: separate camera + ready buttons kept", html.includes('>Turn on camera</button>') && html.includes(">I'm ready</button>"));
+  check("static: intro describes 3:00 rules, no 8 s rule", html.includes("Three minutes, head to head.") && !html.includes("stop repping for 8 seconds"));
+  check("static: battle cap note", html.includes('"Top hold capped at 10 seconds"') && html.includes("TBC.atTopFrom(st)")); }
 check("loss latches", (() => { const j = judge(); play(j, [[[], 2500]]); return j.update(plank, 99999, TOP, true) === "frame"; })());
 check("throttle ~1/s", (() => { let t = 0; const th = TB.throttle(1000, () => t); let n = 0; for (t = 0; t < 5000; t += 100) if (th()) n++; return n === 5; })());
 check("rank by wins", TB.rankStats([{ wins: 1, losses: 0, bestTutMs: 0 }, { wins: 3, losses: 5, bestTutMs: 0 }])[0].wins === 3);
@@ -45,27 +62,42 @@ function mkFs() {
   await Promise.all([ca.setReady(code, A, true), cb.setReady(code, B, true)]);
   const room = rooms.docs[code]; check("TUT room flow reuses rooms module: countdown with one startAt", room.status === "countdown" && room.startAt === T + 5000);
   T = room.startAt + 1300; check("either flips live", (await cb.markLive(code)) && rooms.docs[code].status === "live");
-  // both phones run their own judge; A keeps repping, B stops repping and gets 'stopped'
-  const ja = judge(), jb = judge(); const t0 = 0; let ma = { reps: 0, tutMs: 0 }, mb = { reps: 0, tutMs: 0 }, lossWrites = 0;
+  // full 3:00 on both phones; nobody breaks. A has more TUT, B fewer. Then both settle; only B (loser) writes.
+  const ja = judge(), jb = judge(); let ma = { reps: 0, tutMs: 0 }, mb = { reps: 0, tutMs: 0 }, lossWrites = 0;
   const tha = TB.throttle(1000, () => T), thb = TB.throttle(1000, () => T); let pubs = 0;
-  for (let t = 33; t < 15000; t += 33) {
-    T += 33; const repA = t % 1500 < 33, repB = t < 4000 && t % 1500 < 33;
-    if (repA) ma.reps++; if (repB) mb.reps++; ma.tutMs = mb.tutMs = t;
-    const la = ja.update(plank, t, TOP, repA), lb = jb.update(plank, t, TOP, repB);
+  for (let t = 33; t < TB.RULES.durationMs; t += 33) {
+    T += 33; const repA = t % 1500 < 33, repB = t % 3000 < 33;
+    if (repA) { ma.reps++; ma.tutMs += 1500; } if (repB) { mb.reps++; mb.tutMs += 1500; }
+    if (ja.update(plank, t, TOP) || jb.update(plank, t, TOP)) lossWrites += 100;
     if (tha()) { await TB.publishLive(rooms, code, "a", ma); pubs++; } if (thb()) { await TB.publishLive(rooms, code, "b", mb); pubs++; }
-    if (lb) { if (await TB.reportLoss(rooms, code, "b", lb, mb)) lossWrites++; if (await TB.reportLoss(rooms, code, "b", lb, mb)) lossWrites++; }
-    if (la) { if (await TB.reportLoss(rooms, code, "a", la, ma)) lossWrites++; }
-    if (rooms.docs[code].status === "done") break;
   }
+  check("no break in 3:00 of plank with top rests", lossWrites === 0 && rooms.docs[code].status === "live");
+  await TB.publishLive(rooms, code, "a", ma); await TB.publishLive(rooms, code, "b", mb);
+  const sa = await TB.settleTimeUp(rooms, code, "a"), sb = await TB.settleTimeUp(rooms, code, "b"), sb2 = await TB.settleTimeUp(rooms, code, "b");
+  check("settle: winner no-ops, loser writes once, repeat is idempotent", sa === "won" && sb === "lost" && sb2 === "done");
+  lossWrites = 1;
   const done = rooms.docs[code];
-  check("live stats published ~1/s per player", pubs >= 2 * 10 && pubs <= 2 * 13);
+  check("live stats published ~1/s per player", pubs >= 2 * 170 && pubs <= 2 * 182);
   check("opponent sees B's reps via room doc", done.players.b.reps === mb.reps && done.players.a.reps > 0);
-  check("B stopped -> loser b, winner a, single result write", done.status === "done" && done.loserUid === "b" && done.winnerUid === "a" && done.loseReason === "stopped" && lossWrites === 1);
+  check("time-up: loser b (less TUT), winner a, allowed reason 'stopped'", done.status === "done" && done.loserUid === "b" && done.winnerUid === "a" && done.loseReason === "stopped" && lossWrites === 1);
+  check("winner A's settle after done is a no-op", (await TB.settleTimeUp(rooms, code, "a")) === "done");
   check("A breaking after result can't overwrite", (await TB.reportLoss(rooms, code, "a", "standing", ma)) === false && rooms.docs[code].loserUid === "b");
   await TB.recordResult(stats, done, "a"); await TB.recordResult(stats, done, "b");
   check("ranking: a +1 win, b +1 loss", stats.docs.a.wins === 1 && stats.docs.a.losses === 0 && stats.docs.b.losses === 1 && stats.docs.b.wins === 0);
   check("best TUT/reps stored", stats.docs.a.bestTutMs === done.players.a.tutMs && stats.docs.b.bestReps === mb.reps);
   check("recording twice is idempotent", (await TB.recordResult(stats, done, "a")) === false && stats.docs.a.wins === 1);
   check("board order", TB.rankStats(Object.values(stats.docs))[0].uid === "a");
+  // break = immediate loss mid-battle, and draw leaves the room live (no write)
+  { const r2 = mkFs(); const c1 = BR.controller(r2, { now: () => T }); const c2 = BR.controller(r2, { now: () => T });
+    const k = await c1.createRoom(A); await c2.joinRoom(k, B); await Promise.all([c1.setReady(k, A, true), c2.setReady(k, B, true)]);
+    T = r2.docs[k].startAt + 100; await c1.markLive(k);
+    const j = judge(); const res = play(j, [[plank, 5000, 1500], [kneesDown, 2000]]);
+    check("break = immediate loss (~0.75 s after knees down)", res.out === "knees" && res.at - 5000 < 900);
+    check("break writes loss right away", (await TB.reportLoss(r2, k, "b", res.out, { reps: 3, tutMs: 4500 })) && r2.docs[k].loserUid === "b" && r2.docs[k].loseReason === "knees"); }
+  { const r3 = mkFs(); const c1 = BR.controller(r3, { now: () => T }); const c2 = BR.controller(r3, { now: () => T });
+    const k = await c1.createRoom(A); await c2.joinRoom(k, B); await Promise.all([c1.setReady(k, A, true), c2.setReady(k, B, true)]);
+    T = r3.docs[k].startAt + 100; await c1.markLive(k);
+    await TB.publishLive(r3, k, "a", { reps: 5, tutMs: 9000 }); await TB.publishLive(r3, k, "b", { reps: 5, tutMs: 9000 });
+    check("draw: both settle 'draw', no result written", (await TB.settleTimeUp(r3, k, "a")) === "draw" && (await TB.settleTimeUp(r3, k, "b")) === "draw" && r3.docs[k].status === "live" && !r3.docs[k].loserUid); }
   if (R.includes(false)) process.exit(1);
 })();

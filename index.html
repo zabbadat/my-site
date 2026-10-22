@@ -637,7 +637,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="tutbattles">
     <h2>TUT Battles</h2>
-    <p class="lead">One long set, head to head. Both tap ready, the countdown is shared, then each phone counts its own reps. Stand up, drop a knee, leave the frame for 2 seconds or stop repping for 8 seconds and you lose. Video never uploads.</p>
+    <p class="lead">Three minutes, head to head. Both tap ready, the 5-second countdown is shared, then a 3:00 clock runs on both phones and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Stand up, drop a knee or leave the frame for 2 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins (then more reps; still tied is a draw). Video never uploads.</p>
     <p class="note" id="tbSignIn"><a href="#play">Sign in</a> to create or join a TUT battle.</p>
     <div id="tbStart" hidden>
       <div class="row"><button class="btn" id="tbCreate" type="button">Create room</button></div>
@@ -2327,6 +2327,9 @@ const mkBattleFs = (col) => ({
 const tbFs = mkBattleFs("tutBattles"), tbStatsFs = mkBattleFs("tutBattleStats");
 const tb = BR.controller(tbFs);
 let tbRoom = null, tbCodeCur = null, tbOff = null, tbTick = null, tbStream = null, tbLoop = false, tbCounter = null, tbJudge = null, tbMine = { reps: 0, tutMs: 0 }, tbPub = null, tbLostSent = false, tbRecorded = null, tbLiveT0 = null;
+// 3:00 battle clock: TUT per counted rep + top holds (capped 10 s each) via push-challenge.js (separate instance).
+let tbChal = null, tbEnded = false, tbSettleTimer = null, tbDraw = null;
+const TBC = window.ZabbadatChallenge;
 const tbStat = (t) => { $("tbStatus").textContent = t || ""; };
 const fmtT = (ms) => { const t = Math.max(0, Math.floor((ms || 0) / 1000)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
 function tbPaint() {
@@ -2341,7 +2344,8 @@ function tbPaint() {
     let sub = "Player " + (i + 1);
     if (p && pre) sub += p.ready ? " · Ready ✓" : " · Not ready";
     if (p && inPlay) { const mine = p.uid === me && r.status === "live"; sub += " · " + (mine ? tbMine.reps : p.reps || 0) + " reps · " + fmtT(mine ? tbMine.tutMs : p.tutMs || 0); }
-    if (p && r.status === "done") sub += p.uid === r.winnerUid ? " · WIN" : " · " + (TBm.REASONS[r.loseReason] || "Out");
+    if (p && r.status === "done") sub += p.uid === r.winnerUid ? " · WIN" : " · " + TBm.resultText(r, p.uid);
+    else if (p && tbDraw === tbCodeCur) sub += " · DRAW";
     $("tbP" + (i + 1) + "s").textContent = sub; });
   const mine = r && me && r.players && r.players[me];
   $("tbReady").hidden = !(pre && mine && ps.length === 2);
@@ -2363,12 +2367,19 @@ function tbTickFn() {
   c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
   if (st.phase === "countdown") { c.textContent = st.n; tbStat("Get into plank at the top…"); }
   else if (st.phase === "go") { c.textContent = "GO!"; tbGoLive(r); }
-  else if (st.phase === "live") { c.textContent = "Battle on: " + tbMine.reps + " reps · " + fmtT(tbMine.tutMs); tbGoLive(r); if (r.status === "countdown") tb.markLive(tbCodeCur).catch(() => {}); }
+  else if (st.phase === "live") {
+    const left = TBm.timeLeft(r, BR.serverNow(Date.now(), tb.offset));
+    if (tbDraw === tbCodeCur) c.textContent = "Draw";
+    else c.textContent = left > 0 ? "Battle on: " + tbMine.reps + " reps · TUT " + fmtT(tbMine.tutMs) + " · " + fmtT(left) + " left" : "Time! Checking the result…";
+    tbGoLive(r); if (r.status === "countdown") tb.markLive(tbCodeCur).catch(() => {});
+    if (left === 0 && tbLiveT0 != null) tbTimeUp();
+  }
 }
 function tbGoLive(r) {
   if (tbLiveT0 != null || !currentUser || !(currentUser.uid in r.players)) return;
   tbLiveT0 = performance.now() - Math.max(0, BR.serverNow(Date.now(), tb.offset) - r.startAt);
-  tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false;
+  tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false; tbEnded = false; tbDraw = null; clearTimeout(tbSettleTimer);
+  tbChal = TBC.createChallenge({ durationMs: TBm.RULES.durationMs, topCapMs: TBm.RULES.topCapMs }); tbChal.start(tbLiveT0);
   tbJudge = TBm.createJudge(window.ZabbadatSession.createPostureGuard({ holdMs: TBm.RULES.postureHoldMs })); tbJudge.reset(performance.now());
   tbPub = TBm.throttle(TBm.RULES.publishMs, () => performance.now());
   tbStat(tbStream ? "Go! Keep repping." : "Camera is off: turn it on to stay in the battle.");
@@ -2390,30 +2401,53 @@ async function tbPose() {
     const w = v.videoWidth || 640, now = performance.now(), r = tbCounter.update(kps, now, w);
     if (tbLiveT0 == null) $("tbCamNote").textContent = r.status;
     else if (tbRoom && tbRoom.status === "live" && !tbLostSent) {
-      if (r.counted) tbMine.reps += 1;
-      tbMine.tutMs = now - tbLiveT0;
-      const st = tbCounter.state(), lost = tbJudge.update(kps, now, st.top ? st.top * w : 0, r.counted);
-      if (lost) { tbLostSent = true; TBm.reportLoss(tbFs, tbCodeCur, currentUser.uid, lost, tbMine).catch(() => { tbLostSent = false; }); }
-      else if (tbPub()) TBm.publishLive(tbFs, tbCodeCur, currentUser.uid, tbMine).catch(() => {});
-      $("tbCamNote").textContent = r.counted ? "Counted " + tbMine.reps : $("tbCamNote").textContent;
+      if (!tbEnded) {
+        const st = tbCounter.state(), c = tbChal.update(now, { atTop: TBC.atTopFrom(st), counted: r.counted, repMs: r.repMs });
+        tbMine = { reps: c.reps, tutMs: c.tutMs };
+        if (c.ended) tbTimeUp();
+        else {
+          const lost = tbJudge.update(kps, now, st.top ? st.top * w : 0);
+          if (lost) { tbLostSent = true; $("tbCamNote").textContent = TBm.REASONS[lost]; TBm.reportLoss(tbFs, tbCodeCur, currentUser.uid, lost, tbMine).catch(() => { tbLostSent = false; }); }
+          else {
+            if (tbPub()) TBm.publishLive(tbFs, tbCodeCur, currentUser.uid, tbMine).catch(() => {});
+            $("tbCamNote").textContent = c.capped ? "Top hold capped at 10 seconds" : r.counted || $("tbCamNote").textContent === "Top hold capped at 10 seconds" ? "Counted " + tbMine.reps : $("tbCamNote").textContent;
+          }
+        }
+      }
       tbPaint();
     }
   } catch (e) {}
   if (tbLoop) requestAnimationFrame(tbPose);
 }
+// 3:00 reached: stop judging, publish final reps/TUT once, then after settleMs the lower-TUT phone writes its own loss.
+function tbTimeUp() {
+  if (tbEnded || !tbCodeCur || !currentUser) return; tbEnded = true;
+  if (tbChal) { const c = tbChal.update(tbLiveT0 + TBm.RULES.durationMs, {}); tbMine = { reps: c.reps, tutMs: c.tutMs }; }
+  const code = tbCodeCur, uid = currentUser.uid;
+  TBm.publishLive(tbFs, code, uid, tbMine).catch(() => {});
+  tbStat("Time! Checking the result…");
+  let tries = 0;
+  const settle = () => TBm.settleTimeUp(tbFs, code, uid).then((out) => {
+    if (code !== tbCodeCur) return;
+    if (out === "draw") { tbDraw = code; tbCamOff(); if (tbWake) tbWake.stop().catch(() => {}); tbStat("Draw: same time under tension and reps. Not counted on the ranking."); tbPaint(); return; }
+    if (out !== "done" && out !== "lost" && ++tries < 10) tbSettleTimer = setTimeout(settle, 2000);
+  }).catch(() => { if (++tries < 10) tbSettleTimer = setTimeout(settle, 2000); });
+  clearTimeout(tbSettleTimer); tbSettleTimer = setTimeout(settle, TBm.RULES.settleMs);
+}
 function tbFinish(r) {
   clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; if (tbWake) tbWake.stop().catch(() => {});
   const me = currentUser && currentUser.uid, won = r.winnerUid === me, c = $("tbCount");
   c.hidden = false; c.className = "battle-count result"; c.textContent = won ? "You win!" : "You lose";
-  const loser = r.players && r.players[r.loserUid];
-  tbStat((loser ? loser.name : "Opponent") + ": " + (TBm.REASONS[r.loseReason] || "out") + ".");
+  const loser = r.players && r.players[r.loserUid], winner = r.players && r.players[r.winnerUid];
+  clearTimeout(tbSettleTimer);
+  tbStat(r.loseReason === TBm.TIME_UP ? (winner ? winner.name : "Opponent") + " wins. " + TBm.WIN_REASON + "." : (loser ? loser.name : "Opponent") + ": " + TBm.resultText(r, r.loserUid) + ".");
   if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); if (ZT) awardTokens("tut", ZT.qtyFrom("tut", tbMine.tutMs), "b" + r.code).catch(() => {}); }
 }
 function tbEnter(code) {
   tbCodeCur = code; tbRecorded = null; tbLiveT0 = null; try { localStorage.setItem("zdTutBattle", code); } catch (e) {}
   if (tbOff) tbOff(); tbOff = tb.watch(code, (r) => { tbRoom = r; tbPaint(); }); tbPaint();
 }
-function tbExit() { try { localStorage.removeItem("zdTutBattle"); } catch (e) {} if (tbOff) tbOff(); tbOff = null; tbRoom = null; tbCodeCur = null; clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; tbPaint(); }
+function tbExit() { clearTimeout(tbSettleTimer); tbDraw = null; try { localStorage.removeItem("zdTutBattle"); } catch (e) {} if (tbOff) tbOff(); tbOff = null; tbRoom = null; tbCodeCur = null; clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; tbPaint(); }
 async function tbResume(u) { let code = null; try { code = localStorage.getItem("zdTutBattle"); } catch (e) {} if (!code || tbCodeCur) return; try { if (await tb.resume(code, { uid: u.uid })) tbEnter(code); else localStorage.removeItem("zdTutBattle"); } catch (e) {} }
 $("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making a room…"); try { tbEnter(await tb.createRoom(u)); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
 $("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { tbEnter(await tb.joinRoom($("tbCode").value, u)); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
