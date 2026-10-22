@@ -87,7 +87,24 @@
     var q = readQ(store).filter(function (e) { return e.tx && e.tx.uid === uid; });
     return q.reduce(function (p, e) { return p.then(function () { return award(fs, e).then(function () { drop(store, e.id); }, function () {}); }); }, Promise.resolve());
   }
-  var api = { RATES: RATES, qtyFrom: qtyFrom, tokensFor: tokensFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, validEarn: validEarn,
+  var LABEL = { pushups: "Push-ups", plank: "Plank", walk: "Walking", tut: "TUT" };
+  function mins(m) { m = Math.floor(m); return m + " minute" + (m === 1 ? "" : "s"); }
+  var UNIT = { pushups: function (n) { return n + " push-up" + (n === 1 ? "" : "s"); }, plank: function (n) { return mins(n / 60); },
+    tut: function (n) { return mins(n / 60); }, walk: function (n) { return mins(n); } };
+  var OF = { pushups: "", plank: " of plank", tut: " of TUT", walk: " of walking" };
+  // Display lines built from RATES so the page always matches the earn math.
+  function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { return UNIT[k](RATES[k].per) + OF[k] + " = 1 token"; }); }
+  function txLine(t) {
+    t = t || {};
+    var src = LABEL[t.source] || String(t.source || "?"), q = Number(t.qty) || 0;
+    var c = t.createdAt, d = c && typeof c.toDate === "function" ? c.toDate() : (c instanceof Date ? c : null);
+    return { source: src, amount: "+" + (Number(t.amount) || 0), qty: UNIT[t.source] ? UNIT[t.source](q) : q + " " + (t.units || ""), when: d ? d.toLocaleString() : "just now" };
+  }
+  function txRowsHtml(list, esc) {
+    if (!list || !list.length) return '<tr><td colspan="4">No tokens earned yet. Finish a set, plank or walk to earn your first.</td></tr>';
+    return list.map(function (t) { var l = txLine(t); return "<tr><td>" + esc(l.source) + "</td><td>" + esc(l.amount) + "</td><td>" + esc(l.qty) + "</td><td>" + esc(l.when) + "</td></tr>"; }).join("");
+  }
+  var api = { rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, tokensFor: tokensFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, validEarn: validEarn,
     profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabaTokens = api;
 })(typeof window !== "undefined" ? window : this);

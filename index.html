@@ -389,6 +389,9 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .btn.ghost{border:1px solid transparent!important;background:linear-gradient(#0e1412,#0e1412) padding-box,var(--grad) border-box!important;color:var(--lime-2)!important}
 :where(a):focus-visible,button:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--pink-2)!important;outline-offset:2px}
 .social-btn:not([data-brand]){border-color:rgba(198,255,0,.4)}
+.zt-badge{white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
+#tokens .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
+#tokens .zt-rates li{border:1px solid rgba(198,255,0,.35);border-radius:10px;padding:.5rem .7rem}
 </style>
 </head>
 <body>
@@ -397,6 +400,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
   <img src="/zd-v2-mark.svg" width="36" height="36" alt="">
   <span>Zabbadat<sup style="font-size:0.5em">™</sup></span>
 </a>
+    <a class="zt-badge" id="ztBadge" href="#tokens" aria-label="Zabba Tokens balance">Sign in</a>
     <div>
     <a href="#approach">The Practice</a>
     <a href="#push">Push-Ups-TUT</a>
@@ -405,6 +409,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
     <a href="#battles">Battles</a>
     <a href="#battle-gate">Zabba washer Battle Gate</a>
     <a href="#steps">Step Equity</a>
+    <a href="#tokens">Zabba Tokens</a>
     <a href="#washers">Zabba Washers</a>
     <a href="#league">League</a>
     <a href="#cooling-box">Cooling box</a>
@@ -511,6 +516,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn ghost" id="pauseBtn" type="button">Pause</button>
       <button class="btn danger" id="resetBtn" type="button">Reset</button>
     </div>
+    <p class="note" id="sensorStartNote">Once start game, step sensor is initiated.</p>
     <p class="note" id="gameLockNote">The screen locks when the game starts. Hold 1 second to unlock and score a pack; it locks again after you score. While unlocked, hold 1 second to end the game.</p>
        <div class="row">
       <button class="btn ghost" type="button" data-points="2">+2 box-bound</button>
@@ -518,10 +524,9 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn ghost" type="button" data-points="-1">−1</button>
     </div>
 <div class="row">
-      <button class="btn ghost" id="stepSensorBtn" type="button">Enable step sensor</button>
       <span class="note" id="sensorDot" aria-live="polite">○ Step sensor off</span>
     </div>
-<p class="note" id="phoneStepsNote">Enable the step sensor, keep this page open and the screen on, and walk with the phone on you. Only verified games post to the live board.</p>
+<p class="note" id="phoneStepsNote" aria-live="polite"></p>
 <p class="note" id="status">Ready. Sign in, then press start.</p>
 <p><a class="btn ghost" id="shareX" hidden target="_blank" rel="noopener">Share this game on X</a></p>
 </section>
@@ -826,6 +831,18 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 </form>
 <p class="fine">Or email the same details to your league address. Season players keep one name on the live board.</p>  </section>
 
+  <section id="tokens">
+    <h2>Zabba Tokens</h2>
+    <p class="lead">Earn tokens for the work you log. Earn only: tokens can't be bet or spent yet.</p>
+    <div class="stats"><div class="stat"><b id="ztBalance">—</b><span>Your balance</span></div></div>
+    <p class="note" id="ztSignedOut">Sign in to start earning. <a href="#play" id="ztSignInLink">Go to sign-in</a></p>
+    <h3>Earn rates</h3>
+    <ul class="zt-rates" id="ztRates"></ul>
+    <p class="fine">Each set or walk counts on its own; leftovers don't carry over.</p>
+    <h3>Recent earnings</h3>
+    <table><thead><tr><th>Source</th><th>Tokens</th><th>Amount</th><th>When</th></tr></thead><tbody id="ztTxBody"><tr><td colspan="4">Sign in to see your earnings.</td></tr></tbody></table>
+  </section>
+
   <section id="corporate">
     <h2>For companies</h2>
     <p class="lead">A live session and a walking contest, not another unused wellness app. People pitch, walk the court, and post first-to-21 with steps and time. You get a board and a participation note.</p>
@@ -976,6 +993,7 @@ let saveRemote = async () => { throw new Error("Live board is not connected"); }
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
 // Zabba Tokens: awardTokens(source, qty, setId) is wired to Firestore after sign-in setup; no-op until then.
 const ZT = window.ZabaTokens || null;
+if (ZT && $("ztRates")) $("ztRates").innerHTML = ZT.rateLines().map((l) => "<li>" + escapeHtml(l) + "</li>").join("");
 let awardTokens = async () => ({ credited: 0 });
 function tokenNote(r) { return r && r.credited > 0 ? " +" + r.credited + " Zabba Token" + (r.credited === 1 ? "" : "s") + "." : ""; }
 
@@ -1246,7 +1264,8 @@ async function startPhoneSteps() {
       const perm = await DeviceMotionEvent.requestPermission();
       if (perm !== "granted") {
         if (state.running) stepVerifier.denied();
-        setPhoneNote("Motion access is off, so steps can't be counted and this game won't post. On iPhone: close this tab, reopen zabbadat.com, tap Enable step sensor and choose Allow. If it doesn't ask, go to Settings > Apps > Safari > Advanced > Website Data, remove zabbadat.com, and try again.");
+        if (state.running) setStatus("Game on. Motion access is off, so steps won't count.");
+        setPhoneNote("Motion access is off, so steps can't be counted and this game won't post. On iPhone: close this tab, reopen zabbadat.com, tap Start game and choose Allow. If it doesn't ask, go to Settings > Apps > Safari > Advanced > Website Data, remove zabbadat.com, and try again.");
         return;
       }
     }
@@ -1255,7 +1274,7 @@ async function startPhoneSteps() {
     phoneStepsOn = true;
     sensorLastAt = 0;
     startSensorDot();
-    setPhoneNote("Step sensor on. Keep this page open and the screen on, and walk with the phone on you.");
+    setPhoneNote("Step sensor on.");
   } catch (err) {
     if (state.running) stepVerifier.noSensor();
     setPhoneNote("This browser can't use the motion sensor. Practice only: games here won't post to the live board.");
@@ -1267,7 +1286,6 @@ function stopPhoneSteps() {
   stopSensorDot();
   setPhoneNote("Step sensor off. It turns on again when you start or resume the game.");
 }
-$("stepSensorBtn").onclick = () => { startPhoneSteps(); };
 async function finishGame() {
   if (state.finished) return;
   setPocket(false);
@@ -2040,7 +2058,10 @@ saveRemoteWalk = async (r) => {
 
 const ztFs = { ts: () => serverTimestamp(), tx: (fn) => runTransaction(db, (t) => fn({ get: (p) => t.get(doc(db, ...p)).then((x) => (x.exists() ? x.data() : null)), set: (p, d) => t.set(doc(db, ...p), d), update: (p, d) => t.update(doc(db, ...p), d) })) };
 let ztOff = null;
-function paintTokens(n) { const row = $("zabaTokensRow"); if (!row) return; row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); }
+function paintTokens(n) { const row = $("zabaTokensRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintTokenSection(n); }
+function paintTokenSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.textContent = on ? Number(n).toLocaleString() : "—"; if (o) o.hidden = on; if (g) g.textContent = on ? Number(n).toLocaleString() + " ZT" : "Sign in"; }
+function paintTokenTx(list) { const t = $("ztTxBody"); if (t && ZT) t.innerHTML = ZT.txRowsHtml(list, escapeHtml); }
+let ztTxOff = null;
 awardTokens = async (source, qty, setId) => {
   if (!ZT || !auth.currentUser) return { credited: 0 };
   const e = ZT.buildEarn(auth.currentUser.uid, source, qty, setId);
@@ -2050,8 +2071,11 @@ awardTokens = async (source, qty, setId) => {
 };
 function tokensOnUser(u) {
   if (ztOff) { ztOff(); ztOff = null; }
+  if (ztTxOff) { ztTxOff(); ztTxOff = null; }
   paintTokens(null);
+  if ($("ztTxBody")) $("ztTxBody").innerHTML = '<tr><td colspan="4">Sign in to see your earnings.</td></tr>';
   if (!u || !ZT) return;
+  ztTxOff = onSnapshot(query(collection(db, "users", u.uid, "tokenTx"), orderBy("createdAt", "desc"), limit(10)), (snap) => paintTokenTx(snap.docs.map((d) => d.data())), () => paintTokenTx([]));
   ZT.ensureProfile(ztFs, u.uid).then((p) => { paintTokens(p.zabaTokens); return ZT.flush(ztFs, localStorage, u.uid); }).catch(() => {}).finally(() => {
     if (auth.currentUser && auth.currentUser.uid === u.uid && !ztOff) ztOff = onSnapshot(doc(db, "users", u.uid), (d) => { if (d.exists()) paintTokens(ZT.profileFrom(d.data(), u.uid).zabaTokens); }, () => {});
   });
