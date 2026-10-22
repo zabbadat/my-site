@@ -569,9 +569,11 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 <div class="mode-toggle" role="group" aria-label="Pushup mode">
       <button type="button" id="modeLongBtn" aria-pressed="true">One long set<span class="btn-tut">TUT</span></button>
       <button type="button" id="modeSetsBtn" aria-pressed="false">Sets</button>
+      <button type="button" id="modeChallengeBtn" aria-pressed="false">Three-minute challenge</button>
     </div>
     <div class="olt-banner" id="oltBanner"><span>ONE LONG SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
     <p class="note" id="longNote" hidden>One long set: the clock runs nonstop from Start. Stay in plank. Standing up or dropping to your knees is flagged (the clock keeps running). Rule breaks: <span class="vcount" id="pushViol">0</span></p>
+    <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock from Start, no pause. Stay in plank the whole time; push-ups or holding the top both count. Standing up or dropping to your knees is flagged (the clock keeps running). Each hold at the top counts for at most 3 seconds of time under tension. Score: reps plus seconds under tension.</p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
       <div class="stat"><b id="pushSets">0</b><span>Total sets today</span></div>
@@ -598,6 +600,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <video id="camVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video>
       <canvas id="camCvs" hidden></canvas>
     </div>
+    <div class="note" id="challengeResult" hidden></div>
    <p class="note" id="camNote">Phone on the floor, screen up, under your chest. The camera counts each full rep. Video stays on this phone.</p>
     <p class="note" id="camStatus" aria-live="polite"></p>
     <p class="note" id="pushStatus">Ready. Turn on the camera, then start the set.</p>
@@ -936,6 +939,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </footer>
   <script src="/step-detector.js"></script>
   <script src="/push-session.js"></script>
+  <script src="/push-challenge.js"></script>
   <script src="/plank-session.js"></script>
   <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>
@@ -973,7 +977,10 @@ let pocketOn = false; // washers game lock (main Start button)
 let walkLockOn = false; // live walk lock (steps section), independent of pocketOn
 let relockTimer = null;
 const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 };
-let pushMode = localStorage.getItem("zabbadat-push-mode") === "sets" ? "sets" : "long";
+let pushMode = (function (m) { return m === "sets" || m === "challenge" ? m : "long"; })(localStorage.getItem("zabbadat-push-mode"));
+// Three-minute challenge: fixed 3:00 clock, top-hold TUT capped at 3 s per hold (push-challenge.js).
+const pushChallenge = window.ZabbadatChallenge ? window.ZabbadatChallenge.createChallenge({ durationMs: 180000, topCapMs: 3000 }) : null;
+let challengeFlags = { standing: 0, knees: 0 };
 const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostureGuard() : null;
 let lastViolFlag = 0;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
@@ -1355,7 +1362,12 @@ function formatTut(ms) {
 // A set's reps are added to the stored total once, when "Finish set" is pressed.
 function renderPush() {
   if ($("pushReps")) $("pushReps").textContent = savedPushTotal() + (pushState.finished ? 0 : pushState.reps);
-  const now = pushState.running ? Date.now() - pushState.startedAt + pushState.elapsed : pushState.elapsed;
+  let now = pushState.running ? Date.now() - pushState.startedAt + pushState.elapsed : pushState.elapsed;
+  if (pushMode === "challenge" && pushChallenge) {
+    if (pushState.running && !pushState.finished && now >= 180000) { finishChallenge(); return; }
+    now = Math.min(now, 180000);
+    if (pushState.running) pushState.tut = pushChallenge.snapshot(performance.now()).tutMs;
+  }
   const liveTut = pushMode === "long" ? now : pushState.tut;
   if ($("pushTut")) $("pushTut").textContent = formatTut(savedPushTut() + (pushState.finished ? 0 : liveTut));
   if ($("pushRepsBig")) $("pushRepsBig").textContent = pushState.reps;
@@ -1364,17 +1376,29 @@ function renderPush() {
   if ($("heroTut") && $("pushTut")) $("heroTut").textContent = $("pushTut").textContent;
   if ($("heroReps") && $("pushReps")) $("heroReps").textContent = $("pushReps").textContent;
   renderTutHistory();
-  if ($("pushClock")) $("pushClock").textContent = formatTime(now);
+  const shown = pushMode === "challenge" ? Math.max(0, 180000 - now) : now; // challenge: count down from 3:00
+  if ($("pushClock")) $("pushClock").textContent = formatTime(shown);
   if ($("camHudReps")) $("camHudReps").textContent = pushState.reps;
-  if ($("camHudClock")) $("camHudClock").textContent = formatTime(now);
+  if ($("camHudClock")) $("camHudClock").textContent = formatTime(shown);
   const best = localPush().reduce((m, r) => Math.max(m, Number(r.reps) || 0), 0);
   if ($("pushBest")) $("pushBest").textContent = best ? String(best) : "—";
 }
 function renderPushMode() {
-  const long = pushMode === "long", lockMode = !window.ZabbadatSession.canSwitchMode(pushState);
+  const long = pushMode === "long", chal = pushMode === "challenge", lockMode = !window.ZabbadatSession.canSwitchMode(pushState);
   const set = (id, k, v) => { if ($(id)) $(id)[k] = v; };
-  set("modeSetsBtn", "disabled", lockMode); set("modeLongBtn", "disabled", lockMode);
-  if ($("modeSetsBtn")) $("modeSetsBtn").setAttribute("aria-pressed", String(!long));
+  set("modeSetsBtn", "disabled", lockMode); set("modeLongBtn", "disabled", lockMode); set("modeChallengeBtn", "disabled", lockMode);
+  if ($("modeSetsBtn")) $("modeSetsBtn").setAttribute("aria-pressed", String(pushMode === "sets"));
+  if ($("modeChallengeBtn")) $("modeChallengeBtn").setAttribute("aria-pressed", String(chal));
+  set("challengeNote", "hidden", !chal); if (!chal) set("challengeResult", "hidden", true);
+  if (chal) {
+    if ($("modeLongBtn")) $("modeLongBtn").setAttribute("aria-pressed", "false"); set("oltBanner", "hidden", true);
+    set("pushFinishBtn", "hidden", true); set("pushPauseBtn", "hidden", true); set("pushEndBtn", "hidden", true); set("longNote", "hidden", true);
+    set("pushTutLabel", "textContent", "Total time (under tension)"); set("pushStartBtn", "textContent", "Start challenge");
+    set("pushSetLabel", "textContent", "Time left");
+    set("pushViol", "textContent", String(postureGuard ? postureGuard.state().count : 0));
+    if (!postureGuard || !postureGuard.state().active) set("pushViolFlag", "hidden", true);
+    return;
+  }
   if ($("modeLongBtn")) $("modeLongBtn").setAttribute("aria-pressed", String(long)); if ($("oltBanner")) $("oltBanner").hidden = !long;
   set("pushFinishBtn", "hidden", long); set("pushPauseBtn", "hidden", long); set("pushEndBtn", "hidden", !long);
   set("longNote", "hidden", !long);
@@ -1396,6 +1420,22 @@ function setPushMode(m) {
 }
 if ($("modeSetsBtn")) $("modeSetsBtn").onclick = () => setPushMode("sets");
 if ($("modeLongBtn")) $("modeLongBtn").onclick = () => setPushMode("long");
+if ($("modeChallengeBtn")) $("modeChallengeBtn").onclick = () => setPushMode("challenge");
+// Three-minute challenge end: show the result card, then reuse the normal save/post path.
+function finishChallenge() {
+  if (pushState.finished || !pushChallenge) return;
+  pushChallenge.update(performance.now() + 180000, {}); // closes the clock; nothing past 3:00 is credited
+  const r = pushChallenge.result();
+  pushState.tut = r.tutMs; pushState.reps = r.reps;
+  pushState.elapsed = 180000; pushState.startedAt = 0;
+  const box = $("challengeResult");
+  if (box) {
+    box.innerHTML = "<strong>Three-minute challenge done</strong><br>Reps: " + r.reps + "<br>Time under tension: " + formatTut(r.tutMs) +
+      "<br>Score: " + r.score + " (reps + seconds under tension)<br>Flags: " + escapeHtml(window.ZabbadatChallenge.flagSummary(challengeFlags));
+    box.hidden = false;
+  }
+  finishPushSet();
+}
 // Hero CTAs: jump to the counter and preselect a mode (never mid-session; the camera still loads only from the counter).
 function heroGo(mode, e) {
   if (e) e.preventDefault();
@@ -1472,7 +1512,7 @@ function finishPushSet() {
   localStorage.setItem(pushTotalKey(), String(savedPushTotal() + record.reps));
   localStorage.setItem(pushSetsKey(), String(savedPushSets() + window.ZabbadatSession.setsToAdd(record.reps)));
   localStorage.setItem(pushTutKey(), String(savedPushTut() + window.ZabbadatSession.tutToAdd(pushMode, ms, pushState.tut)));
-  if (pushMode === "long" && postureGuard) {
+  if ((pushMode === "long" || pushMode === "challenge") && postureGuard) {
     const v = postureGuard.state().count;
     try {
       const log = JSON.parse(localStorage.getItem("zabbadat-push-sessions") || "[]");
@@ -1483,8 +1523,8 @@ function finishPushSet() {
   }
   renderPush();
   paintPushRows(local);
-  const viol = pushMode === "long" && postureGuard ? " Rule breaks: " + postureGuard.state().count + "." : "";
-  const what = pushMode === "long" ? "Session" : "Set";
+  const viol = (pushMode === "long" || pushMode === "challenge") && postureGuard ? " Rule breaks: " + postureGuard.state().count + "." : "";
+  const what = pushMode === "long" ? "Session" : pushMode === "challenge" ? "Challenge" : "Set";
   if (!currentUser) {
     $("pushStatus").textContent = what + " saved on this device. Sign in to post." + viol;
     return;
@@ -1501,14 +1541,18 @@ if ($("pushStartBtn")) $("pushStartBtn").onclick = () => {
   if (!requireSignIn("pushups", () => $("pushStartBtn").onclick(), { practice: true })) return;
   pushState.running = true;
   pushState.startedAt = Date.now();
+  if (pushMode === "challenge" && pushChallenge) {
+    pushChallenge.start(performance.now()); challengeFlags = { standing: 0, knees: 0 }; if (postureGuard) postureGuard.reset();
+    if ($("challengeResult")) $("challengeResult").hidden = true;
+  }
   pushState.tick = setInterval(renderPush, 200);
   if (pushWake) pushWake.start().catch(() => {});
   if (pushMode === "long" && postureGuard) postureGuard.reset();
-  $("pushStatus").textContent = pushMode === "long" ? "Session on. The clock runs nonstop; the camera counts each full rep." : "Set on. The camera counts each full rep.";
+  $("pushStatus").textContent = pushMode === "challenge" ? "Challenge on. 3:00 on the clock; stay in plank, the camera counts each full rep." : pushMode === "long" ? "Session on. The clock runs nonstop; the camera counts each full rep." : "Set on. The camera counts each full rep.";
   renderPush();
 };
 if ($("pushPauseBtn")) $("pushPauseBtn").onclick = () => {
-  if (!pushState.running || pushState.finished || pushMode === "long") return;
+  if (!pushState.running || pushState.finished || pushMode !== "sets") return;
   pushState.elapsed += Date.now() - pushState.startedAt;
   pushState.running = false;
   clearInterval(pushState.tick);
@@ -1522,6 +1566,7 @@ if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
   Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 });
   resetPoseBaseline();
   if (postureGuard) postureGuard.reset();
+  if (pushMode === "challenge" && pushChallenge) { pushChallenge.reset(); if ($("challengeResult")) $("challengeResult").hidden = true; }
   $("pushStatus").textContent = "Reset.";
   renderPush();
 };
@@ -1604,15 +1649,24 @@ async function poseTick() {
     // Feed every frame (also before Start) so calibration can happen first.
     const r = pushCounter.update(pose ? pose.keypoints : [], performance.now(), w);
     setCamStatus(r.status);
-    if (pushMode === "long" && postureGuard && pushState.running && !pushState.finished) {
+    if ((pushMode === "long" || pushMode === "challenge") && postureGuard && pushState.running && !pushState.finished) {
       const st = pushCounter.state();
       const g = postureGuard.update(pose ? pose.keypoints : [], performance.now(), st.top ? st.top * w : 0);
+      if (g.event && pushMode === "challenge") challengeFlags[g.event] = (challengeFlags[g.event] || 0) + 1;
       if (g.event) $("pushStatus").textContent = (g.event === "knees" ? "Knees down" : "Stood up / left plank") + " flagged. Clock keeps running.";
       const f = $("pushViolFlag");
       if (f) { f.hidden = !g.active; if (g.active) f.textContent = (g.active === "knees" ? "Knees down" : "Standing") + " · " + g.count; }
       if ($("pushViol")) $("pushViol").textContent = String(g.count);
     }
-    if (r.counted && pushState.running && !pushState.finished) {
+    if (pushMode === "challenge" && pushChallenge && pushState.running && !pushState.finished) {
+      const c = pushChallenge.update(performance.now(), { atTop: window.ZabbadatChallenge.atTopFrom(pushCounter.state()), counted: r.counted, repMs: r.repMs });
+      if (c.ended) finishChallenge();
+      else {
+        if (r.counted) { pushState.reps = c.reps; pushState.tut = c.tutMs; renderPush(); $("camNote").textContent = "Counted " + pushState.reps + "."; }
+        if (c.capped) $("camNote").textContent = "Top hold capped at 3 seconds";
+        else if ($("camNote").textContent === "Top hold capped at 3 seconds") $("camNote").textContent = "Counted " + pushState.reps + ".";
+      }
+    } else if (r.counted && pushState.running && !pushState.finished) {
       pushState.reps += 1;
       pushState.tut += window.ZabbadatPush.tutForRep(r.repMs, 10000);
       renderPush();
