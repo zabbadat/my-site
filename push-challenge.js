@@ -1,17 +1,17 @@
 /* Three-minute challenge (TUT set-push-up, #push).
- * Pure logic, no DOM. createChallenge({ durationMs: 180000, topCapMs: 3000 })
+ * Pure logic, no DOM. createChallenge({ durationMs: 180000, topCapMs: 10000 })
  * - start(t): fixed clock from t; no pause.
  * - update(t, { atTop, counted, repMs }): call every pose frame.
  *   counted/repMs: a rep the camera counted; credits tutForRep(repMs) (cycle, capped 10 s).
  *   atTop: arms straight at the top. Each continuous top hold credits at most topCapMs;
- *   past that, nothing more is credited and capped=true (show "Top hold capped at 3 seconds")
+ *   past that, nothing more is credited and capped=true (show "Top hold capped at 10 seconds")
  *   until the player starts lowering (atTop false), which clears it.
  *   Anything after durationMs is ignored (no extra time, reps or TUT after the end).
  * - result(): { reps, tutMs, repTutMs, topTutMs, score } where score = reps + whole TUT seconds. */
 (function (root) {
   function repTut(ms, cap) { var v = Number(ms); return isFinite(v) && v > 0 ? Math.min(v, cap) : 0; }
   function createChallenge(opts) {
-    var o = { durationMs: 180000, topCapMs: 3000, repCapMs: 10000 };
+    var o = { durationMs: 180000, topCapMs: 10000, repCapMs: 10000 };
     for (var k in opts || {}) o[k] = opts[k];
     var s;
     function reset() { s = { started: false, startT: 0, lastT: 0, ended: false, reps: 0, repTutMs: 0, topTutMs: 0, holdMs: 0, atTop: false, capped: false }; }

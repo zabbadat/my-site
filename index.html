@@ -573,7 +573,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
     <div class="olt-banner" id="oltBanner"><span>ONE LONG SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
     <p class="note" id="longNote" hidden>One long set: the clock runs nonstop from Start. Stay in plank. Standing up or dropping to your knees is flagged (the clock keeps running). Rule breaks: <span class="vcount" id="pushViol">0</span></p>
-    <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock from Start, no pause. Stay in plank the whole time; push-ups or holding the top both count. Standing up or dropping to your knees is flagged (the clock keeps running). Each hold at the top counts for at most 3 seconds of time under tension. Score: reps plus seconds under tension.</p>
+    <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock from Start, no pause. Stay in plank the whole time; push-ups or holding the top both count. Standing up or dropping to your knees is flagged (the clock keeps running). Each hold at the top counts for at most 10 seconds of time under tension. Score: reps plus seconds under tension.</p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
       <div class="stat"><b id="pushSets">0</b><span>Total sets today</span></div>
@@ -978,8 +978,8 @@ let walkLockOn = false; // live walk lock (steps section), independent of pocket
 let relockTimer = null;
 const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 };
 let pushMode = (function (m) { return m === "sets" || m === "challenge" ? m : "long"; })(localStorage.getItem("zabbadat-push-mode"));
-// Three-minute challenge: fixed 3:00 clock, top-hold TUT capped at 3 s per hold (push-challenge.js).
-const pushChallenge = window.ZabbadatChallenge ? window.ZabbadatChallenge.createChallenge({ durationMs: 180000, topCapMs: 3000 }) : null;
+// Three-minute challenge: fixed 3:00 clock, top-hold TUT capped at 10 s per hold (push-challenge.js).
+const pushChallenge = window.ZabbadatChallenge ? window.ZabbadatChallenge.createChallenge({ durationMs: 180000, topCapMs: 10000 }) : null;
 let challengeFlags = { standing: 0, knees: 0 };
 const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostureGuard() : null;
 let lastViolFlag = 0;
@@ -1663,8 +1663,8 @@ async function poseTick() {
       if (c.ended) finishChallenge();
       else {
         if (r.counted) { pushState.reps = c.reps; pushState.tut = c.tutMs; renderPush(); $("camNote").textContent = "Counted " + pushState.reps + "."; }
-        if (c.capped) $("camNote").textContent = "Top hold capped at 3 seconds";
-        else if ($("camNote").textContent === "Top hold capped at 3 seconds") $("camNote").textContent = "Counted " + pushState.reps + ".";
+        if (c.capped) $("camNote").textContent = "Top hold capped at 10 seconds";
+        else if ($("camNote").textContent === "Top hold capped at 10 seconds") $("camNote").textContent = "Counted " + pushState.reps + ".";
       }
     } else if (r.counted && pushState.running && !pushState.finished) {
       pushState.reps += 1;

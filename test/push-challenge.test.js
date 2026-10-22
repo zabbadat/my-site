@@ -5,7 +5,7 @@ const { createPostureGuard, tutToAdd } = require("../push-session.js");
 const { tutForRep } = require("../push-counter.js");
 const R = [];
 const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
-const mk = () => createChallenge({ durationMs: 180000, topCapMs: 3000 });
+const mk = () => createChallenge({ durationMs: 180000, topCapMs: 10000 });
 
 // ---- clock duration
 let c = mk(); c.start(1000);
@@ -22,18 +22,19 @@ c = mk(); c.start(0); c.update(179000, { atTop: true }); s = c.update(200000, { 
 check("clock: top hold spanning the end credits only up to 3:00", s.ended && s.topTutMs === 1000);
 check("clock: not started = no credit", (() => { const x = mk(); x.update(5000, { counted: true, repMs: 1000 }); return x.result().reps === 0; })());
 
-// ---- top-hold cap
+// ---- top-hold cap (10 s)
 c = mk(); c.start(0);
-for (let t = 0; t <= 2500; t += 100) s = c.update(t, { atTop: true });
-check("cap: 2.5 s hold credits 2.5 s, no note", s.topTutMs === 2500 && !s.capped);
-for (let t = 2600; t <= 10000; t += 100) s = c.update(t, { atTop: true });
-check("cap: 10 s hold credits at most 3 s", s.topTutMs === 3000);
-check("cap: note shown once hold passes 3 s", s.capped === true);
-s = c.update(10100, { atTop: false });
-check("cap: note cleared when lowering starts", s.capped === false && s.topTutMs === 3000);
-s = c.update(12000, { atTop: false, counted: true, repMs: 1900 });
-for (let t = 12100; t <= 20000; t += 100) s = c.update(t, { atTop: true });
-check("cap: new hold gets a fresh 3 s", s.topTutMs === 6000 && s.capped);
+for (let t = 0; t <= 9500; t += 100) s = c.update(t, { atTop: true });
+check("cap: 9.5 s hold credits 9.5 s, no note", s.topTutMs === 9500 && !s.capped);
+for (let t = 9600; t <= 30000; t += 100) s = c.update(t, { atTop: true });
+check("cap: 30 s hold credits at most 10 s", s.topTutMs === 10000);
+check("cap: note shown once hold passes 10 s", s.capped === true);
+s = c.update(30100, { atTop: false });
+check("cap: note cleared when lowering starts", s.capped === false && s.topTutMs === 10000);
+s = c.update(32000, { atTop: false, counted: true, repMs: 1900 });
+for (let t = 32100; t <= 50000; t += 100) s = c.update(t, { atTop: true });
+check("cap: new hold gets a fresh 10 s", s.topTutMs === 20000 && s.capped);
+check("cap: default topCapMs is 10000", createChallenge().options.topCapMs === 10000);
 check("cap: at-top time only counts while at top", (() => { const x = mk(); x.start(0); x.update(0, {}); x.update(5000, {}); return x.result().topTutMs === 0; })());
 
 // ---- at-top detection from push-counter state
@@ -47,11 +48,11 @@ check("atTop: false before calibration", atTopFrom(st({ phase: "first" })) === f
 // ---- scoring
 c = mk(); c.start(0);
 c.update(1000, { counted: true, repMs: 2000 }); c.update(3000, { counted: true, repMs: 2500 }); c.update(5000, { counted: true, repMs: 20000 });
-for (let t = 6000; t <= 12000; t += 500) c.update(t, { atTop: true });
+for (let t = 6000; t <= 30000; t += 500) c.update(t, { atTop: true });
 let r = c.result();
 check("score: reps counted", r.reps === 3);
 check("score: rep TUT uses tutForRep (10 s cap)", r.repTutMs === tutForRep(2000, 10000) + tutForRep(2500, 10000) + tutForRep(20000, 10000));
-check("score: TUT = rep TUT + capped top TUT", r.topTutMs === 3000 && r.tutMs === r.repTutMs + 3000);
+check("score: TUT = rep TUT + capped top TUT", r.topTutMs === 10000 && r.tutMs === r.repTutMs + 10000);
 check("score: score = reps + whole TUT seconds", r.score === 3 + Math.floor(r.tutMs / 1000));
 check("score: saved TUT uses rep path (non-long)", tutToAdd("challenge", 180000, r.tutMs) === r.tutMs);
 
@@ -78,7 +79,7 @@ check("static: push-challenge.js loaded", html.includes('<script src="/push-chal
 check("static: persisted mode accepts challenge", /m === "sets" \|\| m === "challenge" \? m : "long"/.test(html));
 check("static: start uses same sign-in gate", html.includes('requireSignIn("pushups", () => $("pushStartBtn").onclick(), { practice: true })'));
 check("static: flag messages unchanged", html.includes('" flagged. Clock keeps running."') && html.includes('"Knees down" : "Stood up / left plank"'));
-check("static: top-hold note text", html.includes('"Top hold capped at 3 seconds"'));
+check("static: top-hold note text", html.includes('"Top hold capped at 10 seconds"') && html.includes("at most 10 seconds of time under tension"));
 check("static: long/sets status texts unchanged", html.includes('"Session on. The clock runs nonstop; the camera counts each full rep." : "Set on. The camera counts each full rep."'));
 check("static: pause only in Sets", html.includes('pushMode !== "sets") return;'));
 check("static: result card present", html.includes('id="challengeResult"') && html.includes("Three-minute challenge done"));
