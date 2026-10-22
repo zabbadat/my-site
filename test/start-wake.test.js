@@ -137,7 +137,7 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
 
   // ---- Static wiring for battles (tap-start inside gesture + exit paths); runtime of full paint needs Firestore.
   check("static: plank battle I'm ready tap starts wake", /\$\("battleReady"\)\.onclick = async \(\) => \{[^\n]*plankBattleWake\.start\(\)/.test(html));
-  check("static: TUT battle Start battle tap starts wake", /\$\("tbGo"\)\.onclick = async \(\) => \{[\s\S]{0,400}?if \(tbWake\) tbWake\.start\(\)/.test(html));
+  check("static: TUT battle I'm ready + camera taps start wake", /\$\("tbReady"\)\.onclick[^\n]*tbWake\.start\(\)/.test(html) && /\$\("tbCam"\)\.onclick = \(\) => \{[^\n]*if \(tbWake\) tbWake\.start\(\)/.test(html));
   check("static: leave/exit/sign-out (no room code) stops each battle wake", /if \(!battleCode\) \{ if \(plankBattleWake\) plankBattleWake\.stop\(\)/.test(html) && /if \(!tbCodeCur\) \{ if \(tbWake\) tbWake\.stop\(\)/.test(html));
   check("static: tbFinish stops TUT battle wake", /function tbFinish[^\n]*\n[^\n]*tbWake\.stop\(\)/.test(html));
   check("static: exitBattle/tbExit repaint (which stops wake)", /function exitBattle\(\)[^\n]*paintBattle\(\)/.test(html) && /function tbExit\(\)[^\n]*tbPaint\(\)/.test(html));

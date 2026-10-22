@@ -651,7 +651,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="battle-count" id="tbCount" hidden></div>
       <div id="tbCamWrap" hidden style="margin:.6rem auto;max-width:16rem"><video id="tbVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video></div>
       <p class="note" id="tbCamNote" style="text-align:center"></p>
-      <div class="row"><button class="btn" id="tbGo" type="button" hidden>Start battle</button><button class="btn" id="tbRematch" type="button" hidden>Rematch</button><button class="btn ghost" id="tbLeave" type="button">Leave</button></div><p class="note" id="tbGoNote" hidden>Get set first: tapping Start battle turns on your camera, then the 5-second countdown starts once both players are in.</p>
+      <div class="row"><button class="btn ghost" id="tbCam" type="button" hidden>Turn on camera</button><button class="btn" id="tbReady" type="button" hidden>I'm ready</button><button class="btn" id="tbRematch" type="button" hidden>Rematch</button><button class="btn ghost" id="tbLeave" type="button">Leave</button></div>
     </div>
     <p class="note" id="tbStatus" aria-live="polite"></p>
     <h3 style="margin-top:1.6rem">TUT battle ranking</h3>
@@ -2290,13 +2290,14 @@ function tbPaint() {
     if (p && r.status === "done") sub += p.uid === r.winnerUid ? " · WIN" : " · " + (TBm.REASONS[r.loseReason] || "Out");
     $("tbP" + (i + 1) + "s").textContent = sub; });
   const mine = r && me && r.players && r.players[me];
-  $("tbGo").hidden = !(pre && mine && ps.length === 2); $("tbGoNote").hidden = $("tbGo").hidden || !!(mine && mine.ready);
-  if (mine) $("tbGo").textContent = mine.ready ? "Not ready" : "Start battle";
+  $("tbReady").hidden = !(pre && mine && ps.length === 2);
+  if (mine) $("tbReady").textContent = mine.ready ? "Not ready" : "I'm ready";
+  $("tbCam").hidden = !(pre && mine) || !!tbStream;
   $("tbRematch").hidden = !(r && r.status === "done");
   $("tbRematch").textContent = r && r.rematchCode && r.rematchBy !== me ? "Join rematch" : "Rematch";
   if (!r || r.status === "abandoned") tbStat("This room is closed. Make a new one.");
   else if (pre && ps.length < 2) tbStat("Waiting for a second player… Turn on your camera and get set while you wait.");
-  else if (pre) tbStat(mine && mine.ready ? "Waiting for the other player…" : "Get in position, then tap Start battle.");
+  else if (pre) tbStat(!tbStream ? "Turn on the camera, calibrate at the top, then tap I'm ready." : mine && mine.ready ? "Waiting for the other player…" : "Tap I'm ready when you're in position.");
   if (pre && BR.bothReady(r)) tb.maybeStart(tbCodeCur).catch(() => {});
   if (tbWake) tbWake.want(!!(mine && r && (pre || r.status === "countdown" || r.status === "live") && (tbStream || mine.ready || r.status === "countdown" || r.status === "live"))).catch(() => {});
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt) { if (!tbTick) tbTick = setInterval(tbTickFn, 100); tbTickFn(); }
@@ -2316,7 +2317,7 @@ function tbGoLive(r) {
   tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false;
   tbJudge = TBm.createJudge(window.ZabbadatSession.createPostureGuard({ holdMs: TBm.RULES.postureHoldMs })); tbJudge.reset(performance.now());
   tbPub = TBm.throttle(TBm.RULES.publishMs, () => performance.now());
-  tbStat(tbStream ? "Go! Keep repping." : "Camera is off: you need it on to stay in the battle.");
+  tbStat(tbStream ? "Go! Keep repping." : "Camera is off: turn it on to stay in the battle.");
 }
 async function tbCamOn() {
   try {
@@ -2325,8 +2326,7 @@ async function tbCamOn() {
     const v = $("tbVid"); v.srcObject = tbStream; await v.play(); await ensurePose();
     tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
     $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Phone under your chest. Arms straight, hold still to calibrate."; requestAnimationFrame(tbPose); tbPaint();
-    return true;
-  } catch (e) { if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); return false; }
+  } catch (e) { $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
 }
 function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; }
 async function tbPose() {
@@ -2364,18 +2364,8 @@ async function tbResume(u) { let code = null; try { code = localStorage.getItem(
 $("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making a room…"); try { tbEnter(await tb.createRoom(u)); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
 $("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { tbEnter(await tb.joinRoom($("tbCode").value, u)); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
 $("tbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tbJoin").click(); });
-// One tap: sign-in check, screen-awake lock (inside the tap, before any await), camera + pose model, then ready for the shared countdown.
-$("tbGo").onclick = async () => {
-  if (!requireSignIn("tut battle")) return;
-  const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid];
-  if (m && m.ready) { try { await tb.setReady(tbCodeCur, u, false); } catch (e) { tbStat(e.message); } return; }
-  if (tbWake) tbWake.start().catch(() => {});
-  $("tbGo").disabled = true;
-  try {
-    if (!tbStream && !(await tbCamOn())) { if (tbWake) tbWake.stop().catch(() => {}); return; }
-    await tb.setReady(tbCodeCur, u, true);
-  } catch (e) { tbStat(e.message); } finally { $("tbGo").disabled = false; }
-};
+$("tbCam").onclick = () => { if (!requireSignIn("tut battle")) return; if (tbWake) tbWake.start().catch(() => {}); return tbCamOn(); };
+$("tbReady").onclick = async () => { if (!requireSignIn("tut battle")) return; const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; if (tbWake && !(m && m.ready)) tbWake.start().catch(() => {}); try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
 $("tbRematch").onclick = async () => {
   const u = battleUser(), r = tbRoom; if (!u || !r) return;
   try {
