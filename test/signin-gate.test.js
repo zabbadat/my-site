@@ -22,8 +22,7 @@ function mkGate(signed) { const doc = fakeDoc(), st = store(), signIns = []; let
 const INV = [
   ["Start live walk (dailyWalkBtn)", 'requireSignIn("walk", () => $("dailyWalkBtn").onclick(), { practice: true })', true, 2],
   ["washers Start game (startBtn)", 'requireSignIn("washers", () => $("startBtn").onclick(), { practice: true })', true, 1],
-  ["push-up Start set / One Long Set (pushStartBtn)", 'requireSignIn("pushups", () => $("pushStartBtn").onclick(), { practice: true })', true, 1],
-  ["push-up camera Phone on floor (startCam)", 'requireSignIn("pushcam", () => startCam(), { practice: true })', true, 1],
+  ["push-up single Start set / Start challenge (startPush)", 'requireSignIn("pushups", () => startPush(), { practice: true })', true, 1],
   ["plank camera (startPlankCam)", 'requireSignIn("plank", () => startPlankCam(), { practice: true })', true, 1],
   ["plank battle create/join/ready", 'requireSignIn("plank battle")', false, 3],
   ["TUT battle create/join/ready/camera", 'requireSignIn("tut battle")', false, 4],

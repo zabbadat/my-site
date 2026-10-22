@@ -77,7 +77,7 @@ check("static: challenge mode button exists", html.includes('<button type="butto
 check("static: existing mode buttons untouched", html.includes('<button type="button" id="modeLongBtn" aria-pressed="true">One long set<span class="btn-tut">TUT</span></button>') && html.includes('<button type="button" id="modeSetsBtn" aria-pressed="false">Sets</button>'));
 check("static: push-challenge.js loaded", html.includes('<script src="/push-challenge.js"></script>'));
 check("static: persisted mode accepts challenge", /m === "sets" \|\| m === "challenge" \? m : "long"/.test(html));
-check("static: start uses same sign-in gate", html.includes('requireSignIn("pushups", () => $("pushStartBtn").onclick(), { practice: true })'));
+check("static: start uses same sign-in gate", html.includes('requireSignIn("pushups", () => startPush(), { practice: true })'));
 check("static: flag messages unchanged", html.includes('" flagged. Clock keeps running."') && html.includes('"Knees down" : "Stood up / left plank"'));
 check("static: top-hold note text", html.includes('"Top hold capped at 10 seconds"') && html.includes("at most 10 seconds of time under tension"));
 check("static: long/sets status texts unchanged", html.includes('"Session on. The clock runs nonstop; the camera counts each full rep." : "Set on. The camera counts each full rep."'));

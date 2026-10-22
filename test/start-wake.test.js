@@ -19,7 +19,7 @@ function env(apiMode) {
   const createFallback = () => { const v = { playing: false, plays: 0, play() { v.plays++; v.playing = true; return Promise.resolve(); }, stop() { v.playing = false; } }; vids.push(v); return v; };
   const els = {};
   const $ = (id) => (els[id] = els[id] || { id, textContent: "", hidden: false, disabled: false, value: "", style: {}, setAttribute() {}, play: async () => {}, srcObject: null, addEventListener() {} });
-  const ctx = { $, console, setInterval: () => 1, clearInterval() {}, setTimeout, clearTimeout, Date, Math, Promise, JSON, String, Number,
+  const ctx = { $, console, setInterval: () => 1, clearInterval() {}, setTimeout: (f) => setTimeout(f, 0), clearTimeout, Date, Math, Promise, JSON, String, Number,
     performance: { now: () => 1000 }, localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
     window: { WakeLock: { createWakeLock: (o) => WL.createWakeLock({ ...o, navigator: nav, document: doc, createFallback }) } },
     navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } }, requestAnimationFrame() {} };
@@ -39,13 +39,13 @@ function savedPushTotal() { return 0; } function savedPushSets() { return 0; } f
 function displayNameOf() { return "x"; } window.ZabbadatSession = { setsToAdd: () => 0, tutToAdd: () => 0 };
 const stepDetector = { reset() {} }; const stepVerifier = { reset() {}, resume() {}, pause() {}, result: () => ({ verified: true, reasons: [] }) };
 let camStream = null, camOn = false, poseLoopOn = false, plankLoop = false, plankHold = null, plankSaved = false, plankStream = null, plankSessionStartedAt = 0;
-let camFail = false; async function loadCamLibs() { if (camFail) throw new Error("blocked"); } async function ensurePose() {} function poseTick() {} function plankTick() {}
+const getSet = null; let pushCounter = null; let camFail = false; async function loadCamLibs() { if (camFail) throw new Error("blocked"); } async function ensurePose() {} function poseTick() {} function plankTick() {}
 function camExitFs() {} function setCamStatus() {} function newPlankHold() {} function plankEnded() {}`;
 const GAME = [handler("startBtn"), handler("pauseBtn"), handler("resetBtn"), "async " + fnSrc("finishGame"), "this.finishGame = finishGame;"].join("\n");
-const PUSH = [fnSrc("finishPushSet"), between('if ($("pushStartBtn")) $("pushStartBtn").onclick = ', "\n};"), between('if ($("pushPauseBtn")) $("pushPauseBtn").onclick = ', "\n};"),
+const PUSH = [fnSrc("finishPushSet"), line("const GET_SET_MS"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("let pushStarting"), fnSrc("cancelPushStart"), fnSrc("waitCalibrated"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '), between('if ($("pushPauseBtn")) $("pushPauseBtn").onclick = ', "\n};"),
   between('if ($("pushResetBtn")) $("pushResetBtn").onclick = ', "\n};"), "this.finishPushSet = finishPushSet;"].join("\n");
-const CAM = ["async " + fnSrc("startCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), fnSrc("stopPlankCam"),
-  "this.startCam = startCam; this.stopCam = stopCam; this.startPlankCam = startPlankCam; this.stopPlankCam = stopPlankCam;"].join("\n");
+const CAM = ["async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
+  "this.startCam = openCam; this.stopCam = stopCam; this.startPlankCam = startPlankCam; this.stopPlankCam = stopPlankCam;"].join("\n");
 const ALL_WAKES = ["gameWake", "pushWake", "camWake", "plankWake", "plankBattleWake", "tbWake"];
 const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUSH, CAM,
   "this.W = { gameWake, pushWake, camWake, plankWake, plankBattleWake, tbWake }; this.S = () => ({ pocketOn, walkLockOn, relockTimer }); this.setPocket = setPocket; this.setWalkLock = setWalkLock;"].join("\n")); return e; };
@@ -81,13 +81,13 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
     for (const mode of ["sets", "long"]) for (const end of ["pause", "reset", "finish"]) {
       if (mode === "long" && end === "pause") continue; // Pause is a no-op in long mode (clock is nonstop)
       const e = load(api); const $ = e.ctx.$; e.run(`pushMode = "${mode}";`);
-      $("pushStartBtn").onclick(); await tick();
+      $("pushStartBtn").onclick(); for (let i = 0; i < 20; i++) await tick();
       check(`${tag} push ${mode} Start set: wake held`, held(e, "pushWake"));
       if (end === "pause") $("pushPauseBtn").onclick(); if (end === "reset") $("pushResetBtn").onclick(); if (end === "finish") { try { e.ctx.finishPushSet(); } catch (x) {} }
       await tick(); const n0 = e.nav.requests; e.doc.fire(); await tick();
       check(`${tag} push ${mode} ${end}: released, no re-acquire`, !e.ctx.W.pushWake.isHeld() && e.nav.requests === n0);
     }
-    // ---- Cameras: push-up camera (#camBtn -> stopCam / failure), plank camera (#plankCamBtn -> stopPlankCam / failure).
+    // ---- Cameras: push-up camera (openCam via single Start -> stopCam / failure), plank camera (#plankCamBtn -> stopPlankCam / failure).
     { const e = load(api); const p = e.ctx.startCam();
       check(`${tag} camera: wake started synchronously inside tap (before getUserMedia await)`, e.ctx.W.camWake.isActive() && (api || e.vids[e.vids.length - 1].plays === 1));
       await p; await tick();
