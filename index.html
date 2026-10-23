@@ -2366,6 +2366,9 @@ const wagerOk = {};
 let wgPlank = null, wgTut = null, wgWb = null;
 const wagerGate = (g) => ({ canStart: (r) => !wagerOk[g] || wagerOk[g](r) });
 const battle = BR.controller(battleFs, wagerGate("plank"));
+// Battles: spoken "Ready, get set" when the shared 5 s countdown appears and "Go" at GO (unlocked in the ready tap).
+const battleVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeBattleVoice ? window.ZabbadatGetSet.makeBattleVoice() : null;
+const tbRepVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? window.ZabbadatGetSet.makeRepVoice() : null;
 let plankLiveFor = null, plankHidden = false, plankSent = false;
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && plankLiveFor && plankLiveFor === battleCode) plankHidden = true; });
 let battleRoom = null, battleCode = null, battleOff = null, battleTick = null;
@@ -2407,6 +2410,7 @@ function paintBattle() {
 }
 function tickBattle() {
   const st = battle.state(battleRoom && battleRoom.startAt), c = $("battleCount");
+  if (battleVoice && battleRoom) battleVoice.phase("plank:" + battleCode + ":" + battleRoom.startAt, st.phase);
   c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
   if (st.phase === "countdown") { c.textContent = st.n; bStatus("Get into position…"); }
   else if (st.phase === "go") c.textContent = "GO!";
@@ -2443,7 +2447,7 @@ $("battleJoin").onclick = async () => {
   finally { $("battleJoin").disabled = false; }
 };
 $("battleCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("battleJoin").click(); });
-$("battleReady").onclick = async () => { if (!requireSignIn("plank battle")) return; const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; if (plankBattleWake && !(mine && mine.ready)) plankBattleWake.start().catch(() => {}); try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
+$("battleReady").onclick = async () => { if (!requireSignIn("plank battle")) return; if (battleVoice) battleVoice.unlock(); const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; if (plankBattleWake && !(mine && mine.ready)) plankBattleWake.start().catch(() => {}); try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
 $("battleDrop").onclick = async () => { const u = battleUser(); if (!u || !battleCode) return; try { await PBm.submitDrop(battleFs, battleCode, u.uid, BR.serverNow(Date.now(), battle.offset), !plankHidden); } catch (e) { bStatus("Couldn't post: " + (e.message || e)); } };
 $("battleForfeit").onclick = async () => { const u = battleUser(); if (!u || !battleCode || !confirm("Forfeit this plank battle? Your opponent wins.")) return; try { await PBm.forfeit(battleFs, battleCode, u.uid); } catch (e) { bStatus("Couldn't forfeit: " + (e.message || e)); } };
 $("battleLeave").onclick = async () => { const c = battleCode, u = battleUser();
@@ -2500,6 +2504,7 @@ function tbPaint() {
 }
 function tbTickFn() {
   const r = tbRoom; if (!r) return; const st = tb.state(r.startAt), c = $("tbCount");
+  if (battleVoice) battleVoice.phase("tut:" + tbCodeCur + ":" + r.startAt, st.phase);
   c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
   if (st.phase === "countdown") { c.textContent = st.n; tbStat("Get into plank at the top…"); }
   else if (st.phase === "go") { c.textContent = "GO!"; tbGoLive(r); }
@@ -2514,7 +2519,7 @@ function tbTickFn() {
 function tbGoLive(r) {
   if (tbLiveT0 != null || !currentUser || !(currentUser.uid in r.players)) return;
   tbLiveT0 = performance.now() - Math.max(0, BR.serverNow(Date.now(), tb.offset) - r.startAt);
-  tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false; tbEnded = false; tbDraw = null; clearTimeout(tbSettleTimer);
+  if (tbRepVoice) tbRepVoice.reset(); tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false; tbEnded = false; tbDraw = null; clearTimeout(tbSettleTimer);
   tbChal = TBC.createChallenge({ durationMs: TBm.RULES.durationMs, topCapMs: TBm.RULES.topCapMs }); tbChal.start(tbLiveT0);
   tbJudge = TBm.createJudge(window.ZabbadatSession.createPostureGuard({ holdMs: TBm.RULES.postureHoldMs })); tbJudge.reset(performance.now());
   tbPub = TBm.throttle(TBm.RULES.publishMs, () => performance.now());
@@ -2539,6 +2544,7 @@ async function tbPose() {
     else if (tbRoom && tbRoom.status === "live" && !tbLostSent) {
       if (!tbEnded) {
         const st = tbCounter.state(), c = tbChal.update(now, { atTop: TBC.atTopFrom(st), counted: r.counted, repMs: r.repMs });
+        if (r.counted && tbRepVoice && window.ZabbadatGetSet.repCallout) tbRepVoice.say(window.ZabbadatGetSet.repCallout(c.reps, 0)); // battles: count up
         tbMine = { reps: c.reps, tutMs: c.tutMs };
         if (c.ended) tbTimeUp();
         else {
@@ -2661,6 +2667,7 @@ function wbStartGame() {
 function wbStopGame() { if (state.running && !state.finished) { setPocket(false); $("pauseBtn").onclick(); setStatus("Battle over. " + WB.resultText(wbRoom, currentUser && currentUser.uid)); } wbPlayingFor = null; }
 function wbTickFn() {
   const st = wbc.state(wbRoom && wbRoom.startAt), c = $("wbCount");
+  if (battleVoice && wbRoom) battleVoice.phase("washers:" + wbCodeCur + ":" + wbRoom.startAt, st.phase);
   c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
   if (st.phase === "countdown") { c.textContent = st.n; wbStat("Get to the box…"); }
   else if (st.phase === "go" || st.phase === "live") {
@@ -2682,7 +2689,7 @@ if (WB) {
     $("wbJoin").disabled = true; wbStat("Joining…");
     try { await wagerJoin(wgWb, wbc, $("wbCode").value, u, wbEnter, wbStat); } catch (e) { wbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("wbJoin").disabled = false; } };
   $("wbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("wbJoin").click(); });
-  $("wbReady").onclick = async () => { if (!requireSignIn("washer battle")) return; const u = wbUser(), mine = wbRoom && wbRoom.players && wbRoom.players[u.uid];
+  $("wbReady").onclick = async () => { if (!requireSignIn("washer battle")) return; if (battleVoice) battleVoice.unlock(); const u = wbUser(), mine = wbRoom && wbRoom.players && wbRoom.players[u.uid];
     // iPhone: ask for motion access inside this tap so the step sensor works when GO starts the game.
     if (!(mine && mine.ready) && typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") DeviceMotionEvent.requestPermission().catch(() => {});
     if (gameWake && !(mine && mine.ready)) gameWake.start().catch(() => {});
@@ -2765,7 +2772,7 @@ $("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireS
 $("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { await wagerJoin(wgTut, tb, $("tbCode").value, u, tbEnter, tbStat); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
 $("tbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tbJoin").click(); });
 $("tbCam").onclick = () => { if (!requireSignIn("tut battle")) return; if (tbWake) tbWake.start().catch(() => {}); return tbCamOn(); };
-$("tbReady").onclick = async () => { if (!requireSignIn("tut battle")) return; const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; if (tbWake && !(m && m.ready)) tbWake.start().catch(() => {}); try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
+$("tbReady").onclick = async () => { if (!requireSignIn("tut battle")) return; if (battleVoice) battleVoice.unlock(); const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; if (tbWake && !(m && m.ready)) tbWake.start().catch(() => {}); try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
 $("tbRematch").onclick = async () => {
   const u = battleUser(), r = tbRoom; if (!u || !r) return;
   try {
