@@ -63,7 +63,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     check("unlock() and 'Ready, get set' run synchronously", unl === 1 && said[0] === "Ready, get set" && shown[0] === "Ready, get set · 5");
     while (q.length) { const [f, d] = q.shift(); check("countdown step is 1 s", d === 1000); f(); }
     await flush(); check("shown 5,4,3,2,1 then GO; 'Go' spoken last; resolves true", shown.join("|") === "Ready, get set · 5|4|3|2|1|GO" && said.join("|") === "Ready, get set|Go" && done === true);
-    check("setup prompts: max 2 short lines, include 'Eyes forward'", [PROMPT_PUSH, PROMPT_PLANK].every((p) => p.split("\n").length <= 2 && /Eyes forward/.test(p) && p.length < 120) && /Front view/.test(PROMPT_PLANK) && /~3 ft/.test(PROMPT_PLANK)); }
+    check("setup prompts: max 2 short lines, include 'Eyes forward'", [PROMPT_PUSH, PROMPT_PLANK].every((p) => p.split("\n").length <= 2 && /Eyes forward/.test(p) && p.length < 120) && /Front view/.test(PROMPT_PLANK) && /4-6 ft/.test(PROMPT_PLANK)); }
   // ---- signed in: gate, wake, speech unlock (in tap), camera, pose, setup prompt 2 s, 5 s countdown, Go, clock
   for (const mode of ["sets", "long", "challenge"]) {
     const e = env({ mode });

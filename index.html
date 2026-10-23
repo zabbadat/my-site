@@ -720,7 +720,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="plank">
     <h2>Plank House</h2>
     <p class="lead">Longest good plank in the House wins. The camera times your hold. Same login as washers and pushups. Honor system. Not a form judge and not medical treatment.</p>
-    <p class="note" id="plankSetup"><b>Set up:</b> stand the phone on the floor about 3 ft in front of your head (within arm&rsquo;s reach of Start / Stop), screen facing you, whole body in frame as far as it shows. Front view, eyes forward.</p>
+    <p class="note" id="plankSetup"><b>Set up:</b> stand the phone on the floor 4-6 ft in front of you, screen facing you, so your whole body is in frame, head to heels. Front view, eyes forward.</p>
     <div class="stats duo">
       <div class="stat"><b id="plankClock">0:00</b><span>This hold</span></div>
       <div class="stat"><b id="plankBest">—</b><span>Your best</span></div>
@@ -1924,7 +1924,7 @@ async function plankTick() {
 }
 const PLANK_SET_MS = 60000; // a full set is one minute; the hold auto-ends there and counts as a set
 function newPlankHold() {
-  plankHold = window.ZabbadatPlank.createPlankHold({ front: true }); plankSaved = false; // front view, phone on the floor ~3 ft
+  plankHold = window.ZabbadatPlank.createPlankHold(); plankSaved = false;
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.reset();
   $("plankClock").textContent = "0:00"; $("plankMsg").textContent = "Get into plank";
   $("plankStopBtn").hidden = false; $("plankAgainBtn").hidden = true;
