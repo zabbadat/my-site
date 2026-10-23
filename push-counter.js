@@ -111,7 +111,7 @@
 
       // lockOnDip (solo push-ups): never lock the top from opening / setup frames. Wait for one genuine dip
       // (down >= minDepth, then back up), lock top = the level the dip started from and bottom = its peak, and
-      // count it like the old first rep. A "dip" that just parks at a new level >= calibMs after >= 2 x calibMs
+      // count it like the old first rep. A "dip" that parks at a new level (see parkLv below)
       // (user moved closer / got into plank) only moves the start level; downward drift follows at once.
       if (s.phase === "calibrate" && o.lockOnDip) {
         if (m.elbow != null && (s.base == null || v <= s.base * (1 + o.steadyTol))) { s.elbowTopSamples.push(m.elbow); if (s.elbowTopSamples.length > 60) s.elbowTopSamples.shift(); }
@@ -126,8 +126,17 @@
         if (m.elbow != null && (s.minElbow == null || m.elbow < s.minElbow)) s.minElbow = m.elbow;
         s.win.push([t, v]); while (s.win.length && t - s.win[0][0] > o.calibMs) s.win.shift();
         var dv = s.win.map(function (x) { return x[1]; }), dlo = Math.min.apply(null, dv), dhi = Math.max.apply(null, dv), dmean = (dlo + dhi) / 2;
-        if (t - s.win[0][0] >= o.calibMs * 0.9 && (dhi - dlo) / dmean <= o.steadyTol * 2 && t - s.repStart >= o.calibMs * 2) {
-          s.base = dmean; s.repStart = null; s.peak = null; s.minElbow = null; s.elbowTopSamples = []; s.win = [];
+        // Parked at a new level (steady calibMs, >= 2 x calibMs into the "dip"): only a CANDIDATE start level. A slow
+        // rep's bottom is steady for ~1 s too, so re-base only if the user then dips further from it (it was a setup
+        // level: moved closer / got into plank) or stays parked >= maxRepMs; coming back up completes the rep as usual.
+        var parked = t - s.win[0][0] >= o.calibMs * 0.9 && (dhi - dlo) / dmean <= o.steadyTol * 2 && t - s.repStart >= o.calibMs * 2;
+        if (parked && s.parkLv == null) s.parkLv = dmean;
+        if (s.parkLv != null && v > s.parkLv * (1 + o.minDepth * 0.5)) {
+          s.base = s.parkLv; s.parkLv = null; s.repStart = t; s.peak = v; s.minElbow = m.elbow; s.elbowTopSamples = []; s.win = [[t, v]];
+          return result(false);
+        }
+        if (parked && t - s.repStart >= o.maxRepMs) {
+          s.base = dmean; s.parkLv = null; s.repStart = null; s.peak = null; s.minElbow = null; s.elbowTopSamples = []; s.win = [];
           return result(false);
         }
         if (v < s.base + o.upRom * (s.peak - s.base)) {
@@ -138,7 +147,7 @@
             s.phase = "ready"; s.stage = "up"; s.reps += 1; counted = true; s.lastRepMs = ddur; s.lastTopT = t; s.needTop = false;
             s.status = "Top set. Counted " + s.reps;
           } else s.status = dd < o.minDepth ? "Go lower to set the top" : "Do one full, slow pushup to set the top";
-          s.repStart = null; s.peak = null; s.minElbow = null; s.win = [];
+          s.repStart = null; s.peak = null; s.minElbow = null; s.win = []; s.parkLv = null;
         }
         return result(counted, s.lastRepMs);
       }
