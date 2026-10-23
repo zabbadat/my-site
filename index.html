@@ -619,7 +619,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="grid">
       <a class="card" href="#tutbattles" data-battle="tutbattles"><h3>TUT Battles</h3><p>One long set, head to head.</p></a>
       <a class="card" href="#battles" data-battle="battles"><h3>Plank Battles</h3><p>Challenge a friend to a plank, phone to phone.</p></a>
-      <a class="card" href="#washers" data-battle="washers"><h3>Zabba Washer Battle</h3><p>Reach 21 with the fewest steps and the quickest time.</p></a>
+      <a class="card" href="#washerbattle" data-battle="washers"><h3>Zabba Washer Battle</h3><p>Reach 21 with the fewest steps and the quickest time.</p></a>
     </div>
   </section>
 
@@ -662,6 +662,28 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Best TUT</th><th>Best reps</th></tr></thead>
       <tbody id="tbBoardBody"><tr><td colspan="6">Waiting for battles…</td></tr></tbody>
     </table>
+  </section>
+
+  <section id="washerbattle">
+    <h2>Zabba Washer Battle</h2>
+    <p class="lead">One on one, phone to phone. Make a room, share the code, both tap ready, and a shared 5-second countdown starts the game on both phones. Each phone plays the normal washers game (start lock, hold 1 second to score, relocks after 15 seconds, steps counted). First to 21 posts a result; when both reach 21, fewest steps wins, then quickest time. Forfeit or leave and your opponent wins.</p>
+    <p class="note" id="wbSignIn"><a href="#play">Sign in</a> to create or join a Zabba Washer Battle.</p>
+    <div id="wbStart" hidden>
+      <div class="row"><button class="btn" id="wbCreate" type="button">Create room</button></div>
+      <label for="wbCode">Or join with a code</label>
+      <div class="row"><input id="wbCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="K7QX" style="max-width:9rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="wbJoin" type="button">Join</button></div>
+    </div>
+    <div class="card" id="wbLobby" hidden>
+      <p class="note" style="margin:0">Room code. Share it with your opponent.</p>
+      <div class="battle-code" id="wbRoomCode">----</div>
+      <div class="stats duo">
+        <div class="stat"><b id="wbP1">…</b><span id="wbP1s">Player 1</span></div>
+        <div class="stat"><b id="wbP2">Waiting…</b><span id="wbP2s">Player 2</span></div>
+      </div>
+      <div class="battle-count" id="wbCount" hidden></div>
+      <div class="row"><button class="btn" id="wbReady" type="button" hidden>I'm ready</button><a class="btn ghost" id="wbToGame" href="#play" hidden>Game controls</a><button class="btn danger" id="wbForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="wbLeave" type="button">Leave</button></div>
+    </div>
+    <p class="note" id="wbStatus" aria-live="polite"></p>
   </section>
 
   <section class="washers" id="tut-board">
@@ -953,6 +975,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/email-auth.js"></script>
   <script src="/battle-rooms.js"></script>
   <script src="/tut-battle.js"></script>
+  <script src="/washers-battle.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
     const firebaseConfig = {
@@ -977,6 +1000,7 @@ function requireSignIn(feature, startFn, opts) { return signGate ? signGate.requ
 let pocketOn = false; // washers game lock (main Start button)
 let walkLockOn = false; // live walk lock (steps section), independent of pocketOn
 let relockTimer = null;
+let wbHook = null; // Zabba Washer Battle hooks (set below; null = solo only)
 const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 };
 let pushMode = (function (m) { return m === "sets" || m === "challenge" ? m : "long"; })(localStorage.getItem("zabbadat-push-mode"));
 // Three-minute challenge: fixed 3:00 clock, top-hold TUT capped at 10 s per hold (push-challenge.js).
@@ -1079,6 +1103,7 @@ function render() {
   const now = state.running ? Date.now() - state.startedAt + state.elapsed : state.elapsed;
   $("clock").textContent = formatTime(now);
   if (state.running) stepVerifier.tick(performance.now());
+  if (wbHook) wbHook.render();
 }
 function setStatus(msg) { $("status").textContent = msg; }
 function displayNameOf(user) {
@@ -1295,6 +1320,7 @@ async function finishGame() {
   const ms = state.elapsed + (state.startedAt ? Date.now() - state.startedAt : 0);
   state.elapsed = ms;
   const check = stepVerifier.result(state.steps, ms);
+  if (wbHook) wbHook.finish({ steps: state.steps, ms, verified: check.verified, reasons: check.reasons });
         const typed = ($("player").value || "").trim().slice(0, 20);
   const name = currentUser
     ? (typed || displayNameOf(currentUser))
@@ -2513,6 +2539,98 @@ function tbEnter(code) {
 }
 function tbExit() { clearTimeout(tbSettleTimer); tbDraw = null; try { localStorage.removeItem("zdTutBattle"); } catch (e) {} if (tbOff) tbOff(); tbOff = null; tbRoom = null; tbCodeCur = null; clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; tbPaint(); }
 async function tbResume(u) { let code = null; try { code = localStorage.getItem("zdTutBattle"); } catch (e) {} if (!code || tbCodeCur) return; try { if (await tb.resume(code, { uid: u.uid })) tbEnter(code); else localStorage.removeItem("zdTutBattle"); } catch (e) {} }
+// ---- Zabba Washer Battle (rooms module reused on washersBattles/{code}; solo washers game reused as-is) ----
+const WB = window.ZabbaWasherBattle;
+const wbFs = mkBattleFs("washersBattles");
+const wbc = BR.controller(wbFs);
+let wbRoom = null, wbCodeCur = null, wbOff = null, wbTick = null, wbPlayingFor = null, wbSent = false;
+const wbPub = WB ? WB.throttle(WB.PUBLISH_MS, () => Date.now()) : null;
+const wbStat = (t) => { $("wbStatus").textContent = t || ""; };
+function wbPlaying() { return !!(wbCodeCur && wbPlayingFor === wbCodeCur && wbRoom && wbRoom.status === "live" && currentUser && WB.canWrite(wbRoom, currentUser.uid)); }
+// Hooks called by the solo game (render / finishGame); null outside a live battle so solo play is unchanged.
+wbHook = {
+  render() { if (!wbPlaying() || !wbPub || !wbPub()) return; WB.publishLive(wbFs, wbCodeCur, currentUser.uid, { score: state.score, steps: state.steps }).catch(() => {}); },
+  finish(g) { if (!wbPlaying() || wbSent) return; wbSent = true;
+    WB.submitResult(wbFs, wbCodeCur, currentUser.uid, g).then((ok) => { if (!ok) wbStat("Couldn't post your battle result."); }, (e) => wbStat("Battle result failed: " + (e.message || e))); },
+};
+function wbPaint() {
+  if (!WB) return;
+  const r = wbRoom, me = currentUser && currentUser.uid;
+  $("wbSignIn").hidden = !!currentUser; $("wbStart").hidden = !currentUser || !!wbCodeCur; $("wbLobby").hidden = !wbCodeCur;
+  if (!wbCodeCur) return;
+  $("wbRoomCode").textContent = wbCodeCur;
+  const ps = r ? BR.orderedPlayers(r, wbFs.toMs) : [], pre = r && !BR.started(r) && r.status !== "abandoned";
+  const dec = r ? WB.decide(r) : { done: false }, live = r && r.status === "live";
+  [0, 1].forEach((i) => { const p = ps[i];
+    $("wbP" + (i + 1)).textContent = p ? p.name + (p.uid === me ? " (you)" : "") : "Waiting…";
+    let sub = "Player " + (i + 1);
+    if (p && pre) sub += p.ready ? " · Ready ✓" : " · Not ready";
+    if (p && live) { const mineLive = p.uid === me && wbPlaying(); const sc = mineLive ? state.score : p.score || 0, st = mineLive ? state.steps : p.steps || 0;
+      sub += " · " + sc + "/21 · " + st.toLocaleString() + " steps";
+      if (WB.finished(p)) sub += " · 21 in " + formatTime(p.result.ms) + (p.result.verified ? "" : " (unverified)");
+      else if (WB.forfeited(p)) sub += " · forfeited"; }
+    if (p && dec.done) sub += dec.winner === p.uid ? " · WIN" : dec.winner ? "" : " · TIE";
+    $("wbP" + (i + 1) + "s").textContent = sub; });
+  const mine = r && me && r.players && r.players[me];
+  $("wbReady").hidden = !(pre && mine && ps.length === 2);
+  if (mine) $("wbReady").textContent = mine.ready ? "Not ready" : "I'm ready";
+  $("wbForfeit").hidden = !(live && mine && !mine.result && !dec.done);
+  $("wbToGame").hidden = !(live && mine && !mine.result && !dec.done);
+  if (!r || r.status === "abandoned") wbStat("This room is closed. Make a new one.");
+  else if (pre && ps.length < 2) wbStat("Waiting for a second player…");
+  else if (pre) wbStat(mine && mine.ready ? "Waiting for the other player to tap ready…" : "Tap I'm ready when you're at the box.");
+  else if (dec.done) { wbStat(WB.resultText(r, me)); if (wbPlayingFor === wbCodeCur) wbStopGame(); }
+  else if (live && mine && mine.result) wbStat(mine.result.forfeit ? "You forfeited." : "You reached 21. Waiting for your opponent to finish…");
+  if (pre && BR.bothReady(r)) wbc.maybeStart(wbCodeCur).catch(() => {});
+  if (r && (r.status === "countdown" || r.status === "live") && r.startAt && !dec.done) { if (!wbTick) wbTick = setInterval(wbTickFn, 100); wbTickFn(); }
+  else { clearInterval(wbTick); wbTick = null; $("wbCount").hidden = true; }
+}
+// Start the normal washers game from zero when the shared countdown hits GO (once per room).
+function wbStartGame() {
+  if (wbPlayingFor === wbCodeCur) return;
+  const mine = wbRoom && currentUser && wbRoom.players && wbRoom.players[currentUser.uid]; if (!mine || mine.result) return;
+  wbPlayingFor = wbCodeCur; wbSent = false;
+  setPocket(false); $("resetBtn").onclick(); $("startBtn").onclick();
+  setStatus("Battle on. Locked: hold 1 second to unlock and score.");
+  const s = $("play"); if (s && s.scrollIntoView) s.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+// Battle decided while this phone is still playing (opponent forfeited): stop the local game, no board post.
+function wbStopGame() { if (state.running && !state.finished) { setPocket(false); $("pauseBtn").onclick(); setStatus("Battle over. " + WB.resultText(wbRoom, currentUser && currentUser.uid)); } wbPlayingFor = null; }
+function wbTickFn() {
+  const st = wbc.state(wbRoom && wbRoom.startAt), c = $("wbCount");
+  c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
+  if (st.phase === "countdown") { c.textContent = st.n; wbStat("Get to the box…"); }
+  else if (st.phase === "go" || st.phase === "live") {
+    c.textContent = st.phase === "go" ? "GO!" : "Battle on.";
+    if (wbRoom.status === "countdown") wbc.markLive(wbCodeCur).catch(() => {});
+    wbStartGame();
+    if (st.phase === "live") { clearInterval(wbTick); wbTick = null; }
+  }
+}
+function wbUser() { return currentUser ? { uid: currentUser.uid, name: publicName($("player").value.trim() || displayNameOf(currentUser)).slice(0, 20) } : null; }
+function wbEnter(code) { wbCodeCur = code; try { localStorage.setItem("zdWasherBattle", code); } catch (e) {} if (wbOff) wbOff(); wbOff = wbc.watch(code, (r) => { wbRoom = r; wbPaint(); }); wbPaint(); }
+function wbExit() { try { localStorage.removeItem("zdWasherBattle"); } catch (e) {} if (wbOff) wbOff(); wbOff = null; wbRoom = null; wbCodeCur = null; wbPlayingFor = null; clearInterval(wbTick); wbTick = null; wbPaint(); }
+async function wbResume(u) { let code = null; try { code = localStorage.getItem("zdWasherBattle"); } catch (e) {} if (!code || wbCodeCur) return; try { if (await wbc.resume(code, { uid: u.uid })) wbEnter(code); else localStorage.removeItem("zdWasherBattle"); } catch (e) {} }
+if (WB) {
+  $("wbCreate").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to create a battle."); }
+    $("wbCreate").disabled = true; wbStat("Making a room…");
+    try { wbEnter(await wbc.createRoom(u)); } catch (e) { wbStat(e.message || "Couldn't create a room."); } finally { $("wbCreate").disabled = false; } };
+  $("wbJoin").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to join a battle."); }
+    $("wbJoin").disabled = true; wbStat("Joining…");
+    try { wbEnter(await wbc.joinRoom($("wbCode").value, u)); } catch (e) { wbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("wbJoin").disabled = false; } };
+  $("wbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("wbJoin").click(); });
+  $("wbReady").onclick = async () => { if (!requireSignIn("washer battle")) return; const u = wbUser(), mine = wbRoom && wbRoom.players && wbRoom.players[u.uid];
+    // iPhone: ask for motion access inside this tap so the step sensor works when GO starts the game.
+    if (!(mine && mine.ready) && typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") DeviceMotionEvent.requestPermission().catch(() => {});
+    if (gameWake && !(mine && mine.ready)) gameWake.start().catch(() => {});
+    try { await wbc.setReady(wbCodeCur, u, !(mine && mine.ready)); } catch (e) { wbStat("Couldn't update: " + (e.message || e)); } };
+  $("wbForfeit").onclick = async () => { if (!wbCodeCur || !currentUser || !confirm("Forfeit this battle? Your opponent wins.")) return;
+    try { await WB.forfeit(wbFs, wbCodeCur, currentUser.uid); wbStopGame(); } catch (e) { wbStat("Couldn't forfeit: " + (e.message || e)); } };
+  $("wbLeave").onclick = async () => { const c = wbCodeCur, u = wbUser(), live = wbRoom && wbRoom.status === "live";
+    if (live && u && WB.canWrite(wbRoom, u.uid) && !WB.decide(wbRoom).done && !confirm("Leaving now forfeits the battle. Leave?")) return;
+    if (live && u) { await WB.forfeit(wbFs, c, u.uid).catch(() => {}); wbStopGame(); }
+    wbExit(); wbStat("You left the room."); if (u && c) wbc.leave(c, u).catch(() => {}); };
+}
 $("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making a room…"); try { tbEnter(await tb.createRoom(u)); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
 $("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { tbEnter(await tb.joinRoom($("tbCode").value, u)); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
 $("tbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tbJoin").click(); });
@@ -2546,7 +2664,7 @@ getRedirectResult(auth)
   })
   .catch(() => {});
 let dailySyncOff = null, liveWalkOff = null;
-onAuthStateChanged(auth, (u) => { tokensOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+onAuthStateChanged(auth, (u) => { tokensOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); if (!u && wbCodeCur) wbExit(); else if (u) wbResume(u); wbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("boardAllBtn").onclick = () => {
   boardFilter = "all";
   $("boardAllBtn").className = "btn";

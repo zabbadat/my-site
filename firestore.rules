@@ -269,8 +269,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Zabba washer Battle Gate rooms: same model as TUT/Plank Battles; seats keyed by request.auth.uid. Each player
-    // writes only their own seat: opener pick, live score/steps, and a write-once result. DRAFT, not yet published.
+    // Zabba Washer Battle rooms (washers-battle.js + battle-rooms.js): same model as TUT/Plank Battles; seats keyed by
+    // request.auth.uid. Each player writes only their own seat: live score/steps (only while live), then a write-once
+    // result {score:21, steps, ms, verified, reasons, at} or {forfeit:true, at}. No winner field: both phones decide
+    // from the two results (fewest steps, then quickest time; forfeit/leftAt loses). 'opener' kept for compatibility.
+    // DRAFT, not yet published.
     match /washersBattles/{code} {
       function signedIn() { return request.auth != null; }
       function me() { return request.auth.uid; }

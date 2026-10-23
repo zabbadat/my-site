@@ -10,7 +10,7 @@ check("nav: Zabba Washers link immediately follows The Practice", /<a href="#app
 check("nav: TUT Battles link absent", !/href="#tutbattles"/.test(nav) && !/TUT Battles<\/a>/.test(nav));
 check("TUT battles section still present with its buttons", /<section id="tutbattles">/.test(html) && /id="tbCreate"/.test(html) && /id="tbJoin"/.test(html) && /id="tbReady"/.test(html));
 const sections = [...html.matchAll(/<section[^>]*id="([^"]+)"/g)].map((m) => m[1]);
-const SECT = ["approach", "washers", "play", "board", "cooling-box", "push", "battles-hub", "tokens", "tutbattles", "tut-board", "plank", "battles", "steps", "league", "corporate", "order", "membership"];
+const SECT = ["approach", "washers", "play", "board", "cooling-box", "push", "battles-hub", "tokens", "tutbattles", "washerbattle", "tut-board", "plank", "battles", "steps", "league", "corporate", "order", "membership"];
 check("section order: Tokens moved under Battles hub, others unchanged", JSON.stringify(sections) === JSON.stringify(SECT));
 // Battles hub: between #push (TUT set-push-up) and #tutbattles; lists every battle section; anchors exist.
 { const i = html.indexOf('<section id="battles-hub">'), hub = html.slice(i, html.indexOf("</section>", i));
@@ -20,9 +20,9 @@ check("section order: Tokens moved under Battles hub, others unchanged", JSON.st
   check("hub lists every battle section on the page (" + battleSections.join(", ") + ")", battleSections.length >= 2 && battleSections.every((id) => hrefs.includes(id)));
   check("every hub link anchor exists", hrefs.length > 0 && hrefs.every((h) => html.includes('id="' + h + '"')));
   check("hub id unique; nav Battles points to #battles-hub", html.split('id="battles-hub"').length === 2 && html.split('id="battles"').length === 2 && /<a href="#battles-hub">Battles<\/a>/.test(nav)); }
-// Battle Gate fully removed from UI; solo washers intact.
-check("Battle Gate: no nav link, no section, no wb* ids, no script, no ?wb= parsing", !/battle-gate/.test(html) && !/id="wb/.test(html) && !/washers-battle\.js/.test(html) && !/parseInvite|wbInvite|wbHook|wbWake|ZabbaWashersBattle/.test(html) && !/Battle Gate/.test(html));
-check("Battle Gate module file deleted", !fs.existsSync(path.join(__dirname, "..", "washers-battle.js")));
+// Old Battle Gate (invite links) stays removed; the new Zabba Washer Battle room section replaces it (no nav link).
+check("Battle Gate remnants absent: no battle-gate, no ?wb= invite parsing, no Battle Gate text", !/battle-gate/.test(html) && !/parseInvite|wbInvite|wbWake|ZabbaWashersBattle/.test(html) && !/Battle Gate/.test(html));
+check("Zabba Washer Battle section present (no nav link), module file present", /<section id="washerbattle">/.test(html) && !/href="#washerbattle">/.test(nav) && fs.existsSync(path.join(__dirname, "..", "washers-battle.js")));
 check("solo washers intact: Start game, finishGame, gameWake, pocket lock", /id="startBtn" type="button">Start game</.test(html) && /async function finishGame\(/.test(html) && /const gameWake = makeWake\(/.test(html) && /function setPocket\(/.test(html));
 const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); if (ok !== R.length) process.exit(1);
 
