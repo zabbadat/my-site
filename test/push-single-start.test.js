@@ -21,7 +21,7 @@ function env(o = {}) {
     navigator: { mediaDevices: { getUserMedia: async () => { if (o.camBlocked) throw new Error("denied"); log.push("camera"); return { getTracks: () => [{ stop() {} }] }; } } } };
   ctx.window = ctx;
   if (o.speech !== "absent") {
-    ctx.spoken = []; ctx.speechSynthesis = { cancel: () => log.push("speech:cancel"), speak: (u) => { if (o.speech === "throw") throw new Error("nope"); ctx.spoken.push({ w: u.text, at: now, rate: u.rate, vol: u.volume }); log.push(u.volume === 0 ? "speech:unlock" : "say:" + u.text); } };
+    ctx.spoken = []; ctx.speechSynthesis = { cancel: () => log.push("speech:cancel"), speak: (u) => { if (o.speech === "throw") throw new Error("nope"); ctx.spoken.push({ w: u.text, at: now, rate: u.rate, vol: u.volume }); ctx.lastUtter = u; log.push(u.volume === 0 ? "speech:unlock" : "say:" + u.text); } };
     ctx.SpeechSynthesisUtterance = function (t) { this.text = t; };
   }
   vm.createContext(ctx);
@@ -63,7 +63,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     check("unlock() and 'Ready, get set' run synchronously", unl === 1 && said[0] === "Ready, get set" && shown[0] === "Ready, get set · 5");
     while (q.length) { const [f, d] = q.shift(); check("countdown step is 1 s", d === 1000); f(); }
     await flush(); check("shown 5,4,3,2,1 then GO; 'Go' spoken last; resolves true", shown.join("|") === "Ready, get set · 5|4|3|2|1|GO" && said.join("|") === "Ready, get set|Go" && done === true);
-    check("setup prompts: max 2 short lines, include 'Eyes forward'", [PROMPT_PUSH, PROMPT_PLANK].every((p) => p.split("\n").length <= 2 && /Eyes forward/.test(p) && p.length < 120) && /Front view/.test(PROMPT_PLANK) && /4-6 ft/.test(PROMPT_PLANK)); }
+    check("setup prompts: push 2 short lines with 'Eyes forward'; plank = live side-view line", PROMPT_PUSH.split("\n").length <= 2 && /Eyes forward/.test(PROMPT_PUSH) && PROMPT_PLANK === "Prop the phone on the floor off to your side, a few steps away, screen facing you, so your whole body shows side-on, head to heels." && !/front view|4-6 ft|~3 ft/i.test(PROMPT_PLANK)); }
   // ---- signed in: gate, wake, speech unlock (in tap), camera, pose, setup prompt 2 s, 5 s countdown, Go, clock
   for (const mode of ["sets", "long", "challenge"]) {
     const e = env({ mode });
@@ -113,11 +113,16 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   { const e = env(); e.$("plankCamBtn").onclick();
     check("plank: in the tap: gate, wake, speech unlock; plank setup prompt shown", e.log.join(",") === "gate:plank,plankWake:start,speech:cancel,speech:unlock" && e.$("plankStatus").textContent === PROMPT_PLANK);
     await e.advance(10);
-    check("plank: camera + pose, prompt held, no countdown yet", e.log.includes("camera") && !e.log.some((x) => x.startsWith("say:")) && e.$("plankStatus").textContent === PROMPT_PLANK);
-    await e.advance(2010); check("plank: 'Ready, get set' after the prompt", e.log.includes("say:Ready, get set") && !e.log.includes("plankHold"));
+    check("plank: camera + pose, setup line on screen AND spoken once, no countdown yet", e.log.includes("camera") && e.log.filter((x) => x === "say:" + PROMPT_PLANK).length === 1 && !e.log.includes("say:Ready, get set") && e.$("plankStatus").textContent === PROMPT_PLANK);
+    await e.advance(2010); check("plank: countdown waits while the setup line is still being spoken", !e.log.includes("say:Ready, get set") && e.$("plankStatus").textContent === PROMPT_PLANK);
+    await e.advance(2000); e.run("lastUtter").onend(); await e.advance(20); check("plank: 'Ready, get set' right after the spoken line ends", e.log.includes("say:Ready, get set") && !e.log.includes("plankHold"));
     await e.advance(4970); check("plank: 1.5 s hold not armed during countdown", !e.log.includes("plankHold") && e.$("plankStatus").textContent === "1");
-    await e.advance(40);
-    check("plank: after Go, 1.5 s good-form hold armed as the clock trigger", e.log.indexOf("plankHold") > e.log.indexOf("say:Go") && e.run("plankLoop") === true && e.$("plankStatus").textContent === "Front view, whole body in frame. Hold a straight plank for 1.5 seconds to start the clock." && /readyMs: 1500,/.test(fs.readFileSync(path.join(__dirname, "..", "plank-session.js"), "utf8"))); }
+    await e.advance(60);
+    check("plank: after Go, 1.5 s good-form hold armed as the clock trigger", e.log.indexOf("plankHold") > e.log.indexOf("say:Go") && e.run("plankLoop") === true && e.$("plankStatus").textContent === "Phone off to your side, whole body in view. Hold a straight plank for 1.5 seconds to start the clock." && /readyMs: 1500,/.test(fs.readFileSync(path.join(__dirname, "..", "plank-session.js"), "utf8"))); }
+  { const e = env(); e.$("plankCamBtn").onclick(); await e.advance(10); await e.advance(7900);
+    check("plank: utterance never reports end -> countdown capped at 8 s", !e.log.includes("say:Ready, get set")); await e.advance(150); check("plank: ... then 'Ready, get set'", e.log.includes("say:Ready, get set")); }
+  { const e = env({ speech: "absent" }); e.$("plankCamBtn").onclick(); await e.advance(10); await e.advance(1900);
+    check("plank silent fallback: prompt held 2 s", e.$("plankStatus").textContent === PROMPT_PLANK); await e.advance(150); check("plank silent fallback: countdown starts after 2 s", /Ready, get set · 5/.test(e.$("plankStatus").textContent)); }
   for (const at of [0, 600, 4000]) { const e = env(); e.$("plankCamBtn").onclick(); await e.advance(at); e.$("plankCamBtn").onclick(); await e.advance(9000);
     check(`plank: Stop camera at ${at} ms cancels cleanly`, !e.log.includes("plankHold") && !e.log.includes("say:Go") && e.run("plankWake.held") === false && e.run("plankStream") === null && e.$("plankCamBtn").textContent === "Start plank camera"); }
   { const e = env({ camBlocked: true }); e.$("plankCamBtn").onclick(); await e.advance(100);
