@@ -110,7 +110,18 @@
     if (!list || !list.length) return '<tr><td colspan="4">No tokens earned yet. Finish a set, plank or walk to earn your first.</td></tr>';
     return list.map(function (t) { var l = txLine(t); return "<tr><td>" + esc(l.source) + "</td><td>" + esc(l.amount) + "</td><td>" + esc(l.qty) + "</td><td>" + esc(l.when) + "</td></tr>"; }).join("");
   }
-  var api = { rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, tokensFor: tokensFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
+  // Header badge when signed in: "<name> · Zabba Bag: 12". Name = the leaderboard name (publicName; never an email:
+  // email-looking input shows as "Player"), cut to maxName chars with an ellipsis; CSS also ellipsizes on mobile.
+  function badgeParts(name, balance, maxName) {
+    maxName = maxName || 16;
+    var n = String(name || "").trim();
+    if (!n || /\S+@\S+\.\S+/.test(n)) n = "Player";
+    if (n.length > maxName) n = n.slice(0, maxName - 1).trim() + "\u2026";
+    var b = Math.max(0, Math.floor(Number(balance) || 0));
+    return { name: n, tokens: "Zabba Bag: " + b.toLocaleString("en-US") };
+  }
+  function badgeText(name, balance, maxName) { var p = badgeParts(name, balance, maxName); return p.name + " \u00b7 " + p.tokens; }
+  var api = { badgeParts: badgeParts, badgeText: badgeText, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, tokensFor: tokensFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
     profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabaTokens = api;
 })(typeof window !== "undefined" ? window : this);
