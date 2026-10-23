@@ -6,7 +6,7 @@
  * Speech is optional: missing or throwing speechSynthesis falls back to on-screen only, silently.
  */
 (function (root) {
-  var READY = "Ready, get set";
+  var READY = "Ready, get set", POSITION_SPOKEN;
   var SPOKEN = ["3", "2", "1"];
   var SHOWN = ["3", "2", "1"];
   var AT = [0, 0.35, 0.7]; // fraction of the window
@@ -92,9 +92,36 @@
   // Camera setup prompt (max 2 short lines) shown while the camera loads and ~2 s after it opens, before the countdown.
   var POSITION = {
     pushups: ["Phone flat under your chest · Shoulders in frame", "Arms straight · Eyes forward"],
-    plank: ["Full body in frame · Phone on the floor, 4-6 ft away", "Front view · Eyes forward"]
+    plank: ["Prop the phone on the floor off to your side, a few steps away, screen facing you, so your whole body shows side-on, head to heels."]
   };
+  // Plank setup line is also SPOKEN once when the camera opens; the countdown waits for it to finish.
+  POSITION_SPOKEN = { plank: POSITION.plank[0] };
   POSITION.tut = POSITION.pushups;
+  // Speak a line and resolve when it has finished (onend / onerror), never before minMs, never after maxMs.
+  // No speech available: resolves after minMs (the plain on-screen prompt time). Resolves false if cancelled.
+  function sayAndWait(text, opts) {
+    opts = opts || {};
+    var minMs = opts.minMs != null ? opts.minMs : 2000, maxMs = opts.maxMs != null ? opts.maxMs : 8000, t0 = Date.now();
+    var now = opts.now || function () { return Date.now(); }; t0 = now();
+    var schedule = opts.schedule || function (f, d) { return setTimeout(f, d); }, cancelled = opts.cancelled || function () { return false; };
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish() { if (done) return; done = true; resolve(!cancelled()); }
+      function ended() { var left = minMs - (now() - t0); if (left > 0) schedule(finish, left); else finish(); }
+      var started = false;
+      try {
+        if (opts.speak) started = opts.speak(text, ended) !== false;
+        else {
+          var w = g();
+          if (w && w.speechSynthesis && typeof w.SpeechSynthesisUtterance === "function") {
+            var u = new w.SpeechSynthesisUtterance(text); u.rate = 1.1; u.onend = ended; u.onerror = ended;
+            w.speechSynthesis.cancel(); w.speechSynthesis.speak(u); started = true;
+          }
+        }
+      } catch (e) { started = false; }
+      schedule(finish, started ? maxMs : minMs);
+    });
+  }
   function positionPrompt(kind) { return (POSITION[kind] || POSITION.pushups).join("\n"); }
   // Rep / score callout: cancel anything queued first so the number never lags behind fast reps. Silent fallback.
   function makeRepVoice(opts) {
@@ -132,7 +159,7 @@
       end: function () { ended = true; }, reset: function () { last = 0; ended = false; }
     };
   }
-  var api = { holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
+  var api = { sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);

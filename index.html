@@ -720,7 +720,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="plank">
     <h2>Plank House</h2>
     <p class="lead">Longest good plank in the House wins. The camera times your hold. Same login as washers and pushups. Honor system. Not a form judge and not medical treatment.</p>
-    <p class="note" id="plankSetup"><b>Set up:</b> stand the phone on the floor 4-6 ft in front of you, screen facing you, so your whole body is in frame, head to heels. Front view, eyes forward.</p>
+    <p class="note" id="plankSetup"><b>Set up:</b> Prop the phone on the floor off to your side, a few steps away, screen facing you, so your whole body shows side-on, head to heels.</p>
     <div class="stats duo">
       <div class="stat"><b id="plankClock">0:00</b><span>This hold</span></div>
       <div class="stat"><b id="plankBest">—</b><span>Your best</span></div>
@@ -1591,10 +1591,13 @@ const repVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? w
 function pushTarget() { const n = Math.floor(Number(($("pushTarget") || {}).value)); return n >= 1 && n <= 500 ? n : 20; }
 function sayRep(reps) { if (typeof repVoice === "undefined" || !repVoice || !window.ZabbadatGetSet.repCallout) return; repVoice.say(window.ZabbadatGetSet.repCallout(reps, pushMode === "sets" ? pushTarget() : 0)); }
 // Setup prompt: shown while the camera/model load, then held POSITION_MS after the camera opens, then the countdown.
-const POSITION_MS = 2000;
+const POSITION_MS = 2000, POSITION_SPOKEN_MAX_MS = 8000;
 function showPositioning(kind, el, cancelled) {
   const txt = window.ZabbadatGetSet && window.ZabbadatGetSet.positionPrompt ? window.ZabbadatGetSet.positionPrompt(kind) : "Get in position";
   if (el) { el.textContent = txt; if (el.style) el.style.whiteSpace = "pre-line"; }
+  const G = window.ZabbadatGetSet, line = G && G.POSITION_SPOKEN && G.POSITION_SPOKEN[kind];
+  // Spoken setup line (plank): the countdown starts after the utterance ends (>= POSITION_MS, max 8 s); silent fallback = POSITION_MS.
+  if (line && G.sayAndWait) return G.sayAndWait(line, { minMs: POSITION_MS, maxMs: POSITION_SPOKEN_MAX_MS, cancelled, now: () => performance.now() });
   return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), POSITION_MS));
 }
 function cancelGetSet() { if (getSet) getSet.cancel(); }
@@ -1958,7 +1961,7 @@ async function startPlankCam() {
     plankStarting = false;
     plankSessionStartedAt = Date.now();
     newPlankHold();
-    $("plankStatus").textContent = "Front view, whole body in frame. Hold a straight plank for 1.5 seconds to start the clock.";
+    $("plankStatus").textContent = "Phone off to your side, whole body in view. Hold a straight plank for 1.5 seconds to start the clock.";
     plankLoop = true; plankTick();
   } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = "Camera or pose blocked."; } }
 }
