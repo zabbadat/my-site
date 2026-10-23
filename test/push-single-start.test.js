@@ -39,7 +39,7 @@ async function loadCamLibs() {} async function ensurePose() { log.push("pose"); 
 function poseTick() {} function renderPush() {} function resetPoseBaseline() {} function camExitFs() {} function setCamStatus() {}
 function newPlankHold() { log.push("plankHold"); } function plankTick() {} function plankEnded() {}`;
   const SRC = [STUBS, line("const GET_SET_MS"), line("const getSet = "), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
-    fnSrc("cancelPushStart"), fnSrc("waitCalibrated"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '),
+    fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '),
     "async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
     line('$("plankCamBtn").onclick = '), `const origClock = beginPushClock; beginPushClock = function () { log.push("clock"); return origClock(); };`].join("\n")
     .replace("function beginPushClock()", "var beginPushClock = function ()");
@@ -53,72 +53,80 @@ function newPlankHold() { log.push("plankHold"); } function plankTick() {} funct
 const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Session on. The clock runs nonstop; the camera counts each full rep.",
   challenge: "Challenge on. 3:00 on the clock; stay in plank, the camera counts each full rep." };
 (async () => {
+  const PROMPT_PUSH = GS.positionPrompt("pushups"), PROMPT_PLANK = GS.positionPrompt("plank");
+  const SAID = (e) => e.ctx.spoken.filter((x) => x.vol !== 0);
   // ---- get-set.js helper
-  { const said = [], shown = []; let unl = 0; const g = GS.makeGetSet({ ms: 2000, speak: (w) => said.push(w), unlock: () => unl++, schedule: () => {} });
-    check("GET_SET_MS is 2000 (countdown ~2 s)", /const GET_SET_MS = 2000;/.test(html) && g.ms === 2000);
-    check("3-2-1 offsets 0/700/1400 ms inside the 2000 ms window", JSON.stringify(g.offsets) === "[0,700,1400]");
-    check("spoken and shown 3, 2, 1", JSON.stringify(g.words) === '["3","2","1"]' && JSON.stringify(g.labels) === '["3","2","1"]');
-    g.unlock(); g.run((t) => shown.push(t)); check("unlock() and first word run synchronously", unl === 1 && said[0] === "3" && shown[0] === "3"); }
-  // ---- signed in: gate, wake, speech unlock (in tap), camera, pose, calibrate, 3-2-1, clock
+  { const said = [], shown = []; let unl = 0, q = []; const g = GS.makeGoCountdown({ ms: 5000, speak: (w) => said.push(w), unlock: () => unl++, schedule: (f, d) => q.push([f, d]) });
+    check("GET_SET_MS is 5000 (5-second countdown)", /const GET_SET_MS = 5000;/.test(html) && g.ms === 5000);
+    check("spoken words: 'Ready, get set' then 'Go'", JSON.stringify(g.words) === '["Ready, get set","Go"]' && GS.READY === "Ready, get set");
+    let done = null; g.unlock(); g.run((t) => shown.push(t)).then((v) => (done = v));
+    check("unlock() and 'Ready, get set' run synchronously", unl === 1 && said[0] === "Ready, get set" && shown[0] === "Ready, get set · 5");
+    while (q.length) { const [f, d] = q.shift(); check("countdown step is 1 s", d === 1000); f(); }
+    await flush(); check("shown 5,4,3,2,1 then GO; 'Go' spoken last; resolves true", shown.join("|") === "Ready, get set · 5|4|3|2|1|GO" && said.join("|") === "Ready, get set|Go" && done === true);
+    check("setup prompts: max 2 short lines, include 'Eyes forward'", [PROMPT_PUSH, PROMPT_PLANK].every((p) => p.split("\n").length <= 2 && /Eyes forward/.test(p) && p.length < 120) && /Front view/.test(PROMPT_PLANK) && /4-6 ft/.test(PROMPT_PLANK)); }
+  // ---- signed in: gate, wake, speech unlock (in tap), camera, pose, setup prompt 2 s, 5 s countdown, Go, clock
   for (const mode of ["sets", "long", "challenge"]) {
     const e = env({ mode });
     e.$("pushStartBtn").onclick();
     check(`${mode}: in the tap: gate, wake, speech cancel + silent unlock (volume 0), no camera/countdown/clock yet`, e.log.slice(0, 4).join(",") === "gate:pushups,pushWake:start,speech:cancel,speech:unlock" && !e.log.some((x) => /^(camera|pose|say:|clock)/.test(x)) && e.ctx.spoken[0].vol === 0);
-    check(`${mode}: button disabled while starting`, e.$("pushStartBtn").disabled === true);
+    check(`${mode}: setup prompt shown while the camera loads`, e.$("pushStatus").textContent === PROMPT_PUSH && e.$("pushStartBtn").disabled === true);
     await e.advance(10);
-    check(`${mode}: camera + pose, then "Hold the top to calibrate"`, e.log.indexOf("camera") > 0 && e.log.indexOf("camera") < e.log.indexOf("pose") && e.$("pushStatus").textContent === "Hold the top to calibrate");
-    await e.advance(5000);
-    check(`${mode}: no countdown and no clock before calibration`, !e.log.some((x) => x.startsWith("say:")) && !e.log.includes("clock"));
-    e.run('pushCounter.ph = "first"'); await e.advance(100);
-    const t0 = e.ctx.spoken.find((x) => x.w === "3").at;
-    check(`${mode}: countdown starts after calibration, shows "3"`, e.$("pushStatus").textContent === "3" && !e.log.includes("clock"));
-    await e.advance(1999 - (e.now() - t0));
-    check(`${mode}: 3/2/1 spoken at +0/+700/+1400 ms, clock not yet started`, e.ctx.spoken.filter((x) => x.vol !== 0).map((x) => x.w + "@" + (x.at - t0)).join(",") === "3@0,2@700,1@1400" && e.$("pushStatus").textContent === "1" && !e.log.includes("clock"));
+    const tc = e.now();
+    check(`${mode}: camera + pose, setup prompt still shown, no countdown yet`, e.log.indexOf("camera") > 0 && e.log.indexOf("camera") < e.log.indexOf("pose") && e.$("pushStatus").textContent === PROMPT_PUSH && !SAID(e).length);
+    await e.advance(1980);
+    check(`${mode}: prompt held ~2 s after camera opens`, !SAID(e).length && e.$("pushStatus").textContent === PROMPT_PUSH);
+    await e.advance(30);
+    const t0 = SAID(e)[0] && SAID(e)[0].at;
+    check(`${mode}: 'Ready, get set' spoken at +2 s, shows 5`, SAID(e)[0].w === "Ready, get set" && t0 - tc >= 1990 && t0 - tc <= 2030 && e.$("pushStatus").textContent === "Ready, get set · 5" && !e.log.includes("clock"));
+    await e.advance(4999 - (e.now() - t0));
+    check(`${mode}: 4..1 shown, no 'Go' and no clock before 5 s`, e.$("pushStatus").textContent === "1" && SAID(e).length === 1 && !e.log.includes("clock") && e.run("pushState.running") === false);
     await e.advance(1);
-    check(`${mode}: clock starts at +2000 ms with mode status`, e.run("pushState.running") === true && e.$("pushStatus").textContent === STATUS[mode] && e.$("pushStartBtn").disabled === false);
+    check(`${mode}: 'Go' spoken at +5 s and the clock starts`, SAID(e).map((x) => x.w + "@" + (x.at - t0)).join(",") === "Ready, get set@0,Go@5000" && e.run("pushState.running") === true && e.$("pushStatus").textContent === STATUS[mode] && e.$("pushStartBtn").disabled === false);
     if (mode === "challenge") check("challenge: 3:00 challenge clock started", e.log.includes("challenge:start"));
     const L = e.log.filter((x) => /^(gate|pushWake:start|speech:unlock|camera|pose|say:|clock)/.test(x));
-    check(`${mode}: order gate, wake, unlock, camera, pose, 3, 2, 1, clock`, [...new Set(L)].join(",") === "gate:pushups,pushWake:start,speech:unlock,camera,pose,say:3,say:2,say:1,clock");
+    check(`${mode}: order gate, wake, unlock, camera, pose, Ready get set, Go, clock`, [...new Set(L)].join(",") === "gate:pushups,pushWake:start,speech:unlock,camera,pose,say:Ready, get set,say:Go,clock");
   }
-  // ---- already calibrated (camera on): countdown straight away
-  { const e = env(); e.run('camOn = true; pushCounter.ph = "ready";'); e.$("pushStartBtn").onclick(); await e.advance(2000);
-    check("camera already on + calibrated: reused, 3-2-1, clock", !e.log.includes("camera") && e.log.includes("say:1") && e.run("pushState.running") === true); }
+  // ---- camera already on: reused, prompt + countdown, clock
+  { const e = env(); e.run('camOn = true;'); e.$("pushStartBtn").onclick(); await e.advance(7100);
+    check("camera already on: reused, prompt, countdown, Go, clock", !e.log.includes("camera") && e.log.includes("say:Go") && e.run("pushState.running") === true); }
   // ---- signed out
-  { const e = env({ signedIn: false }); e.$("pushStartBtn").onclick(); await e.advance(5000);
+  { const e = env({ signedIn: false }); e.$("pushStartBtn").onclick(); await e.advance(8000);
     check("signed out: prompt shown, nothing starts (no wake, speech, camera, clock)", e.log.join(",") === "gate:pushups,prompt");
-    e.run("signedIn = true; practiceCb();"); await e.advance(10); e.run('pushCounter.ph = "ready"'); await e.advance(2200);
-    check("signed out -> practice: same flow starts the clock", e.log.includes("pushWake:start") && e.log.includes("camera") && e.log.includes("say:3") && e.run("pushState.running") === true); }
+    e.run("signedIn = true; practiceCb();"); await e.advance(7100);
+    check("signed out -> practice: same flow starts the clock", e.log.includes("pushWake:start") && e.log.includes("camera") && e.log.includes("say:Ready, get set") && e.run("pushState.running") === true); }
   // ---- camera blocked
   { const e = env({ camBlocked: true }); e.$("pushStartBtn").onclick(); await e.advance(2500);
     check("camera blocked: 'Camera or pose blocked.', no countdown, no clock, wakes released", e.$("pushStatus").textContent === "Camera or pose blocked." && !e.log.some((x) => x.startsWith("say:")) && !e.log.includes("clock") && e.run("pushWake.held") === false && e.run("camWake.held") === false && e.$("pushStartBtn").disabled === false); }
   // ---- cancel at each stage
-  { const e = env(); e.$("pushStartBtn").onclick(); e.run("stopCam()"); await e.advance(5000); e.run('pushCounter.ph = "ready"'); await e.advance(3000);
+  { const e = env(); e.$("pushStartBtn").onclick(); e.run("stopCam()"); await e.advance(9000);
     check("cancel while camera loading: camera closed, no countdown, no clock, wake released", e.run("camOn") === false && !e.log.some((x) => x.startsWith("say:")) && !e.log.includes("clock") && e.run("pushWake.held") === false); }
-  { const e = env(); e.$("pushStartBtn").onclick(); await e.advance(500); e.run("stopCam()"); e.run('pushCounter.ph = "ready"'); await e.advance(3000);
-    check("cancel while calibrating: no countdown, no clock, wake released, 'Start cancelled.'", !e.log.some((x) => x.startsWith("say:")) && !e.log.includes("clock") && e.run("pushWake.held") === false && e.$("pushStatus").textContent === "Start cancelled."); }
-  { const e = env(); e.$("pushStartBtn").onclick(); await e.advance(10); e.run('pushCounter.ph = "ready"'); await e.advance(800); e.run("stopCam()"); await e.advance(3000);
-    check("cancel during 3-2-1: speech stopped, '1' never spoken, no clock, wake released", e.log.includes("say:2") && !e.log.includes("say:1") && e.log.lastIndexOf("speech:cancel") > e.log.indexOf("say:2") && !e.log.includes("clock") && e.run("pushWake.held") === false); }
+  { const e = env(); e.$("pushStartBtn").onclick(); await e.advance(500); e.run("stopCam()"); await e.advance(9000);
+    check("cancel during the setup prompt: no countdown, no clock, wake released, 'Start cancelled.'", !e.log.some((x) => x.startsWith("say:")) && !e.log.includes("clock") && e.run("pushWake.held") === false && e.$("pushStatus").textContent === "Start cancelled."); }
+  { const e = env(); e.$("pushStartBtn").onclick(); await e.advance(3500); e.run("stopCam()"); await e.advance(9000);
+    check("cancel during the countdown: speech stopped, 'Go' never spoken, no clock, wake released", e.log.includes("say:Ready, get set") && !e.log.includes("say:Go") && e.log.lastIndexOf("speech:cancel") > e.log.indexOf("say:Ready, get set") && !e.log.includes("clock") && e.run("pushWake.held") === false); }
   // ---- speech fallback
   for (const sp of ["absent", "throw"]) { const e = env({ speech: sp }); let threw = null;
     try { e.$("pushStartBtn").onclick(); } catch (x) { threw = x; }
-    await e.advance(10); e.run('pushCounter.ph = "ready"'); await e.advance(800); const shown = e.$("pushStatus").textContent; await e.advance(1400);
-    check(`speech ${sp}: silent fallback, on-screen 3-2-1 runs, clock still starts`, !threw && shown === "2" && e.run("pushState.running") === true); }
-  // ---- Plank House
+    await e.advance(4010); const shown = e.$("pushStatus").textContent; await e.advance(3100);
+    check(`speech ${sp}: silent fallback, on-screen countdown runs, clock still starts`, !threw && shown === "3" && e.run("pushState.running") === true); }
+  // ---- Plank House: same prompt + 5 s countdown, then its 1.5 s good-form hold (plank-session readyMs unchanged)
   { const e = env(); e.$("plankCamBtn").onclick();
-    check("plank: in the tap: gate, wake, speech unlock", e.log.join(",") === "gate:plank,plankWake:start,speech:cancel,speech:unlock");
+    check("plank: in the tap: gate, wake, speech unlock; plank setup prompt shown", e.log.join(",") === "gate:plank,plankWake:start,speech:cancel,speech:unlock" && e.$("plankStatus").textContent === PROMPT_PLANK);
     await e.advance(10);
-    check("plank: camera + pose first, then 3-2-1 begins", e.log.includes("camera") && e.log.indexOf("pose") < e.log.indexOf("say:3") && !e.log.includes("plankHold"));
-    await e.advance(1980); check("plank: 1.5 s hold not armed during countdown", !e.log.includes("plankHold") && e.$("plankStatus").textContent === "1");
-    await e.advance(30);
-    check("plank: after 3-2-1, 1.5 s good-form hold armed as the clock trigger", e.log.indexOf("plankHold") > e.log.indexOf("say:1") && e.run("plankLoop") === true && e.$("plankStatus").textContent === "Phone off to your side, whole body in view. Hold a straight plank for 1.5 seconds to start the clock." && /readyMs: 1500,/.test(fs.readFileSync(path.join(__dirname, "..", "plank-session.js"), "utf8"))); }
-  for (const at of [0, 600]) { const e = env(); e.$("plankCamBtn").onclick(); await e.advance(at); e.$("plankCamBtn").onclick(); await e.advance(3000);
-    check(`plank: Stop camera ${at ? "during 3-2-1" : "while camera loading"} cancels cleanly`, !e.log.includes("plankHold") && e.run("plankWake.held") === false && e.run("plankStream") === null && e.$("plankCamBtn").textContent === "Start plank camera" && e.log.lastIndexOf("speech:cancel") > 1); }
+    check("plank: camera + pose, prompt held, no countdown yet", e.log.includes("camera") && !e.log.some((x) => x.startsWith("say:")) && e.$("plankStatus").textContent === PROMPT_PLANK);
+    await e.advance(2010); check("plank: 'Ready, get set' after the prompt", e.log.includes("say:Ready, get set") && !e.log.includes("plankHold"));
+    await e.advance(4970); check("plank: 1.5 s hold not armed during countdown", !e.log.includes("plankHold") && e.$("plankStatus").textContent === "1");
+    await e.advance(40);
+    check("plank: after Go, 1.5 s good-form hold armed as the clock trigger", e.log.indexOf("plankHold") > e.log.indexOf("say:Go") && e.run("plankLoop") === true && e.$("plankStatus").textContent === "Front view, whole body in frame. Hold a straight plank for 1.5 seconds to start the clock." && /readyMs: 1500,/.test(fs.readFileSync(path.join(__dirname, "..", "plank-session.js"), "utf8"))); }
+  for (const at of [0, 600, 4000]) { const e = env(); e.$("plankCamBtn").onclick(); await e.advance(at); e.$("plankCamBtn").onclick(); await e.advance(9000);
+    check(`plank: Stop camera at ${at} ms cancels cleanly`, !e.log.includes("plankHold") && !e.log.includes("say:Go") && e.run("plankWake.held") === false && e.run("plankStream") === null && e.$("plankCamBtn").textContent === "Start plank camera"); }
   { const e = env({ camBlocked: true }); e.$("plankCamBtn").onclick(); await e.advance(100);
     check("plank camera blocked: message, wake released", e.$("plankStatus").textContent === "Camera or pose blocked." && e.run("plankWake.held") === false); }
   // ---- static UI
   check("static: single push Start button, no Phone on floor / camBtn", !html.includes('id="camBtn"') && !html.includes("Phone on floor") && html.includes('<button class="btn" id="pushStartBtn" type="button">Start set</button>'));
   check("static: Stop camera kept", html.includes('<button class="btn ghost" id="camStopBtn" type="button" hidden>Stop camera</button>'));
-  check("static: note near the button", html.includes("Get set first: tapping Start turns on your camera. Hold the top for a second to calibrate, then a 3-2-1 count and the clock starts."));
+  check("static: note near the button", html.includes('Get set first: tapping Start turns on your camera, then a 5-second countdown ("Ready, get set" … "Go"). Counting starts at Go; your first full, slow pushup sets the top and counts.'));
+  check("static: solo counter locks the top from the first real dip", html.includes("createCounter({ lockOnDip: true })") && !html.includes("function waitCalibrated("));
   check("static: default status", html.includes('<p class="note" id="pushStatus">Ready. Get set, then tap Start.</p>'));
   check("static: no 'Start, get, set' text left", !/Start, get, set|"get", "set"|Set!/.test(html + GS_SRC));
   check("static: no Calibrate or Place phone and camera labels", !/>\s*Calibrate\s*</.test(html) && !html.includes("Place phone and camera"));

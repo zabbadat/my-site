@@ -1,7 +1,7 @@
 // Harness: real push flow functions sliced from an index.html version + real modules, synthetic MoveNet frames.
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const ROOT = path.join(__dirname, "..", "..");
-module.exports = function run(htmlPath, { mode = "sets", script, ms = 30000, camAlreadyOn = false }) {
+module.exports = function run(htmlPath, { mode = "sets", script, ms = 30000, camAlreadyOn = false, opts = { lockOnDip: true }, spoken = null }) {
   const html = fs.readFileSync(htmlPath, "utf8");
   const between = (a, b) => { const i = html.indexOf(a); if (i < 0) throw new Error("missing " + a); return html.slice(i, html.indexOf(b, i + a.length) + b.length); };
   const fnSrc = (n) => { const a = "function " + n + "("; const i = html.indexOf(a); if (i < 0) throw new Error("missing " + n); const eol = html.indexOf("\n", i); const l = html.slice(i, eol);
@@ -13,6 +13,7 @@ module.exports = function run(htmlPath, { mode = "sets", script, ms = 30000, cam
     setInterval: (f, d) => { const t = { at: now + d, f, every: d }; timers.push(t); return t; }, clearInterval: (t) => { if (t) t.dead = true; },
     performance: { now: () => now }, requestAnimationFrame: (f) => timers.push({ at: now + 33, f }),
     navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } } };
+  if (spoken) { ctx.speechSynthesis = { cancel() {}, speak: (u) => spoken.push({ w: u.text, at: now, vol: u.volume }) }; ctx.SpeechSynthesisUtterance = function (t) { this.text = t; }; }
   ctx.window = ctx; vm.createContext(ctx);
   for (const f of ["push-counter.js", "push-session.js", "push-challenge.js", "get-set.js"]) vm.runInContext(fs.readFileSync(path.join(ROOT, f), "utf8"), ctx);
   const frame = (t) => { const w = script(t); const sx = 320 - w.w * 320, a = (180 - w.e) * Math.PI / 180;
@@ -27,12 +28,12 @@ let pushMode = ${JSON.stringify(mode)}; let challengeFlags = { standing: 0, knee
 const pushChallenge = window.ZabbadatChallenge.createChallenge({ durationMs: 180000, topCapMs: 10000 });
 const postureGuard = window.ZabbadatSession.createPostureGuard();
 let camStream = null, camOn = false, poseDetector = null, poseLoopOn = false, pushCounter = null;
-async function loadCamLibs() { if (!pushCounter) pushCounter = window.ZabbadatPush.createCounter(); }
+async function loadCamLibs() { if (!pushCounter) pushCounter = window.ZabbadatPush.createCounter(${JSON.stringify(opts)}); }
 async function ensurePose() { return poseDetector || (poseDetector = { estimatePoses: async () => [{ keypoints: frame(performance.now()) }] }); }
 function renderPush() {} function finishChallenge() { log.push("finishChallenge"); } let lastCamStatus = "";
 `;
-  const src = pre + ["const GET_SET_MS = 2000;", between("const getSet = ", ";\n"), fnSrc("getSetCountdown"), fnSrc("cancelGetSet"), fnSrc("unlockGetSet"),
-    "let pushStarting = false, pushStartToken = 0;", fnSrc("cancelPushStart"), fnSrc("waitCalibrated"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"),
+  const src = pre + [between("const GET_SET_MS = ", ";\n"), ...(html.includes("const repVoice = ") ? [between("const repVoice = ", ";\n"), fnSrc("pushTarget"), fnSrc("sayRep")] : []), ...(html.includes("const POSITION_MS") ? [between("const POSITION_MS = ", ";\n"), fnSrc("showPositioning")] : []), between("const getSet = ", ";\n"), fnSrc("getSetCountdown"), fnSrc("cancelGetSet"), fnSrc("unlockGetSet"),
+    "let pushStarting = false, pushStartToken = 0;", fnSrc("cancelPushStart"), ...(html.includes("function waitCalibrated(") ? [fnSrc("waitCalibrated")] : []), "async " + fnSrc("startPush"), fnSrc("beginPushClock"),
     fnSrc("setCamStatus"), fnSrc("resetPoseBaseline"), "async " + fnSrc("poseTick"), "async " + fnSrc("openCam")].join("\n") +
     "\nthis.api = { startPush, openCam, pushState, get counter() { return pushCounter; }, log };";
   ctx.frame = frame;
@@ -48,6 +49,6 @@ function renderPush() {} function finishChallenge() { log.push("finishChallenge"
       const s = ctx.api.counter && ctx.api.counter.state();
       if (s && (!trace.length || trace[trace.length - 1].st !== s.status || trace[trace.length - 1].run !== ctx.api.pushState.running)) trace.push({ t: now, st: s.status, ph: s.phase, run: ctx.api.pushState.running, reps: ctx.api.pushState.reps });
     }
-    return { reps: ctx.api.pushState.reps, running: ctx.api.pushState.running, counterReps: ctx.api.counter && ctx.api.counter.state().reps, trace, status: $("pushStatus").textContent, camNote: $("camNote").textContent };
+    return { startedAt: ctx.api.pushState.startedAt, reps: ctx.api.pushState.reps, running: ctx.api.pushState.running, counterReps: ctx.api.counter && ctx.api.counter.state().reps, trace, status: $("pushStatus").textContent, camNote: $("camNote").textContent };
   })();
 };

@@ -6,6 +6,7 @@
  * Speech is optional: missing or throwing speechSynthesis falls back to on-screen only, silently.
  */
 (function (root) {
+  var READY = "Ready, get set";
   var SPOKEN = ["3", "2", "1"];
   var SHOWN = ["3", "2", "1"];
   var AT = [0, 0.35, 0.7]; // fraction of the window
@@ -46,7 +47,70 @@
       cancel: function () { runId += 1; stopSpeech(); }
     };
   }
-  var api = { makeGetSet: makeGetSet };
+  /* Push-ups + Plank House: 5-second countdown. 0 ms: show "Ready, get set · 5" + speak "Ready, get set"; 1000..4000: show 4,3,2,1;
+   * 5000 ms: show "GO" + speak "Go", resolve true (counting starts). unlock() inside the tap (iOS). Silent fallback. */
+  function makeGoCountdown(opts) {
+    opts = opts || {};
+    var ms = opts.ms || 5000, n = Math.round(ms / 1000);
+    var speak = safe(opts.speak || defaultSpeak), unlock = safe(opts.unlock || defaultUnlock), stopSpeech = safe(opts.stop || defaultStop);
+    var schedule = opts.schedule || function (f, d) { return setTimeout(f, d); }, runId = 0;
+    return {
+      ms: ms, words: [READY, "Go"],
+      unlock: function () { unlock(); },
+      run: function (show, cancelled) {
+        var my = ++runId; cancelled = cancelled || function () { return false; };
+        var dead = function () { return my !== runId || cancelled(); };
+        return new Promise(function (resolve) {
+          var tick = function (i) { // i = seconds elapsed
+            if (dead()) { stopSpeech(); return resolve(false); }
+            if (i >= n) { try { show("GO"); } catch (e) {} speak("Go"); return resolve(true); }
+            try { show(i === 0 ? READY + " · " + n : String(n - i)); } catch (e) {}
+            if (i === 0) speak(READY);
+            schedule(function () { tick(i + 1); }, i === n - 1 ? ms - (n - 1) * 1000 : 1000);
+          };
+          tick(0);
+        });
+      },
+      cancel: function () { runId += 1; stopSpeech(); }
+    };
+  }
+  /* Battles (shared 5 s room countdown from battle-rooms.js): speak "Ready, get set" once when the countdown
+   * appears and "Go" once at GO, per room start. voice.phase(key, phase) with phase from countdownState(). */
+  function makeBattleVoice(opts) {
+    opts = opts || {};
+    var speak = safe(opts.speak || defaultSpeak), unlock = safe(opts.unlock || defaultUnlock), said = {};
+    return {
+      unlock: function () { unlock(); },
+      phase: function (key, ph) {
+        if (!key) return null;
+        if (ph === "countdown" && !said[key + ":r"]) { said[key + ":r"] = 1; speak(READY); return READY; }
+        if ((ph === "go" || ph === "live") && !said[key + ":g"]) { said[key + ":r"] = 1; said[key + ":g"] = 1; if (ph === "go") { speak("Go"); return "Go"; } }
+        return null;
+      }
+    };
+  }
+  // Camera setup prompt (max 2 short lines) shown while the camera loads and ~2 s after it opens, before the countdown.
+  var POSITION = {
+    pushups: ["Phone flat under your chest · Shoulders in frame", "Arms straight · Eyes forward"],
+    plank: ["Full body in frame · Phone on a table, 4-6 ft away", "Front view · Eyes forward"]
+  };
+  POSITION.tut = POSITION.pushups;
+  function positionPrompt(kind) { return (POSITION[kind] || POSITION.pushups).join("\n"); }
+  // Rep / score callout: cancel anything queued first so the number never lags behind fast reps. Silent fallback.
+  function makeRepVoice(opts) {
+    opts = opts || {};
+    var speak = safe(opts.speak || defaultSpeak), stopSpeech = safe(opts.stop || defaultStop), last = null;
+    return { say: function (n) { if (n == null || n === last) return; last = n; stopSpeech(); speak(String(n)); }, reset: function () { last = null; } };
+  }
+  // Spoken rep callout. With a target (Sets): counts DOWN, rep 1 of 20 says "20" ... rep 20 says "1";
+  // reps past the target say "Plus 1", "Plus 2"... No target (One long set, challenge, battles): counts up "1", "2"...
+  function repCallout(reps, target) {
+    reps = Math.floor(Number(reps) || 0); if (reps < 1) return null;
+    var t = Math.floor(Number(target) || 0);
+    if (t < 1) return String(reps);
+    return reps <= t ? String(t - reps + 1) : "Plus " + (reps - t);
+  }
+  var api = { repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);
