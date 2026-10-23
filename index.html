@@ -583,6 +583,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="reps-display" id="pushRepsBig">0</p>
     <p class="note" style="text-align:center;margin-top:-1rem"><span id="pushSetLabel">This set</span> &middot; <span id="pushClock">00:00</span></p>
     <div class="row">
+      <label class="note" id="pushTargetWrap" for="pushTarget" style="display:inline-flex;align-items:center;gap:.4rem;margin:0">Target reps <input id="pushTarget" type="number" inputmode="numeric" min="1" max="500" step="1" value="20" style="width:4.5rem"></label>
       <button class="btn" id="pushStartBtn" type="button">Start set</button>
       <button class="btn ghost" id="pushPauseBtn" type="button">Pause</button>
       <button class="btn danger" id="pushResetBtn" type="button">Reset</button>
@@ -602,7 +603,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
     <div class="note" id="challengeResult" hidden></div>
    <p class="note" id="camNote">Phone on the floor, screen up, under your chest. The camera counts each full rep. Video stays on this phone.</p>
-    <p class="note" id="pushGetSetNote">Get set first: tapping Start turns on your camera. Hold the top for a second to calibrate, then a 3-2-1 count and the clock starts.</p>
+    <p class="note" id="pushGetSetNote">Get set first: tapping Start turns on your camera, then a 5-second countdown ("Ready, get set" … "Go"). Counting starts at Go; your first full, slow pushup sets the top and counts.</p>
     <p class="note" id="camStatus" aria-live="polite"></p>
     <p class="note" id="pushStatus">Ready. Get set, then tap Start.</p>
     <p class="fine">Signed-in finishes post to the push board. Unsigned stays on this phone. Video never uploads.</p>
@@ -719,7 +720,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="plank">
     <h2>Plank House</h2>
     <p class="lead">Longest good plank in the House wins. The camera times your hold. Same login as washers and pushups. Honor system. Not a form judge and not medical treatment.</p>
-    <p class="note" id="plankSetup"><b>Set up:</b> prop the phone on the floor off to your side, a few steps away, screen facing you, so your whole body shows side-on, head to heels.</p>
+    <p class="note" id="plankSetup"><b>Set up:</b> stand the phone on a table 4-6 ft in front of you, screen facing you, so your whole body is in frame, head to heels. Front view, eyes forward.</p>
     <div class="stats duo">
       <div class="stat"><b id="plankClock">0:00</b><span>This hold</span></div>
       <div class="stat"><b id="plankBest">—</b><span>Your best</span></div>
@@ -738,7 +739,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div id="plankWrap" hidden style="margin-top:1rem;max-width:22rem">
       <video id="plankVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video>
     </div>
-    <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. After a 3-2-1 count, the clock starts after 1.5 seconds of good form. Sagging or piking hips, dropping to your knees or leaving the frame for more than a second ends the hold.</p>
+    <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. After a 5-second countdown ("Ready, get set" … "Go"), the clock starts after 1.5 seconds of good form. Sagging or piking hips, dropping to your knees or leaving the frame for more than a second ends the hold.</p>
     <p class="fine">Every camera hold of 10 seconds or more counts as one set. New hold starts the next set without stopping the camera. Signed-in holds post to the Plank House board and today's sets board. Unsigned stays on this phone. Video never uploads.</p>
     <h3 style="margin-top:1.6rem">Plank House board</h3>
     <p class="lead">Longest hold first.</p>
@@ -992,6 +993,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     };
 
 const TARGET = 21;
+// Washers: spoken score after each scoring tap (cancels any queued callout; silent fallback).
+const scoreVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? window.ZabbadatGetSet.makeRepVoice() : null;
 const $ = (id) => document.getElementById(id);
 const configured = firebaseConfig.apiKey !== "PASTE_API_KEY";
 
@@ -1178,6 +1181,7 @@ $("resetBtn").onclick = () => {
   setPocket(false);
   clearInterval(state.tick);
   Object.assign(state, { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false });
+  if (typeof scoreVoice !== "undefined" && scoreVoice) scoreVoice.reset();
   stepDetector.reset();
   stepVerifier.reset();
   if (gameWake) gameWake.stop().catch(() => {});
@@ -1194,6 +1198,7 @@ document.querySelectorAll("[data-points]").forEach((btn) => {
     if (!state.running && state.elapsed === 0) { setStatus("Start the game before scoring."); return; }
     if (Number(btn.dataset.points) > 0) stepVerifier.scoreTap(performance.now());
     state.score = Math.max(0, state.score + Number(btn.dataset.points));
+    if (typeof scoreVoice !== "undefined" && scoreVoice) scoreVoice.say(state.score); // spoken score (cancels any queued callout)
     if (state.running) armRelock();
     render();
     if (state.score >= TARGET) finishGame();
@@ -1427,7 +1432,7 @@ function renderPushMode() {
   if (chal) {
     if ($("modeLongBtn")) $("modeLongBtn").setAttribute("aria-pressed", "false"); set("oltBanner", "hidden", true);
     set("pushFinishBtn", "hidden", true); set("pushPauseBtn", "hidden", true); set("pushEndBtn", "hidden", true); set("longNote", "hidden", true);
-    set("pushTutLabel", "textContent", "Total time (under tension)"); set("pushStartBtn", "textContent", "Start challenge");
+    set("pushTutLabel", "textContent", "Total time (under tension)"); set("pushStartBtn", "textContent", "Start challenge"); set("pushTargetWrap", "hidden", true);
     set("pushSetLabel", "textContent", "Time left");
     set("pushViol", "textContent", String(postureGuard ? postureGuard.state().count : 0));
     if (!postureGuard || !postureGuard.state().active) set("pushViolFlag", "hidden", true);
@@ -1438,6 +1443,7 @@ function renderPushMode() {
   set("longNote", "hidden", !long);
   set("pushTutLabel", "textContent", long ? "Total time (under tension)" : "Total time");
   set("pushStartBtn", "textContent", long ? "Start session" : "Start set");
+  set("pushTargetWrap", "hidden", long);
   set("pushSetLabel", "textContent", long ? "This session" : "This set");
   set("pushViol", "textContent", String(postureGuard ? postureGuard.state().count : 0));
   if (!long || !postureGuard || !postureGuard.state().active) set("pushViolFlag", "hidden", true);
@@ -1570,13 +1576,26 @@ function finishPushSet() {
     .then(() => tokP).then((tk) => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + viol + tokenNote(tk); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
-// One Start button: gate -> wake + speech unlock (in the tap) -> camera -> pose -> calibrate -> 3-2-1 (2 s) -> clock.
-const GET_SET_MS = 2000;
-const getSet = window.ZabbadatGetSet ? window.ZabbadatGetSet.makeGetSet({ ms: GET_SET_MS }) : null;
+// One Start button: gate -> wake + speech unlock (in the tap) -> camera -> pose -> 5 s countdown (spoken "Ready, get set",
+// then "Go") -> clock. Push-ups lock the top from the first real dip (counter lockOnDip), not from setup frames.
+// Plank House "Start plank camera" uses the same 5 s countdown, then its 1.5 s good-form hold.
+const GET_SET_MS = 5000;
+const getSet = window.ZabbadatGetSet ? window.ZabbadatGetSet.makeGoCountdown({ ms: GET_SET_MS }) : null;
 function getSetCountdown(show, cancelled) {
   if (getSet) return getSet.run(show, cancelled);
-  show("3");
+  show("GO");
   return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), GET_SET_MS));
+}
+// Spoken rep numbers (Sets count down from the target; One long set / challenge count up). Cancels queued speech.
+const repVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? window.ZabbadatGetSet.makeRepVoice() : null;
+function pushTarget() { const n = Math.floor(Number(($("pushTarget") || {}).value)); return n >= 1 && n <= 500 ? n : 20; }
+function sayRep(reps) { if (typeof repVoice === "undefined" || !repVoice || !window.ZabbadatGetSet.repCallout) return; repVoice.say(window.ZabbadatGetSet.repCallout(reps, pushMode === "sets" ? pushTarget() : 0)); }
+// Setup prompt: shown while the camera/model load, then held POSITION_MS after the camera opens, then the countdown.
+const POSITION_MS = 2000;
+function showPositioning(kind, el, cancelled) {
+  const txt = window.ZabbadatGetSet && window.ZabbadatGetSet.positionPrompt ? window.ZabbadatGetSet.positionPrompt(kind) : "Get in position";
+  if (el) { el.textContent = txt; if (el.style) el.style.whiteSpace = "pre-line"; }
+  return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), POSITION_MS));
 }
 function cancelGetSet() { if (getSet) getSet.cancel(); }
 function unlockGetSet() { if (getSet) getSet.unlock(); }
@@ -1588,29 +1607,23 @@ function cancelPushStart(msg) {
   if (pushWake && !pushState.running) pushWake.stop().catch(() => {});
   if (msg) $("pushStatus").textContent = msg;
 }
-function waitCalibrated(live) {
-  return new Promise((resolve) => {
-    const done = () => !pushCounter || (pushCounter.state() || {}).phase !== "calibrate";
-    if (done()) return resolve(true);
-    const t = setInterval(() => { if (!live() || !camOn) { clearInterval(t); resolve(false); } else if (done()) { clearInterval(t); resolve(true); } }, 100);
-  });
-}
 async function startPush() {
   if (pushState.finished || pushState.running || pushStarting) return;
   if (!requireSignIn("pushups", () => startPush(), { practice: true })) return;
   if (pushWake) pushWake.start().catch(() => {}); // inside the tap, before any await or timer
-  unlockGetSet(); // iOS: silent utterance inside the tap so the 3-2-1 can speak later
+  unlockGetSet(); // iOS: silent utterance inside the tap so "Ready, get set" / "Go" can speak later
   if (typeof plankLoop !== "undefined" && plankLoop) stopPlankCam();
   const my = ++pushStartToken; const live = () => my === pushStartToken;
   pushStarting = true; $("pushStartBtn").disabled = true;
   const fail = (msg) => { if (!live()) return; cancelPushStart(msg); };
   try {
-    if (!camOn) { $("pushStatus").textContent = "Turning on camera…"; const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail("Camera or pose blocked."); }
-    if (pushCounter && (pushCounter.state() || {}).phase === "calibrate") {
-      $("pushStatus").textContent = "Hold the top to calibrate";
-      if (!(await waitCalibrated(live))) return;
-    }
+    if (window.ZabbadatGetSet && window.ZabbadatGetSet.positionPrompt) { $("pushStatus").textContent = window.ZabbadatGetSet.positionPrompt("pushups"); $("pushStatus").style && ($("pushStatus").style.whiteSpace = "pre-line"); }
+    if (!camOn) { const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail("Camera or pose blocked."); }
     if (!live()) return;
+    if (!(await showPositioning("pushups", $("pushStatus"), () => !live()))) return;
+    if (!live()) return;
+    // Forget setup frames (placing the phone, getting into plank): the top locks from the first real dip from here.
+    resetPoseBaseline();
     if (!(await getSetCountdown((t) => { $("pushStatus").textContent = t; }, () => !live()))) return;
     if (!live()) return;
     pushStarting = false; $("pushStartBtn").disabled = false;
@@ -1619,6 +1632,7 @@ async function startPush() {
 }
 function beginPushClock() {
   if (pushState.finished || pushState.running) return;
+  if (typeof repVoice !== "undefined" && repVoice) repVoice.reset();
   pushState.running = true;
   pushState.startedAt = Date.now();
   if (pushMode === "challenge" && pushChallenge) {
@@ -1686,7 +1700,7 @@ function loadCamLibs() {
   if (!camLibsPromise) {
     camLibsPromise = CAM_SCRIPTS.reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve())
       .then(() => {
-        if (!pushCounter && window.ZabbadatPush) pushCounter = window.ZabbadatPush.createCounter();
+        if (!pushCounter && window.ZabbadatPush) pushCounter = window.ZabbadatPush.createCounter({ lockOnDip: true });
       })
       .catch((e) => { camLibsPromise = null; throw e; });
   }
@@ -1702,7 +1716,7 @@ function setCamStatus(text) {
 
 function resetPoseBaseline() {
   if (pushCounter) pushCounter.reset();
-  setCamStatus(camOn ? "Hold the top to calibrate" : "");
+  setCamStatus(camOn ? "Do one full, slow pushup to set the top" : "");
 }
 
 async function ensurePose() {
@@ -1743,7 +1757,7 @@ async function poseTick() {
       const c = pushChallenge.update(performance.now(), { atTop: window.ZabbadatChallenge.atTopFrom(pushCounter.state()), counted: r.counted, repMs: r.repMs });
       if (c.ended) finishChallenge();
       else {
-        if (r.counted) { pushState.reps = c.reps; pushState.tut = c.tutMs; renderPush(); $("camNote").textContent = "Counted " + pushState.reps + "."; }
+        if (r.counted) { pushState.reps = c.reps; pushState.tut = c.tutMs; renderPush(); $("camNote").textContent = "Counted " + pushState.reps + "."; sayRep(pushState.reps); }
         if (c.capped) $("camNote").textContent = "Top hold capped at 10 seconds";
         else if ($("camNote").textContent === "Top hold capped at 10 seconds") $("camNote").textContent = "Counted " + pushState.reps + ".";
       }
@@ -1751,7 +1765,7 @@ async function poseTick() {
       pushState.reps += 1;
       pushState.tut += window.ZabbadatPush.tutForRep(r.repMs, 10000);
       renderPush();
-      $("camNote").textContent = "Counted " + pushState.reps + ".";
+      $("camNote").textContent = "Counted " + pushState.reps + "."; sayRep(pushState.reps);
     }
   } catch (e) {
     $("camNote").textContent = "Pose paused.";
@@ -1780,7 +1794,7 @@ async function openCam() {
     resetPoseBaseline();
     $("camWrap").hidden = false;
     $("camStopBtn").hidden = false;
-    $("camNote").textContent = "Arms straight, hold still for a second to calibrate, then do one full, slow pushup.";
+    $("camNote").textContent = "Get into plank. After Go, your first full, slow pushup sets the top and counts.";
     poseTick();
     return true;
   } catch (e) {
@@ -1913,14 +1927,15 @@ function newPlankHold() {
 async function startPlankCam() {
   if (!requireSignIn("plank", () => startPlankCam(), { practice: true })) return;
   if (plankWake) plankWake.start().catch(() => {}); // inside the tap, before any await or timer
-  unlockGetSet(); // iOS: silent utterance inside the tap so the 3-2-1 can speak later
+  unlockGetSet(); // iOS: silent utterance inside the tap so "Ready, get set" / "Go" can speak later
   const my = ++plankStartToken; const live = () => my === plankStartToken;
   plankStarting = true;
   try {
     if (camOn) stopCam();
     if (pushStarting) cancelPushStart();
     $("plankCamBtn").textContent = "Stop camera";
-    $("plankStatus").textContent = "Loading camera…";
+    $("plankStatus").textContent = window.ZabbadatGetSet && window.ZabbadatGetSet.positionPrompt ? window.ZabbadatGetSet.positionPrompt("plank") : "Loading camera…";
+    if ($("plankStatus").style) $("plankStatus").style.whiteSpace = "pre-line";
     await loadCamLibs();
     if (!live()) return;
     if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
@@ -1931,13 +1946,14 @@ async function startPlankCam() {
     await ensurePose();
     if (!live()) return;
     $("plankWrap").hidden = false;
-    $("plankStatus").textContent = "Phone off to your side, whole body in view. Get into your plank.";
+    if (!(await showPositioning("plank", $("plankStatus"), () => !live()))) return;
+    if (!live()) return;
     if (!(await getSetCountdown((t) => { $("plankStatus").textContent = t; }, () => !live()))) return;
     if (!live()) return;
     plankStarting = false;
     plankSessionStartedAt = Date.now();
     newPlankHold();
-    $("plankStatus").textContent = "Phone off to your side, whole body in view. Hold a straight plank for 1.5 seconds to start the clock.";
+    $("plankStatus").textContent = "Front view, whole body in frame. Hold a straight plank for 1.5 seconds to start the clock.";
     plankLoop = true; plankTick();
   } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = "Camera or pose blocked."; } }
 }
