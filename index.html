@@ -1809,6 +1809,8 @@ paintPushRows(localPush());
 renderPush();
 // ---- Plank contest (side camera, pure logic in plank-session.js) ----
 let plankStream = null, plankLoop = false, plankHold = null, plankSaved = false;
+// Spoken hold time every 15 s of hold (same voice helper as rep counts; silent fallback). Restarts per hold / set.
+const plankTimeVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeHoldVoice ? window.ZabbadatGetSet.makeHoldVoice() : null;
 const PLANK_BEST_KEY = "zabbadat-plank-best";
 let saveRemotePlank = async () => { throw new Error("Plank board is not connected"); };
 let saveRemotePlankDaily = async () => { throw new Error("Sets board is not connected"); };
@@ -1845,6 +1847,7 @@ function paintPlankRows(rows) {
     : `<tr><td colspan="4">No holds yet.</td></tr>`;
 }
 function plankEnded(r) {
+  if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.end();
   if (plankSaved) return;
   if (!plankSessionStartedAt) return; // only a live camera session can end (and save) a hold
   plankSaved = true;
@@ -1881,8 +1884,9 @@ async function plankTick() {
     else if (r.phase === "ready") {
       $("plankMsg").textContent = r.countdownMs != null ? "Hold it… " + Math.ceil(r.countdownMs / 500) / 2 + "s" : (r.frame === "missing" ? "Show your whole body" : "Get into plank");
     } else {
-      if (r.ms >= PLANK_SET_MS && !plankSaved) { plankEnded(plankHold.stop(performance.now())); $("plankStatus").textContent = "Minute set done! " + $("plankStatus").textContent + " Tap New hold for the next set."; if (plankLoop) requestAnimationFrame(plankTick); return; }
+      if (r.ms >= PLANK_SET_MS && !plankSaved) { if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.tick(r.ms); plankEnded(plankHold.stop(performance.now())); $("plankStatus").textContent = "Minute set done! " + $("plankStatus").textContent + " Tap New hold for the next set."; if (plankLoop) requestAnimationFrame(plankTick); return; }
       $("plankClock").textContent = formatTut(r.ms);
+      if (typeof plankTimeVoice !== "undefined" && plankTimeVoice && !plankSaved) plankTimeVoice.tick(r.ms);
       $("plankMsg").textContent = r.frame === "ok" ? "Holding" : r.frame === "missing" ? "Back in frame!" : window.ZabbadatPlank.reasonText(r.frame) + "! Fix it";
     }
   } catch (e) { $("plankStatus").textContent = "Pose paused."; }
@@ -1891,6 +1895,7 @@ async function plankTick() {
 const PLANK_SET_MS = 60000; // a full set is one minute; the hold auto-ends there and counts as a set
 function newPlankHold() {
   plankHold = window.ZabbadatPlank.createPlankHold(); plankSaved = false;
+  if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.reset();
   $("plankClock").textContent = "0:00"; $("plankMsg").textContent = "Get into plank";
   $("plankStopBtn").hidden = false; $("plankAgainBtn").hidden = true;
 }

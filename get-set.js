@@ -110,7 +110,29 @@
     if (t < 1) return String(reps);
     return reps <= t ? String(t - reps + 1) : "Plus " + (reps - t);
   }
-  var api = { repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
+  // Spoken hold time every 15 s: "15 seconds", "30 seconds", "45 seconds", "1 minute", "1 minute 15", ... "2 minutes".
+  var HOLD_EVERY_MS = 15000;
+  function holdCallout(sec) {
+    sec = Math.floor(Number(sec) || 0); if (sec < 1) return null;
+    var m = Math.floor(sec / 60), s = sec % 60;
+    if (!m) return s + " seconds";
+    return m + (m === 1 ? " minute" : " minutes") + (s ? " " + s : "");
+  }
+  // tick(ms) with the hold's own elapsed ms; speaks once per new 15 s mark (a skipped mark speaks only the latest),
+  // cancels anything queued first; end() silences it until reset() (a new hold / set starts from 0).
+  function makeHoldVoice(opts) {
+    opts = opts || {};
+    var speak = safe(opts.speak || defaultSpeak), stopSpeech = safe(opts.stop || defaultStop), every = opts.everyMs || HOLD_EVERY_MS, last = 0, ended = false;
+    return {
+      tick: function (ms) {
+        if (ended) return null;
+        var k = Math.floor((Number(ms) || 0) / every); if (k < 1 || k <= last) return null;
+        last = k; var w = holdCallout(k * every / 1000); stopSpeech(); speak(w); return w;
+      },
+      end: function () { ended = true; }, reset: function () { last = 0; ended = false; }
+    };
+  }
+  var api = { holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);
