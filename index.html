@@ -630,6 +630,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h2>Zabba Tokens</h2>
     <p class="lead">Earn tokens for the work you log. Earn only: tokens can't be bet or spent yet.</p>
     <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">Zabba Bag</span><b id="ztBalance">—</b><span>Your balance</span></div></div>
+    <p class="note" id="ztTop" hidden></p>
     <p class="note" id="ztSignedOut">Sign in to start earning. <a href="#play" id="ztSignInLink">Go to sign-in</a></p>
     <h3>Earn rates</h3>
     <ul class="zt-rates" id="ztRates"></ul>
@@ -2200,7 +2201,15 @@ saveRemoteWalk = async (r) => {
 };
 
 const ztFs = { ts: () => serverTimestamp(), tx: (fn) => runTransaction(db, (t) => fn({ get: (p) => t.get(doc(db, ...p)).then((x) => (x.exists() ? x.data() : null)), set: (p, d) => t.set(doc(db, ...p), d), update: (p, d) => t.update(doc(db, ...p), d) })) };
-let ztOff = null;
+let ztOff = null, ztTopOff = null, ztMirrored = null;
+// Top Zabba Bag line (signed in only): hidden when empty, not permitted (rules not published) or on any error.
+function paintTopBag(entry) { const el = $("ztTop"); if (!el) return; const line = ZT && ZT.topLine ? ZT.topLine(entry) : null; el.textContent = line || ""; el.hidden = !line; }
+function mirrorBoard(u, total) {
+  if (!ZT || !ZT.boardEntry || !u || total == null || ztMirrored === u.uid + ":" + total) return;
+  ztMirrored = u.uid + ":" + total;
+  const e = ZT.boardEntry(u.uid, publicName(displayNameOf(u)), total);
+  setDoc(doc(db, "tokenBoard", u.uid), { uid: e.uid, name: e.name, total: e.total, updatedAt: serverTimestamp() }).catch(() => { ztMirrored = null; });
+}
 function paintTokens(n) { const row = $("zabaTokensRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintTokenSection(n); }
 function paintTokenSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.textContent = on ? Number(n).toLocaleString() : "—"; if (o) o.hidden = on; if (g) { g.setAttribute("href", on ? "#tokens" : "#play"); g.setAttribute("aria-label", on ? "Your Zabba Bag" : "Sign in"); if (on && ZT && ZT.badgeParts) { const p = ZT.badgeParts(typeof auth !== "undefined" && auth.currentUser ? publicName(displayNameOf(auth.currentUser)) : "", n); g.innerHTML = '<span class="zt-name">' + escapeHtml(p.name) + '</span> \u00b7 ' + escapeHtml(p.tokens); g.title = p.name + " \u00b7 " + p.tokens; } else { g.textContent = on ? "Zabba Bag: " + Number(n).toLocaleString() : "Sign in"; g.title = ""; } } }
 // Badge: signed in -> #tokens (plain link); signed out -> #play sign-in box, scrolled into view with the Google button focused.
@@ -2224,12 +2233,14 @@ awardTokens = async (source, qty, setId) => {
 function tokensOnUser(u) {
   if (ztOff) { ztOff(); ztOff = null; }
   if (ztTxOff) { ztTxOff(); ztTxOff = null; }
-  paintTokens(null);
+  if (ztTopOff) { ztTopOff(); ztTopOff = null; }
+  paintTokens(null); paintTopBag(null); ztMirrored = null;
   if ($("ztTxBody")) $("ztTxBody").innerHTML = '<tr><td colspan="4">Sign in to see your earnings.</td></tr>';
   if (!u || !ZT) return;
   ztTxOff = onSnapshot(query(collection(db, "users", u.uid, "tokenTx"), orderBy("createdAt", "desc"), limit(10)), (snap) => paintTokenTx(snap.docs.map((d) => d.data())), () => paintTokenTx([]));
+  ztTopOff = onSnapshot(query(collection(db, "tokenBoard"), orderBy("total", "desc"), limit(1)), (snap) => paintTopBag(snap.empty ? null : snap.docs[0].data()), () => paintTopBag(null));
   ZT.ensureProfile(ztFs, u.uid).then((p) => { paintTokens(p.zabaTokens); return ZT.flush(ztFs, localStorage, u.uid); }).catch(() => {}).finally(() => {
-    if (auth.currentUser && auth.currentUser.uid === u.uid && !ztOff) ztOff = onSnapshot(doc(db, "users", u.uid), (d) => { if (d.exists()) paintTokens(ZT.profileFrom(d.data(), u.uid).zabaTokens); }, () => {});
+    if (auth.currentUser && auth.currentUser.uid === u.uid && !ztOff) ztOff = onSnapshot(doc(db, "users", u.uid), (d) => { if (d.exists()) { const n = ZT.profileFrom(d.data(), u.uid).zabaTokens; paintTokens(n); mirrorBoard(u, n); } }, () => {});
   });
 }
 

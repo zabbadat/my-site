@@ -388,6 +388,21 @@ service cloud.firestore {
       }
     }
 
+    // DRAFT (unpublished): public "Top Zabba Bag" mirror. Signed-in users may read name + total only; the owner
+    // writes their own doc, total must equal their users/{uid}.zabaTokens, name is the leaderboard name (no '@').
+    match /tokenBoard/{uid} {
+      function b() { return request.resource.data; }
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && b().keys().hasOnly(['uid','name','total','updatedAt'])
+        && b().uid == uid && b().name is string && b().name.size() >= 1 && b().name.size() <= 40 && !b().name.matches('.*@.*')
+        && b().total is int && b().total >= 0
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && b().total == get(/databases/$(database)/documents/users/$(uid)).data.zabaTokens
+        && b().updatedAt == request.time;
+      allow delete: if false;
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

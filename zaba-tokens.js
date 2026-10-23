@@ -121,7 +121,20 @@
     return { name: n, tokens: "Zabba Bag: " + b.toLocaleString("en-US") };
   }
   function badgeText(name, balance, maxName) { var p = badgeParts(name, balance, maxName); return p.name + " \u00b7 " + p.tokens; }
-  var api = { badgeParts: badgeParts, badgeText: badgeText, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, tokensFor: tokensFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
+  // Public "Top Zabba Bag" mirror: tokenBoard/{uid} = { uid, name, total, updatedAt } (name = leaderboard publicName,
+  // never an email; total = the owner's users/{uid}.zabaTokens, enforced by rules). Written best-effort, outside the
+  // award transaction, so earning never depends on it.
+  function boardEntry(uid, name, total) {
+    var n = badgeParts(name, total, 40).name;
+    return { uid: String(uid), name: n, total: Math.max(0, Math.floor(Number(total) || 0)) };
+  }
+  // "Top Zabba Bag: Zab · 12 Zabba Tokens" or null (hide) when there is no usable entry.
+  function topLine(entry) {
+    if (!entry || !(Number(entry.total) > 0)) return null;
+    var p = badgeParts(entry.name, entry.total, 24), t = Math.floor(Number(entry.total));
+    return "Top Zabba Bag: " + p.name + " \u00b7 " + t.toLocaleString("en-US") + (t === 1 ? " Zabba Token" : " Zabba Tokens");
+  }
+  var api = { boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, badgeText: badgeText, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, tokensFor: tokensFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
     profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabaTokens = api;
 })(typeof window !== "undefined" ? window : this);
