@@ -129,6 +129,25 @@
       }
 
       if (s.phase === "first") {
+        // Re-calibrate if the top was locked while the user was still getting into position (single Start opens
+        // the camera and calibrates on the first steady second, often while placing the phone). Uses the same
+        // steadiness test as calibration. Triggers only when steady for calibMs AND either below the locked top
+        // (the real top is narrower) or parked at one level >= calibMs inside a "first rep" that began >= 2 x calibMs
+        // ago (the real top is wider). A rare 1 s+ pause at the bottom of the first rep re-centres there, then the
+        // next steady second at the real top re-centres back (below case); at most that one rep is not counted.
+        s.win.push([t, v]); if (m.elbow != null) { s.elbowTopSamples.push(m.elbow); if (s.elbowTopSamples.length > 60) s.elbowTopSamples.shift(); }
+        while (s.win.length && t - s.win[0][0] > o.calibMs) s.win.shift();
+        var fv = s.win.map(function (x) { return x[1]; }), flo = Math.min.apply(null, fv), fhi = Math.max.apply(null, fv), fmean = (flo + fhi) / 2;
+        var fsteady = t - s.win[0][0] >= o.calibMs * 0.9 && (fhi - flo) / fmean <= o.steadyTol * 2;
+        if (!fsteady && fhi - flo > fmean * o.steadyTol * 2) s.win = s.win.slice(-1);
+        if (fsteady && (fmean < s.top * (1 - o.steadyTol * 2) || (s.repStart != null && t - s.repStart >= o.calibMs * 2))) {
+          s.top = fmean;
+          var fes = s.elbowTopSamples.slice(-30);
+          s.topElbow = fes.length ? fes.reduce(function (x, y) { return x + y; }, 0) / fes.length : s.topElbow;
+          s.repStart = null; s.peak = null; s.minElbow = null; s.win = s.win.slice(-1); s.recalibrated = (s.recalibrated || 0) + 1;
+          s.status = "Calibrated. Do one full, slow pushup";
+          return result(false);
+        }
         // learn bottom from the first rep's peak
         var returned = s.repStart != null && v < s.top + o.upRom * (s.peak - s.top);
         if (!returned && v > s.top * (1 + o.minDepth * 0.5)) {
