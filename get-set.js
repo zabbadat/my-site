@@ -92,7 +92,7 @@
   // Camera setup prompt (max 2 short lines) shown while the camera loads and ~2 s after it opens, before the countdown.
   var POSITION = {
     pushups: ["Phone flat under your chest · Shoulders in frame", "Arms straight · Eyes forward"],
-    plank: ["Full body in frame · Phone on the floor, 4-6 ft away", "Front view · Eyes forward"]
+    plank: ["Full body in frame · Phone on the floor, ~3 ft away", "Front view · Eyes forward"]
   };
   POSITION.tut = POSITION.pushups;
   function positionPrompt(kind) { return (POSITION[kind] || POSITION.pushups).join("\n"); }
