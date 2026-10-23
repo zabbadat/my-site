@@ -2394,8 +2394,10 @@ function paintBattle() {
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt) { if (!battleTick) battleTick = setInterval(tickBattle, 100); tickBattle(); }
   else { clearInterval(battleTick); battleTick = null; $("battleCount").hidden = true; }
 }
+const pbVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeSharedCountdownVoice ? window.ZabbadatGetSet.makeSharedCountdownVoice() : null;
 function tickBattle() {
   const st = battle.state(battleRoom && battleRoom.startAt), c = $("battleCount");
+  if (pbVoice && battleRoom) pbVoice.phase("plank:" + battleCode + ":" + battleRoom.startAt, st.phase, st.n);
   c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
   if (st.phase === "countdown") { c.textContent = st.n; bStatus("Get into position…"); }
   else if (st.phase === "go") c.textContent = "GO!";
@@ -2430,7 +2432,7 @@ $("battleJoin").onclick = async () => {
   finally { $("battleJoin").disabled = false; }
 };
 $("battleCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("battleJoin").click(); });
-$("battleReady").onclick = async () => { if (!requireSignIn("plank battle")) return; const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; if (plankBattleWake && !(mine && mine.ready)) plankBattleWake.start().catch(() => {}); try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
+$("battleReady").onclick = async () => { if (!requireSignIn("plank battle")) return; unlockGetSet(); // iOS: speech unlocked in this tap for the shared countdown const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; if (plankBattleWake && !(mine && mine.ready)) plankBattleWake.start().catch(() => {}); try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
 $("battleLeave").onclick = async () => { const c = battleCode, u = battleUser(); exitBattle(); bStatus("You left the room."); if (u && c) battle.leave(c, u).catch(() => {}); };
 // ---- TUT Battles (rooms module reused on tutBattles/{code}; solo push game untouched) ----
 const TBm = window.ZabbaTutBattle;
@@ -2449,6 +2451,10 @@ let tbRoom = null, tbCodeCur = null, tbOff = null, tbTick = null, tbStream = nul
 let tbChal = null, tbEnded = false, tbSettleTimer = null, tbDraw = null;
 const TBC = window.ZabbadatChallenge;
 const tbStat = (t) => { $("tbStatus").textContent = t || ""; };
+// TUT Battles voice: same coaching lines as solo TUT, the shared countdown spoken, reps counted up.
+const tbVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeSharedCountdownVoice ? window.ZabbadatGetSet.makeSharedCountdownVoice() : null;
+const tbRepVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? window.ZabbadatGetSet.makeRepVoice() : null;
+let tbCoaching = false;
 const fmtT = (ms) => { const t = Math.max(0, Math.floor((ms || 0) / 1000)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
 function tbPaint() {
   const r = tbRoom, me = currentUser && currentUser.uid;
@@ -2482,6 +2488,7 @@ function tbPaint() {
 }
 function tbTickFn() {
   const r = tbRoom; if (!r) return; const st = tb.state(r.startAt), c = $("tbCount");
+  if (tbVoice) tbVoice.phase("tut:" + tbCodeCur + ":" + r.startAt, st.phase, st.n);
   c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
   if (st.phase === "countdown") { c.textContent = st.n; tbStat("Get into plank at the top…"); }
   else if (st.phase === "go") { c.textContent = "GO!"; tbGoLive(r); }
@@ -2496,19 +2503,20 @@ function tbTickFn() {
 function tbGoLive(r) {
   if (tbLiveT0 != null || !currentUser || !(currentUser.uid in r.players)) return;
   tbLiveT0 = performance.now() - Math.max(0, BR.serverNow(Date.now(), tb.offset) - r.startAt);
-  tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false; tbEnded = false; tbDraw = null; clearTimeout(tbSettleTimer);
+  tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false; tbEnded = false; tbDraw = null; clearTimeout(tbSettleTimer); if (tbRepVoice) tbRepVoice.reset();
   tbChal = TBC.createChallenge({ durationMs: TBm.RULES.durationMs, topCapMs: TBm.RULES.topCapMs }); tbChal.start(tbLiveT0);
   tbJudge = TBm.createJudge(window.ZabbadatSession.createPostureGuard({ holdMs: TBm.RULES.postureHoldMs })); tbJudge.reset(performance.now());
   tbPub = TBm.throttle(TBm.RULES.publishMs, () => performance.now());
   tbStat(tbStream ? "Go! Keep repping." : "Camera is off: turn it on to stay in the battle.");
 }
-async function tbCamOn() {
+async function tbCamOn(placed) {
   try {
-    $("tbCamNote").textContent = "Loading camera counter…"; await loadCamLibs();
+    if (!placed) $("tbCamNote").textContent = "Loading camera counter…"; await loadCamLibs();
     tbStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
     const v = $("tbVid"); v.srcObject = tbStream; await v.play(); await ensurePose();
     tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
     $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Phone under your chest. Arms straight, hold still to calibrate."; requestAnimationFrame(tbPose); tbPaint();
+    if (placed) { tbCoaching = true; await placed; await showPositioning("tut", $("tbCamNote"), () => !tbLoop, "criteria"); tbCoaching = false; }
   } catch (e) { $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
 }
 function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; }
@@ -2517,10 +2525,11 @@ async function tbPose() {
   try {
     const v = $("tbVid"), poses = await poseDetector.estimatePoses(v, { flipHorizontal: true }), kps = poses && poses[0] ? poses[0].keypoints : [];
     const w = v.videoWidth || 640, now = performance.now(), r = tbCounter.update(kps, now, w);
-    if (tbLiveT0 == null) $("tbCamNote").textContent = r.status;
+    if (tbLiveT0 == null) { if (!tbCoaching) $("tbCamNote").textContent = r.status; }
     else if (tbRoom && tbRoom.status === "live" && !tbLostSent) {
       if (!tbEnded) {
         const st = tbCounter.state(), c = tbChal.update(now, { atTop: TBC.atTopFrom(st), counted: r.counted, repMs: r.repMs });
+        if (c.reps > tbMine.reps && tbRepVoice) tbRepVoice.say(String(c.reps)); // spoken rep count, counting up
         tbMine = { reps: c.reps, tutMs: c.tutMs };
         if (c.ended) tbTimeUp();
         else {
@@ -2570,8 +2579,8 @@ async function tbResume(u) { let code = null; try { code = localStorage.getItem(
 $("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making a room…"); try { tbEnter(await tb.createRoom(u)); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
 $("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { tbEnter(await tb.joinRoom($("tbCode").value, u)); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
 $("tbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tbJoin").click(); });
-$("tbCam").onclick = () => { if (!requireSignIn("tut battle")) return; if (tbWake) tbWake.start().catch(() => {}); return tbCamOn(); };
-$("tbReady").onclick = async () => { if (!requireSignIn("tut battle")) return; const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; if (tbWake && !(m && m.ready)) tbWake.start().catch(() => {}); try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
+$("tbCam").onclick = () => { if (!requireSignIn("tut battle")) return; if (tbWake) tbWake.start().catch(() => {}); unlockGetSet(); const placed = showPositioning("tut", $("tbCamNote"), () => false, "place"); return tbCamOn(placed); };
+$("tbReady").onclick = async () => { if (!requireSignIn("tut battle")) return; unlockGetSet(); // iOS: speech unlocked in this tap for the shared countdown const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; if (tbWake && !(m && m.ready)) tbWake.start().catch(() => {}); try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
 $("tbRematch").onclick = async () => {
   const u = battleUser(), r = tbRoom; if (!u || !r) return;
   try {

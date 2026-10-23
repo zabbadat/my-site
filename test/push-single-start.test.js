@@ -132,7 +132,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   check("static: no Calibrate or Place phone and camera labels", !/>\s*Calibrate\s*</.test(html) && !html.includes("Place phone and camera"));
   check("static: battles/plank/washers buttons unchanged", html.includes(">Start plank camera</button>") && html.includes('id="tbCam"') && />Turn on camera</.test(html) && />I(&rsquo;|'|’)m ready</.test(html) && />Start game</.test(html));
   const tb = between('$("tbCam").onclick = ', "\n") + between('$("tbReady").onclick', "\n");
-  check("TUT battles: no get-set delay or speech (get-set used only by push + plank)", !/getSet|GET_SET|speech/.test(tb) && html.split("getSetCountdown(").length - 1 === 3 && html.split("speechSynthesis").length === 1);
+  check("TUT battles: speech unlocked in both taps, coaching on camera tap, no solo get-set delay (battle countdown is shared)", /unlockGetSet\(\)/.test(tb.split("\n")[0]) && /showPositioning\("tut"/.test(tb) && /unlockGetSet\(\)/.test(tb.split("\n")[1]) && !/getSetCountdown/.test(tb) && html.split("getSetCountdown(").length - 1 === 3 && html.split("speechSynthesis").length === 1);
   check("static: get-set.js loaded before use", html.indexOf('<script src="/get-set.js"></script>') > 0 && html.indexOf('<script src="/get-set.js"></script>') < html.indexOf("const getSet = "));
   const f = R.filter((x) => !x).length; console.log(`\n${R.length - f} passed, ${f} failed`); process.exit(f ? 1 : 0);
 })();

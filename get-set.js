@@ -182,7 +182,21 @@
       end: function () { ended = true; }, reset: function () { last = 0; ended = false; }
     };
   }
-  var api = { COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
+  // Shared battle countdown (battle-rooms.js: 5 s, n = 5..1 then "go"): same words as the solo countdown, one per
+  // second: 5 "Ready", 4 "get set", 3 "three", 2 "two", 1 "one", go "Go". Each word once per room+startAt key.
+  var BATTLE_WORDS = { 5: "Ready", 4: "get set", 3: "three", 2: "two", 1: "one" };
+  function makeSharedCountdownVoice(opts) {
+    opts = opts || {};
+    var speak = safe(opts.speak || interruptSpeak), said = {};
+    return {
+      phase: function (key, ph, n) {
+        if (!key) return null;
+        var w = ph === "countdown" ? BATTLE_WORDS[n] : ph === "go" ? "Go" : null, k = key + ":" + (ph === "go" ? "go" : n);
+        if (!w || said[k]) return null; said[k] = 1; speak(w); return w;
+      }
+    };
+  }
+  var api = { makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);
