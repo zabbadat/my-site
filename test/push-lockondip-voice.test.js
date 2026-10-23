@@ -25,7 +25,7 @@ check("no target: counts up", G.repCallout(1, 0) === "1" && G.repCallout(7, null
 { const log = []; const v = G.makeRepVoice({ speak: (w) => log.push("say:" + w), stop: () => log.push("cancel") }); v.say("20"); v.say("20"); v.say("19");
   check("rep voice cancels queued speech before each number, no repeats", log.join(",") === "cancel,say:20,cancel,say:19"); v.reset(); v.say("19"); check("reset allows the same number again (new set)", log.slice(-1)[0] === "say:19"); }
 { const v = G.makeRepVoice({ speak: () => { throw new Error("no speech"); }, stop: () => { throw new Error("x"); } }); let ok = true; try { v.say("3"); } catch (e) { ok = false; } check("rep voice: silent fallback when speech throws", ok); }
-check("setup prompts per exercise (2 lines, Eyes forward)", G.positionPrompt("pushups") === "Phone flat under your chest · Shoulders in frame\nArms straight · Eyes forward" && G.positionPrompt("plank") === "Full body in frame · Phone on a table, 4-6 ft away\nFront view · Eyes forward" && G.positionPrompt("tut") === G.positionPrompt("pushups"));
+check("setup prompts per exercise (2 lines, Eyes forward)", G.positionPrompt("pushups") === "Phone flat under your chest · Shoulders in frame\nArms straight · Eyes forward" && G.positionPrompt("plank") === "Full body in frame · Phone on the floor, 4-6 ft away\nFront view · Eyes forward" && G.positionPrompt("tut") === G.positionPrompt("pushups"));
 (async () => {
   let sp = []; let r = await run(HTML, { mode: "sets", script: repAt(8000), ms: 16100, spoken: sp });
   const words = sp.filter((x) => x.vol !== 0).map((x) => x.w);
