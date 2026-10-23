@@ -6,7 +6,7 @@ const s=html.indexOf('<section id="tokens">'),sec=html.slice(s,html.indexOf('</s
 ok(s>0,'tokens section present');
 ok(sec.includes('<h2>Zabba Tokens</h2>'),'heading');
 ok(/<nav>[\s\S]*<a href="#tokens">Zabba Tokens<\/a>[\s\S]*<\/nav>/.test(html),'nav link');
-ok(/<nav>[\s\S]*id="ztBadge" href="#tokens"[^>]*>Sign in<\/a>/.test(html),'header badge, signed-out text, links to section');
+ok(/<nav>[\s\S]*id="ztBadge" href="#play"[^>]*>Sign in<\/a>/.test(html),'header badge, signed-out text, links to the sign-in box (signed in: #tokens, set in paintTokenSection)');
 ok(sec.includes('Sign in to start earning.')&&sec.includes('href="#play"'),'signed-out text with sign-in link');
 ok(sec.includes('id="ztBalance"')&&sec.includes('id="ztRates"')&&sec.includes('id="ztTxBody"'),'balance/rates/tx targets');
 // rates match constants

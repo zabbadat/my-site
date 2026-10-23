@@ -302,6 +302,7 @@
     .stat b { display: block; font-family: 'Cormorant Garamond', serif; font-size: clamp(1.8rem, 5vw, 2.6rem); }
     .stats.duo { grid-template-columns: 1fr 1fr 1fr; }
     .stat span { color: var(--muted); font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; }
+    .stat .zt-bag-label { display: block; margin-bottom: .15rem; }
     label { display: block; font-size: .85rem; color: var(--muted); margin: .8rem 0 .35rem; }
     input {
       width: 100%; padding: .7rem .8rem; border-radius: 10px;
@@ -402,7 +403,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
   <img src="/zd-v2-mark.svg" width="36" height="36" alt="">
   <span>Zabbadat<sup style="font-size:0.5em">™</sup></span>
 </a>
-    <a class="zt-badge" id="ztBadge" href="#tokens" aria-label="Zabba Tokens balance">Sign in</a>
+    <a class="zt-badge" id="ztBadge" href="#play" aria-label="Sign in">Sign in</a>
     <div>
     <a href="#approach">The Practice</a>
     <a href="#washers">Zabba Washers</a>
@@ -628,7 +629,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="tokens">
     <h2>Zabba Tokens</h2>
     <p class="lead">Earn tokens for the work you log. Earn only: tokens can't be bet or spent yet.</p>
-    <div class="stats"><div class="stat"><b id="ztBalance">—</b><span>Your balance</span></div></div>
+    <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">Zabba Bag</span><b id="ztBalance">—</b><span>Your balance</span></div></div>
     <p class="note" id="ztSignedOut">Sign in to start earning. <a href="#play" id="ztSignInLink">Go to sign-in</a></p>
     <h3>Earn rates</h3>
     <ul class="zt-rates" id="ztRates"></ul>
@@ -2201,7 +2202,16 @@ saveRemoteWalk = async (r) => {
 const ztFs = { ts: () => serverTimestamp(), tx: (fn) => runTransaction(db, (t) => fn({ get: (p) => t.get(doc(db, ...p)).then((x) => (x.exists() ? x.data() : null)), set: (p, d) => t.set(doc(db, ...p), d), update: (p, d) => t.update(doc(db, ...p), d) })) };
 let ztOff = null;
 function paintTokens(n) { const row = $("zabaTokensRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintTokenSection(n); }
-function paintTokenSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.textContent = on ? Number(n).toLocaleString() : "—"; if (o) o.hidden = on; if (g) { if (on && ZT && ZT.badgeParts) { const p = ZT.badgeParts(typeof auth !== "undefined" && auth.currentUser ? publicName(displayNameOf(auth.currentUser)) : "", n); g.innerHTML = '<span class="zt-name">' + escapeHtml(p.name) + '</span> \u00b7 ' + escapeHtml(p.tokens); g.title = p.name + " \u00b7 " + p.tokens; } else { g.textContent = on ? "Zabba Bag: " + Number(n).toLocaleString() : "Sign in"; g.title = ""; } } }
+function paintTokenSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.textContent = on ? Number(n).toLocaleString() : "—"; if (o) o.hidden = on; if (g) { g.setAttribute("href", on ? "#tokens" : "#play"); g.setAttribute("aria-label", on ? "Your Zabba Bag" : "Sign in"); if (on && ZT && ZT.badgeParts) { const p = ZT.badgeParts(typeof auth !== "undefined" && auth.currentUser ? publicName(displayNameOf(auth.currentUser)) : "", n); g.innerHTML = '<span class="zt-name">' + escapeHtml(p.name) + '</span> \u00b7 ' + escapeHtml(p.tokens); g.title = p.name + " \u00b7 " + p.tokens; } else { g.textContent = on ? "Zabba Bag: " + Number(n).toLocaleString() : "Sign in"; g.title = ""; } } }
+// Badge: signed in -> #tokens (plain link); signed out -> #play sign-in box, scrolled into view with the Google button focused.
+function ztBadgeClick(ev) {
+  if (typeof auth !== "undefined" && auth.currentUser) return;
+  if (ev && ev.preventDefault) ev.preventDefault();
+  const s = $("play"), b = $("signInBtn");
+  if (s && s.scrollIntoView) s.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (b && b.focus) setTimeout(() => b.focus(), 300);
+}
+if ($("ztBadge")) $("ztBadge").onclick = ztBadgeClick;
 function paintTokenTx(list) { const t = $("ztTxBody"); if (t && ZT) t.innerHTML = ZT.txRowsHtml(list, escapeHtml); }
 let ztTxOff = null;
 awardTokens = async (source, qty, setId) => {
