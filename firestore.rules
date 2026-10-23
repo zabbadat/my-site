@@ -188,7 +188,18 @@ service cloud.firestore {
         && p.name.size() <= 40 && p.ready == false && p.joinedAt == request.time; }
       function newRoom() { return n().code == code && n().createdBy == me() && n().status == 'waiting'
         && n().startAt == null && n().createdAt == request.time
-        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); }
+        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); && stakeOk(); }
+      // Zabba Token wager (optional): stake set once at create; countdown needs both seated stakes in escrow
+      // (wagers/{key}, written only by the server). WAGER, not yet published.
+      function stakeOk() { return !('stake' in n()) || (n().stake is int && n().stake >= 1); }
+      function wagerPath() { return /databases/$(database)/documents/wagers/$('plank_' + code + '_' + string(d().createdAt.toMillis())); }
+      function wagerReady() { return !('stake' in d()) || (exists(wagerPath()) && get(wagerPath()).data.status == 'open'
+        && get(wagerPath()).data.players.keys().hasAll(d().players.keys())); }
+      // Plank Battles result (plank-battle.js): own write-once result, only while live. RESULT, not yet published.
+      function plankResOk(o, p) { return !('result' in p.diff(o).affectedKeys()) || (!('result' in o) && d().status == 'live'
+        && ((p.result.keys().hasOnly(['forfeit','at']) && p.result.forfeit == true && p.result.at == request.time)
+          || (p.result.keys().hasOnly(['holdMs','verified','at']) && p.result.holdMs is int && p.result.holdMs >= 0
+            && p.result.holdMs <= 7200000 && p.result.verified is bool && p.result.at == request.time))); }
       allow read: if signedIn();
       allow create: if signedIn() && code.matches('^[A-HJ-NP-Z2-9]{4}$') && newRoom();
       allow update: if signedIn() && (
@@ -202,12 +213,13 @@ service cloud.firestore {
           && (!('status' in changed()) || (!started() && !(me() in n().players)
               && n().status == (n().players.size() == 0 ? 'abandoned' : 'waiting')))
           && (!(me() in n().players) ? !started()
-              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt'])
-                && (!started() || !('ready' in n().players[me()].diff(d().players[me()]).affectedKeys()))))
+              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt','result'])
+                && (!started() || !('ready' in n().players[me()].diff(d().players[me()]).affectedKeys()))
+                && plankResOk(d().players[me()], n().players[me()])))
         // either player: both ready -> countdown with startAt = now..now+15s (only once)
         || (isPlayer() && d().status == 'waiting' && d().startAt == null && d().players.size() == 2
           && d().players[d().players.keys()[0]].ready == true && d().players[d().players.keys()[1]].ready == true
-          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int
+          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int && wagerReady()
           && n().startAt > request.time.toMillis() && n().startAt < request.time.toMillis() + 15000)
         // either player: countdown -> live once startAt has (nearly) passed
         || (isPlayer() && d().status == 'countdown' && changed().hasOnly(['status']) && n().status == 'live'
@@ -231,7 +243,13 @@ service cloud.firestore {
         && p.name.size() <= 40 && p.ready == false && p.joinedAt == request.time; }
       function newRoom() { return n().code == code && n().createdBy == me() && n().status == 'waiting'
         && n().startAt == null && n().createdAt == request.time
-        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); }
+        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); && stakeOk(); }
+      // Zabba Token wager (optional): stake set once at create; countdown needs both seated stakes in escrow
+      // (wagers/{key}, written only by the server). WAGER, not yet published.
+      function stakeOk() { return !('stake' in n()) || (n().stake is int && n().stake >= 1); }
+      function wagerPath() { return /databases/$(database)/documents/wagers/$('tut_' + code + '_' + string(d().createdAt.toMillis())); }
+      function wagerReady() { return !('stake' in d()) || (exists(wagerPath()) && get(wagerPath()).data.status == 'open'
+        && get(wagerPath()).data.players.keys().hasAll(d().players.keys())); }
       allow read: if signedIn();
       allow create: if signedIn() && code.matches('^[A-HJ-NP-Z2-9]{4}$') && newRoom();
       allow update: if signedIn() && (
@@ -250,7 +268,7 @@ service cloud.firestore {
         // either player: both ready -> countdown with startAt = now..now+15s (only once)
         || (isPlayer() && d().status == 'waiting' && d().startAt == null && d().players.size() == 2
           && d().players[d().players.keys()[0]].ready == true && d().players[d().players.keys()[1]].ready == true
-          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int
+          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int && wagerReady()
           && n().startAt > request.time.toMillis() && n().startAt < request.time.toMillis() + 15000)
         // either player: countdown -> live once startAt has (nearly) passed
         || (isPlayer() && d().status == 'countdown' && changed().hasOnly(['status']) && n().status == 'live'
@@ -288,7 +306,13 @@ service cloud.firestore {
         && p.name.size() <= 40 && p.ready == false && p.joinedAt == request.time; }
       function newRoom() { return n().code == code && n().createdBy == me() && n().status == 'waiting'
         && n().startAt == null && n().createdAt == request.time
-        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); }
+        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); && stakeOk(); }
+      // Zabba Token wager (optional): stake set once at create; countdown needs both seated stakes in escrow
+      // (wagers/{key}, written only by the server). WAGER, not yet published.
+      function stakeOk() { return !('stake' in n()) || (n().stake is int && n().stake >= 1); }
+      function wagerPath() { return /databases/$(database)/documents/wagers/$('washers_' + code + '_' + string(d().createdAt.toMillis())); }
+      function wagerReady() { return !('stake' in d()) || (exists(wagerPath()) && get(wagerPath()).data.status == 'open'
+        && get(wagerPath()).data.players.keys().hasAll(d().players.keys())); }
       // Own-seat battle fields: result is write-once (absent before, never changed after) and only while live.
       function resOk(x) { return (x.keys().hasOnly(['forfeit','at']) && x.forfeit == true && x.at == request.time)
         || (x.keys().hasOnly(['score','steps','ms','verified','reasons','at']) && x.score == 21
@@ -321,7 +345,7 @@ service cloud.firestore {
         // either player: both ready -> countdown with startAt = now..now+15s (only once)
         || (isPlayer() && d().status == 'waiting' && d().startAt == null && d().players.size() == 2
           && d().players[d().players.keys()[0]].ready == true && d().players[d().players.keys()[1]].ready == true
-          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int
+          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int && wagerReady()
           && n().startAt > request.time.toMillis() && n().startAt < request.time.toMillis() + 15000)
         // either player: countdown -> live once startAt has (nearly) passed
         || (isPlayer() && d().status == 'countdown' && changed().hasOnly(['status']) && n().status == 'live'
@@ -350,6 +374,13 @@ service cloud.firestore {
     // users/{uid}.zabaTokens may only change together with a NEW tokenTx entry in the same
     // transaction/batch (lastTxId points at it, delta == its amount). Tx entries are create-once
     // (id = source-setId => retries can't double-credit) and capped by the rate for their units.
+    // Zabba Token wager escrow: server only (netlify/functions wager-stake / wager-settle / wager-sweep, admin SDK).
+    // Players can read to see stakes and the outcome. WAGER, not yet published.
+    match /wagers/{key} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     match /users/{uid} {
       function txPath(id) { return /databases/$(database)/documents/users/$(uid)/tokenTx/$(id); }
       function u() { return request.resource.data; }
@@ -376,6 +407,7 @@ service cloud.firestore {
         allow read: if request.auth != null && request.auth.uid == uid;
         allow create: if request.auth != null && request.auth.uid == uid
           && t().keys().hasOnly(['uid','type','source','amount','units','qty','setId','createdAt'])
+          // clients: earn only. stake / payout / refund entries are written by the server (admin SDK bypasses rules).
           && t().uid == uid && t().type == 'earn' && t().createdAt == request.time
           && t().setId is string && t().setId.matches('^[A-Za-z0-9_-]{1,60}$')
           && txId == t().source + '-' + t().setId

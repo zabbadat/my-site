@@ -762,7 +762,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="battles">
     <h2>Plank Battles</h2>
-    <p class="lead">Challenge a friend to a plank, phone to phone. Make a room, share the 4-letter code, and you both get the same countdown.</p>
+    <p class="lead">Challenge a friend to a plank, phone to phone. Make a room, share the 4-letter code, and you both get the same countdown. Hold from GO; when you drop, tap I dropped. Last one holding wins. Forfeit or leave and your opponent wins. Keep this page open: switching away marks your hold unverified. Honor system.</p>
     <p class="note" id="battleSignIn"><a href="#play">Sign in</a> to create or join a battle.</p>
     <div id="battleStart" hidden>
       <div class="row"><button class="btn" id="battleCreate" type="button">Create room</button></div>
@@ -777,7 +777,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="stat"><b id="battleP2">Waiting…</b><span id="battleP2s">Player 2</span></div>
       </div>
       <div class="battle-count" id="battleCount" hidden></div>
-      <div class="row"><button class="btn" id="battleReady" type="button" hidden>I'm ready</button><button class="btn ghost" id="battleLeave" type="button">Leave</button></div>
+      <div class="row"><button class="btn" id="battleReady" type="button" hidden>I'm ready</button><button class="btn" id="battleDrop" type="button" hidden>I dropped</button><button class="btn danger" id="battleForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="battleLeave" type="button">Leave</button></div>
     </div>
     <p class="note" id="battleStatus" aria-live="polite"></p>
   </section>
@@ -978,6 +978,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/battle-rooms.js"></script>
   <script src="/tut-battle.js"></script>
   <script src="/washers-battle.js"></script>
+  <script src="/plank-battle.js"></script>
+  <script src="/zaba-wager.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
     const firebaseConfig = {
@@ -2342,7 +2344,14 @@ const battleFs = {
   ts: () => serverTimestamp(),
   toMs: (v) => (v && v.toMillis ? v.toMillis() : typeof v === "number" ? v : null),
 };
-const battle = BR.controller(battleFs);
+// Zabba Token bets (zaba-wager.js): set up after the three battle sections; countdown waits for both stakes.
+const WG = window.ZabaWager || null, PBm = window.ZabbaPlankBattle;
+const wagerOk = {};
+let wgPlank = null, wgTut = null, wgWb = null;
+const wagerGate = (g) => ({ canStart: (r) => !wagerOk[g] || wagerOk[g](r) });
+const battle = BR.controller(battleFs, wagerGate("plank"));
+let plankLiveFor = null, plankHidden = false, plankSent = false;
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && plankLiveFor && plankLiveFor === battleCode) plankHidden = true; });
 let battleRoom = null, battleCode = null, battleOff = null, battleTick = null;
 const bStatus = (t) => { $("battleStatus").textContent = t || ""; };
 // Seat names are shown to the opponent: never an email address (publicName strips it to the local part).
@@ -2355,7 +2364,11 @@ function paintBattle() {
   const ps = r ? BR.orderedPlayers(r, battleFs.toMs) : [], me = currentUser && currentUser.uid;
   [0, 1].forEach((i) => { const p = ps[i];
     $("battleP" + (i + 1)).textContent = p ? p.name + (p.uid === me ? " (you)" : "") : "Waiting…";
-    $("battleP" + (i + 1) + "s").textContent = "Player " + (i + 1) + (p ? (BR.started(r) ? (p.leftAt ? " · left" : "") : p.ready ? " · Ready ✓" : " · Not ready") : ""); });
+    let sub = "Player " + (i + 1) + (p ? (BR.started(r) ? (p.leftAt && !p.result ? " · left" : "") : p.ready ? " · Ready ✓" : " · Not ready") : "");
+    if (p && p.result) sub += p.result.forfeit ? " · forfeited" : " · held " + fmtT(p.result.holdMs) + (p.result.verified ? "" : " (unverified)");
+    const pd = r && PBm ? PBm.decide(r) : { done: false };
+    if (p && pd.done) sub += pd.winner === p.uid ? " · WIN" : pd.winner ? "" : " · TIE";
+    $("battleP" + (i + 1) + "s").textContent = sub; });
   const mine = r && me && r.players && r.players[me];
   const pre = r && !BR.started(r) && r.status !== "abandoned";
   $("battleReady").hidden = !(pre && mine && ps.length === 2);
@@ -2363,6 +2376,14 @@ function paintBattle() {
   if (!r || r.status === "abandoned") bStatus("This room is closed. Make a new one.");
   else if (pre && ps.length < 2) bStatus("Waiting for a second player…");
   else if (pre) bStatus(mine && mine.ready ? "Waiting for the other player to tap ready…" : "Tap I'm ready when you're in position.");
+  const pdec = r && PBm ? PBm.decide(r) : { done: false }, plive = r && r.status === "live";
+  $("battleDrop").hidden = $("battleForfeit").hidden = !(plive && mine && !mine.result && !pdec.done && plankLiveFor === battleCode);
+  if (plive && pdec.done) {
+    bStatus(PBm.resultText(r, me));
+    // Winner records its own final hold once, for the result line (write-once).
+    if (pdec.winner === me && mine && !mine.result && !plankSent) { plankSent = true; PBm.submitDrop(battleFs, battleCode, me, BR.serverNow(Date.now(), battle.offset), !plankHidden).catch(() => {}); }
+  } else if (plive && mine && mine.result) bStatus(mine.result.forfeit ? "You forfeited." : "You dropped. Waiting for the result…");
+  if (wgPlank) wgPlank.paint();
   if (pre && BR.bothReady(r)) battle.maybeStart(battleCode).catch(() => {});
   if (plankBattleWake) plankBattleWake.want(!!(mine && r && r.status !== "abandoned" && (mine.ready || r.status === "countdown" || r.status === "live"))).catch(() => {});
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt) { if (!battleTick) battleTick = setInterval(tickBattle, 100); tickBattle(); }
@@ -2374,9 +2395,11 @@ function tickBattle() {
   if (st.phase === "countdown") { c.textContent = st.n; bStatus("Get into position…"); }
   else if (st.phase === "go") c.textContent = "GO!";
   else if (st.phase === "live") {
-    c.textContent = "Battle on. Video and form check coming next."; bStatus("");
+    if (plankLiveFor !== battleCode) { plankLiveFor = battleCode; plankHidden = document.visibilityState === "hidden"; plankSent = false; paintBattle(); }
     if (battleRoom.status === "countdown") battle.markLive(battleCode).catch(() => {});
-    clearInterval(battleTick); battleTick = null;
+    const me = currentUser && currentUser.uid, mine = me && battleRoom.players && battleRoom.players[me], dec = PBm ? PBm.decide(battleRoom) : { done: true };
+    if (!dec.done && mine && !mine.result) { c.textContent = "Hold: " + fmtT(PBm.holdMs(battleRoom, BR.serverNow(Date.now(), battle.offset))); bStatus(""); }
+    else { c.textContent = dec.done ? "Battle over." : "Waiting…"; if (dec.done) { clearInterval(battleTick); battleTick = null; } }
   }
 }
 function enterBattle(code) {
@@ -2385,7 +2408,7 @@ function enterBattle(code) {
   battleOff = battle.watch(code, (r) => { battleRoom = r; paintBattle(); });
   paintBattle();
 }
-function exitBattle() { try { localStorage.removeItem("zdBattle"); } catch (e) {} if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; clearInterval(battleTick); battleTick = null; paintBattle(); }
+function exitBattle() { try { localStorage.removeItem("zdBattle"); } catch (e) {} if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; plankLiveFor = null; if (wgPlank) wgPlank.stop(); clearInterval(battleTick); battleTick = null; paintBattle(); }
 async function resumeBattle(u) {
   let code = null; try { code = localStorage.getItem("zdBattle"); } catch (e) {}
   if (!code || battleCode) return;
@@ -2394,18 +2417,22 @@ async function resumeBattle(u) {
 $("battleCreate").onclick = async () => {
   const u = battleUser(); if (!u) { requireSignIn("plank battle"); return void bStatus("Sign in to create a battle."); };
   $("battleCreate").disabled = true; bStatus("Making a room…");
-  try { enterBattle(await battle.createRoom(u)); } catch (e) { bStatus(e.message || "Couldn't create a room."); }
+  try { await wagerCreate(wgPlank, battle, u, enterBattle, bStatus); } catch (e) { bStatus(e.message || "Couldn't create a room."); }
   finally { $("battleCreate").disabled = false; }
 };
 $("battleJoin").onclick = async () => {
   const u = battleUser(); if (!u) { requireSignIn("plank battle"); return void bStatus("Sign in to join a battle."); };
   $("battleJoin").disabled = true; bStatus("Joining…");
-  try { enterBattle(await battle.joinRoom($("battleCode").value, u)); } catch (e) { bStatus(e.code === "permission-denied" ? "Couldn't join that room." : e.message); }
+  try { await wagerJoin(wgPlank, battle, $("battleCode").value, u, enterBattle, bStatus); } catch (e) { bStatus(e.code === "permission-denied" ? "Couldn't join that room." : e.message); }
   finally { $("battleJoin").disabled = false; }
 };
 $("battleCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("battleJoin").click(); });
 $("battleReady").onclick = async () => { if (!requireSignIn("plank battle")) return; const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; if (plankBattleWake && !(mine && mine.ready)) plankBattleWake.start().catch(() => {}); try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
-$("battleLeave").onclick = async () => { const c = battleCode, u = battleUser(); exitBattle(); bStatus("You left the room."); if (u && c) battle.leave(c, u).catch(() => {}); };
+$("battleDrop").onclick = async () => { const u = battleUser(); if (!u || !battleCode) return; try { await PBm.submitDrop(battleFs, battleCode, u.uid, BR.serverNow(Date.now(), battle.offset), !plankHidden); } catch (e) { bStatus("Couldn't post: " + (e.message || e)); } };
+$("battleForfeit").onclick = async () => { const u = battleUser(); if (!u || !battleCode || !confirm("Forfeit this plank battle? Your opponent wins.")) return; try { await PBm.forfeit(battleFs, battleCode, u.uid); } catch (e) { bStatus("Couldn't forfeit: " + (e.message || e)); } };
+$("battleLeave").onclick = async () => { const c = battleCode, u = battleUser();
+  if (u && battleRoom && PBm && PBm.canWrite(battleRoom, u.uid) && !PBm.decide(battleRoom).done) { if (!confirm("Leaving now forfeits the battle. Leave?")) return; await PBm.forfeit(battleFs, c, u.uid).catch(() => {}); }
+  exitBattle(); bStatus("You left the room."); if (u && c) battle.leave(c, u).catch(() => {}); };
 // ---- TUT Battles (rooms module reused on tutBattles/{code}; solo push game untouched) ----
 const TBm = window.ZabbaTutBattle;
 const mkBattleFs = (col) => ({
@@ -2417,7 +2444,7 @@ const mkBattleFs = (col) => ({
   toMs: (v) => (v && v.toMillis ? v.toMillis() : typeof v === "number" ? v : null),
 });
 const tbFs = mkBattleFs("tutBattles"), tbStatsFs = mkBattleFs("tutBattleStats");
-const tb = BR.controller(tbFs);
+const tb = BR.controller(tbFs, wagerGate("tut"));
 let tbRoom = null, tbCodeCur = null, tbOff = null, tbTick = null, tbStream = null, tbLoop = false, tbCounter = null, tbJudge = null, tbMine = { reps: 0, tutMs: 0 }, tbPub = null, tbLostSent = false, tbRecorded = null, tbLiveT0 = null;
 // 3:00 battle clock: TUT per counted rep + top holds (capped 10 s each) via push-challenge.js (separate instance).
 let tbChal = null, tbEnded = false, tbSettleTimer = null, tbDraw = null;
@@ -2429,6 +2456,7 @@ function tbPaint() {
   $("tbSignIn").hidden = !!currentUser; $("tbStart").hidden = !currentUser || !!tbCodeCur; $("tbLobby").hidden = !tbCodeCur;
   if (!tbCodeCur) { if (tbWake) tbWake.stop().catch(() => {}); return; }
   $("tbRoomCode").textContent = tbCodeCur;
+  if (wgTut) wgTut.paint();
   const ps = r ? BR.orderedPlayers(r, tbFs.toMs) : [], pre = r && !BR.started(r) && r.status !== "abandoned";
   const inPlay = r && (r.status === "live" || r.status === "done");
   [0, 1].forEach((i) => { const p = ps[i];
@@ -2539,12 +2567,12 @@ function tbEnter(code) {
   tbCodeCur = code; tbRecorded = null; tbLiveT0 = null; try { localStorage.setItem("zdTutBattle", code); } catch (e) {}
   if (tbOff) tbOff(); tbOff = tb.watch(code, (r) => { tbRoom = r; tbPaint(); }); tbPaint();
 }
-function tbExit() { clearTimeout(tbSettleTimer); tbDraw = null; try { localStorage.removeItem("zdTutBattle"); } catch (e) {} if (tbOff) tbOff(); tbOff = null; tbRoom = null; tbCodeCur = null; clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; tbPaint(); }
+function tbExit() { if (wgTut) wgTut.stop(); clearTimeout(tbSettleTimer); tbDraw = null; try { localStorage.removeItem("zdTutBattle"); } catch (e) {} if (tbOff) tbOff(); tbOff = null; tbRoom = null; tbCodeCur = null; clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; tbPaint(); }
 async function tbResume(u) { let code = null; try { code = localStorage.getItem("zdTutBattle"); } catch (e) {} if (!code || tbCodeCur) return; try { if (await tb.resume(code, { uid: u.uid })) tbEnter(code); else localStorage.removeItem("zdTutBattle"); } catch (e) {} }
 // ---- Zabba Washer Battle (rooms module reused on washersBattles/{code}; solo washers game reused as-is) ----
 const WB = window.ZabbaWasherBattle;
 const wbFs = mkBattleFs("washersBattles");
-const wbc = BR.controller(wbFs);
+const wbc = BR.controller(wbFs, wagerGate("washers"));
 let wbRoom = null, wbCodeCur = null, wbOff = null, wbTick = null, wbPlayingFor = null, wbSent = false;
 const wbPub = WB ? WB.throttle(WB.PUBLISH_MS, () => Date.now()) : null;
 const wbStat = (t) => { $("wbStatus").textContent = t || ""; };
@@ -2585,6 +2613,7 @@ function wbPaint() {
   else if (live && mine && mine.result) wbStat(mine.result.forfeit ? "You forfeited." : "You reached 21. Waiting for your opponent to finish…");
   if (pre && BR.bothReady(r)) wbc.maybeStart(wbCodeCur).catch(() => {});
   wbBoardPaint();
+  if (wgWb) wgWb.paint();
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt && !dec.done) { if (!wbTick) wbTick = setInterval(wbTickFn, 100); wbTickFn(); }
   else { clearInterval(wbTick); wbTick = null; $("wbCount").hidden = true; }
 }
@@ -2598,6 +2627,7 @@ function wbBoardPaint() {
   const rows = WB.boardRows(r, BR.orderedPlayers(r, wbFs.toMs), me, BR.serverNow(Date.now(), wbc.offset), mineLive);
   const html = rows.map((x) => "<tr><td>" + escapeHtml(x.name) + "</td><td><b>" + x.scoreText + "</b></td><td>" + x.stepsText + "</td><td>" + x.timeText + "</td></tr>").join("");
   $("wbBoardBody").innerHTML = html; $("wbPlayBoardBody").innerHTML = html;
+  const potTxt = wgWb ? wgWb.potText() : ""; ["wbBoard", "wbPlayBoard"].forEach((id) => { const n = $(id).querySelector("strong"); if (n) n.textContent = "Zabba Washer Battle live board" + (potTxt ? " · " + potTxt : ""); });
   const tick = rows.some((x) => x.ticking) && !WB.decide(r).done;
   if (tick && !wbBoardTimer) wbBoardTimer = setInterval(wbBoardPaint, 250);
   else if (!tick && wbBoardTimer) { clearInterval(wbBoardTimer); wbBoardTimer = null; }
@@ -2626,15 +2656,15 @@ function wbTickFn() {
 }
 function wbUser() { return currentUser ? { uid: currentUser.uid, name: publicName($("player").value.trim() || displayNameOf(currentUser)).slice(0, 20) } : null; }
 function wbEnter(code) { wbCodeCur = code; try { localStorage.setItem("zdWasherBattle", code); } catch (e) {} if (wbOff) wbOff(); wbOff = wbc.watch(code, (r) => { wbRoom = r; wbPaint(); }); wbPaint(); }
-function wbExit() { try { localStorage.removeItem("zdWasherBattle"); } catch (e) {} if (wbOff) wbOff(); wbOff = null; wbRoom = null; wbCodeCur = null; wbPlayingFor = null; clearInterval(wbTick); wbTick = null; wbBoardPaint(); wbPaint(); }
+function wbExit() { if (wgWb) wgWb.stop(); try { localStorage.removeItem("zdWasherBattle"); } catch (e) {} if (wbOff) wbOff(); wbOff = null; wbRoom = null; wbCodeCur = null; wbPlayingFor = null; clearInterval(wbTick); wbTick = null; wbBoardPaint(); wbPaint(); }
 async function wbResume(u) { let code = null; try { code = localStorage.getItem("zdWasherBattle"); } catch (e) {} if (!code || wbCodeCur) return; try { if (await wbc.resume(code, { uid: u.uid })) wbEnter(code); else localStorage.removeItem("zdWasherBattle"); } catch (e) {} }
 if (WB) {
   $("wbCreate").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to create a battle."); }
     $("wbCreate").disabled = true; wbStat("Making a room…");
-    try { wbEnter(await wbc.createRoom(u)); } catch (e) { wbStat(e.message || "Couldn't create a room."); } finally { $("wbCreate").disabled = false; } };
+    try { await wagerCreate(wgWb, wbc, u, wbEnter, wbStat); } catch (e) { wbStat(e.message || "Couldn't create a room."); } finally { $("wbCreate").disabled = false; } };
   $("wbJoin").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to join a battle."); }
     $("wbJoin").disabled = true; wbStat("Joining…");
-    try { wbEnter(await wbc.joinRoom($("wbCode").value, u)); } catch (e) { wbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("wbJoin").disabled = false; } };
+    try { await wagerJoin(wgWb, wbc, $("wbCode").value, u, wbEnter, wbStat); } catch (e) { wbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("wbJoin").disabled = false; } };
   $("wbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("wbJoin").click(); });
   $("wbReady").onclick = async () => { if (!requireSignIn("washer battle")) return; const u = wbUser(), mine = wbRoom && wbRoom.players && wbRoom.players[u.uid];
     // iPhone: ask for motion access inside this tap so the step sensor works when GO starts the game.
@@ -2648,8 +2678,75 @@ if (WB) {
     if (live && u) { await WB.forfeit(wbFs, c, u.uid).catch(() => {}); wbStopGame(); }
     wbExit(); wbStat("You left the room."); if (u && c) wbc.leave(c, u).catch(() => {}); };
 }
-$("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making a room…"); try { tbEnter(await tb.createRoom(u)); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
-$("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { tbEnter(await tb.joinRoom($("tbCode").value, u)); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
+// ---- Zabba Token bets on battles (zaba-wager.js). Spending is server-side: wager-stake / wager-settle functions.
+// Clients only read wagers/{key}; the countdown waits until both seated stakes are in escrow.
+function mkWager(game, o) {
+  if (!WG) return null;
+  const P = o.prefix; let off = null, curKey = null, w = null, lastSettle = 0, busy = false;
+  // stake picker (create) + wager line / stake button (lobby), added once
+  const start = $(P + "Start"), count = $(P + "Count");
+  if (start) start.insertAdjacentHTML("beforeend", '<label for="' + P + 'Stake">Bet Zabba Tokens (optional, minimum ' + WG.MIN_STAKE + (WG.MAX_STAKE ? ", maximum " + WG.MAX_STAKE : "") + ')</label><div class="row"><input id="' + P + 'Stake" type="number" inputmode="numeric" min="' + WG.MIN_STAKE + '" step="1" placeholder="No bet" style="max-width:9rem"></div><p class="note" style="margin:.2rem 0 0">Both players stake the same amount; the winner takes the pot (2x the bet). Ties, draws, unverified games and rooms that never start are refunded.</p>');
+  if (count) count.insertAdjacentHTML("beforebegin", '<p class="note" id="' + P + 'Wager" hidden style="text-align:center;font-weight:700"></p><div class="row" id="' + P + 'StakeRow" hidden style="justify-content:center"><button class="btn" id="' + P + 'StakeBtn" type="button">Stake</button></div>');
+  const keyOf = (r) => (r && r.stake ? WG.roomKey(game, o.code(), o.fs.toMs(r.createdAt)) : null);
+  async function call(name, body) {
+    const u = auth.currentUser; if (!u) throw new Error("Sign in to bet.");
+    const res = await fetch("/.netlify/functions/" + name, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await u.getIdToken()) }, body: JSON.stringify(body) });
+    const j = await res.json().catch(() => ({})); if (!res.ok) throw new Error(j.error || "Bet service unavailable."); return j;
+  }
+  async function stakeNow() {
+    if (busy || !o.code()) return; busy = true; $(P + "StakeBtn").disabled = true;
+    try { await call("wager-stake", { game, code: o.code() }); o.status("Bet staked. Waiting for your opponent's stake…"); }
+    catch (e) { o.status("Bet: " + (e.message || e)); } finally { busy = false; $(P + "StakeBtn").disabled = false; }
+  }
+  $(P + "StakeBtn").onclick = stakeNow;
+  function settle(force) {
+    if (!curKey || !w || w.status !== "open" || (!force && Date.now() - lastSettle < 15000)) return;
+    lastSettle = Date.now(); call("wager-settle", { key: curKey }).catch(() => {});
+  }
+  // stake value chosen on Create: {} for no bet, {stake:n} for a bet, null when invalid (message shown)
+  function extra() {
+    const raw = ($(P + "Stake") && $(P + "Stake").value || "").trim(); if (!raw) return {};
+    const n = Number(raw), e = WG.stakeError(n); if (e) { o.status(e); return null; } return { stake: n };
+  }
+  // Join confirmation showing the stake; false = cancelled.
+  async function confirmJoin(raw) {
+    const code = BR.normCode(raw); if (!BR.isValidCode(code)) return true;
+    let r = null; try { r = await o.fs.tx(code, (t) => t.get()); } catch (e) { return true; }
+    if (!r || !r.stake || (currentUser && r.players && currentUser.uid in r.players)) return true;
+    return confirm("This battle has a bet of " + r.stake + " Zabba Token" + (r.stake === 1 ? "" : "s") + " each. Winner takes the pot of " + WG.pot(r.stake) + ". Join and stake " + r.stake + "?");
+  }
+  function paint() {
+    const r = o.room(), me = currentUser && currentUser.uid, k = keyOf(r);
+    if (k !== curKey) { if (off) off(); off = null; w = null; curKey = k;
+      if (k) off = onSnapshot(doc(db, "wagers", k), (d) => { w = d.exists() ? d.data() : null; o.repaint(); }, () => {}); }
+    const line = $(P + "Wager"), row = $(P + "StakeRow"); if (!line) return;
+    if (!k || !o.code()) { line.hidden = true; row.hidden = true; return; }
+    const mineSeated = r && r.players && me in r.players, staked = !!(w && w.players && w.players[me]);
+    const pre = r && !BR.started(r) && r.status !== "abandoned";
+    line.hidden = false;
+    if (w && w.status !== "open") line.textContent = WG.outcomeText(w, me);
+    else { const n = w ? Object.keys(w.players || {}).length : 0;
+      line.textContent = "Bet " + r.stake + " each · Pot " + WG.pot(r.stake) + " Zabba Tokens" + (pre ? " · " + n + "/2 staked" + (staked ? " (you ✓)" : "") : ""); }
+    row.hidden = !(pre && mineSeated && !staked && (!w || w.status === "open"));
+    $(P + "StakeBtn").textContent = "Stake " + r.stake + " Zabba Token" + (r.stake === 1 ? "" : "s");
+    if (r && BR.started(r) && o.decided(r)) settle(false);
+    if (r && (r.status === "abandoned") && w && w.status === "open") settle(false);
+  }
+  function autoStake() { const r = o.room(), w0 = w, me = currentUser && currentUser.uid; if (r && r.stake && !BR.started(r) && !(w0 && w0.players && w0.players[me])) stakeNow(); }
+  function stop() { if (off) off(); off = null; w = null; curKey = null; const l = $(P + "Wager"), rw = $(P + "StakeRow"); if (l) l.hidden = true; if (rw) rw.hidden = true; }
+  wagerOk[game] = (r) => WG.allStaked(r, r && keyOf(r) === curKey ? w : null);
+  return { paint, stop, autoStake, extra, confirmJoin, stakeNow, settle, wager: () => w, potText: () => (w ? WG.outcomeText(w, currentUser && currentUser.uid) : "") };
+}
+wgPlank = mkWager("plank", { prefix: "battle", fs: battleFs, code: () => battleCode, room: () => battleRoom, repaint: () => paintBattle(), status: bStatus, decided: (r) => PBm.decide(r).done });
+wgTut = mkWager("tut", { prefix: "tb", fs: tbFs, code: () => tbCodeCur, room: () => tbRoom, repaint: () => tbPaint(), status: tbStat,
+  decided: (r) => r.status === "done" || (r.status === "live" && TBm.endAt(r) != null && BR.serverNow(Date.now(), tb.offset) > TBm.endAt(r) + TBm.RULES.settleMs + WG.GRACE_MS) });
+wgWb = mkWager("washers", { prefix: "wb", fs: wbFs, code: () => wbCodeCur, room: () => wbRoom, repaint: () => wbPaint(), status: wbStat, decided: (r) => WB.decide(r).done });
+// Create with an optional bet, then stake it right away; join shows the bet first, then stakes.
+async function wagerCreate(wg, ctl, u, enter, stat) { const ex = wg ? wg.extra() : {}; if (ex === null) return; const code = await ctl.createRoom(u, ex); enter(code); if (wg && ex.stake) await wg.stakeNow(); }
+async function wagerJoin(wg, ctl, raw, u, enter, stat) { if (wg && !(await wg.confirmJoin(raw))) return void stat("Join cancelled."); const code = await ctl.joinRoom(raw, u); enter(code);
+  if (wg) setTimeout(() => wg.autoStake(), 800); }
+$("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making a room…"); try { await wagerCreate(wgTut, tb, u, tbEnter, tbStat); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
+$("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { await wagerJoin(wgTut, tb, $("tbCode").value, u, tbEnter, tbStat); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
 $("tbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tbJoin").click(); });
 $("tbCam").onclick = () => { if (!requireSignIn("tut battle")) return; if (tbWake) tbWake.start().catch(() => {}); return tbCamOn(); };
 $("tbReady").onclick = async () => { if (!requireSignIn("tut battle")) return; const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; if (tbWake && !(m && m.ready)) tbWake.start().catch(() => {}); try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };

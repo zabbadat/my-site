@@ -36,8 +36,8 @@ const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); 
 { const fs=require('fs'),path=require('path'),assert=require('assert');
   const h=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   const s=h.indexOf('<section id="battles-hub"'),hub=h.slice(s,h.indexOf('</section>',s));
-  assert(/<a class="card" href="#washers"[^>]*><h3>Zabba Washer Battle<\/h3>/.test(hub),'hub has Zabba Washer Battle card -> #washers');
-  assert(h.includes('<section class="washers" id="washers">'),'#washers target exists');
+  assert(/<a class="card" href="#washerbattle"[^>]*><h3>Zabba Washer Battle<\/h3>/.test(hub),'hub has Zabba Washer Battle card -> #washerbattle');
+  assert(h.includes('<section id="washerbattle">'),'#washerbattle target exists');
   assert(hub.indexOf('Plank Battles')<hub.indexOf('Zabba Washer Battle'),'third card after Plank Battles');
   console.log('PASS hub Zabba Washer Battle card'); }
 

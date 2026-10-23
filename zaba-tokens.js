@@ -93,6 +93,8 @@
     return q.reduce(function (p, e) { return p.then(function () { return award(fs, e).then(function () { drop(store, e.id); }, function () {}); }); }, Promise.resolve());
   }
   var LABEL = { pushups: "Push-ups", plank: "Plank", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers" };
+  var WAGER_TYPE = { stake: "Battle stake", payout: "Battle win", refund: "Battle refund" };
+  var WAGER_GAME = { washers: "Zabba Washer Battle", tut: "TUT Battle", plank: "Plank Battle" };
   function mins(m) { m = Math.floor(m); return m + " minute" + (m === 1 ? "" : "s"); }
   var UNIT = { pushups: function (n) { return n + " push-up" + (n === 1 ? "" : "s"); }, plank: function (n) { return mins(n / 60); },
     tut: function (n) { return mins(n / 60); }, walk: function (n) { return mins(n); },
@@ -104,7 +106,13 @@
     t = t || {};
     var src = LABEL[t.source] || String(t.source || "?"), q = Number(t.qty) || 0;
     var c = t.createdAt, d = c && typeof c.toDate === "function" ? c.toDate() : (c instanceof Date ? c : null);
-    return { source: src, amount: "+" + (Number(t.amount) || 0), qty: UNIT[t.source] ? UNIT[t.source](q) : q + " " + (t.units || ""), when: d ? d.toLocaleString() : "just now" };
+    var amt = Number(t.amount) || 0, when = d ? d.toLocaleString() : "just now";
+    // Battle bets (server-written): stake is negative, win / refund positive.
+    if (t.source === "wager") {
+      var g = WAGER_GAME[t.game] || "Battle", w = WAGER_TYPE[t.type] || "Battle bet";
+      return { source: w, amount: (amt < 0 ? "−" : "+") + Math.abs(amt), qty: g + (t.code ? " " + t.code : ""), when: when };
+    }
+    return { source: src, amount: (amt < 0 ? "−" + Math.abs(amt) : "+" + amt), qty: UNIT[t.source] ? UNIT[t.source](q) : q + " " + (t.units || ""), when: when };
   }
   function txRowsHtml(list, esc) {
     if (!list || !list.length) return '<tr><td colspan="4">No tokens earned yet. Finish a set, plank or walk to earn your first.</td></tr>';

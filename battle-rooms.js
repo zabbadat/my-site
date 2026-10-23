@@ -49,13 +49,14 @@
         if (v != null && v >= send + offset - 60000) { done = true; offset = estimateOffset(v, send, now()); off(); res(offset); } }); });
     }
     const seat = (u, extra) => ({ name: String(u.name || "Player").slice(0, 40), ready: false, joinedAt: fs.ts(), ...extra });
-    async function createRoom(u) {
+    // extra: optional room fields set once at create (e.g. { stake: 3 } for a Zabba Token wager).
+    async function createRoom(u, extra) {
       if (!u || !u.uid) throw new Error("Sign in to create a battle.");
       for (let i = 0; i < 8; i++) {
         const code = genCode(rand), send = now();
         const ok = await fs.tx(code, (t) => { const cur = t.get();
           if (cur && cur.status !== "abandoned" && cur.status !== "done" && !isExpired(cur, serverNow(now(), offset), toMs(cur.createdAt))) return false;
-          t.set({ code, createdBy: u.uid, status: "waiting", createdAt: fs.ts(), startAt: null, players: { [u.uid]: seat(u) } }); return true; });
+          t.set(Object.assign({}, extra || {}, { code, createdBy: u.uid, status: "waiting", createdAt: fs.ts(), startAt: null, players: { [u.uid]: seat(u) } })); return true; });
         if (ok) { await stamp(code, u.uid, "joinedAt", send); return code; }
       }
       throw new Error("Couldn't find a free room code. Try again.");
@@ -74,6 +75,7 @@
     // Idempotent: whoever sees both ready first writes startAt; later callers no-op.
     async function maybeStart(code) {
       return fs.tx(code, (t) => { const r = t.get(); if (!r || started(r) || r.startAt != null || !bothReady(r)) return false;
+        if (opts.canStart && !opts.canStart(r)) return false; // e.g. wager: both stakes must be in escrow first
         t.update({ status: "countdown", startAt: Math.round(serverNow(now(), offset) + LEAD_MS) }); return true; });
     }
     async function setReady(code, u, ready) {
