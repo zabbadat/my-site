@@ -2413,6 +2413,9 @@ function paintBattle() {
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt) { if (!battleTick) battleTick = setInterval(tickBattle, 100); tickBattle(); }
   else { clearInterval(battleTick); battleTick = null; $("battleCount").hidden = true; }
 }
+// Plank Battle: spoken hold time every 15 s from GO (same helper as Plank House); silent once you drop / the battle is decided.
+const pbTimeVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeHoldVoice ? window.ZabbadatGetSet.makeHoldVoice() : null;
+let pbTimeKey = null;
 function tickBattle() {
   const st = battle.state(battleRoom && battleRoom.startAt), c = $("battleCount");
   if (battleVoice && battleRoom) battleVoice.phase("plank:" + battleCode + ":" + battleRoom.startAt, st.phase);
@@ -2423,8 +2426,10 @@ function tickBattle() {
     if (plankLiveFor !== battleCode) { plankLiveFor = battleCode; plankHidden = document.visibilityState === "hidden"; plankSent = false; paintBattle(); }
     if (battleRoom.status === "countdown") battle.markLive(battleCode).catch(() => {});
     const me = currentUser && currentUser.uid, mine = me && battleRoom.players && battleRoom.players[me], dec = PBm ? PBm.decide(battleRoom) : { done: true };
-    if (!dec.done && mine && !mine.result) { c.textContent = "Hold: " + fmtT(PBm.holdMs(battleRoom, BR.serverNow(Date.now(), battle.offset))); bStatus(""); }
-    else { c.textContent = dec.done ? "Battle over." : "Waiting…"; if (dec.done) { clearInterval(battleTick); battleTick = null; } }
+    const pbKey = battleCode + ":" + battleRoom.startAt;
+    if (typeof pbTimeVoice !== "undefined" && pbTimeVoice && pbTimeKey !== pbKey) { pbTimeKey = pbKey; pbTimeVoice.reset(); }
+    if (!dec.done && mine && !mine.result) { const hm = PBm.holdMs(battleRoom, BR.serverNow(Date.now(), battle.offset)); c.textContent = "Hold: " + fmtT(hm); bStatus(""); if (typeof pbTimeVoice !== "undefined" && pbTimeVoice) pbTimeVoice.tick(hm); }
+    else { if (typeof pbTimeVoice !== "undefined" && pbTimeVoice) pbTimeVoice.end(); c.textContent = dec.done ? "Battle over." : "Waiting…"; if (dec.done) { clearInterval(battleTick); battleTick = null; } }
   }
 }
 function enterBattle(code) {
