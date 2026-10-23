@@ -505,6 +505,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <input id="player" type="text" placeholder="Sign in, then pick a board name" maxlength="20" disabled>
     <label for="xHandle">X handle (optional)</label>
     <input id="xHandle" type="text" placeholder="@yourhandle" maxlength="20">
+<div id="wbPlayBoard" class="card wb-board" hidden aria-live="off"><p class="note" style="margin:0 0 .3rem"><strong>Zabba Washer Battle live board</strong></p><table><thead><tr><th>Player</th><th>Score</th><th>Steps</th><th>Time</th></tr></thead><tbody id="wbPlayBoardBody"></tbody></table></div>
 <div class="stats">
       <div class="stat"><b id="score">0</b><span>Score / 21</span></div>
       <div class="stat"><b id="steps">0</b><span>Steps</span></div>
@@ -681,6 +682,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="stat"><b id="wbP2">Waiting…</b><span id="wbP2s">Player 2</span></div>
       </div>
       <div class="battle-count" id="wbCount" hidden></div>
+      <div id="wbBoard" class="card wb-board" hidden aria-live="off"><p class="note" style="margin:0 0 .3rem"><strong>Zabba Washer Battle live board</strong></p><table><thead><tr><th>Player</th><th>Score</th><th>Steps</th><th>Time</th></tr></thead><tbody id="wbBoardBody"></tbody></table></div>
       <div class="row"><button class="btn" id="wbReady" type="button" hidden>I'm ready</button><a class="btn ghost" id="wbToGame" href="#play" hidden>Game controls</a><button class="btn danger" id="wbForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="wbLeave" type="button">Leave</button></div>
     </div>
     <p class="note" id="wbStatus" aria-live="polite"></p>
@@ -2582,8 +2584,23 @@ function wbPaint() {
   else if (dec.done) { wbStat(WB.resultText(r, me)); if (wbPlayingFor === wbCodeCur) wbStopGame(); }
   else if (live && mine && mine.result) wbStat(mine.result.forfeit ? "You forfeited." : "You reached 21. Waiting for your opponent to finish…");
   if (pre && BR.bothReady(r)) wbc.maybeStart(wbCodeCur).catch(() => {});
+  wbBoardPaint();
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt && !dec.done) { if (!wbTick) wbTick = setInterval(wbTickFn, 100); wbTickFn(); }
   else { clearInterval(wbTick); wbTick = null; $("wbCount").hidden = true; }
+}
+// Live board on both phones (lobby card + above the game controls), ticking from the shared startAt; separate from the result line.
+let wbBoardTimer = null;
+function wbBoardPaint() {
+  const r = wbRoom, show = !!(WB && r && wbCodeCur && (r.status === "live") && BR.countdownState(r.startAt, Date.now(), wbc.offset).phase !== "countdown");
+  ["wbBoard", "wbPlayBoard"].forEach((id) => { $(id).hidden = !show; });
+  if (!show) { clearInterval(wbBoardTimer); wbBoardTimer = null; return; }
+  const me = currentUser && currentUser.uid, mineLive = wbPlaying() ? { score: state.score, steps: state.steps } : null;
+  const rows = WB.boardRows(r, BR.orderedPlayers(r, wbFs.toMs), me, BR.serverNow(Date.now(), wbc.offset), mineLive);
+  const html = rows.map((x) => "<tr><td>" + escapeHtml(x.name) + "</td><td><b>" + x.scoreText + "</b></td><td>" + x.stepsText + "</td><td>" + x.timeText + "</td></tr>").join("");
+  $("wbBoardBody").innerHTML = html; $("wbPlayBoardBody").innerHTML = html;
+  const tick = rows.some((x) => x.ticking) && !WB.decide(r).done;
+  if (tick && !wbBoardTimer) wbBoardTimer = setInterval(wbBoardPaint, 250);
+  else if (!tick && wbBoardTimer) { clearInterval(wbBoardTimer); wbBoardTimer = null; }
 }
 // Start the normal washers game from zero when the shared countdown hits GO (once per room).
 function wbStartGame() {
@@ -2609,7 +2626,7 @@ function wbTickFn() {
 }
 function wbUser() { return currentUser ? { uid: currentUser.uid, name: publicName($("player").value.trim() || displayNameOf(currentUser)).slice(0, 20) } : null; }
 function wbEnter(code) { wbCodeCur = code; try { localStorage.setItem("zdWasherBattle", code); } catch (e) {} if (wbOff) wbOff(); wbOff = wbc.watch(code, (r) => { wbRoom = r; wbPaint(); }); wbPaint(); }
-function wbExit() { try { localStorage.removeItem("zdWasherBattle"); } catch (e) {} if (wbOff) wbOff(); wbOff = null; wbRoom = null; wbCodeCur = null; wbPlayingFor = null; clearInterval(wbTick); wbTick = null; wbPaint(); }
+function wbExit() { try { localStorage.removeItem("zdWasherBattle"); } catch (e) {} if (wbOff) wbOff(); wbOff = null; wbRoom = null; wbCodeCur = null; wbPlayingFor = null; clearInterval(wbTick); wbTick = null; wbBoardPaint(); wbPaint(); }
 async function wbResume(u) { let code = null; try { code = localStorage.getItem("zdWasherBattle"); } catch (e) {} if (!code || wbCodeCur) return; try { if (await wbc.resume(code, { uid: u.uid })) wbEnter(code); else localStorage.removeItem("zdWasherBattle"); } catch (e) {} }
 if (WB) {
   $("wbCreate").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to create a battle."); }

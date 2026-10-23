@@ -72,7 +72,27 @@
       t.update({ ["players." + uid + ".result"]: { forfeit: true, at: fs.ts() } }); return true; });
   }
   function throttle(ms, now) { let last = -Infinity; return () => { const t = now(); if (t - last >= ms) { last = t; return true; } return false; }; }
-  const api = { TARGET, PUBLISH_MS, validScore, validSteps, validMs, makeResult, validResult, decide, resultText, publishPatch, canWrite, publishLive, submitResult, forfeit, throttle, other, finished, forfeited };
+  // Live board (no extra Firestore fields): elapsed = serverNow - startAt (shared GO time), frozen at result.ms once finished.
+  const fmtClock = (ms) => { const t = Math.max(0, Math.floor((ms || 0) / 1000)), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), x = String(t % 60).padStart(2, "0");
+    return h ? h + ":" + String(m).padStart(2, "0") + ":" + x : String(m).padStart(2, "0") + ":" + x; };
+  function elapsedMs(r, p, serverNowMs) {
+    if (finished(p)) return p.result.ms;
+    if (!r || r.startAt == null || serverNowMs == null) return 0;
+    return Math.max(0, Math.min(MAX_MS, serverNowMs - r.startAt));
+  }
+  // players: ordered [{uid, ...seat}]; mine: optional {score, steps} local values for my own unfinished seat.
+  function boardRows(r, players, uid, serverNowMs, mine) {
+    return (players || []).map((p) => {
+      const fin = finished(p), out = forfeited(p), self = p.uid === uid;
+      const score = fin ? TARGET : self && mine && !out ? Math.min(TARGET, mine.score | 0) : Math.min(TARGET, p.score | 0);
+      const steps = fin ? p.result.steps : self && mine && !out ? mine.steps | 0 : p.steps | 0;
+      const state = fin ? "finished" : p.result && p.result.forfeit ? "forfeit" : p.leftAt ? "left" : "playing";
+      const ms = out ? null : elapsedMs(r, p, serverNowMs);
+      return { uid: p.uid, name: (p.name || "Player") + (self ? " (you)" : ""), score, scoreText: score + "/21", steps, stepsText: steps.toLocaleString("en-US"),
+        ms, timeText: state === "forfeit" ? "Forfeit" : state === "left" ? "Left" : fmtClock(ms) + (fin ? " ✓" : ""), state, ticking: state === "playing" };
+    });
+  }
+  const api = { fmtClock, elapsedMs, boardRows, TARGET, PUBLISH_MS, validScore, validSteps, validMs, makeResult, validResult, decide, resultText, publishPatch, canWrite, publishLive, submitResult, forfeit, throttle, other, finished, forfeited };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.ZabbaWasherBattle = api;
 })(typeof window !== "undefined" ? window : null);
