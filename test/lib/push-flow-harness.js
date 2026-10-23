@@ -13,7 +13,7 @@ module.exports = function run(htmlPath, { mode = "sets", script, ms = 30000, cam
     setInterval: (f, d) => { const t = { at: now + d, f, every: d }; timers.push(t); return t; }, clearInterval: (t) => { if (t) t.dead = true; },
     performance: { now: () => now }, requestAnimationFrame: (f) => timers.push({ at: now + 33, f }),
     navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } } };
-  if (spoken) { ctx.speechSynthesis = { cancel() {}, speak: (u) => spoken.push({ w: u.text, at: now, vol: u.volume }) }; ctx.SpeechSynthesisUtterance = function (t) { this.text = t; }; }
+  if (spoken) { ctx.speechSynthesis = { cancel() {}, speak: (u) => { spoken.push({ w: u.text, at: now, vol: u.volume }); if (u.onend) timers.push({ at: now + 1000, f: () => u.onend() }); } }; ctx.SpeechSynthesisUtterance = function (t) { this.text = t; }; }
   ctx.window = ctx; vm.createContext(ctx);
   for (const f of ["push-counter.js", "push-session.js", "push-challenge.js", "get-set.js"]) vm.runInContext(fs.readFileSync(path.join(ROOT, f), "utf8"), ctx);
   const frame = (t) => { const w = script(t); const sx = 320 - w.w * 320, a = (180 - w.e) * Math.PI / 180;

@@ -390,7 +390,8 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .btn.ghost{border:1px solid transparent!important;background:linear-gradient(#0e1412,#0e1412) padding-box,var(--grad) border-box!important;color:var(--lime-2)!important}
 :where(a):focus-visible,button:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--pink-2)!important;outline-offset:2px}
 .social-btn:not([data-brand]){border-color:rgba(198,255,0,.4)}
-.zt-badge{white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
+.zt-badge .zt-name{display:inline-block;max-width:7.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.zt-badge{max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
 #tokens .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
 #tokens .zt-rates li{border:1px solid rgba(198,255,0,.35);border-radius:10px;padding:.5rem .7rem}
 </style>
@@ -602,7 +603,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
     <div class="note" id="challengeResult" hidden></div>
    <p class="note" id="camNote">Phone on the floor, screen up, under your chest. The camera counts each full rep. Video stays on this phone.</p>
-    <p class="note" id="pushGetSetNote">Get set first: tapping Start turns on your camera, then a 5-second countdown ("Ready, get set" … "Go"). Counting starts at Go; your first full, slow pushup sets the top and counts.</p>
+    <p class="note" id="pushGetSetNote">Get set first: tapping Start turns on your camera and talks you through setup, then a slow countdown ("Ready" … "get set" … "three, two, one, go"). Counting starts at Go; your first full, slow pushup sets the top and counts.</p>
     <p class="note" id="camStatus" aria-live="polite"></p>
     <p class="note" id="pushStatus">Ready. Get set, then tap Start.</p>
     <p class="fine">Signed-in finishes post to the push board. Unsigned stays on this phone. Video never uploads.</p>
@@ -715,7 +716,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div id="plankWrap" hidden style="margin-top:1rem;max-width:22rem">
       <video id="plankVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video>
     </div>
-    <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. After a 5-second countdown ("Ready, get set" … "Go"), the clock starts after 1.5 seconds of good form. Sagging or piking hips, dropping to your knees or leaving the frame for more than a second ends the hold.</p>
+    <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. After the spoken setup and countdown ("Ready" … "get set" … "three, two, one, go"), the clock starts after 1.5 seconds of good form. Sagging or piking hips, dropping to your knees or leaving the frame for more than a second ends the hold.</p>
     <p class="fine">Every camera hold of 10 seconds or more counts as one set. New hold starts the next set without stopping the camera. Signed-in holds post to the Plank House board and today's sets board. Unsigned stays on this phone. Video never uploads.</p>
     <h3 style="margin-top:1.6rem">Plank House board</h3>
     <p class="lead">Longest hold first.</p>
@@ -1546,10 +1547,11 @@ function finishPushSet() {
     .then(() => tokP).then((tk) => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + viol + tokenNote(tk); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
-// One Start button: gate -> wake + speech unlock (in the tap) -> camera -> pose -> 5 s countdown (spoken "Ready, get set",
-// then "Go") -> clock. Push-ups lock the top from the first real dip (counter lockOnDip), not from setup frames.
-// Plank House "Start plank camera" uses the same 5 s countdown, then its 1.5 s good-form hold.
-const GET_SET_MS = 5000;
+// One Start button: gate -> wake + speech unlock + spoken placement line (in the tap) -> camera -> pose -> spoken
+// criteria line -> 7 s countdown -> clock. Push-ups lock the top from the first real dip (counter lockOnDip).
+// Plank House "Start plank camera" uses the same sequence, then its 1.5 s good-form hold.
+// 7 s start countdown: "Ready" · "get set" · "three" · "two" · "one" · "Go" (get-set.js STEPS)
+const GET_SET_MS = 7000;
 const getSet = window.ZabbadatGetSet ? window.ZabbadatGetSet.makeGoCountdown({ ms: GET_SET_MS }) : null;
 function getSetCountdown(show, cancelled) {
   if (getSet) return getSet.run(show, cancelled);
@@ -1561,14 +1563,16 @@ const repVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? w
 function pushTarget() { const n = Math.floor(Number(($("pushTarget") || {}).value)); return n >= 1 && n <= 500 ? n : 20; }
 function sayRep(reps) { if (typeof repVoice === "undefined" || !repVoice || !window.ZabbadatGetSet.repCallout) return; repVoice.say(window.ZabbadatGetSet.repCallout(reps, pushMode === "sets" ? pushTarget() : 0)); }
 // Setup prompt: shown while the camera/model load, then held POSITION_MS after the camera opens, then the countdown.
-const POSITION_MS = 2000, POSITION_SPOKEN_MAX_MS = 8000;
-function showPositioning(kind, el, cancelled) {
-  const txt = window.ZabbadatGetSet && window.ZabbadatGetSet.positionPrompt ? window.ZabbadatGetSet.positionPrompt(kind) : "Get in position";
+const POSITION_MS = 2000, POSITION_SPOKEN_MAX_MS = 10000;
+// Shared start coaching (get-set.js COACH): part "place" is spoken inside the Start tap while the camera opens;
+// part "criteria" is spoken once the camera is up. Each resolves when its utterance ends (criteria >= POSITION_MS;
+// cap POSITION_SPOKEN_MAX_MS); with no speech, place resolves at once and criteria shows for POSITION_MS.
+function showPositioning(kind, el, cancelled, part) {
+  const G = window.ZabbadatGetSet, lines = G && G.coachLines ? G.coachLines(kind) : null, place = part === "place";
+  const txt = lines ? (place ? lines.place : lines.criteria) : "Get in position";
   if (el) { el.textContent = txt; if (el.style) el.style.whiteSpace = "pre-line"; }
-  const G = window.ZabbadatGetSet, line = G && G.POSITION_SPOKEN && G.POSITION_SPOKEN[kind];
-  // Spoken setup line (plank): the countdown starts after the utterance ends (>= POSITION_MS, max 8 s); silent fallback = POSITION_MS.
-  if (line && G.sayAndWait) return G.sayAndWait(line, { minMs: POSITION_MS, maxMs: POSITION_SPOKEN_MAX_MS, cancelled, now: () => performance.now() });
-  return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), POSITION_MS));
+  if (lines && G.sayAndWait) return G.sayAndWait(txt, { minMs: place ? 0 : POSITION_MS, maxMs: POSITION_SPOKEN_MAX_MS, cancelled, now: () => performance.now() });
+  return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), place ? 0 : POSITION_MS));
 }
 function cancelGetSet() { if (getSet) getSet.cancel(); }
 function unlockGetSet() { if (getSet) getSet.unlock(); }
@@ -1584,16 +1588,19 @@ async function startPush() {
   if (pushState.finished || pushState.running || pushStarting) return;
   if (!requireSignIn("pushups", () => startPush(), { practice: true })) return;
   if (pushWake) pushWake.start().catch(() => {}); // inside the tap, before any await or timer
-  unlockGetSet(); // iOS: silent utterance inside the tap so "Ready, get set" / "Go" can speak later
+  unlockGetSet(); // iOS: silent utterance inside the tap so the coaching lines and countdown can speak
   if (typeof plankLoop !== "undefined" && plankLoop) stopPlankCam();
   const my = ++pushStartToken; const live = () => my === pushStartToken;
   pushStarting = true; $("pushStartBtn").disabled = true;
   const fail = (msg) => { if (!live()) return; cancelPushStart(msg); };
   try {
-    if (window.ZabbadatGetSet && window.ZabbadatGetSet.positionPrompt) { $("pushStatus").textContent = window.ZabbadatGetSet.positionPrompt("pushups"); $("pushStatus").style && ($("pushStatus").style.whiteSpace = "pre-line"); }
+    const coachKind = pushMode === "long" ? "tut" : "pushups";
+    const placed = showPositioning(coachKind, $("pushStatus"), () => !live(), "place"); // spoken inside the tap
     if (!camOn) { const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail("Camera or pose blocked."); }
     if (!live()) return;
-    if (!(await showPositioning("pushups", $("pushStatus"), () => !live()))) return;
+    if (!(await placed)) return;
+    if (!live()) return;
+    if (!(await showPositioning(coachKind, $("pushStatus"), () => !live(), "criteria"))) return;
     if (!live()) return;
     // Forget setup frames (placing the phone, getting into plank): the top locks from the first real dip from here.
     resetPoseBaseline();
@@ -1905,14 +1912,14 @@ function newPlankHold() {
 async function startPlankCam() {
   if (!requireSignIn("plank", () => startPlankCam(), { practice: true })) return;
   if (plankWake) plankWake.start().catch(() => {}); // inside the tap, before any await or timer
-  unlockGetSet(); // iOS: silent utterance inside the tap so "Ready, get set" / "Go" can speak later
+  unlockGetSet(); // iOS: silent utterance inside the tap so the coaching lines and countdown can speak
   const my = ++plankStartToken; const live = () => my === plankStartToken;
   plankStarting = true;
   try {
     if (camOn) stopCam();
     if (pushStarting) cancelPushStart();
     $("plankCamBtn").textContent = "Stop camera";
-    $("plankStatus").textContent = window.ZabbadatGetSet && window.ZabbadatGetSet.positionPrompt ? window.ZabbadatGetSet.positionPrompt("plank") : "Loading camera…";
+    const placed = showPositioning("plank", $("plankStatus"), () => !live(), "place"); // spoken inside the tap
     if ($("plankStatus").style) $("plankStatus").style.whiteSpace = "pre-line";
     await loadCamLibs();
     if (!live()) return;
@@ -1924,7 +1931,9 @@ async function startPlankCam() {
     await ensurePose();
     if (!live()) return;
     $("plankWrap").hidden = false;
-    if (!(await showPositioning("plank", $("plankStatus"), () => !live()))) return;
+    if (!(await placed)) return;
+    if (!live()) return;
+    if (!(await showPositioning("plank", $("plankStatus"), () => !live(), "criteria"))) return;
     if (!live()) return;
     if (!(await getSetCountdown((t) => { $("plankStatus").textContent = t; }, () => !live()))) return;
     if (!live()) return;
@@ -2192,7 +2201,7 @@ saveRemoteWalk = async (r) => {
 const ztFs = { ts: () => serverTimestamp(), tx: (fn) => runTransaction(db, (t) => fn({ get: (p) => t.get(doc(db, ...p)).then((x) => (x.exists() ? x.data() : null)), set: (p, d) => t.set(doc(db, ...p), d), update: (p, d) => t.update(doc(db, ...p), d) })) };
 let ztOff = null;
 function paintTokens(n) { const row = $("zabaTokensRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintTokenSection(n); }
-function paintTokenSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.textContent = on ? Number(n).toLocaleString() : "—"; if (o) o.hidden = on; if (g) g.textContent = on ? Number(n).toLocaleString() + " ZT" : "Sign in"; }
+function paintTokenSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.textContent = on ? Number(n).toLocaleString() : "—"; if (o) o.hidden = on; if (g) { if (on && ZT && ZT.badgeParts) { const p = ZT.badgeParts(typeof auth !== "undefined" && auth.currentUser ? publicName(displayNameOf(auth.currentUser)) : "", n); g.innerHTML = '<span class="zt-name">' + escapeHtml(p.name) + '</span> \u00b7 ' + escapeHtml(p.tokens); g.title = p.name + " \u00b7 " + p.tokens; } else { g.textContent = on ? "Zabba Bag: " + Number(n).toLocaleString() : "Sign in"; g.title = ""; } } }
 function paintTokenTx(list) { const t = $("ztTxBody"); if (t && ZT) t.innerHTML = ZT.txRowsHtml(list, escapeHtml); }
 let ztTxOff = null;
 awardTokens = async (source, qty, setId) => {

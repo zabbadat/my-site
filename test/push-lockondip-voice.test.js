@@ -25,16 +25,19 @@ check("no target: counts up", G.repCallout(1, 0) === "1" && G.repCallout(7, null
 { const log = []; const v = G.makeRepVoice({ speak: (w) => log.push("say:" + w), stop: () => log.push("cancel") }); v.say("20"); v.say("20"); v.say("19");
   check("rep voice cancels queued speech before each number, no repeats", log.join(",") === "cancel,say:20,cancel,say:19"); v.reset(); v.say("19"); check("reset allows the same number again (new set)", log.slice(-1)[0] === "say:19"); }
 { const v = G.makeRepVoice({ speak: () => { throw new Error("no speech"); }, stop: () => { throw new Error("x"); } }); let ok = true; try { v.say("3"); } catch (e) { ok = false; } check("rep voice: silent fallback when speech throws", ok); }
-check("setup prompts per exercise (push/TUT 2 lines; plank = live side-view setup line)", G.positionPrompt("pushups") === "Phone flat under your chest · Shoulders in frame\nArms straight · Eyes forward" && G.positionPrompt("plank") === "Prop the phone on the floor off to your side, a few steps away, screen facing you, so your whole body shows side-on, head to heels." && G.positionPrompt("tut") === G.positionPrompt("pushups"));
+check("coaching lines per exercise (shared get-set.js COACH)", G.coachLines("pushups").place === "Place your phone flat on the ground under your chest." && G.coachLines("pushups").criteria === "Shoulders in frame, arms straight, eyes forward. Go all the way down and back up." && G.coachLines("tut").criteria === "Shoulders in frame, arms straight, eyes forward. Slow, controlled reps, all the way down and back up." && G.coachLines("plank").place === "Place your phone on the ground off to your side." && G.coachLines("plank").criteria === "Get your whole body in camera view. Get into your plank and hold.");
 (async () => {
-  let sp = []; let r = await run(HTML, { mode: "sets", script: repAt(8000), ms: 16100, spoken: sp });
-  const words = sp.filter((x) => x.vol !== 0).map((x) => x.w);
-  check("flow (Sets, target 20): Ready get set @2 s, Go @7 s, then spoken 20, 19, 18, 17", r.reps === 4 && words.join("|") === "Ready, get set|Go|20|19|18|17" && sp.find((x) => x.w === "Go").at === 7000);
-  sp = []; r = await run(HTML, { mode: "long", script: repAt(8000), ms: 14000, spoken: sp });
-  check("flow (One long set): counts up 1, 2, 3", sp.filter((x) => x.vol !== 0).map((x) => x.w).slice(2).join("|") === "1|2|3");
-  sp = []; r = await run(HTML, { mode: "challenge", script: repAt(8000), ms: 14000, spoken: sp });
-  check("flow (Three-minute challenge): counts up 1, 2, 3", sp.filter((x) => x.vol !== 0).map((x) => x.w).slice(2).join("|") === "1|2|3");
-  sp = []; r = await run(HTML, { mode: "sets", script: repAt(0), ms: 9000, spoken: sp });
-  check("dips before Go: not counted, not spoken", sp.filter((x) => x.vol !== 0 && /^\d|Plus/.test(x.w)).every((x) => x.at >= 7000) && r.reps <= 1);
+  // speech mock ends each utterance after 1 s: place 0-1 s, criteria 1-3 s (min 2 s), countdown 3-10 s, Go @10 s
+  const CD = "Ready|get set|three|two|one|Go", PL = G.COACH.pushups, TU = G.COACH.tut;
+  let sp = []; let r = await run(HTML, { mode: "sets", script: repAt(11000), ms: 19100, spoken: sp });
+  const words = sp.filter((x) => x.vol !== 0).map((x) => x.w), at = (w) => (sp.find((x) => x.w === w) || {}).at;
+  check("flow (Sets, target 20): place line @0, criteria after it ends, slow countdown, Go @10 s, then 20, 19, 18, 17",
+    r.reps === 4 && words.join("|") === [PL.place, PL.criteria, CD, "20|19|18|17"].join("|") && at(PL.place) === 0 && at(PL.criteria) === 1000 && at("Ready") === 3000 && at("get set") === 5000 && at("three") === 7000 && at("one") === 9000 && at("Go") === 10000);
+  sp = []; r = await run(HTML, { mode: "long", script: repAt(11000), ms: 17000, spoken: sp });
+  check("flow (One long set = TUT): TUT coaching lines, counts up 1, 2, 3", sp.filter((x) => x.vol !== 0).map((x) => x.w).join("|") === [TU.place, TU.criteria, CD, "1|2|3"].join("|"));
+  sp = []; r = await run(HTML, { mode: "challenge", script: repAt(11000), ms: 17000, spoken: sp });
+  check("flow (Three-minute challenge): counts up 1, 2, 3", sp.filter((x) => x.vol !== 0).map((x) => x.w).slice(8).join("|") === "1|2|3");
+  sp = []; r = await run(HTML, { mode: "sets", script: repAt(0), ms: 12000, spoken: sp });
+  check("dips before Go: not counted, not spoken", sp.filter((x) => x.vol !== 0 && /^\d|Plus/.test(x.w)).every((x) => x.at >= 10000) && r.reps <= 1);
   const pass = R.filter(Boolean).length; console.log(`${pass}/${R.length} passed`); process.exit(pass === R.length ? 0 : 1);
 })();

@@ -1,7 +1,7 @@
 /* 3-2-1 countdown for camera Start buttons (push Start set / Start session / Start challenge, Plank House).
  * Runs AFTER camera, pose model and calibration are ready; the clock starts when run() resolves true.
  * makeGetSet({ ms: 2000, speak, unlock, stop, schedule }) -> { unlock(), run(show, cancelled) -> Promise<bool>, cancel() }
- * Words "3", "2", "1" at 0 / 700 / 1400 ms of a 2000 ms window (offsets scale with ms); resolves at ms.
+ * makeGoCountdown: 7 s "Ready" · "get set" · "three" · "two" · "one" · "Go" (see STEPS). COACH: spoken setup lines.
  * iOS: call unlock() synchronously inside the tap (cancel + silent volume-0 utterance) so later speech is allowed.
  * Speech is optional: missing or throwing speechSynthesis falls back to on-screen only, silently.
  */
@@ -19,6 +19,15 @@
   }
   function defaultUnlock() { var w = g(); if (!w || !w.speechSynthesis) return; w.speechSynthesis.cancel(); utter(" ", 0); }
   function defaultSpeak(word) { utter(word); }
+  // Interrupting speak for callouts (reps, hold time): WebKit / iOS Safari can silently drop an utterance queued in
+  // the same tick as speechSynthesis.cancel(). Only cancel when something is actually speaking / queued, then speak
+  // ~60 ms later; otherwise speak at once.
+  function interruptSpeak(word) {
+    var w = g(); if (!w || !w.speechSynthesis) return;
+    var ss = w.speechSynthesis;
+    if (ss.speaking || ss.pending) { ss.cancel(); setTimeout(function () { try { utter(word); } catch (e) {} }, 60); }
+    else utter(word);
+  }
   function defaultStop() { var w = g(); if (w && w.speechSynthesis) w.speechSynthesis.cancel(); }
   function safe(f) { return function () { try { return f.apply(null, arguments); } catch (e) { /* on-screen only */ } }; }
   function makeGetSet(opts) {
@@ -49,31 +58,35 @@
   }
   /* Push-ups + Plank House: 5-second countdown. 0 ms: show "Ready, get set · 5" + speak "Ready, get set"; 1000..4000: show 4,3,2,1;
    * 5000 ms: show "GO" + speak "Go", resolve true (counting starts). unlock() inside the tap (iOS). Silent fallback. */
+  // Shared start countdown (push-ups all modes, TUT, Plank House): slower pacing, 7 s total.
+  //   0 s "Ready" · 2 s "get set" · 4 s "three" · 5 s "two" · 6 s "one" · 7 s "Go" (clock starts). Screen shows the same.
+  var STEPS = [[0, "Ready", "Ready"], [2000, "get set", "Get set"], [4000, "three", "3"], [5000, "two", "2"], [6000, "one", "1"], [7000, "Go", "GO"]];
+  var COUNTDOWN_MS = 7000;
   function makeGoCountdown(opts) {
     opts = opts || {};
-    var ms = opts.ms || 5000, n = Math.round(ms / 1000);
     var speak = safe(opts.speak || defaultSpeak), unlock = safe(opts.unlock || defaultUnlock), stopSpeech = safe(opts.stop || defaultStop);
     var schedule = opts.schedule || function (f, d) { return setTimeout(f, d); }, runId = 0;
     return {
-      ms: ms, words: [READY, "Go"],
+      ms: COUNTDOWN_MS, words: STEPS.map(function (x) { return x[1]; }), steps: STEPS,
       unlock: function () { unlock(); },
       run: function (show, cancelled) {
         var my = ++runId; cancelled = cancelled || function () { return false; };
         var dead = function () { return my !== runId || cancelled(); };
         return new Promise(function (resolve) {
-          var tick = function (i) { // i = seconds elapsed
+          var step = function (i) {
             if (dead()) { stopSpeech(); return resolve(false); }
-            if (i >= n) { try { show("GO"); } catch (e) {} speak("Go"); return resolve(true); }
-            try { show(i === 0 ? READY + " · " + n : String(n - i)); } catch (e) {}
-            if (i === 0) speak(READY);
-            schedule(function () { tick(i + 1); }, i === n - 1 ? ms - (n - 1) * 1000 : 1000);
+            try { show(STEPS[i][2]); } catch (e) {}
+            speak(STEPS[i][1]);
+            if (i === STEPS.length - 1) return resolve(true);
+            schedule(function () { step(i + 1); }, STEPS[i + 1][0] - STEPS[i][0]);
           };
-          tick(0);
+          step(0);
         });
       },
       cancel: function () { runId += 1; stopSpeech(); }
     };
   }
+
   /* Battles (shared 5 s room countdown from battle-rooms.js): speak "Ready, get set" once when the countdown
    * appears and "Go" once at GO, per room start. voice.phase(key, phase) with phase from countdownState(). */
   function makeBattleVoice(opts) {
@@ -115,18 +128,28 @@
           var w = g();
           if (w && w.speechSynthesis && typeof w.SpeechSynthesisUtterance === "function") {
             var u = new w.SpeechSynthesisUtterance(text); u.rate = 1.1; u.onend = ended; u.onerror = ended;
-            w.speechSynthesis.cancel(); w.speechSynthesis.speak(u); started = true;
+            var ss = w.speechSynthesis;
+            if (ss.speaking || ss.pending) { ss.cancel(); setTimeout(function () { try { ss.speak(u); } catch (e) {} }, 60); } else ss.speak(u);
+            started = true;
           }
         }
       } catch (e) { started = false; }
       schedule(finish, started ? maxMs : minMs);
     });
   }
+  // Spoken + on-screen start coaching, one shared sequence for all camera exercises:
+  //   tap -> PLACE line (spoken in the tap; camera opens meanwhile) -> CRITERIA line -> countdown.
+  var COACH = {
+    pushups: { place: "Place your phone flat on the ground under your chest.", criteria: "Shoulders in frame, arms straight, eyes forward. Go all the way down and back up." },
+    tut: { place: "Place your phone flat on the ground under your chest.", criteria: "Shoulders in frame, arms straight, eyes forward. Slow, controlled reps, all the way down and back up." },
+    plank: { place: "Place your phone on the ground off to your side.", criteria: "Get your whole body in camera view. Get into your plank and hold." }
+  };
+  function coachLines(kind) { return COACH[kind] || COACH.pushups; }
   function positionPrompt(kind) { return (POSITION[kind] || POSITION.pushups).join("\n"); }
   // Rep / score callout: cancel anything queued first so the number never lags behind fast reps. Silent fallback.
   function makeRepVoice(opts) {
     opts = opts || {};
-    var speak = safe(opts.speak || defaultSpeak), stopSpeech = safe(opts.stop || defaultStop), last = null;
+    var speak = safe(opts.speak || interruptSpeak), stopSpeech = safe(opts.speak ? (opts.stop || defaultStop) : function () {}), last = null;
     return { say: function (n) { if (n == null || n === last) return; last = n; stopSpeech(); speak(String(n)); }, reset: function () { last = null; } };
   }
   // Spoken rep callout. With a target (Sets): counts DOWN, rep 1 of 20 says "20" ... rep 20 says "1";
@@ -149,7 +172,7 @@
   // cancels anything queued first; end() silences it until reset() (a new hold / set starts from 0).
   function makeHoldVoice(opts) {
     opts = opts || {};
-    var speak = safe(opts.speak || defaultSpeak), stopSpeech = safe(opts.stop || defaultStop), every = opts.everyMs || HOLD_EVERY_MS, last = 0, ended = false;
+    var speak = safe(opts.speak || interruptSpeak), stopSpeech = safe(opts.speak ? (opts.stop || defaultStop) : function () {}), every = opts.everyMs || HOLD_EVERY_MS, last = 0, ended = false;
     return {
       tick: function (ms) {
         if (ended) return null;
@@ -159,7 +182,7 @@
       end: function () { ended = true; }, reset: function () { last = 0; ended = false; }
     };
   }
-  var api = { sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
+  var api = { COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);
