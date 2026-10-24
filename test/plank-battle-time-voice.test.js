@@ -7,7 +7,7 @@ const said = [];
 const window = { ZabbadatGetSet: { makeHoldVoice: () => G.makeHoldVoice({ speak: (w) => said.push(w), stop: () => {} }) } };
 let now = 0, room, mine = {}, done = false; const c = { hidden: false };
 const env = { window, $: () => c, battle: { state: () => ({ phase: "live" }), markLive: () => Promise.resolve(), offset: 0 }, battleVoice: null, bStatus: () => {}, fmtT: (x) => String(x),
-  BR: { serverNow: () => now }, PBm: { decide: () => ({ done }), holdMs: (r) => now - r.startAt }, currentUser: { uid: "me" }, document: { visibilityState: "visible" }, paintBattle: () => {}, clearInterval: () => {} };
+  BR: { serverNow: () => now }, PBm: { decide: () => ({ done }), holdMs: (r) => now - r.startAt }, currentUser: { uid: "me" }, document: { visibilityState: "visible" }, paintBattle: () => {}, pbDec: () => ({ done }), plankArc: { paint() {} }, clearInterval: () => {} };
 const run = new Function(...Object.keys(env), "let battleCode='AB', battleRoom, plankLiveFor='AB', plankHidden, plankSent, battleTick;" + body +
   "; return { tick: tickBattle, set: (r) => { battleRoom = r; } };")(...Object.values(env));
 room = { startAt: 1000, status: "live", players: { me: mine } }; run.set(room);

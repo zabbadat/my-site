@@ -38,7 +38,16 @@ The owner accepted breakage of local test data. Live data must not be broken.
 ## Names that could NOT be changed (third-party APIs)
 
 These contain the old noun because the Firebase SDKs name them that way. They are used exactly as-is, not obfuscated:
-- `index.html:2699` and `index.html:2850`: Firebase Auth `user.getIdToken()` (sends the caller's sign-in credential in the `Authorization: Bearer` header).
+- `index.html:2451` and `index.html:2924`: Firebase Auth `user.getIdToken()` (sends the caller's sign-in credential in the `Authorization: Bearer` header).
 - `members.js:47`: same Firebase `getIdToken()` call (the local variable is now `credential`).
 - `netlify/lib/common.js:24`: Firebase Admin `auth().verifyIdToken(...)`.
 The `Authorization: Bearer` header itself has no such word and is unchanged. `test/no-old-currency-word.test.js` guards the repo and allows only these four lines.
+
+## Plank / TUT ZAB bets (added on feat/washer-match)
+
+No data migration is needed for this part, it only adds fields:
+
+- `battles/{code}` and `tutBattles/{code}`: optional `stake` (int, set at create), seat fields `seenAt` (heartbeat, server time) and `claimGone` (write-once, set on your own seat when the opponent was silent for 30 s). Old rooms without them keep working (no stake = no gating, no heartbeat needed).
+- `wagers/{plank|tut}_{code}_{createdMs}`: same escrow docs as the washers bet, server-only.
+- `repLog/{plank|tut}_{code}_{createdMs}`: new ledger ids; washers ids (`washers_...`) are unchanged.
+- Rules to publish: `firestore.rules` (draft, not published) now has the `presOk` / `otherStale` heartbeat rules in the `battles` and `tutBattles` blocks.

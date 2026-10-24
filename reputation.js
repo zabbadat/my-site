@@ -2,6 +2,9 @@
  * 0..100, new users start at 50. Public mirror repBoard/{uid} = { uid, name, rep, clean, disputesLost, forfeits, updatedAt }
  * (name + reputation only, never an email). Written ONLY by the server (netlify/functions/rep-settle.js, admin SDK);
  * clients can read, never write (rules draft). Ledger repLog/{key} makes each match count exactly once.
+ * Plank Battles and TUT Battles use the same numbers (no disputes there: each phone measures itself):
+ * clean finish by hold / TUT / draw = +2 each, forfeit (tapped forfeit, left, 30 s silence) = -5, both out = -5 each,
+ * the winner of a forfeit and a cancelled / never started / undecided battle = 0. Decision reused from zaba-wager.js gameOutcome.
  * Per finished Zabba Washer Battle (washers-battle.js decides, same on every phone):
  *   +2  clean confirmed match (finished by score or tie, no penalty for you)       -> CLEAN
  *   -10 a dispute resolved against you (Bariboshi winner's ruling, Art. 11)        -> DISPUTE_LOST
@@ -12,6 +15,7 @@
 (function (root) {
   const req = (n, g) => (typeof module !== "undefined" && module.exports ? require(n) : root && root[g]);
   const WB = req("./washers-battle.js", "ZabbaWasherBattle");
+  const WG = req("./zaba-wager.js", "ZabaWager");
   const START = 50, MIN = 0, MAX = 100, CLEAN = 2, DISPUTE_LOST = -10, FORFEIT = -5, SHAKY_BELOW = 40, TRUSTED_FROM = 70;
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
   const clamp = (n) => Math.max(MIN, Math.min(MAX, Math.round(n)));
@@ -20,7 +24,26 @@
   const labelText = (rep) => tier(rep).label + " " + normalize(rep);
   const apply = (rep, delta) => clamp(normalize(rep) + delta);
   // Room doc -> null (nothing to score yet / cancelled) or { [uid]: { delta, events: [..] } }.
-  function matchDeltas(room) {
+  const GAMES = ["washers", "plank", "tut"];
+  // Plank / TUT: derived from the wager module's game decision (same winner logic the pot uses).
+  function battleDeltas(game, room, nowMs, toMs) {
+    if (!room || !room.players || !WG) return null;
+    const o = WG.gameOutcome(game, room, nowMs, toMs), out = {}, ids = Object.keys(room.players);
+    ids.forEach((u) => { out[u] = { delta: 0, events: [] }; });
+    const add = (u, ev, d) => { out[u].events.push(ev); out[u].delta += d; };
+    if (o.state === "pending") return null;
+    if (o.state === "refund") {
+      if (o.reason === "both-out") ids.forEach((u) => add(u, "forfeit", FORFEIT));
+      else if (o.reason === "tie" || o.reason === "draw") ids.forEach((u) => add(u, "clean", CLEAN));
+      else return null; /* never started / both silent / flagged: no change */
+      return out;
+    }
+    if (o.reason === "forfeit" || o.reason === "left") ids.forEach((u) => { if (u !== o.winner) add(u, "forfeit", FORFEIT); });
+    else ids.forEach((u) => add(u, "clean", CLEAN));
+    return out;
+  }
+  function matchDeltas(room, game, nowMs, toMs) {
+    if (game && game !== "washers") return battleDeltas(game, room, nowMs, toMs);
     if (!room || !room.players || !WB) return null;
     const dec = WB.decide(room); if (!dec.done) return null;
     const an = WB.analyze(room), out = {};
@@ -33,14 +56,16 @@
   }
   // ---- server settle: adapter like zaba-wager.js (fs.tx(fn(t)) with t.get(pathArray) -> Promise, t.set, t.update; ts(); toMs) ----
   const err = (status, message) => Object.assign(new Error(message), { status });
-  const KEY = (code, createdMs) => "washers_" + code + "_" + createdMs;
-  function settle(fs, uid, code) {
+  const KEY = (code, createdMs, game) => (game || "washers") + "_" + code + "_" + createdMs;
+  const RCOL = { washers: "washersBattles", plank: "battles", tut: "tutBattles" };
+  function settle(fs, uid, code, game, nowMs) {
+    game = game || "washers"; if (GAMES.indexOf(game) < 0) return Promise.reject(err(400, "Unknown battle."));
     code = String(code || "").toUpperCase();
     if (!/^[A-HJ-NP-Z2-9]{4}$/.test(code)) return Promise.reject(err(400, "Bad room code."));
-    return fs.tx((t) => t.get(["washersBattles", code]).then((room) => {
+    return fs.tx((t) => t.get([RCOL[game], code]).then((room) => {
       if (!room) throw err(404, "No room with that code.");
       if (!room.players || !(uid in room.players)) throw err(403, "Not your match.");
-      const key = KEY(code, fs.toMs(room.createdAt)), deltas = matchDeltas(room);
+      const key = KEY(code, fs.toMs(room.createdAt), game), deltas = matchDeltas(room, game, nowMs == null ? Date.now() : nowMs, fs.toMs);
       if (!deltas) return { pending: true };
       const us = Object.keys(room.players);
       return Promise.all([t.get(["repLog", key])].concat(us.map((u) => t.get(["repBoard", u])))).then(([log, ...boards]) => {
@@ -53,12 +78,12 @@
             clean: ((b && b.clean) | 0) + (ev.includes("clean") ? 1 : 0), disputesLost: ((b && b.disputesLost) | 0) + (ev.includes("dispute-lost") ? 1 : 0), forfeits: ((b && b.forfeits) | 0) + (ev.includes("forfeit") ? 1 : 0) };
           if (b) t.update(["repBoard", u], doc); else t.set(["repBoard", u], doc);
         });
-        t.set(["repLog", key], { key, code, game: "washers", deltas: applied, at: fs.ts() });
+        t.set(["repLog", key], { key, code, game, deltas: applied, at: fs.ts() });
         return { ok: true, key, deltas: applied };
       });
     }));
   }
-  const api = { START, MIN, MAX, CLEAN, DISPUTE_LOST, FORFEIT, SHAKY_BELOW, TRUSTED_FROM, clamp, normalize, tier, labelText, apply, matchDeltas, settle, KEY };
+  const api = { GAMES, RCOL, battleDeltas, START, MIN, MAX, CLEAN, DISPUTE_LOST, FORFEIT, SHAKY_BELOW, TRUSTED_FROM, clamp, normalize, tier, labelText, apply, matchDeltas, settle, KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.ZabbaReputation = api;
 })(typeof window !== "undefined" ? window : null);

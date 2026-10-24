@@ -87,9 +87,9 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   out = await W.settle(fs, r.key, T + 300000); check("TUT both disconnected (no stats): refund", out.status === "refunded");
   // ---- Plank ----
   r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: true, at: T };
-  out = await W.settle(fs, r.key, T); check("Plank: first to drop loses, 1-ZAB battle pays pot 2", out.winner === "b" && bal("b") === 21 && bal("a") === 19);
+  out = await W.settle(fs, r.key, T + 40000); check("Plank: first to drop loses, 1-ZAB battle pays pot 2", out.winner === "b" && bal("b") === 21 && bal("a") === 19);
   r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: false, at: T };
-  out = await W.settle(fs, r.key, T); check("Plank unverified hold: refund + flag", out.flag === "unverified" && bal("a") === 20);
+  out = await W.settle(fs, r.key, T + 40000); check("Plank unverified hold: refund + flag", out.flag === "unverified" && bal("a") === 20);
   r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: true, at: T }; db[r.ref].players.b.result = { holdMs: 30000, verified: true, at: T };
   out = await W.settle(fs, r.key, T); check("Plank tie: refund", out.reason === "tie" && bal("b") === 20);
   r = await staked("plank", 1); goLive(r);

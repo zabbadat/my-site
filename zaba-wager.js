@@ -50,6 +50,9 @@
     }
     if (game === "tut") {
       if (room.status === "done" && room.loserUid && room.winnerUid) return { state: "win", winner: room.winnerUid, reason: room.loseReason || "loss" };
+      // Left the battle or 30 s of heartbeat silence before any result: forfeit, the other player wins the pot (both out: refund).
+      const ff = TB.forfeitLoser(room);
+      if (ff) return ff.both ? { state: "refund", reason: "both-out" } : { state: "win", winner: TB.other(room, ff.loser), reason: "forfeit" };
       const end = TB.endAt(room);
       if (end != null && nowMs > end + TB.RULES.settleMs + GRACE_MS) {
         const loser = TB.timeUpLoser(room);
@@ -59,7 +62,7 @@
       return { state: "pending" };
     }
     if (game === "plank") {
-      const d = PB.decide(room);
+      const d = PB.decide(room, nowMs);
       const bad = seated(room).find((u) => { const x = room.players[u].result; return x && !x.forfeit && x.verified === false; });
       if (d.done) {
         if (d.winner == null) return { state: "refund", reason: d.reason };

@@ -4,6 +4,7 @@
  * Browser: window.ZabbaTutBattle. Node: require("./tut-battle.js").
  */
 (function (root) {
+  const PR = typeof module !== "undefined" && module.exports ? require("./battle-presence.js") : root && root.ZabbaPresence;
   // 3:00 head-to-head: clock = room startAt (end of the shared countdown) + durationMs, same on both phones.
   // Top rests are allowed (no "stop repping" loss); each continuous top hold credits at most topCapMs of TUT.
   // settleMs: wait after 3:00 so both phones' final reps/TUT reach the room before the time-up result is decided.
@@ -38,7 +39,7 @@
   // First to break writes itself as loser; idempotent (only while live and no result yet).
   function reportLoss(fs, code, uid, reason, mine) {
     return fs.tx(code, (t) => { const r = t.get();
-      if (!r || r.status !== "live" || r.loserUid || !(uid in r.players)) return false;
+      if (!r || r.status !== "live" || r.loserUid || !(uid in r.players) || forfeitLoser(r)) return false;
       const p = "players." + uid;
       t.update({ status: "done", loserUid: uid, winnerUid: other(r, uid), loseReason: reason, endedAt: fs.ts(),
         [p + ".reps"]: mine.reps | 0, [p + ".tutMs"]: Math.round(mine.tutMs) || 0 });
@@ -63,12 +64,25 @@
       if (!r || !(uid in (r.players || {}))) return false;
       if (r.status === "done") return "done";
       if (r.status !== "live" || r.loserUid) return false;
+      if (forfeitLoser(r)) return "done"; /* a forfeit (left / 30 s silence) already decided it */
       const loser = timeUpLoser(r);
       if (loser == null) return "draw";
       if (loser !== uid) return "won";
       t.update({ status: "done", loserUid: uid, winnerUid: other(r, uid), loseReason: TIME_UP, endedAt: fs.ts() });
       return "lost"; });
   }
+  // Forfeit while the battle is live: a seat that left (leftAt) or whose opponent recorded 30 s of silence (claimGone).
+  // Returns { loser: uid|null, both: bool } or null. Only used before a result is written (status done already names the loser).
+  function forfeitLoser(room) {
+    if (!room || room.status === "done" || !room.players) return null;
+    const ids = Object.keys(room.players), gone = PR ? PR.goneUids(room) : [];
+    const out = ids.filter((u) => !!room.players[u].leftAt || gone.indexOf(u) >= 0);
+    if (out.length === 0) return null;
+    return out.length === 2 ? { loser: null, both: true } : { loser: out[0], both: false };
+  }
+  const isDone = (r) => !!r && (r.status === "done" || !!forfeitLoser(r));
+  const stale = (r, uid, nowMs, toMs) => PR.staleOpponent(r, uid, nowMs, toMs, isDone);
+  const claimGone = (fs, code, uid, nowMs) => PR.claimGone(fs, code, uid, nowMs, isDone);
   // Winner / loser line for the result: "Time: more time under tension" for a time-up win, else the loss reason.
   function resultText(room, uid) {
     if (!room || room.status !== "done") return "";
@@ -88,7 +102,7 @@
     return statsFs.tx(uid, (t) => { const n = nextStats(t.get(), room, uid); if (!n) return false; t.set(Object.assign({ uid }, n, { updatedAt: statsFs.ts() })); return true; });
   }
   function rankStats(list) { return list.slice().sort((a, b) => b.wins - a.wins || a.losses - b.losses || b.bestTutMs - a.bestTutMs); }
-  const api = { RULES, REASONS, TIME_UP, WIN_REASON, endAt, timeLeft, timeUpLoser, settleTimeUp, resultText, hasUpperBody, createJudge, throttle, reportLoss, publishLive, nextStats, recordResult, rankStats, other };
+  const api = { forfeitLoser, isDone, stale, claimGone, heartbeat: PR && PR.heartbeat, RULES, REASONS, TIME_UP, WIN_REASON, endAt, timeLeft, timeUpLoser, settleTimeUp, resultText, hasUpperBody, createJudge, throttle, reportLoss, publishLive, nextStats, recordResult, rankStats, other };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.ZabbaTutBattle = api;
 })(typeof window !== "undefined" ? window : null);

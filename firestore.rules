@@ -200,6 +200,14 @@ service cloud.firestore {
         && ((p.result.keys().hasOnly(['forfeit','at']) && p.result.forfeit == true && p.result.at == request.time)
           || (p.result.keys().hasOnly(['holdMs','verified','at']) && p.result.holdMs is int && p.result.holdMs >= 0
             && p.result.holdMs <= 7200000 && p.result.verified is bool && p.result.at == request.time))); }
+      // Heartbeat + silence forfeit (battle-presence.js): seenAt = server time; claimGone only while live, only on your own seat,
+      // only when the other seat has been silent for 30 s (since the shared start). PRESENCE, not yet published.
+      function otherSeat() { return d().players[d().players.keys().removeAll([me()])[0]]; }
+      function lastSeen() { return ('seenAt' in otherSeat() && otherSeat().seenAt.toMillis() > d().startAt) ? otherSeat().seenAt.toMillis() : d().startAt; }
+      function otherStale() { return d().players.size() == 2 && d().startAt is int && !('result' in otherSeat()) && !('leftAt' in otherSeat())
+        && !('claimGone' in otherSeat()) && request.time.toMillis() - lastSeen() > 30000; }
+      function presOk(o, p) { return (!('seenAt' in p.diff(o).affectedKeys()) || p.seenAt == request.time)
+        && (!('claimGone' in p.diff(o).affectedKeys()) || (p.claimGone == true && d().status == 'live' && !('result' in p) && !('claimGone' in otherSeat()) && otherStale())); }
       allow read: if signedIn();
       allow create: if signedIn() && code.matches('^[A-HJ-NP-Z2-9]{4}$') && newRoom();
       allow update: if signedIn() && (
@@ -213,9 +221,9 @@ service cloud.firestore {
           && (!('status' in changed()) || (!started() && !(me() in n().players)
               && n().status == (n().players.size() == 0 ? 'abandoned' : 'waiting')))
           && (!(me() in n().players) ? !started()
-              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt','result'])
+              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt','result','claimGone'])
                 && (!started() || !('ready' in n().players[me()].diff(d().players[me()]).affectedKeys()))
-                && plankResOk(d().players[me()], n().players[me()])))
+                && plankResOk(d().players[me()], n().players[me()]) && presOk(d().players[me()], n().players[me()])))
         // either player: both ready -> countdown with startAt = now..now+15s (only once)
         || (isPlayer() && d().status == 'waiting' && d().startAt == null && d().players.size() == 2
           && d().players[d().players.keys()[0]].ready == true && d().players[d().players.keys()[1]].ready == true
@@ -250,6 +258,14 @@ service cloud.firestore {
       function wagerPath() { return /databases/$(database)/documents/wagers/$('tut_' + code + '_' + string(d().createdAt.toMillis())); }
       function wagerReady() { return !('stake' in d()) || (exists(wagerPath()) && get(wagerPath()).data.status == 'open'
         && get(wagerPath()).data.players.keys().hasAll(d().players.keys())); }
+      // Heartbeat + silence forfeit (battle-presence.js): seenAt = server time; claimGone only while live, only on your own seat,
+      // only when the other seat has been silent for 30 s (since the shared start). PRESENCE, not yet published.
+      function otherSeat() { return d().players[d().players.keys().removeAll([me()])[0]]; }
+      function lastSeen() { return ('seenAt' in otherSeat() && otherSeat().seenAt.toMillis() > d().startAt) ? otherSeat().seenAt.toMillis() : d().startAt; }
+      function otherStale() { return d().players.size() == 2 && d().startAt is int && !('result' in otherSeat()) && !('leftAt' in otherSeat())
+        && !('claimGone' in otherSeat()) && request.time.toMillis() - lastSeen() > 30000; }
+      function presOk(o, p) { return (!('seenAt' in p.diff(o).affectedKeys()) || p.seenAt == request.time)
+        && (!('claimGone' in p.diff(o).affectedKeys()) || (p.claimGone == true && d().status == 'live' && !('result' in p) && !('claimGone' in otherSeat()) && otherStale())); }
       allow read: if signedIn();
       allow create: if signedIn() && code.matches('^[A-HJ-NP-Z2-9]{4}$') && newRoom();
       allow update: if signedIn() && (
@@ -263,8 +279,9 @@ service cloud.firestore {
           && (!('status' in changed()) || (!started() && !(me() in n().players)
               && n().status == (n().players.size() == 0 ? 'abandoned' : 'waiting')))
           && (!(me() in n().players) ? !started()
-              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt','reps','tutMs'])
-                && (!started() || !('ready' in n().players[me()].diff(d().players[me()]).affectedKeys()))))
+              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt','reps','tutMs','claimGone'])
+                && (!started() || !('ready' in n().players[me()].diff(d().players[me()]).affectedKeys()))
+                && presOk(d().players[me()], n().players[me()])))
         // either player: both ready -> countdown with startAt = now..now+15s (only once)
         || (isPlayer() && d().status == 'waiting' && d().startAt == null && d().players.size() == 2
           && d().players[d().players.keys()[0]].ready == true && d().players[d().players.keys()[1]].ready == true
