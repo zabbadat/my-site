@@ -8,7 +8,7 @@ check("never an email (entry and line)", ZT.boardEntry("u1", "zab@example.com", 
 check("entry shape uid/name/total only", JSON.stringify(ZT.boardEntry("u1", "Zab", 7.9)) === '{"uid":"u1","name":"Zab","total":7}');
 const fn = (name) => { const i = html.indexOf("function " + name + "("); const e = html.indexOf("\n", i); const l = html.slice(i, e); return /\}\s*$/.test(l) && l.split("{").length === l.split("}").length ? l : html.slice(i, html.indexOf("\n}", i) + 2); };
 { const el = { textContent: "x", hidden: false }; const ctx = { $: () => el, ZT, window: { ZabCurrency: ZC }, document: {} }; vm.createContext(ctx); vm.runInContext(fn("paintTopBag"), ctx);
-  ctx.paintTopBag({ name: "Zab", total: 4 }); const shown = !el.hidden && /^Bank of Zabba \u2013 Top ZAB: Zab \u00b7 4 <span class="zab">ZAB/.test(el.innerHTML) && /zab-ring/.test(el.innerHTML || "");
+  ctx.paintTopBag({ name: "Zab", total: 4 }); const shown = !el.hidden && /^Bank of Zabba \u2013 Top <span class="zab">ZAB<svg[\s\S]*<\/svg><\/span>: Zab \u00b7 4 <span class="zab">ZAB/.test(el.innerHTML) && /zab-ring/.test(el.innerHTML || "");
   ctx.paintTopBag(null); check("paintTopBag shows the line, hides on null (empty / no permission / error)", shown && el.hidden && el.innerHTML === ""); }
 { const writes = []; let fail1 = true; const ctx = { ZT, db: {}, doc: (db, c, id) => c + "/" + id, serverTimestamp: () => "TS", setDoc: (p, d) => { writes.push([p, d]); return fail1 ? Promise.reject(new Error("denied")) : Promise.resolve(); },
     publicName: (s) => String(s).split("@")[0], displayNameOf: (u) => u.displayName || u.email, ztMirrored: null };
