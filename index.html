@@ -492,7 +492,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <h1>Gamified <em>wellness</em></h1>
         <div class="tut-hero" id="tutHero">
           <p class="motto">BREATHE. ACTIVATE. <a href="#tut-board">TUT</a>. SCORE. WIN. RANK. REWARD.</p>
-          <h2>One Long Set: <em>how long can you stay under tension?</em></h2>
+          <h2>Time Under Tension Set: <em>how long can you stay under tension?</em></h2>
           <p class="tut-rules">Nonstop timer &middot; No standing &middot; No knees</p>
           <div class="tut-stats">
             <div class="tut-main"><b id="heroTut">0:00</b><span>Your time under tension today</span></div>
@@ -501,7 +501,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
           <p class="tut-best" id="heroBest" hidden></p>
           <p class="tut-best"><a href="#tut-board">See the TUTS board</a></p>
           <div class="actions">
-            <a class="btn" href="#push" id="heroLongBtn">Start One Long Set</a>
+            <a class="btn" href="#push" id="heroLongBtn">Start Time Under Tension Set</a>
             <a class="btn ghost" href="#push" id="heroSetsBtn">Regular sets</a>
           </div>
         </div>
@@ -630,12 +630,12 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h2>TUT set-push-up</h2>
     <p class="lead">Same login as washers. Start the clock and set the phone on the floor under your chest; the camera counts each full rep. Honor system. Not a form judge and not medical treatment.</p>
 <div class="mode-toggle" role="group" aria-label="Pushup mode">
-      <button type="button" id="modeLongBtn" aria-pressed="true">One long set<span class="btn-tut">TUT</span></button>
+      <button type="button" id="modeLongBtn" aria-pressed="true">Time under tension set<span class="btn-tut">TUT</span></button>
       <button type="button" id="modeSetsBtn" aria-pressed="false">Sets</button>
       <button type="button" id="modeChallengeBtn" aria-pressed="false">Three-minute challenge</button>
     </div>
-    <div class="olt-banner" id="oltBanner"><span>ONE LONG SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
-    <p class="note" id="longNote" hidden>One long set: the clock runs nonstop from Start. Stay in plank. Standing up or dropping to your knees is flagged (the clock keeps running). Rule breaks: <span class="vcount" id="pushViol">0</span></p>
+    <div class="olt-banner" id="oltBanner"><span>TIME UNDER TENSION SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
+    <p class="note" id="longNote" hidden>Time under tension set: the clock runs nonstop from Start. Stay in plank. Standing up or dropping to your knees is flagged (the clock keeps running). Rule breaks: <span class="vcount" id="pushViol">0</span></p>
     <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock from Start, no pause. Stay in plank the whole time; push-ups or holding the top both count. Standing up or dropping to your knees is flagged (the clock keeps running). Each hold at the top counts for at most 10 seconds of time under tension. Score: reps plus seconds under tension.</p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
@@ -757,7 +757,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h2>TUTS</h2>
     <p class="eyebrow" style="margin:-.4rem 0 .8rem">Time Under Tension Scoreboard</p>
     <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
-    <p class="lead">Longest time in plank. Sets count their set time; One Long Set counts the whole session.</p>
+    <p class="lead">Longest time in plank. Sets count their set time; Time Under Tension Set counts the whole session.</p>
     <h3>TUTS leaderboard</h3>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Reps</th><th>When</th></tr></thead>
@@ -774,7 +774,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <thead><tr><th>Day</th><th>Time</th><th>Reps</th></tr></thead>
       <tbody id="tutDaysBody"><tr><td colspan="3">No sets yet.</td></tr></tbody>
     </table>
-    <h3 style="margin-top:1.6rem">Recent One Long Sets</h3>
+    <h3 style="margin-top:1.6rem">Recent Time Under Tension Sets</h3>
     <table>
       <thead><tr><th>When</th><th>Time</th><th>Reps</th><th>Rule breaks</th></tr></thead>
       <tbody id="tutSessBody"><tr><td colspan="4">No sessions yet.</td></tr></tbody>

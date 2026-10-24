@@ -74,7 +74,7 @@ check("flags: summary text", flagSummary(flags) === "2 flags: Stood up / left pl
 // ---- static checks on index.html
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 check("static: challenge mode button exists", html.includes('<button type="button" id="modeChallengeBtn" aria-pressed="false">Three-minute challenge</button>'));
-check("static: existing mode buttons untouched", html.includes('<button type="button" id="modeLongBtn" aria-pressed="true">One long set<span class="btn-tut">TUT</span></button>') && html.includes('<button type="button" id="modeSetsBtn" aria-pressed="false">Sets</button>'));
+check("static: existing mode buttons untouched", html.includes('<button type="button" id="modeLongBtn" aria-pressed="true">Time under tension set<span class="btn-tut">TUT</span></button>') && html.includes('<button type="button" id="modeSetsBtn" aria-pressed="false">Sets</button>'));
 check("static: push-challenge.js loaded", html.includes('<script src="/push-challenge.js"></script>'));
 check("static: persisted mode accepts challenge", /m === "sets" \|\| m === "challenge" \? m : "long"/.test(html));
 check("static: start uses same sign-in gate", html.includes('requireSignIn("pushups", () => startPush(), { practice: true })'));
