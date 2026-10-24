@@ -393,6 +393,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .zt-badge{white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
 #zab .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
 .zab{display:inline-flex;align-items:center;gap:.28em;font-weight:700;letter-spacing:.06em;white-space:nowrap}.zab-ring{width:.95em;height:.95em;display:inline-block;flex:none}
+.tuts-l{font-weight:800;color:#7fe3ff;text-shadow:0 0 8px rgba(127,227,255,.55)}
 #zab .zt-rates li{border:1px solid rgba(198,255,0,.35);border-radius:10px;padding:.5rem .7rem}
 /* ARC-START Zabba Washer Battle arcade scoreboard (washers-arcade.js). Every animation lives in the no-preference block. */
 @property --arc-n { syntax:'<integer>'; inherits:false; initial-value:0; }
@@ -492,7 +493,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <h1>Gamified <em>wellness</em></h1>
         <div class="tut-hero" id="tutHero">
           <p class="motto">BREATHE. ACTIVATE. <a href="#tut-board">TUT</a>. SCORE. WIN. RANK. REWARD.</p>
-          <h2>Time Under Tension Set: <em>how long can you stay under tension?</em></h2>
+          <h2><span class="tuts-l">T</span>ime <span class="tuts-l">U</span>nder <span class="tuts-l">T</span>ension <span class="tuts-l">S</span>et: <em>how long can you stay under tension?</em></h2>
           <p class="tut-rules">Nonstop timer &middot; No standing &middot; No knees</p>
           <div class="tut-stats">
             <div class="tut-main"><b id="heroTut">0:00</b><span>Your time under tension today</span></div>
@@ -501,7 +502,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
           <p class="tut-best" id="heroBest" hidden></p>
           <p class="tut-best"><a href="#tut-board">See the TUTS board</a></p>
           <div class="actions">
-            <a class="btn" href="#push" id="heroLongBtn">Start Time Under Tension Set</a>
+            <a class="btn" href="#push" id="heroLongBtn">Start <span class="tuts-l">T</span>ime <span class="tuts-l">U</span>nder <span class="tuts-l">T</span>ension <span class="tuts-l">S</span>et</a>
             <a class="btn ghost" href="#push" id="heroSetsBtn">Regular sets</a>
           </div>
         </div>
@@ -630,12 +631,12 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h2>TUT set-push-up</h2>
     <p class="lead">Same login as washers. Start the clock and set the phone on the floor under your chest; the camera counts each full rep. Honor system. Not a form judge and not medical treatment.</p>
 <div class="mode-toggle" role="group" aria-label="Pushup mode">
-      <button type="button" id="modeLongBtn" aria-pressed="true">Time under tension set<span class="btn-tut">TUT</span></button>
+      <button type="button" id="modeLongBtn" aria-pressed="true"><span class="tuts-l">T</span>ime <span class="tuts-l">u</span>nder <span class="tuts-l">t</span>ension <span class="tuts-l">s</span>et<span class="btn-tut">TUT</span></button>
       <button type="button" id="modeSetsBtn" aria-pressed="false">Sets</button>
       <button type="button" id="modeChallengeBtn" aria-pressed="false">Three-minute challenge</button>
     </div>
-    <div class="olt-banner" id="oltBanner"><span>TIME UNDER TENSION SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
-    <p class="note" id="longNote" hidden>Time under tension set: the clock runs nonstop from Start. Stay in plank. Standing up or dropping to your knees is flagged (the clock keeps running). Rule breaks: <span class="vcount" id="pushViol">0</span></p>
+    <div class="olt-banner" id="oltBanner"><span><span class="tuts-l">T</span>IME <span class="tuts-l">U</span>NDER <span class="tuts-l">T</span>ENSION <span class="tuts-l">S</span>ET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
+    <p class="note" id="longNote" hidden><span class="tuts-l">T</span>ime <span class="tuts-l">u</span>nder <span class="tuts-l">t</span>ension <span class="tuts-l">s</span>et: the clock runs nonstop from Start. Stay in plank. Standing up or dropping to your knees is flagged (the clock keeps running). Rule breaks: <span class="vcount" id="pushViol">0</span></p>
     <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock from Start, no pause. Stay in plank the whole time; push-ups or holding the top both count. Standing up or dropping to your knees is flagged (the clock keeps running). Each hold at the top counts for at most 10 seconds of time under tension. Score: reps plus seconds under tension.</p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
@@ -757,7 +758,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h2>TUTS</h2>
     <p class="eyebrow" style="margin:-.4rem 0 .8rem">Time Under Tension Scoreboard</p>
     <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
-    <p class="lead">Longest time in plank. Sets count their set time; Time Under Tension Set counts the whole session.</p>
+    <p class="lead">Longest time in plank. Sets count their set time; <span class="tuts-l">T</span>ime <span class="tuts-l">U</span>nder <span class="tuts-l">T</span>ension <span class="tuts-l">S</span>et counts the whole session.</p>
     <h3>TUTS leaderboard</h3>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Reps</th><th>When</th></tr></thead>
@@ -774,7 +775,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <thead><tr><th>Day</th><th>Time</th><th>Reps</th></tr></thead>
       <tbody id="tutDaysBody"><tr><td colspan="3">No sets yet.</td></tr></tbody>
     </table>
-    <h3 style="margin-top:1.6rem">Recent Time Under Tension Sets</h3>
+    <h3 style="margin-top:1.6rem">Recent <span class="tuts-l">T</span>ime <span class="tuts-l">U</span>nder <span class="tuts-l">T</span>ension <span class="tuts-l">S</span>ets</h3>
     <table>
       <thead><tr><th>When</th><th>Time</th><th>Reps</th><th>Rule breaks</th></tr></thead>
       <tbody id="tutSessBody"><tr><td colspan="4">No sessions yet.</td></tr></tbody>
