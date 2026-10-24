@@ -386,14 +386,12 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .tut-hero{background:linear-gradient(160deg,rgba(198,255,0,.12),rgba(255,46,147,.08))!important;border-color:rgba(255,60,172,.4)!important}
 .mode-toggle{border-color:rgba(198,255,0,.45)!important}
 .mode-toggle button[aria-pressed="true"]{background:var(--grad)!important;color:#0e1412!important}
-/* Mode buttons: three clearly separate bordered buttons (not one joined pill) */
+/* Mode buttons: three separate bordered buttons. Colors unchanged (same text, same selected gradient); only borders, spacing, shadow and weight. */
 .mode-toggle{display:flex!important;flex-wrap:wrap;gap:.6rem;border:0!important;border-radius:0!important;overflow:visible!important}
-.mode-toggle button{border:1px solid transparent!important;border-radius:999px;min-width:6rem;padding:.6rem 1.15rem!important;background:linear-gradient(#0e1412,#0e1412) padding-box,var(--grad) border-box!important;color:var(--lime-2)!important;font-weight:600;transition:transform .12s,box-shadow .12s,filter .12s}
-.mode-toggle button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 14px rgba(255,46,147,.3);filter:brightness(1.12)}
-.mode-toggle button:active:not(:disabled){transform:translateY(0);box-shadow:none}
-.mode-toggle button[aria-pressed="true"]{background:var(--grad)!important;color:#0e1412!important;font-weight:700;box-shadow:0 4px 18px rgba(255,46,147,.25)}
-.mode-toggle button[aria-pressed="true"] .btn-tut{color:#0e1412}
-.mode-toggle button:not([aria-pressed="true"]) .btn-tut{color:var(--lime-2)}
+.mode-toggle button{border:1.5px solid rgba(198,255,0,.45)!important;border-radius:999px;min-width:6rem;padding:.6rem 1.15rem!important;background:rgba(255,255,255,.03);box-shadow:0 2px 6px rgba(0,0,0,.35);transition:transform .12s,box-shadow .12s}
+.mode-toggle button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.45)}
+.mode-toggle button:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 2px 5px rgba(0,0,0,.4)}
+.mode-toggle button[aria-pressed="true"]{font-weight:700;border-color:rgba(255,255,255,.75)!important;box-shadow:inset 0 2px 5px rgba(0,0,0,.35),0 0 0 2px rgba(255,255,255,.2)}
 .btn:not(.ghost):not(.danger){background:var(--grad)!important;color:#0e1412!important;font-weight:700;box-shadow:0 4px 18px rgba(255,46,147,.25)}
 .sign-gate{position:fixed;inset:0;z-index:1000;background:rgba(5,8,7,.72);display:flex;align-items:center;justify-content:center;padding:1rem}.sign-gate-box{max-width:22rem;width:100%;background:#0e1412;border:1px solid #ff2e93;border-radius:16px;padding:1.2rem;color:#eaffd0;box-shadow:0 0 0 1px #b6ff3b inset}.sign-gate-box h2{margin:0 0 .4rem;color:#b6ff3b}.sign-gate-box .row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
 .btn.ghost{border:1px solid transparent!important;background:linear-gradient(#0e1412,#0e1412) padding-box,var(--grad) border-box!important;color:var(--lime-2)!important}
