@@ -1,5 +1,5 @@
-// Zabba Token wagers: stake limits, escrow, payout exactly once, refunds, silent players, every battle type.
-const WH = require("./lib/washers-match.js"), W = require("../zaba-wager.js"), Z = require("../zaba-tokens.js"), B = require("../battle-rooms.js"), fsx = require("fs");
+// ZAB wagers: stake limits, escrow, payout exactly once, refunds, silent players, every battle type.
+const WH = require("./lib/washers-match.js"), W = require("../zaba-wager.js"), Z = require("../zab-balance.js"), B = require("../battle-rooms.js"), fsx = require("fs");
 const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
 check("min bet 1: 0, negatives, fractions rejected", !W.validStake(0) && !W.validStake(-2) && !W.validStake(1.5) && !W.validStake("3") && W.validStake(1) && /Minimum bet is 1/.test(W.stakeError(0)));
 check("MAX_STAKE single config constant (null = open)", W.MAX_STAKE === null && W.validStake(1e6));
@@ -14,9 +14,9 @@ let readAfterWrite = false, lock = Promise.resolve();
 const fs = { tx: (fn) => { const run = lock.then(async () => { const w = []; const out = await fn({ get: async (p) => { if (w.length) readAfterWrite = true; return clone(db[P(p)]); },
   set: (p, d) => w.push(() => (db[P(p)] = deep(d))), update: (p, x) => w.push(() => { if (!db[P(p)]) throw new Error("update missing " + P(p)); db[P(p)] = apply(db[P(p)], x); }) }); w.forEach((f) => f()); return out; }); lock = run.catch(() => {}); return run; },
   ts: () => SV, toMs: (v) => (typeof v === "number" ? v : null) };
-const bal = (u) => (db["users/" + u] || {}).zabaTokens;
-const txs = (u) => Object.keys(db).filter((k) => k.startsWith("users/" + u + "/tokenTx/"));
-const setUser = (u, n) => (db["users/" + u] = { uid: u, zabaTokens: n, lastTxId: "", createdAt: 0, updatedAt: 0 });
+const bal = (u) => (db["users/" + u] || {}).zabBalance;
+const txs = (u) => Object.keys(db).filter((k) => k.startsWith("users/" + u + "/zabLedger/"));
+const setUser = (u, n) => (db["users/" + u] = { uid: u, zabBalance: n, lastTxId: "", createdAt: 0, updatedAt: 0 });
 let n = 0;
 function mkRoom(game, stake, extra) { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k = n++; const code = "AB" + A[Math.floor(k / 32) % 32] + A[k % 32]; const createdAt = T - k;
   db[W.COL[game] + "/" + code] = Object.assign({ code, status: "waiting", createdAt, startAt: null, stake, players: { a: { name: "A", ready: false, joinedAt: T }, b: { name: "B", ready: false, joinedAt: T + 1 } } }, extra || {});
@@ -31,7 +31,7 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   e = await caught(W.stake(fs, "z", "washers", r.code)); check("non-player can't stake", e && e.status === 403);
   e = await caught(W.stake(fs, null, "washers", r.code)); check("signed-out can't stake", e && e.status === 401);
   e = await caught(W.stake(fs, "a", "chess", r.code)); check("unknown game rejected", e && e.status === 400);
-  let s = await W.stake(fs, "a", "washers", r.code); check("stake debits balance into escrow + ledger -3", s.ok && bal("a") === 7 && db["wagers/" + r.key].players.a.amount === 3 && db["users/a/tokenTx/stake-" + r.key].amount === -3 && db["users/a/tokenTx/stake-" + r.key].type === "stake");
+  let s = await W.stake(fs, "a", "washers", r.code); check("stake debits balance into escrow + ledger -3", s.ok && bal("a") === 7 && db["wagers/" + r.key].players.a.amount === 3 && db["users/a/zabLedger/stake-" + r.key].amount === -3 && db["users/a/zabLedger/stake-" + r.key].type === "stake");
   s = await W.stake(fs, "a", "washers", r.code); check("stake twice: idempotent, no second debit", s.already && bal("a") === 7);
   check("countdown gate: one stake is not enough", !W.allStaked(db[r.ref], db["wagers/" + r.key]));
   setUser("b", 5); await W.stake(fs, "b", "washers", r.code);
@@ -46,7 +46,7 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   const WIN_A = [[[5, 5, 5], [5, 5, 5]], [[0, 0, 0], [0, 0, 0]]], WIN_B = [[[0, 0, 0], [0, 0, 0]], [[5, 5, 5], [5, 5, 5]]];
   check("pending while playing", (await W.settle(fs, r.key, T)).pending);
   played(r, [[5, 5, 5], [5, 5, 5]], [[0, 0, 0], [0, 0, 0]]);
-  let out = await W.settle(fs, r.key, T); check("washers: first to 21 wins pot 6 (2x3)", out.status === "paid" && out.winner === "a" && bal("a") === 13 && bal("b") === 2 && db["users/a/tokenTx/payout-" + r.key].amount === 6);
+  let out = await W.settle(fs, r.key, T); check("washers: first to 21 wins pot 6 (2x3)", out.status === "paid" && out.winner === "a" && bal("a") === 13 && bal("b") === 2 && db["users/a/zabLedger/payout-" + r.key].amount === 6);
   out = await W.settle(fs, r.key, T); check("double settle: no double payout", out.already && bal("a") === 13 && txs("a").filter((k) => k.includes("payout")).length === 1);
   db["wagers/" + r.key].status = "open"; out = await W.settle(fs, r.key, T); check("even if status were reopened, payout ledger id blocks a second credit", bal("a") === 13);
   check("reads before writes in every transaction", !readAfterWrite);
@@ -55,7 +55,7 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   r = await staked("washers", 2); goLive(r); played(r, [[5, 5, 5], [3, 3, 0]], [[5, 5, 5], [3, 3, 0]]);
   out = await W.settle(fs, r.key, T); check("washers level at 21+: overtime, still pending", out.pending === true);
   r = await staked("washers", 2); goLive(r); played(r, Array.from({ length: 30 }, (_, i) => (i < 3 ? [5, 5, 5] : [0, 0, 0])), Array.from({ length: 30 }, (_, i) => (i < 3 ? [5, 5, 5] : [0, 0, 0])));
-  out = await W.settle(fs, r.key, T); check("washers level at the round cap (draw): refund both", out.status === "refunded" && out.reason === "tie" && bal("a") === 20 && bal("b") === 20 && db["users/a/tokenTx/refund-" + r.key].amount === 2);
+  out = await W.settle(fs, r.key, T); check("washers level at the round cap (draw): refund both", out.status === "refunded" && out.reason === "tie" && bal("a") === 20 && bal("b") === 20 && db["users/a/zabLedger/refund-" + r.key].amount === 2);
   r = await staked("washers", 2); goLive(r); db[r.ref].players.b.result = { forfeit: true, at: T };
   out = await W.settle(fs, r.key, T); check("forfeit loses the pot", out.status === "paid" && out.winner === "a" && bal("a") === 22 && bal("b") === 18);
   r = await staked("washers", 2); goLive(r); db[r.ref].players.a.leftAt = T;
@@ -87,7 +87,7 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   out = await W.settle(fs, r.key, T + 300000); check("TUT both disconnected (no stats): refund", out.status === "refunded");
   // ---- Plank ----
   r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: true, at: T };
-  out = await W.settle(fs, r.key, T); check("Plank: first to drop loses, 1-token battle pays pot 2", out.winner === "b" && bal("b") === 21 && bal("a") === 19);
+  out = await W.settle(fs, r.key, T); check("Plank: first to drop loses, 1-ZAB battle pays pot 2", out.winner === "b" && bal("b") === 21 && bal("a") === 19);
   r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: false, at: T };
   out = await W.settle(fs, r.key, T); check("Plank unverified hold: refund + flag", out.flag === "unverified" && bal("a") === 20);
   r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: true, at: T }; db[r.ref].players.b.result = { holdMs: 30000, verified: true, at: T };
@@ -96,9 +96,9 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   out = await W.settle(fs, r.key, T + 7200000 + W.GRACE_MS + 1); check("Plank both silent past 2 h: refund", out.reason === "both-silent");
   check("still no read-after-write", !readAfterWrite);
   // ---- conservation: every settled wager pays out exactly what was staked ----
-  let sumStake = 0, sumBack = 0; Object.keys(db).filter((k) => k.includes("/tokenTx/")).forEach((k) => { const t = db[k]; if (t.type === "stake") sumStake -= t.amount; if (t.type === "payout" || t.type === "refund") sumBack += t.amount; });
+  let sumStake = 0, sumBack = 0; Object.keys(db).filter((k) => k.includes("/zabLedger/")).forEach((k) => { const t = db[k]; if (t.type === "stake") sumStake -= t.amount; if (t.type === "payout" || t.type === "refund") sumBack += t.amount; });
   const openStake = Object.keys(db).filter((k) => k.startsWith("wagers/") && db[k].status === "open").reduce((s2, k) => s2 + Object.values(db[k].players).reduce((x, p) => x + p.amount, 0), 0);
-  check("tokens conserved: staked = paid + refunded + still in escrow", sumStake === sumBack + openStake);
+  check("ZAB conserved: staked = paid + refunded + still in escrow", sumStake === sumBack + openStake);
   // ---- outcome text, history lines ----
   check("result text", /won the pot: \+6/.test(W.outcomeText({ status: "paid", winner: "a", stake: 3 }, "a")) && /refunded: \+2 .*flagged/.test(W.outcomeText({ status: "refunded", flag: "unverified", stake: 2, players: { a: { amount: 2 } } }, "a")) && /Pot: 4/.test(W.outcomeText({ status: "open", stake: 2 }, "a")));
   const L = (t) => Z.txLine(t);
@@ -106,16 +106,16 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   // ---- rules ----
   const rules = fsx.readFileSync(__dirname + "/../firestore.rules", "utf8");
   check("rules: wagers server-only (client write false)", /match \/wagers\/\{key\} \{\s*allow read: if request.auth != null;\s*allow write: if false;/.test(rules));
-  check("rules: clients still earn-only tokenTx", rules.includes("t().uid == uid && t().type == 'earn'"));
+  check("rules: clients still earn-only zabLedger", rules.includes("t().uid == uid && t().type == 'earn'"));
   check("rules: all 3 rooms gate countdown on wagerReady + stake >= 1", (rules.match(/n\(\)\.startAt is int && wagerReady\(\)/g) || []).length === 3 && (rules.match(/&& stakeOk\(\); \}/g) || []).length === 3 && ["plank_", "tut_", "washers_"].every((g) => rules.includes("$('" + g + "' + code")));
-  check("rules: washers tokenTx clause untouched", /t\(\)\.source == 'washers' && t\(\)\.units == 'wins'\s+&& t\(\)\.qty == 1\s+&& t\(\)\.amount == 1\)\)/.test(rules));
+  check("rules: washers zabLedger clause untouched", /t\(\)\.source == 'washers' && t\(\)\.units == 'wins'\s+&& t\(\)\.qty == 1\s+&& t\(\)\.amount == 1\)\)/.test(rules));
   // ---- functions + UI wiring ----
   const fn = (f) => fsx.readFileSync(__dirname + "/../netlify/functions/" + f, "utf8");
   check("functions exist and use common.js admin + auth", ["wager-stake.js", "wager-settle.js", "wager-sweep.js"].every((f) => /lib\/common/.test(fn(f))) && /uidFrom/.test(fn("wager-stake.js")) && /uidFrom/.test(fn("wager-settle.js")) && /schedule/.test(fn("wager-sweep.js")));
   check("settle checks caller is in the wager", /Not your wager/.test(fn("wager-settle.js")));
   const html = fsx.readFileSync(__dirname + "/../index.html", "utf8");
   check("UI: script, stake picker, join confirm, pot line, all 3 controllers gated", html.includes('src="/zaba-wager.js"') && /mkWager\("plank"/.test(html) && /mkWager\("tut"/.test(html) && /mkWager\("washers"/.test(html) && /Winner takes the pot/.test(html) && (html.match(/wagerGate\("(plank|tut|washers)"\)/g) || []).length === 3);
-  check("user-facing spelling Zabba in bet text", /Bet ZAB<svg class="zab-ring"/.test(html) && !/Zabba Token|Zaba Token/.test(html));
+  check("user-facing bet text says ZAB + ring (no old currency wording)", /Bet ZAB<svg class="zab-ring"/.test(html) && !/Zab+a Tok[e]n/.test(html));
   // sweep helper
   const sw = require("../netlify/functions/wager-sweep.js");
   r = await staked("washers", 1); const fake = Object.assign({}, fs, { db: { collection: () => ({ where: () => ({ limit: () => ({ get: async () => ({ docs: Object.keys(db).filter((k) => k.startsWith("wagers/") && db[k].status === "open").map((k) => ({ id: k.slice(7) })) }) }) }) }) } });

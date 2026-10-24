@@ -1,5 +1,5 @@
-// POST /.netlify/functions/wager-stake  { game: "washers"|"tut"|"plank", code }  Authorization: Bearer <Firebase ID token>
-// Debits the room's stake from the caller's Zabba Tokens into escrow (wagers/{key}). Idempotent per player per room.
+// POST /.netlify/functions/wager-stake  { game: "washers"|"tut"|"plank", code }  Authorization: Bearer <Firebase sign-in credential>
+// Debits the room's stake from the caller's ZAB into escrow (wagers/{key}). Idempotent per player per room.
 const { json, notConfigured, missingEnv, uidFrom } = require("../lib/common");
 const W = require("../../zaba-wager.js");
 exports.handler = async (event) => {

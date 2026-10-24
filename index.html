@@ -391,9 +391,9 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 :where(a):focus-visible,button:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--pink-2)!important;outline-offset:2px}
 .social-btn:not([data-brand]){border-color:rgba(198,255,0,.4)}
 .zt-badge{white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
-#tokens .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
+#zab .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
 .zab{display:inline-flex;align-items:center;gap:.28em;font-weight:700;letter-spacing:.06em;white-space:nowrap}.zab-ring{width:.95em;height:.95em;display:inline-block;flex:none}
-#tokens .zt-rates li{border:1px solid rgba(198,255,0,.35);border-radius:10px;padding:.5rem .7rem}
+#zab .zt-rates li{border:1px solid rgba(198,255,0,.35);border-radius:10px;padding:.5rem .7rem}
 /* ARC-START Zabba Washer Battle arcade scoreboard (washers-arcade.js). Every animation lives in the no-preference block. */
 @property --arc-n { syntax:'<integer>'; inherits:false; initial-value:0; }
 .wb-board { background:#0a0618; border:2px solid #3a2a7a; box-shadow:0 0 18px rgba(120,80,255,.35), inset 0 0 24px rgba(0,0,0,.6); color:#e8f0ff; font-family:ui-monospace,"SF Mono","Courier New",monospace; letter-spacing:.04em; position:relative; overflow:hidden; }
@@ -462,7 +462,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
   <img src="/zd-v2-mark.svg" width="36" height="36" alt="">
   <span>Zabbadat<sup style="font-size:0.5em">™</sup></span>
 </a>
-    <a class="zt-badge" id="ztBadge" href="#tokens" aria-label="ZAB balance">Sign in</a>
+    <a class="zt-badge" id="ztBadge" href="#zab" aria-label="ZAB balance">Sign in</a>
     <div>
     <a href="#approach">The Practice</a>
     <a href="#washers">Zabba Washers</a>
@@ -470,7 +470,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
     <a href="#plank">Plank House</a>
     <a href="#steps">Step Equity</a>
     <a href="#battles-hub">Battles</a>
-    <a href="#tokens"><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a>
+    <a href="#zab"><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a>
     <a href="#league">League</a>
     <a href="#cooling-box">Cooling box</a>
     <a href="#corporate">Companies</a>
@@ -545,7 +545,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="who" id="who">
       <div>
         <strong id="whoName">Not signed in</strong>
-        <div class="note" id="zabaTokensRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Balance: <span id="zabaBal" style="color:var(--accent-2)">0</span> <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></div>
+        <div class="note" id="zabBalanceRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Balance: <span id="zabaBal" style="color:var(--accent-2)">0</span> <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></div>
         <div class="note" style="margin:0">Google or X sign-in keeps your board name consistent.</div>
       </div>
       <button class="btn" id="signInBtn" type="button">Sign in with Google</button>
@@ -686,7 +686,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
   </section>
 
-  <section id="tokens">
+  <section id="zab">
     <h2><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></h2>
     <p class="lead">Earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> for the work you log. Earn only: <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> can't be bet or spent yet.</p>
     <div class="stats"><div class="stat"><b id="ztBalance">—</b><span>Your balance</span></div></div>
@@ -1037,7 +1037,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/live-walk.js"></script>
   <script src="/members.js"></script>
   <script src="/zab-currency.js"></script>
-  <script src="/zaba-tokens.js"></script>
+  <script src="/zab-balance.js"></script>
   <script src="/email-auth.js"></script>
   <script src="/battle-rooms.js"></script>
   <script src="/tut-battle.js"></script>
@@ -1082,12 +1082,12 @@ const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostu
 let lastViolFlag = 0;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
-// ZAB (internal: zabaTokens): awardTokens(source, qty, setId) is wired to Firestore after sign-in setup; no-op until then.
-const ZT = window.ZabaTokens || null;
+// ZAB (internal: zabBalance): awardZab(source, qty, setId) is wired to Firestore after sign-in setup; no-op until then.
+const ZT = window.ZabBalance || null;
 if (ZT && $("ztRates")) $("ztRates").innerHTML = ZT.rateLines().map((l) => "<li>" + window.ZabCurrency.html(l) + "</li>").join("");
-let awardTokens = async () => ({ credited: 0 });
+let awardZab = async () => ({ credited: 0 });
 function zabRing(el) { if (window.ZabCurrency) window.ZabCurrency.ring(el); }
-function tokenNote(r) { return r && r.credited > 0 ? " +" + r.credited + " ZAB." : ""; }
+function zabNote(r) { return r && r.credited > 0 ? " +" + r.credited + " ZAB." : ""; }
 
 // Washers lock lives on #startBtn: locked = "Hold to score", unlocked = "Hold to stop", idle = "Start game".
 function paintGameBtn() {
@@ -1428,11 +1428,11 @@ async function finishGame() {
     return;
   }
   if (!state.gameId) state.gameId = ZT ? ZT.newSetId() : "";
-  const winTok = ZT && currentUser ? awardTokens("washers", ZT.qtyFrom("washers", 1), state.gameId).catch(() => null) : Promise.resolve(null);
+  const winTok = ZT && currentUser ? awardZab("washers", ZT.qtyFrom("washers", 1), state.gameId).catch(() => null) : Promise.resolve(null);
   try {
     await saveRemote(record);
     setStatus(name + " posted: 21 in " + formatTime(ms) + " with " + state.steps.toLocaleString() + " steps.");
-    winTok.then((tk) => { if (tk && tk.credited) setStatus($("status").textContent + tokenNote(tk)); if (typeof zabRing === "function") zabRing($("status")); }, () => {});
+    winTok.then((tk) => { if (tk && tk.credited) setStatus($("status").textContent + zabNote(tk)); if (typeof zabRing === "function") zabRing($("status")); }, () => {});
   } catch (err) {
     paintRows(local);
     setStatus("Saved locally. Live post failed: " + (err.message || err));
@@ -1636,10 +1636,10 @@ function finishPushSet() {
     return;
   }
   const tokSet = ZT ? ZT.newSetId() : "";
-  const tokP = Promise.all([awardTokens("pushups", record.reps, tokSet), pushMode === "long" && ZT ? awardTokens("tut", ZT.qtyFrom("tut", window.ZabbadatSession.tutToAdd(pushMode, ms, pushState.tut)), tokSet) : null])
+  const tokP = Promise.all([awardZab("pushups", record.reps, tokSet), pushMode === "long" && ZT ? awardZab("tut", ZT.qtyFrom("tut", window.ZabbadatSession.tutToAdd(pushMode, ms, pushState.tut)), tokSet) : null])
     .then((a) => ({ credited: a.reduce((n, x) => n + ((x && x.credited) || 0), 0) }), () => null);
   saveRemotePush(record)
-    .then(() => tokP).then((tk) => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + viol + tokenNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
+    .then(() => tokP).then((tk) => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + viol + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
 // One Start button: gate -> wake + speech unlock (in the tap) -> camera -> pose -> 5 s countdown (spoken "Ready, get set",
@@ -1668,10 +1668,10 @@ function showPositioning(kind, el, cancelled) {
 }
 function cancelGetSet() { if (getSet) getSet.cancel(); }
 function unlockGetSet() { if (getSet) getSet.unlock(); }
-let pushStarting = false, pushStartToken = 0;
+let pushStarting = false, pushStartSeq = 0;
 function cancelPushStart(msg) {
   if (!pushStarting) return;
-  pushStartToken += 1; pushStarting = false; cancelGetSet();
+  pushStartSeq += 1; pushStarting = false; cancelGetSet();
   if ($("pushStartBtn")) $("pushStartBtn").disabled = false;
   if (pushWake && !pushState.running) pushWake.stop().catch(() => {});
   if (msg) $("pushStatus").textContent = msg;
@@ -1682,7 +1682,7 @@ async function startPush() {
   if (pushWake) pushWake.start().catch(() => {}); // inside the tap, before any await or timer
   unlockGetSet(); // iOS: silent utterance inside the tap so "Ready, get set" / "Go" can speak later
   if (typeof plankLoop !== "undefined" && plankLoop) stopPlankCam();
-  const my = ++pushStartToken; const live = () => my === pushStartToken;
+  const my = ++pushStartSeq; const live = () => my === pushStartSeq;
   pushStarting = true; $("pushStartBtn").disabled = true;
   const fail = (msg) => { if (!live()) return; cancelPushStart(msg); };
   try {
@@ -1969,7 +1969,7 @@ function plankEnded(r) {
   $("plankStatus").textContent = "Hold ended: " + why + ". Time " + formatTut(r.ms) + "." + (isSet ? " Set " + day.sets + " today." : " Under 10 seconds, not counted as a set.");
   if (!currentUser) { $("plankStatus").textContent += " Sign in to post to the Plank House board."; paintPlankRows(localPlanks()); return; }
   if (day) saveRemotePlankDaily(day, record).catch(() => { $("plankStatus").textContent += " Sets saved on this phone (sets board offline)."; });
-  if (ZT) awardTokens("plank", ZT.qtyFrom("plank", r.ms), ZT.newSetId()).then((tk) => { $("plankStatus").textContent += tokenNote(tk); if (typeof zabRing === "function") zabRing($("plankStatus")); }, () => {});
+  if (ZT) awardZab("plank", ZT.qtyFrom("plank", r.ms), ZT.newSetId()).then((tk) => { $("plankStatus").textContent += zabNote(tk); if (typeof zabRing === "function") zabRing($("plankStatus")); }, () => {});
   saveRemotePlank(record).then(() => { $("plankStatus").textContent += " Posted to the Plank House board."; })
     .catch(() => { $("plankStatus").textContent += " Saved on this phone (board offline)."; paintPlankRows(localPlanks()); });
 }
@@ -2002,7 +2002,7 @@ async function startPlankCam() {
   if (!requireSignIn("plank", () => startPlankCam(), { practice: true })) return;
   if (plankWake) plankWake.start().catch(() => {}); // inside the tap, before any await or timer
   unlockGetSet(); // iOS: silent utterance inside the tap so "Ready, get set" / "Go" can speak later
-  const my = ++plankStartToken; const live = () => my === plankStartToken;
+  const my = ++plankStartSeq; const live = () => my === plankStartSeq;
   plankStarting = true;
   try {
     if (camOn) stopCam();
@@ -2031,9 +2031,9 @@ async function startPlankCam() {
     plankLoop = true; plankTick();
   } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = "Camera or pose blocked."; } }
 }
-let plankStarting = false, plankStartToken = 0;
+let plankStarting = false, plankStartSeq = 0;
 function cancelPlankStart() {
-  plankStartToken += 1; plankStarting = false; cancelGetSet();
+  plankStartSeq += 1; plankStarting = false; cancelGetSet();
   if (plankStream && !plankLoop) { plankStream.getTracks().forEach((t) => t.stop()); plankStream = null; $("plankWrap").hidden = true; }
   if (plankWake && !plankLoop) plankWake.stop().catch(() => {});
   $("plankCamBtn").textContent = "Start plank camera";
@@ -2157,8 +2157,8 @@ async function endWalk(r) {
   const q = WS.qualifies(r), label = WS.formatClock(r.ms) + " with " + r.steps.toLocaleString() + " steps" + why;
   if (!q.ok) { $("walkStatus").textContent = "Session " + label + ". Not logged: " + q.why; return; }
   if (!currentUser) { $("walkStatus").textContent = "Session " + label + ". Sign in to post sessions to the board."; return; }
-  const tokP = ZT ? awardTokens("walk", ZT.qtyFrom("walk", r.ms), ZT.newSetId()).catch(() => null) : Promise.resolve(null);
-  try { await saveRemoteWalk(r); $("walkStatus").textContent = "Posted session " + label + "." + tokenNote(await tokP); if (typeof zabRing === "function") zabRing($("walkStatus")); }
+  const tokP = ZT ? awardZab("walk", ZT.qtyFrom("walk", r.ms), ZT.newSetId()).catch(() => null) : Promise.resolve(null);
+  try { await saveRemoteWalk(r); $("walkStatus").textContent = "Posted session " + label + "." + zabNote(await tokP); if (typeof zabRing === "function") zabRing($("walkStatus")); }
   catch (e) { $("walkStatus").textContent = "Session " + label + ". Board offline, not posted."; }
 }
 function paintWalkRows(rows) {
@@ -2287,26 +2287,26 @@ saveRemoteWalk = async (r) => {
 
 const ztFs = { ts: () => serverTimestamp(), tx: (fn) => runTransaction(db, (t) => fn({ get: (p) => t.get(doc(db, ...p)).then((x) => (x.exists() ? x.data() : null)), set: (p, d) => t.set(doc(db, ...p), d), update: (p, d) => t.update(doc(db, ...p), d) })) };
 let ztOff = null;
-function paintTokens(n) { const row = $("zabaTokensRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintTokenSection(n); }
-function paintTokenSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.innerHTML = on ? window.ZabCurrency.amountHtml(Number(n)) : "—"; if (o) o.hidden = on; if (g) { if (on) g.innerHTML = window.ZabCurrency.amountHtml(Number(n)); else g.textContent = "Sign in"; } }
-function paintTokenTx(list) { const t = $("ztTxBody"); if (t && ZT) t.innerHTML = ZT.txRowsHtml(list, escapeHtml); }
+function paintZab(n) { const row = $("zabBalanceRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintZabSection(n); }
+function paintZabSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.innerHTML = on ? window.ZabCurrency.amountHtml(Number(n)) : "—"; if (o) o.hidden = on; if (g) { if (on) g.innerHTML = window.ZabCurrency.amountHtml(Number(n)); else g.textContent = "Sign in"; } }
+function paintZabLedger(list) { const t = $("ztTxBody"); if (t && ZT) t.innerHTML = ZT.txRowsHtml(list, escapeHtml); }
 let ztTxOff = null;
-awardTokens = async (source, qty, setId) => {
+awardZab = async (source, qty, setId) => {
   if (!ZT || !auth.currentUser) return { credited: 0 };
   const e = ZT.buildEarn(auth.currentUser.uid, source, qty, setId);
   const r = await ZT.earnAndQueue(ztFs, localStorage, e);
-  if (r && r.balance != null) paintTokens(r.balance);
+  if (r && r.balance != null) paintZab(r.balance);
   return r;
 };
-function tokensOnUser(u) {
+function zabOnUser(u) {
   if (ztOff) { ztOff(); ztOff = null; }
   if (ztTxOff) { ztTxOff(); ztTxOff = null; }
-  paintTokens(null);
+  paintZab(null);
   if ($("ztTxBody")) $("ztTxBody").innerHTML = '<tr><td colspan="4">Sign in to see your earnings.</td></tr>';
   if (!u || !ZT) return;
-  ztTxOff = onSnapshot(query(collection(db, "users", u.uid, "tokenTx"), orderBy("createdAt", "desc"), limit(10)), (snap) => paintTokenTx(snap.docs.map((d) => d.data())), () => paintTokenTx([]));
-  ZT.ensureProfile(ztFs, u.uid).then((p) => { paintTokens(p.zabaTokens); return ZT.flush(ztFs, localStorage, u.uid); }).catch(() => {}).finally(() => {
-    if (auth.currentUser && auth.currentUser.uid === u.uid && !ztOff) ztOff = onSnapshot(doc(db, "users", u.uid), (d) => { if (d.exists()) paintTokens(ZT.profileFrom(d.data(), u.uid).zabaTokens); }, () => {});
+  ztTxOff = onSnapshot(query(collection(db, "users", u.uid, "zabLedger"), orderBy("createdAt", "desc"), limit(10)), (snap) => paintZabLedger(snap.docs.map((d) => d.data())), () => paintZabLedger([]));
+  ZT.ensureProfile(ztFs, u.uid).then((p) => { paintZab(p.zabBalance); return ZT.flush(ztFs, localStorage, u.uid); }).catch(() => {}).finally(() => {
+    if (auth.currentUser && auth.currentUser.uid === u.uid && !ztOff) ztOff = onSnapshot(doc(db, "users", u.uid), (d) => { if (d.exists()) paintZab(ZT.profileFrom(d.data(), u.uid).zabBalance); }, () => {});
   });
 }
 
@@ -2662,7 +2662,7 @@ function tbFinish(r) {
   const loser = r.players && r.players[r.loserUid], winner = r.players && r.players[r.winnerUid];
   clearTimeout(tbSettleTimer);
   tbStat(r.loseReason === TBm.TIME_UP ? (winner ? winner.name : "Opponent") + " wins. " + TBm.WIN_REASON + "." : (loser ? loser.name : "Opponent") + ": " + TBm.resultText(r, r.loserUid) + ".");
-  if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); if (ZT) awardTokens("tut", ZT.qtyFrom("tut", tbMine.tutMs), "b" + r.code).catch(() => {}); }
+  if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); if (ZT) awardZab("tut", ZT.qtyFrom("tut", tbMine.tutMs), "b" + r.code).catch(() => {}); }
 }
 function tbEnter(code) {
   tbCodeCur = code; tbRecorded = null; tbLiveT0 = null; try { localStorage.setItem("zdTutBattle", code); } catch (e) {}
@@ -2935,7 +2935,7 @@ getRedirectResult(auth)
   })
   .catch(() => {});
 let dailySyncOff = null, liveWalkOff = null;
-onAuthStateChanged(auth, (u) => { tokensOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); if (!u && wbCodeCur) wbExit(); else if (u) wbResume(u); wbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+onAuthStateChanged(auth, (u) => { zabOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); if (!u && wbCodeCur) wbExit(); else if (u) wbResume(u); wbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("boardAllBtn").onclick = () => {
   boardFilter = "all";
   $("boardAllBtn").className = "btn";

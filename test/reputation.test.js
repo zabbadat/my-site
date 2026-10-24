@@ -43,9 +43,9 @@ const fs = { toMs: (v) => (typeof v === "number" ? v : null), ts: () => 777, tx:
   // ---- rules draft + wiring ----
   const rules = fsx.readFileSync(__dirname + "/../firestore.rules", "utf8"), blk = rules.slice(rules.indexOf("// Zabba reputation"), rules.indexOf("match /{document=**}"));
   check("rules: repBoard readable when signed in, never client-writable; repLog server-only", /match \/repBoard\/\{uid\} \{\s*allow read: if request\.auth != null;\s*allow write: if false;/.test(blk) && /match \/repLog\/\{key\} \{\s*allow read, write: if false;/.test(blk) && /DRAFT, not yet published/.test(blk));
-  check("rules: no users/{uid} field for reputation (owner cannot edit it)", !/reputation/.test(rules.slice(rules.indexOf("match /users/{uid}"), rules.indexOf("match /tokenTx"))));
+  check("rules: no users/{uid} field for reputation (owner cannot edit it)", !/reputation/.test(rules.slice(rules.indexOf("match /users/{uid}"), rules.indexOf("match /zabLedger"))));
   const fn = fsx.readFileSync(__dirname + "/../netlify/functions/rep-settle.js", "utf8");
-  check("function: POST, bearer auth, admin SDK path, no tokens", /uidFrom/.test(fn) && /POST only/.test(fn) && /wagerFs/.test(fn) && !/zabaTokens/.test(fn));
+  check("function: POST, bearer auth, admin SDK path, no ZAB moved", /uidFrom/.test(fn) && /POST only/.test(fn) && /wagerFs/.test(fn) && !/zabBalance/.test(fn));
   const html = fsx.readFileSync(__dirname + "/../index.html", "utf8");
   check("index: reputation.js loaded, repBoard watched, settle called when decided, never writes repBoard", html.includes('src="/reputation.js"') && /doc\(db, "repBoard", u\)/.test(html) && /rep-settle/.test(html) && !/setDoc\(doc\(db, "repBoard"/.test(html) && !/updateDoc\(doc\(db, "repBoard"/.test(html));
   const pass = R.filter(Boolean).length; console.log(`${pass}/${R.length} passed`); process.exit(pass === R.length ? 0 : 1);

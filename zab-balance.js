@@ -1,7 +1,7 @@
-/* Zabba Tokens: earn-only balance + transaction log (no wagering, no spend yet).
+/* ZAB: earn-only balance + transaction log (no wagering, no spend yet).
  * Data model (Firestore):
- *   users/{uid}                 { uid, zabaTokens:int, lastTxId, createdAt, updatedAt }
- *   users/{uid}/tokenTx/{txId}  { uid, type:'earn', source, amount, units, qty, setId, createdAt }
+ *   users/{uid}                 { uid, zabBalance:int, lastTxId, createdAt, updatedAt }
+ *   users/{uid}/zabLedger/{txId}  { uid, type:'earn', source, amount, units, qty, setId, createdAt }
  * Each award runs in ONE Firestore transaction: tx doc create + balance += amount, lastTxId = txId.
  * txId = "<source>-<setId>" is deterministic per set/session, so a retry finds the existing tx and
  * credits nothing (idempotent). Rules also forbid re-creating or editing a tx.
@@ -9,7 +9,7 @@
  * which keeps every log entry independently checkable against its own units):
  *   pushups: 10 reps = 1 · plank: 60 s = 1 · walk: 10 min = 1 · tut: 60 s = 1
  *   washers: 1 Zabba Washers game won (reached 21, signed in, verified) = 1 (setId = game id)
- * Browser: window.ZabaTokens. Node: require("./zaba-tokens.js").
+ * Browser: window.ZabBalance. Node: require("./zab-balance.js").
  */
 (function (root) {
   "use strict";
@@ -21,7 +21,7 @@
     tut: { units: "seconds", per: 60, max: 7200 },
     washers: { units: "wins", per: 1, max: 1 }
   };
-  var PENDING_KEY = "zdTokenPending";
+  var PENDING_KEY = "zdZabPending";
   // qty from raw measurements: reps as-is; ms -> whole seconds / minutes.
   function qtyFrom(source, raw) {
     var n = Number(raw) || 0;
@@ -31,7 +31,7 @@
     if (source === "washers") return n > 0 ? 1 : 0;
     return 0;
   }
-  function tokensFor(source, qty) {
+  function zabFor(source, qty) {
     var r = RATES[source]; if (!r) return 0;
     var q = Math.min(Math.max(0, Math.floor(Number(qty) || 0)), r.max);
     return Math.floor(q / r.per);
@@ -42,39 +42,39 @@
   // Build the log entry; null when nothing is earned or input is invalid.
   function buildEarn(uid, source, qty, setId) {
     var r = RATES[source]; if (!r || !uid || !cleanId(setId)) return null;
-    var q = Math.min(Math.max(0, Math.floor(Number(qty) || 0)), r.max), amount = tokensFor(source, q);
+    var q = Math.min(Math.max(0, Math.floor(Number(qty) || 0)), r.max), amount = zabFor(source, q);
     if (amount < 1) return null;
     return { id: txId(source, setId), tx: { uid: uid, type: "earn", source: source, amount: amount, units: r.units, qty: q, setId: cleanId(setId) } };
   }
-  // Zabba Washers: 1 token for a won game, once per gameId; null on loss / no user / no id.
+  // Zabba Washers: 1 ZAB for a won game, once per gameId; null on loss / no user / no id.
   function washersWinEarn(uid, won, gameId) { return won ? buildEarn(uid, "washers", 1, gameId) : null; }
   function validEarn(t) {
     var r = t && RATES[t.source];
     return !!(r && t.type === "earn" && t.units === r.units && Number.isInteger(t.qty) && t.qty >= 0 && t.qty <= r.max
       && Number.isInteger(t.amount) && t.amount >= 1 && t.amount * r.per <= t.qty);
   }
-  function profileFrom(d, uid) { return { uid: uid, zabaTokens: d && Number.isInteger(d.zabaTokens) && d.zabaTokens >= 0 ? d.zabaTokens : 0, exists: !!d }; }
+  function profileFrom(d, uid) { return { uid: uid, zabBalance: d && Number.isInteger(d.zabBalance) && d.zabBalance >= 0 ? d.zabBalance : 0, exists: !!d }; }
   /* fs adapter: { tx(fn) -> Promise; fn(t) with t.get(path) -> data|null, t.set(path, data), t.update(path, patch); ts() }
-   * paths are arrays like ["users", uid] / ["users", uid, "tokenTx", id]. */
+   * paths are arrays like ["users", uid] / ["users", uid, "zabLedger", id]. */
   function ensureProfile(fs, uid) {
     return fs.tx(function (t) {
       return t.get(["users", uid]).then(function (d) {
         if (d) return profileFrom(d, uid);
-        t.set(["users", uid], { uid: uid, zabaTokens: 0, lastTxId: "", createdAt: fs.ts(), updatedAt: fs.ts() });
-        return { uid: uid, zabaTokens: 0, exists: true, created: true };
+        t.set(["users", uid], { uid: uid, zabBalance: 0, lastTxId: "", createdAt: fs.ts(), updatedAt: fs.ts() });
+        return { uid: uid, zabBalance: 0, exists: true, created: true };
       });
     });
   }
   function award(fs, earn) {
     if (!earn || !validEarn(earn.tx)) return Promise.resolve({ credited: 0, skipped: "invalid" });
-    var uid = earn.tx.uid, uRef = ["users", uid], tRef = ["users", uid, "tokenTx", earn.id];
+    var uid = earn.tx.uid, uRef = ["users", uid], tRef = ["users", uid, "zabLedger", earn.id];
     return fs.tx(function (t) {
       return Promise.all([t.get(uRef), t.get(tRef)]).then(function (got) {
-        if (got[1]) return { credited: 0, skipped: "duplicate", balance: profileFrom(got[0], uid).zabaTokens };
-        var bal = profileFrom(got[0], uid).zabaTokens + earn.tx.amount;
+        if (got[1]) return { credited: 0, skipped: "duplicate", balance: profileFrom(got[0], uid).zabBalance };
+        var bal = profileFrom(got[0], uid).zabBalance + earn.tx.amount;
         var rec = Object.assign({}, earn.tx, { createdAt: fs.ts() });
-        if (got[0]) t.update(uRef, { zabaTokens: bal, lastTxId: earn.id, updatedAt: fs.ts() });
-        else t.set(uRef, { uid: uid, zabaTokens: bal, lastTxId: earn.id, createdAt: fs.ts(), updatedAt: fs.ts() });
+        if (got[0]) t.update(uRef, { zabBalance: bal, lastTxId: earn.id, updatedAt: fs.ts() });
+        else t.set(uRef, { uid: uid, zabBalance: bal, lastTxId: earn.id, createdAt: fs.ts(), updatedAt: fs.ts() });
         t.set(tRef, rec);
         return { credited: earn.tx.amount, balance: bal };
       });
@@ -119,7 +119,7 @@
     if (!list || !list.length) return '<tr><td colspan="4">No ZAB earned yet. Finish a set, plank or walk to earn your first.</td></tr>';
     return list.map(function (t) { var l = txLine(t); return "<tr><td>" + esc(l.source) + "</td><td>" + esc(l.amount) + (ZC ? " " + ZC.html("ZAB") : " ZAB") + "</td><td>" + esc(l.qty) + "</td><td>" + esc(l.when) + "</td></tr>"; }).join("");
   }
-  var api = { rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, tokensFor: tokensFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
+  var api = { rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
     profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
-  if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabaTokens = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabBalance = api;
 })(typeof window !== "undefined" ? window : this);

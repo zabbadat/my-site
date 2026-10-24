@@ -1,4 +1,4 @@
-/* ZAB: the display name of the in-game currency (internal ids stay zabaTokens / tokenTx / ZabaTokens).
+/* ZAB: the display name of the in-game currency (internal ids stay zabBalance / zabLedger / ZabBalance).
  * User-facing amounts read "5 ZAB" followed by a washer-ring icon: a small inline SVG circle with a hole, drawn in
  * currentColor, aria-hidden (the visible word "ZAB" is the accessible label). Plain-text places (confirm dialogs, spoken
  * text, aria-labels) use the word only; speech says "Zab". Browser: window.ZabCurrency. Node: require("./zab-currency.js").

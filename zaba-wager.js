@@ -1,10 +1,10 @@
-/* Zabba Token wagers on battles (TUT Battles, Plank Battles, Zabba Washer Battle). SERVER-SIDE spending only:
+/* ZAB wagers on battles (TUT Battles, Plank Battles, Zabba Washer Battle). SERVER-SIDE spending only:
  * stake / payout / refund run in netlify/functions (admin SDK); clients stay earn-only (rules).
  * Room: creator sets room.stake (int >= MIN_STAKE) once at create. Each seated player stakes via wager-stake.
  * Escrow: wagers/{key}, key = <game>_<code>_<room createdAt ms> (room codes are reused, createdAt is not):
  *   { key, game, code, roomCreatedAt, stake, players: { [uid]: { amount, at } }, status: open|paid|refunded,
  *     winner?, reason?, flag?, settledAt? }
- * Ledger (users/{uid}/tokenTx, written by the server only), ids fixed per wager so retries can't repeat:
+ * Ledger (users/{uid}/zabLedger, written by the server only), ids fixed per wager so retries can't repeat:
  *   stake-<key>  { type:'stake',  amount:-stake } · payout-<key> { type:'payout', amount:+pot } · refund-<key> { type:'refund', amount:+own stake }
  * Pot = 2 x stake. Countdown can't start until both seated players have staked (rules + client canStart).
  * Outcome uses the same game logic as the phones (washers-battle.js, tut-battle.js, plank-battle.js).
@@ -106,17 +106,17 @@
       if (room.status !== "waiting" || room.startAt != null) throw err(409, "Stakes close when the countdown starts.");
       if (!validStake(room.stake)) throw err(400, stakeError(room.stake));
       const createdMs = fs.toMs(room.createdAt), key = roomKey(game, code, createdMs), txId = "stake-" + key;
-      const wRef = ["wagers", key], uRef = ["users", uid], tRef = ["users", uid, "tokenTx", txId];
+      const wRef = ["wagers", key], uRef = ["users", uid], tRef = ["users", uid, "zabLedger", txId];
       return Promise.all([t.get(wRef), t.get(uRef), t.get(tRef)]).then(([w, u, prior]) => {
         if (prior || (w && w.players && w.players[uid])) return { ok: true, already: true, key, stake: room.stake };
         if (w && w.status !== "open") throw err(409, "This wager is already settled.");
         if (w && stakers(w).length >= 2) throw err(409, "Both stakes are already in.");
-        const bal = u && isInt(u.zabaTokens) ? u.zabaTokens : 0;
+        const bal = u && isInt(u.zabBalance) ? u.zabBalance : 0;
         if (bal < room.stake) throw err(402, "Not enough ZAB: you have " + bal + ", the bet is " + room.stake + ".");
         const seat = { amount: room.stake, at: fs.ts() };
         if (w) t.update(wRef, { ["players." + uid]: seat });
         else t.set(wRef, { key, game, code, roomCreatedAt: createdMs, stake: room.stake, players: { [uid]: seat }, status: "open", createdAt: fs.ts() });
-        t.update(uRef, { zabaTokens: bal - room.stake, lastTxId: txId, updatedAt: fs.ts() });
+        t.update(uRef, { zabBalance: bal - room.stake, lastTxId: txId, updatedAt: fs.ts() });
         t.set(tRef, Object.assign(ledger(uid, "stake", -room.stake, { game, key, code }), { createdAt: fs.ts() }));
         return { ok: true, key, stake: room.stake, balance: bal - room.stake };
       });
@@ -133,13 +133,13 @@
         const credits = [];
         if (p.action === "payout") credits.push({ uid: p.winner, type: "payout", amount: p.amount });
         (p.refunds || []).forEach((r) => credits.push({ uid: r.uid, type: "refund", amount: r.amount }));
-        const reads = credits.map((c) => Promise.all([t.get(["users", c.uid]), t.get(["users", c.uid, "tokenTx", c.type + "-" + key])]));
+        const reads = credits.map((c) => Promise.all([t.get(["users", c.uid]), t.get(["users", c.uid, "zabLedger", c.type + "-" + key])]));
         return Promise.all(reads).then((got) => {
           credits.forEach((c, i) => { const [u, prior] = got[i]; if (prior) return;
-            const id = c.type + "-" + key, bal = (u && isInt(u.zabaTokens) ? u.zabaTokens : 0) + c.amount;
-            if (u) t.update(["users", c.uid], { zabaTokens: bal, lastTxId: id, updatedAt: fs.ts() });
-            else t.set(["users", c.uid], { uid: c.uid, zabaTokens: bal, lastTxId: id, createdAt: fs.ts(), updatedAt: fs.ts() });
-            t.set(["users", c.uid, "tokenTx", id], Object.assign(ledger(c.uid, c.type, c.amount, w, { reason: p.reason }), { createdAt: fs.ts() })); });
+            const id = c.type + "-" + key, bal = (u && isInt(u.zabBalance) ? u.zabBalance : 0) + c.amount;
+            if (u) t.update(["users", c.uid], { zabBalance: bal, lastTxId: id, updatedAt: fs.ts() });
+            else t.set(["users", c.uid], { uid: c.uid, zabBalance: bal, lastTxId: id, createdAt: fs.ts(), updatedAt: fs.ts() });
+            t.set(["users", c.uid, "zabLedger", id], Object.assign(ledger(c.uid, c.type, c.amount, w, { reason: p.reason }), { createdAt: fs.ts() })); });
           t.update(["wagers", key], { status: p.action === "payout" ? "paid" : "refunded", winner: p.winner || null, reason: p.reason, flag: p.flag || null, settledAt: fs.ts() });
           return { ok: true, status: p.action === "payout" ? "paid" : "refunded", winner: p.winner || null, reason: p.reason, flag: p.flag || null, credits };
         });

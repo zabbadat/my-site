@@ -1,4 +1,4 @@
-// POST /.netlify/functions/wager-settle  { key }  Authorization: Bearer <Firebase ID token>
+// POST /.netlify/functions/wager-settle  { key }  Authorization: Bearer <Firebase sign-in credential>
 // Decides the battle from the room doc with the shared game logic and pays the pot / refunds exactly once.
 const { json, notConfigured, missingEnv, uidFrom } = require("../lib/common");
 const W = require("../../zaba-wager.js");

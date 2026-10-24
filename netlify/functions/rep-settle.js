@@ -1,5 +1,5 @@
-// POST /.netlify/functions/rep-settle  { code }  Authorization: Bearer <Firebase ID token>
-// Scores a finished Zabba Washer Battle into repBoard/{uid} (reputation) exactly once (ledger repLog/{key}). No tokens involved.
+// POST /.netlify/functions/rep-settle  { code }  Authorization: Bearer <Firebase sign-in credential>
+// Scores a finished Zabba Washer Battle into repBoard/{uid} (reputation) exactly once (ledger repLog/{key}). No ZAB is moved.
 const { json, notConfigured, missingEnv, uidFrom } = require("../lib/common");
 const R = require("../../reputation.js");
 exports.handler = async (event) => {

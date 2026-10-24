@@ -120,7 +120,7 @@ const mfs = { ts: () => SV, toMs: tm, tx: async (c, fn) => fn({ get: () => JSON.
   check("rules: claimGone only when the other seat's heartbeat is stale 30 s", /function otherStale\(\)/.test(blk) && blk.includes("30000") && blk.includes("claimGone"));
   check("rules: result still write-once forfeit; seenAt must be server time", blk.includes("resOk(") && blk.includes("p.seenAt == request.time"));
   check("rules: wager hooks inert without a stake (stakeOk / wagerReady pass when no stake)", blk.includes("!('stake' in n()) ||") && blk.includes("!('stake' in d()) ||"));
-  check("rules: washers tokenTx clause untouched", /t\(\)\.source == 'washers' && t\(\)\.units == 'wins'\s+&& t\(\)\.qty == 1\s+&& t\(\)\.amount == 1\)\)/.test(rules));
+  check("rules: washers zabLedger clause untouched", /t\(\)\.source == 'washers' && t\(\)\.units == 'wins'\s+&& t\(\)\.qty == 1\s+&& t\(\)\.amount == 1\)\)/.test(rules));
   const html = fsx.readFileSync(__dirname + "/../index.html", "utf8");
   check("hub card points at the battle UI", /href="#washerbattle" data-battle="washers"/.test(html) && html.includes('id="washerbattle"'));
   check("module loaded, collection washersBattles", html.includes('src="/washers-battle.js"') && html.includes('mkBattleFs("washersBattles")'));

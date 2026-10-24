@@ -49,7 +49,7 @@
         if (v != null && v >= send + offset - 60000) { done = true; offset = estimateOffset(v, send, now()); off(); res(offset); } }); });
     }
     const seat = (u, extra) => ({ name: String(u.name || "Player").slice(0, 40), ready: false, joinedAt: fs.ts(), ...extra });
-    // extra: optional room fields set once at create (e.g. { stake: 3 } for a Zabba Token wager).
+    // extra: optional room fields set once at create (e.g. { stake: 3 } for a ZAB wager).
     async function createRoom(u, extra) {
       if (!u || !u.uid) throw new Error("Sign in to create a battle.");
       for (let i = 0; i < 8; i++) {
