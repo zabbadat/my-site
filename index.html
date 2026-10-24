@@ -32,7 +32,9 @@
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    "@id": "https://www.zabbadat.com/#website",
     "name": "Zabbadat",
+    "alternateName": "Zabadat",
     "url": "https://www.zabbadat.com/",
     "description": "Walking-and-breath movement with the Game of Washers. Breathe. Activate. Score.",
     "publisher": {
@@ -44,10 +46,15 @@
     "@type": "Organization",
     "@id": "https://www.zabbadat.com/#org",
     "name": "Zabbadat",
+    "alternateName": "Zabadat",
     "url": "https://www.zabbadat.com/",
     "logo": "https://www.zabbadat.com/zd-square.png",
     "sameAs": [
-      "https://x.com/ZabbaDat"
+      "https://x.com/ZabbaDat",
+      "https://www.instagram.com/zabbadat",
+      "https://www.tiktok.com/@zabbadat",
+      "https://www.youtube.com/@zabbadat",
+      "https://discord.gg/ebDugMwgSZ"
     ]
   },
   {
@@ -55,12 +62,17 @@
     "@type": "LocalBusiness",
     "@id": "https://www.zabbadat.com/#business",
     "name": "Zabbadat",
+    "alternateName": "Zabadat",
     "url": "https://www.zabbadat.com/",
     "image": "https://www.zabbadat.com/zd-square.png",
     "logo": "https://www.zabbadat.com/zd-square.png",
     "description": "Gamified wellness: the Game of Washers (Bariboshi style) with breathwork and step tracking. League nights and on-site corporate sessions.",
     "sameAs": [
-      "https://x.com/ZabbaDat"
+      "https://x.com/ZabbaDat",
+      "https://www.instagram.com/zabbadat",
+      "https://www.tiktok.com/@zabbadat",
+      "https://www.youtube.com/@zabbadat",
+      "https://discord.gg/ebDugMwgSZ"
     ],
     "parentOrganization": {
       "@id": "https://www.zabbadat.com/#org"
@@ -242,6 +254,9 @@
         radial-gradient(ellipse at 0% 100%, rgba(143,191,168,.06), transparent 42%);
     }
     .eyebrow { letter-spacing: .32em; text-transform: uppercase; font-size: .72rem; color: var(--accent); margin-bottom: 1.2rem; }
+    .aka { color: var(--muted); font-size: .85rem; margin: .6rem 0 0; }
+    .footer-explore { margin-top: .8rem; display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem 1rem; }
+    .footer-explore-label { color: var(--muted); }
     h1, h2, h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
     .hero h1 { font-size: clamp(2.6rem, 7vw, 5.2rem); line-height: 1.08; max-width: 18ch; margin-bottom: 1.3rem; }
     [hidden] { display: none !important; }
@@ -398,7 +413,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 :where(a):focus-visible,button:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--pink-2)!important;outline-offset:2px}
 .social-btn:not([data-brand]){border-color:rgba(198,255,0,.4)}
 .zt-badge .zt-name{display:inline-block;max-width:7.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
-.zt-badge{max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
+.zt-badge{flex:0 0 auto;max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
 #zab .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
 .zab{display:inline-flex;align-items:center;gap:.28em;font-weight:700;letter-spacing:.06em;white-space:nowrap}.zab-ring{width:.95em;height:.95em;display:inline-block;flex:none}
 .tuts-l{font-weight:800;color:#7fe3ff;text-shadow:0 0 8px rgba(127,227,255,.55)}
@@ -498,7 +513,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="hero-copy">
         <img class="hero-mark" src="/zd-v2-mark.svg" width="88" height="88" alt="">
         <div class="eyebrow">Movement · Breath · 10,000 steps</div>
-        <h1>Gamified <em>wellness</em></h1>
+        <h1>Zabbadat: gamified <em>wellness</em></h1>
         <div class="tut-hero" id="tutHero">
           <p class="motto">BREATHE. ACTIVATE. <a href="#tut-board">TUT</a>. SCORE. WIN. RANK. REWARD.</p>
           <h2><span class="tuts-l">T</span>ime <span class="tuts-l">U</span>nder <span class="tuts-l">T</span>ension <span class="tuts-l">S</span>et: <em>how long can you stay under tension?</em></h2>
@@ -520,6 +535,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
           <a class="btn" href="#play">Start pitching and stepping</a>
           <a class="btn ghost" href="#board">Live board</a>
         </div>
+        <p class="aka">Zabbadat, also searched as Zabadat.</p>
         <p style="margin-top:1rem"><a href="/rules">Official regulations — Version 1.9 · Zabba washer Bariboshi style</a></p>
       </div>
       <div class="hero-aside">
@@ -579,7 +595,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 <div id="wbPlayBoard" class="card wb-board" hidden aria-live="off"><div class="arc-head"><strong>Zabba Washer Battle live board</strong><button type="button" class="arc-mute" data-arc-mute hidden>Sound: on</button></div><div id="wbPlayBoardBody" class="arc"><div class="arc-fx"></div><div class="arc-main"></div></div></div>
 <div class="stats">
       <div class="stat"><b id="score">0</b><span>Score / 21</span></div>
-      <div class="stat"><b id="steps">0</b><span>Steps</span></div>
+      <div class="stat"><b id="stepsStat">0</b><span>Steps</span></div>
       <div class="stat"><b id="clock">00:00</b><span>Time</span></div>
     </div>
     <div class="row">
@@ -698,7 +714,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="zab">
     <h2><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></h2>
-    <p class="lead">Earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> for the work you log. Earn only: <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> for the work you log.</p>
+    <p class="lead">Earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> for the work you log.</p>
     <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">ZAB bag</span><b id="ztBalance">—</b><span>Your balance</span></div></div>
     <p class="note" id="ztTop" hidden></p>
     <p class="note" id="ztSignedOut">Sign in to start earning. <a href="#play" id="ztSignInLink">Go to sign-in</a></p>
@@ -735,7 +751,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h3 style="margin-top:1.6rem">TUT battle ranking</h3>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Best TUT</th><th>Best reps</th></tr></thead>
-      <tbody id="tbBoardBody"><tr><td colspan="6">Waiting for battles…</td></tr></tbody>
+      <tbody id="tbRankBody"><tr><td colspan="6">Waiting for battles…</td></tr></tbody>
     </table>
   </section>
 
@@ -767,7 +783,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h2>TUTS</h2>
     <p class="eyebrow" style="margin:-.4rem 0 .8rem">Time Under Tension Scoreboard</p>
     <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
-    <p class="lead">Longest time in plank. Sets count their set time; One Long Set counts the whole session.</p>
+    <p class="lead">Longest time under tension. Sets count their set time; a Time under tension set counts the whole session.</p>
     <h3>TUTS leaderboard</h3>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Reps</th><th>When</th></tr></thead>
@@ -784,7 +800,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <thead><tr><th>Day</th><th>Time</th><th>Reps</th></tr></thead>
       <tbody id="tutDaysBody"><tr><td colspan="3">No sets yet.</td></tr></tbody>
     </table>
-    <h3 style="margin-top:1.6rem">Recent One Long Sets</h3>
+    <h3 style="margin-top:1.6rem">Recent Time Under Tension Sets</h3>
     <table>
       <thead><tr><th>When</th><th>Time</th><th>Reps</th><th>Rule breaks</th></tr></thead>
       <tbody id="tutSessBody"><tr><td colspan="4">No sessions yet.</td></tr></tbody>
@@ -1187,7 +1203,7 @@ function isTonight(when, created) {
 }
 function render() {
   $("score").textContent = state.score;
-  $("steps").textContent = state.steps.toLocaleString();
+  $("stepsStat").textContent = state.steps.toLocaleString();
   const now = state.running ? Date.now() - state.startedAt + state.elapsed : state.elapsed;
   $("clock").textContent = formatTime(now);
   if (state.running) stepVerifier.tick(performance.now());
@@ -3058,7 +3074,7 @@ $("tbLeave").onclick = async () => {
 };
 onSnapshot(query(collection(db, "tutBattleStats"), orderBy("wins", "desc"), limit(20)), (snap) => {
   const rows = []; snap.forEach((d) => rows.push(d.data()));
-  const list = TBm.rankStats(rows), body = $("tbBoardBody");
+  const list = TBm.rankStats(rows), body = $("tbRankBody");
   body.innerHTML = list.length ? "" : '<tr><td colspan="6">Waiting for battles…</td></tr>';
   list.forEach((x, i) => { const tr = document.createElement("tr"); [i + 1, x.name || "Player", x.wins || 0, x.losses || 0, fmtT(x.bestTutMs || 0), x.bestReps || 0].forEach((v) => { const td = document.createElement("td"); td.textContent = v; tr.append(td); }); body.append(tr); });
 }, () => {});
