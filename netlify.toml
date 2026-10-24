@@ -1,0 +1,6 @@
+# The Firebase web apiKey in index.html is public by design (it only identifies the
+# project; access is enforced by Firestore rules). Tell Netlify's smart secret
+# detection to ignore it so builds don't fail. The real secret
+# (FIREBASE_SERVICE_ACCOUNT) is only a Netlify env var, never in the repo.
+[build.environment]
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4"
