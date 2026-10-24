@@ -38,7 +38,7 @@ The owner accepted breakage of local test data. Live data must not be broken.
 ## Names that could NOT be changed (third-party APIs)
 
 These contain the old noun because the Firebase SDKs name them that way. They are used exactly as-is, not obfuscated:
-- `index.html:2451` and `index.html:2924`: Firebase Auth `user.getIdToken()` (sends the caller's sign-in credential in the `Authorization: Bearer` header).
+- `index.html:2452` and `index.html:2925`: Firebase Auth `user.getIdToken()` (sends the caller's sign-in credential in the `Authorization: Bearer` header).
 - `members.js:47`: same Firebase `getIdToken()` call (the local variable is now `credential`).
 - `netlify/lib/common.js:24`: Firebase Admin `auth().verifyIdToken(...)`.
 The `Authorization: Bearer` header itself has no such word and is unchanged. `test/no-old-currency-word.test.js` guards the repo and allows only these four lines.
