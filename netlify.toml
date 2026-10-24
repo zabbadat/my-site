@@ -4,3 +4,8 @@
 # (FIREBASE_SERVICE_ACCOUNT) is only a Netlify env var, never in the repo.
 [build.environment]
   SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4"
+
+# wager-sweep settles / refunds open ZAB wagers nobody settled (silent players, rooms that never started).
+# Legacy (CommonJS) functions ignore `exports.config`, so the cron schedule must be declared here (UTC).
+[functions."wager-sweep"]
+  schedule = "*/5 * * * *"
