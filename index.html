@@ -1505,6 +1505,7 @@ function paintPushRows(rows) {
 }
 function finishPushSet() {
   if (pushState.finished) return;
+  sessionTouch();
   if (!pushState.running && pushState.elapsed === 0 && pushState.reps === 0) {
     $("pushStatus").textContent = "Start the set first.";
     return;
@@ -1555,7 +1556,16 @@ function finishPushSet() {
 // 7 s start countdown: "Ready" · "get set" · "three" · "two" · "one" · "Go" (get-set.js STEPS)
 const GET_SET_MS = 7000;
 const getSet = window.ZabbadatGetSet ? window.ZabbadatGetSet.makeGoCountdown({ ms: GET_SET_MS }) : null;
-function getSetCountdown(show, cancelled) {
+/* Restart start: a stop then a new start in the same exercise session skips all coaching and the 3-2-1; it only says Ready, set, Go.
+ * Fresh = first start after page load, after switching exercise or mode, after leaving the section, or after 10 min idle (get-set.js makeSessionTracker). */
+const quickSet = window.ZabbadatGetSet && window.ZabbadatGetSet.makeQuickCountdown ? window.ZabbadatGetSet.makeQuickCountdown() : null;
+const sessionTrack = window.ZabbadatGetSet && window.ZabbadatGetSet.makeSessionTracker ? window.ZabbadatGetSet.makeSessionTracker() : null;
+function sessionPlan(kind) { return sessionTrack ? sessionTrack.plan(kind) : "fresh"; }
+function sessionCommit(kind) { if (sessionTrack) sessionTrack.commit(kind); }
+function sessionTouch() { if (sessionTrack) sessionTrack.touch(); }
+window.addEventListener("hashchange", () => { if (sessionTrack) sessionTrack.reset(); });
+function getSetCountdown(show, cancelled, quick) {
+  if (quick && quickSet) return quickSet.run(show, cancelled);
   if (getSet) return getSet.run(show, cancelled);
   show("GO");
   return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), GET_SET_MS));
@@ -1576,7 +1586,7 @@ function showPositioning(kind, el, cancelled, part) {
   if (lines && G.sayAndWait) return G.sayAndWait(txt, { minMs: place ? 0 : POSITION_MS, maxMs: POSITION_SPOKEN_MAX_MS, cancelled, now: () => performance.now() });
   return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), place ? 0 : POSITION_MS));
 }
-function cancelGetSet() { if (getSet) getSet.cancel(); }
+function cancelGetSet() { if (getSet) getSet.cancel(); if (quickSet) quickSet.cancel(); }
 function unlockGetSet() { if (getSet) getSet.unlock(); }
 let pushStarting = false, pushStartToken = 0;
 function cancelPushStart(msg) {
@@ -1597,17 +1607,20 @@ async function startPush() {
   const fail = (msg) => { if (!live()) return; cancelPushStart(msg); };
   try {
     const coachKind = pushMode === "long" ? "tut" : "pushups";
-    const placed = showPositioning(coachKind, $("pushStatus"), () => !live(), "place"); // spoken inside the tap
+    const restart = sessionPlan(coachKind) === "restart"; /* restart: no intro, quick Ready, set, Go */
+    const placed = restart ? true : showPositioning(coachKind, $("pushStatus"), () => !live(), "place"); // spoken inside the tap
+    if (restart && !camOn) $("pushStatus").textContent = "Starting camera…";
     if (!camOn) { const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail("Camera or pose blocked."); }
     if (!live()) return;
     if (!(await placed)) return;
     if (!live()) return;
-    if (!(await showPositioning(coachKind, $("pushStatus"), () => !live(), "criteria"))) return;
+    if (!restart && !(await showPositioning(coachKind, $("pushStatus"), () => !live(), "criteria"))) return;
     if (!live()) return;
     // Forget setup frames (placing the phone, getting into plank): the top locks from the first real dip from here.
     resetPoseBaseline();
-    if (!(await getSetCountdown((t) => { $("pushStatus").textContent = t; }, () => !live()))) return;
+    if (!(await getSetCountdown((t) => { $("pushStatus").textContent = t; }, () => !live(), restart))) return;
     if (!live()) return;
+    sessionCommit(coachKind);
     pushStarting = false; $("pushStartBtn").disabled = false;
     beginPushClock();
   } catch (e) { fail("Camera or pose blocked."); }
@@ -1629,6 +1642,7 @@ function beginPushClock() {
 }
 if ($("pushStartBtn")) $("pushStartBtn").onclick = () => startPush();
 if ($("pushPauseBtn")) $("pushPauseBtn").onclick = () => {
+  sessionTouch();
   if (!pushState.running || pushState.finished || pushMode !== "sets") return;
   pushState.elapsed += Date.now() - pushState.startedAt;
   pushState.running = false;
@@ -1638,6 +1652,7 @@ if ($("pushPauseBtn")) $("pushPauseBtn").onclick = () => {
   renderPush();
 };
 if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
+  sessionTouch();
   clearInterval(pushState.tick);
   if (pushWake) pushWake.stop().catch(() => {});
   Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 });
@@ -1860,6 +1875,7 @@ function paintPlankRows(rows) {
 }
 function plankEnded(r) {
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.end();
+  sessionTouch();
   if (plankSaved) return;
   if (!plankSessionStartedAt) return; // only a live camera session can end (and save) a hold
   plankSaved = true;
@@ -1921,7 +1937,9 @@ async function startPlankCam() {
     if (camOn) stopCam();
     if (pushStarting) cancelPushStart();
     $("plankCamBtn").textContent = "Stop camera";
-    const placed = showPositioning("plank", $("plankStatus"), () => !live(), "place"); // spoken inside the tap
+    const restart = sessionPlan("plank") === "restart"; /* restart: no intro, quick Ready, set, Go */
+    const placed = restart ? true : showPositioning("plank", $("plankStatus"), () => !live(), "place"); // spoken inside the tap
+    if (restart) $("plankStatus").textContent = "Starting camera…";
     if ($("plankStatus").style) $("plankStatus").style.whiteSpace = "pre-line";
     await loadCamLibs();
     if (!live()) return;
@@ -1935,10 +1953,11 @@ async function startPlankCam() {
     $("plankWrap").hidden = false;
     if (!(await placed)) return;
     if (!live()) return;
-    if (!(await showPositioning("plank", $("plankStatus"), () => !live(), "criteria"))) return;
+    if (!restart && !(await showPositioning("plank", $("plankStatus"), () => !live(), "criteria"))) return;
     if (!live()) return;
-    if (!(await getSetCountdown((t) => { $("plankStatus").textContent = t; }, () => !live()))) return;
+    if (!(await getSetCountdown((t) => { $("plankStatus").textContent = t; }, () => !live(), restart))) return;
     if (!live()) return;
+    sessionCommit("plank");
     plankStarting = false;
     plankSessionStartedAt = Date.now();
     newPlankHold();
@@ -1955,6 +1974,7 @@ function cancelPlankStart() {
   $("plankStatus").textContent = "Start cancelled.";
 }
 function stopPlankCam() {
+  sessionTouch();
   if (plankHold && !plankSaved) { const r = plankHold.stop(performance.now()); plankEnded(r); }
   plankLoop = false;
   plankSessionStartedAt = 0;
@@ -2562,7 +2582,7 @@ function tbTimeUp() {
   clearTimeout(tbSettleTimer); tbSettleTimer = setTimeout(settle, TBm.RULES.settleMs);
 }
 function tbFinish(r) {
-  clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; if (tbWake) tbWake.stop().catch(() => {});
+  sessionTouch(); clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; if (tbWake) tbWake.stop().catch(() => {});
   const me = currentUser && currentUser.uid, won = r.winnerUid === me, c = $("tbCount");
   c.hidden = false; c.className = "battle-count result"; c.textContent = won ? "You win!" : "You lose";
   const loser = r.players && r.players[r.loserUid], winner = r.players && r.players[r.winnerUid];
@@ -2579,7 +2599,7 @@ async function tbResume(u) { let code = null; try { code = localStorage.getItem(
 $("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making a room…"); try { tbEnter(await tb.createRoom(u)); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
 $("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { tbEnter(await tb.joinRoom($("tbCode").value, u)); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
 $("tbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tbJoin").click(); });
-$("tbCam").onclick = () => { if (!requireSignIn("tut battle")) return; if (tbWake) tbWake.start().catch(() => {}); unlockGetSet(); const placed = showPositioning("tut", $("tbCamNote"), () => false, "place"); return tbCamOn(placed); };
+$("tbCam").onclick = () => { if (!requireSignIn("tut battle")) return; if (tbWake) tbWake.start().catch(() => {}); unlockGetSet(); const restart = sessionPlan("tut-battle") === "restart"; /* restart: no placement/criteria intro */ sessionCommit("tut-battle"); const placed = restart ? null : showPositioning("tut", $("tbCamNote"), () => false, "place"); return tbCamOn(placed); };
 $("tbReady").onclick = async () => { if (!requireSignIn("tut battle")) return; unlockGetSet(); /* iOS: speech unlocked in this tap for the shared countdown */ const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; if (tbWake && !(m && m.ready)) tbWake.start().catch(() => {}); try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
 $("tbRematch").onclick = async () => {
   const u = battleUser(), r = tbRoom; if (!u || !r) return;

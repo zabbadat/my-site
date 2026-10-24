@@ -38,7 +38,7 @@ let plankLoop = false, plankHold = null, plankSaved = false, plankStream = null,
 async function loadCamLibs() {} async function ensurePose() { log.push("pose"); }
 function poseTick() {} function renderPush() {} function resetPoseBaseline() {} function camExitFs() {} function setCamStatus() {}
 function newPlankHold() { log.push("plankHold"); } function plankTick() {} function plankEnded() {}`;
-  const SRC = [STUBS, line("const GET_SET_MS"), line("const getSet = "), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
+  const SRC = [STUBS, line("const GET_SET_MS"), line("const getSet = "), line("const quickSet = "), line("const sessionTrack = "), line("function sessionPlan"), line("function sessionCommit"), line("function sessionTouch"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
     fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '),
     "async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
     line('$("plankCamBtn").onclick = '), `const origClock = beginPushClock; beginPushClock = function () { log.push("clock"); return origClock(); };`].join("\n")

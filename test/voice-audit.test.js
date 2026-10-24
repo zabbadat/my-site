@@ -32,7 +32,7 @@ const TUT = GS.coachLines("tut");
     e.run(`function requireSignIn() { return true; } const tbWake = null; let tbStream = null, tbLoop = false, tbCounter = null, tbLiveT0 = null, tbRoom = null, tbCodeCur = "K7QX";
       let tbMine = { reps: 0, tutMs: 0 }; async function loadCamLibs() {} async function ensurePose() { log.push("pose"); } function tbPose() {} function tbPaint() {}
       window.ZabbadatPush = { createCounter: () => ({}) }; const POSITION_MS = 2000, POSITION_SPOKEN_MAX_MS = 10000;
-      ${line("const GET_SET_MS")} ${line("const getSet = ")} ${line("function unlockGetSet")} ${fnSrc("showPositioning")}
+      ${line("const GET_SET_MS")} ${line("const getSet = ")} ${line("const quickSet = ")} ${line("const sessionTrack = ")} ${line("function sessionPlan")} ${line("function sessionCommit")} ${line("function sessionTouch")} ${line("function unlockGetSet")} ${fnSrc("showPositioning")}
       ${line("const tbVoice = ")} ${line("const tbRepVoice = ")} ${line("let tbCoaching")}
       async ${fnSrc("tbCamOn")}
       ${line('$("tbCam").onclick = ')}`);

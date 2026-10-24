@@ -1,6 +1,7 @@
 /* 3-2-1 countdown for camera Start buttons (push Start set / Start session / Start challenge, Plank House).
  * Runs AFTER camera, pose model and calibration are ready; the clock starts when run() resolves true.
  * makeGetSet({ ms: 2000, speak, unlock, stop, schedule }) -> { unlock(), run(show, cancelled) -> Promise<bool>, cancel() }
+ * makeQuickCountdown: restart-only Ready, set, Go (2.4 s); makeSessionTracker: fresh vs restart.
  * makeGoCountdown: 7 s "Ready" · "get set" · "three" · "two" · "one" · "Go" (see STEPS). COACH: spoken setup lines.
  * iOS: call unlock() synchronously inside the tap (cancel + silent volume-0 utterance) so later speech is allowed.
  * Speech is optional: missing or throwing speechSynthesis falls back to on-screen only, silently.
@@ -60,14 +61,36 @@
    * 5000 ms: show "GO" + speak "Go", resolve true (counting starts). unlock() inside the tap (iOS). Silent fallback. */
   // Shared start countdown (push-ups all modes, TUT, Plank House): slower pacing, 7 s total.
   //   0 s "Ready" · 2 s "get set" · 4 s "three" · 5 s "two" · 6 s "one" · 7 s "Go" (clock starts). Screen shows the same.
-  var STEPS = [[0, "Ready", "Ready"], [2000, "get set", "Get set"], [4000, "three", "3"], [5000, "two", "2"], [6000, "one", "1"], [7000, "Go", "GO"]];
+  var STEPS = [[0, "Ready", "Ready"], [2000, "get set", "Get set"], [4000, "three", "3"], [5000, "two", "2"], [6000, "one", "1"], [7000, "Go", "GO"]], DEFAULT_STEPS = STEPS;
   var COUNTDOWN_MS = 7000;
+  /* Quick restart start (no coaching, no 3-2-1): "Ready" 0 s, "set" 1.2 s, "Go" 2.4 s (clock starts). */
+  var QUICK_STEPS = [[0, "Ready", "Ready"], [1200, "set", "Set"], [2400, "Go", "GO"]], QUICK_MS = 2400;
+  function makeQuickCountdown(opts) { var o = {}, k; opts = opts || {}; for (k in opts) o[k] = opts[k]; o.steps = QUICK_STEPS; return makeGoCountdown(o); }
+  /* Session tracker: decides "fresh" (full coaching + 7 s countdown) vs "restart" (quick Ready, set, Go only).
+   *   plan(kind) -> "restart" only if the SAME kind (pushups / tut / plank / ...) completed a start before (commit), with
+   *   activity (commit or touch) within idleMs (default 10 min), and no reset() since. Anything else -> "fresh":
+   *   first start after page load, switching exercise or mode, leaving the section (reset), a long idle, or a start that
+   *   was cancelled before its countdown finished (never committed).
+   *   commit(kind) after a start succeeds; touch() on stop / finish / activity; reset() on leaving the exercise. */
+  var SESSION_IDLE_MS = 10 * 60 * 1000;
+  function makeSessionTracker(opts) {
+    opts = opts || {};
+    var now = opts.now || function () { return Date.now(); }, idleMs = opts.idleMs != null ? opts.idleMs : SESSION_IDLE_MS, kind = null, last = 0;
+    return {
+      idleMs: idleMs,
+      plan: function (k) { return k && kind === k && now() - last <= idleMs ? "restart" : "fresh"; },
+      commit: function (k) { kind = k || null; last = now(); },
+      touch: function () { if (kind) last = now(); },
+      reset: function () { kind = null; last = 0; }
+    };
+  }
   function makeGoCountdown(opts) {
     opts = opts || {};
+    var STEPS = opts.steps || DEFAULT_STEPS;
     var speak = safe(opts.speak || defaultSpeak), unlock = safe(opts.unlock || defaultUnlock), stopSpeech = safe(opts.stop || defaultStop);
     var schedule = opts.schedule || function (f, d) { return setTimeout(f, d); }, runId = 0;
     return {
-      ms: COUNTDOWN_MS, words: STEPS.map(function (x) { return x[1]; }), steps: STEPS,
+      ms: STEPS[STEPS.length - 1][0], words: STEPS.map(function (x) { return x[1]; }), steps: STEPS,
       unlock: function () { unlock(); },
       run: function (show, cancelled) {
         var my = ++runId; cancelled = cancelled || function () { return false; };
@@ -196,7 +219,7 @@
       }
     };
   }
-  var api = { makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
+  var api = { makeQuickCountdown: makeQuickCountdown, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);
