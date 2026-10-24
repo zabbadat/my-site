@@ -9,6 +9,6 @@ check("badge shows name span via badgeParts", /zt-name/.test(fn) && /badgeParts/
 check("badge shows amountHtml (ZAB + ring)", /amountHtml/.test(fn));
 check("signed-out badge says Sign in", /Sign in/.test(fn));
 check("zt-name css truncation present", /\.zt-badge \.zt-name\{[^}]*text-overflow:ellipsis/.test(html));
-check("balance label reads ZAB (with ring), no 'Zabba Bag' label left in page text", html.includes('id="ztBagLabel">ZAB<') && /ZabCurrency\.ring\(\$\("ztBagLabel"\)\)/.test(html) && !/>Zabba Bag</.test(html) && !/Top Zabba Bag/.test(html));
+check("balance label reads ZAB (with ring), no 'Zabba Bag' label left in page text", html.includes('id="ztBagLabel">ZAB bag<') && /ZabCurrency\.ring\(\$\("ztBagLabel"\)\)/.test(html) && !/>Zabba Bag</.test(html) && !/Top Zabba Bag/.test(html));
 console.log("passed " + pass + " failed " + fail);
 process.exit(fail ? 1 : 0);
