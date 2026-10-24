@@ -391,7 +391,8 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .btn.ghost{border:1px solid transparent!important;background:linear-gradient(#0e1412,#0e1412) padding-box,var(--grad) border-box!important;color:var(--lime-2)!important}
 :where(a):focus-visible,button:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--pink-2)!important;outline-offset:2px}
 .social-btn:not([data-brand]){border-color:rgba(198,255,0,.4)}
-.zt-badge{white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
+.zt-badge .zt-name{display:inline-block;max-width:7.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.zt-badge{max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
 #zab .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
 .zab{display:inline-flex;align-items:center;gap:.28em;font-weight:700;letter-spacing:.06em;white-space:nowrap}.zab-ring{width:.95em;height:.95em;display:inline-block;flex:none}
 .tuts-l{font-weight:800;color:#7fe3ff;text-shadow:0 0 8px rgba(127,227,255,.55)}
@@ -2331,7 +2332,7 @@ function mirrorBoard(u, total) {
   setDoc(doc(db, "zabBoard", u.uid), { uid: e.uid, name: e.name, total: e.total, updatedAt: serverTimestamp() }).catch(() => { ztMirrored = null; });
 }
 function paintZab(n) { const row = $("zabBalanceRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintZabSection(n); }
-function paintZabSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.innerHTML = on ? window.ZabCurrency.amountHtml(Number(n)) : "—"; if (o) o.hidden = on; if (g) { g.setAttribute("href", on ? "#zab" : "#play"); g.setAttribute("aria-label", on ? "ZAB balance" : "Sign in"); if (on) g.innerHTML = window.ZabCurrency.amountHtml(Number(n)); else g.textContent = "Sign in"; } }
+function paintZabSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.innerHTML = on ? window.ZabCurrency.amountHtml(Number(n)) : "—"; if (o) o.hidden = on; if (g) { g.setAttribute("href", on ? "#zab" : "#play"); g.setAttribute("aria-label", on ? "ZAB balance" : "Sign in"); if (on) { const nm = ZT && ZT.badgeParts ? ZT.badgeParts(typeof auth !== "undefined" && auth.currentUser ? publicName(displayNameOf(auth.currentUser)) : "", n).name : ""; g.innerHTML = (nm ? '<span class="zt-name">' + escapeHtml(nm) + '</span> \u00b7 ' : "") + window.ZabCurrency.amountHtml(Number(n)); g.title = (nm ? nm + " \u00b7 " : "") + window.ZabCurrency.amountText(Number(n)); } else { g.textContent = "Sign in"; g.title = ""; } } }
 // Badge: signed in -> #zab (plain link); signed out -> #play sign-in box, scrolled into view with the Google button focused.
 function ztBadgeClick(ev) {
   if (typeof auth !== "undefined" && auth.currentUser) return;
