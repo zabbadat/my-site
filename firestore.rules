@@ -188,7 +188,7 @@ service cloud.firestore {
         && p.name.size() <= 40 && p.ready == false && p.joinedAt == request.time; }
       function newRoom() { return n().code == code && n().createdBy == me() && n().status == 'waiting'
         && n().startAt == null && n().createdAt == request.time
-        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); && stakeOk(); }
+        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]) && stakeOk(); }
       // Zabba Token wager (optional): stake set once at create; countdown needs both seated stakes in escrow
       // (wagers/{key}, written only by the server). WAGER, not yet published.
       function stakeOk() { return !('stake' in n()) || (n().stake is int && n().stake >= 1); }
@@ -243,7 +243,7 @@ service cloud.firestore {
         && p.name.size() <= 40 && p.ready == false && p.joinedAt == request.time; }
       function newRoom() { return n().code == code && n().createdBy == me() && n().status == 'waiting'
         && n().startAt == null && n().createdAt == request.time
-        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); && stakeOk(); }
+        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]) && stakeOk(); }
       // Zabba Token wager (optional): stake set once at create; countdown needs both seated stakes in escrow
       // (wagers/{key}, written only by the server). WAGER, not yet published.
       function stakeOk() { return !('stake' in n()) || (n().stake is int && n().stake >= 1); }
@@ -287,11 +287,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Zabba Washer Battle rooms (washers-battle.js + battle-rooms.js): same model as TUT/Plank Battles; seats keyed by
-    // request.auth.uid. Each player writes only their own seat: live score/steps (only while live), then a write-once
-    // result {score:21, steps, ms, verified, reasons, at} or {forfeit:true, at}. No winner field: both phones decide
-    // from the two results (fewest steps, then quickest time; forfeit/leftAt loses). 'opener' kept for compatibility.
-    // DRAFT, not yet published.
+    // Zabba Washer Battle rooms (washers-battle.js + battle-rooms.js), Bariboshi style (rules.html v1.9). Seats keyed by
+    // request.auth.uid. No video: each player writes ONLY their own seat: a heartbeat (seenAt = server time), optional
+    // live steps, an APPEND-ONLY list of write-once reports (rep: Bariboshi distance, round pack, confirm/dispute of the
+    // opponent's report, ruling by the Bariboshi winner), a forfeit result {forfeit:true, at}, and claimGone (the other
+    // seat's heartbeat is > 30 s stale). No winner field and no scores are stored: both phones derive order, scores and
+    // winner from the reports. 'opener' kept for compatibility. Wager hooks stay inert when no stake is set.
+    // DRAFT, not yet published. (Not run against the emulator: needs a two-phone test before publishing.)
     match /washersBattles/{code} {
       function signedIn() { return request.auth != null; }
       function me() { return request.auth.uid; }
@@ -306,25 +308,41 @@ service cloud.firestore {
         && p.name.size() <= 40 && p.ready == false && p.joinedAt == request.time; }
       function newRoom() { return n().code == code && n().createdBy == me() && n().status == 'waiting'
         && n().startAt == null && n().createdAt == request.time
-        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]); && stakeOk(); }
+        && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]) && stakeOk(); }
       // Zabba Token wager (optional): stake set once at create; countdown needs both seated stakes in escrow
-      // (wagers/{key}, written only by the server). WAGER, not yet published.
+      // (wagers/{key}, written only by the server). WAGER, not yet published. No stake = both checks pass.
       function stakeOk() { return !('stake' in n()) || (n().stake is int && n().stake >= 1); }
       function wagerPath() { return /databases/$(database)/documents/wagers/$('washers_' + code + '_' + string(d().createdAt.toMillis())); }
       function wagerReady() { return !('stake' in d()) || (exists(wagerPath()) && get(wagerPath()).data.status == 'open'
         && get(wagerPath()).data.players.keys().hasAll(d().players.keys())); }
-      // Own-seat battle fields: result is write-once (absent before, never changed after) and only while live.
-      function resOk(x) { return (x.keys().hasOnly(['forfeit','at']) && x.forfeit == true && x.at == request.time)
-        || (x.keys().hasOnly(['score','steps','ms','verified','reasons','at']) && x.score == 21
-          && x.steps is int && x.steps >= 0 && x.steps <= 100000 && x.ms is int && x.ms > 0 && x.ms <= 14400000
-          && x.verified is bool && x.reasons is list && x.reasons.size() <= 8 && x.at == request.time); }
+      // Reports (rep). packOk: a pack of exactly 3 washers, each 0 out / 2 box-bound / 3 shoot / 5 bank (Art. 5.1, 6).
+      function packOk(a) { return a is list && a.size() == 3 && a[0] in [0,2,3,5] && a[1] in [0,2,3,5] && a[2] in [0,2,3,5]; }
+      function repOk(e) {
+        return (e.keys().hasAll(['k','n','d']) && e.keys().hasOnly(['k','n','d']) && e.k == 'b' && e.n is int && e.n >= 1 && e.n <= 8
+            && e.d is int && e.d >= 0 && e.d <= 2000)
+          || (e.keys().hasAll(['k','n','pack']) && e.keys().hasOnly(['k','n','pack']) && e.k == 'r' && e.n is int && e.n >= 1 && e.n <= 30 && packOk(e.pack))
+          || (e.keys().hasAll(['k','t','n','ok']) && e.keys().hasOnly(['k','t','n','ok']) && e.k == 'c' && e.t in ['b','r']
+            && e.n is int && e.n >= 1 && e.n <= 30 && e.ok is bool)
+          || (e.keys().hasAll(['k','n','who','pack']) && e.keys().hasOnly(['k','n','who','pack']) && e.k == 'x' && e.n is int
+            && e.n >= 1 && e.n <= 30 && e.who in n().players && packOk(e.pack)); }
+      // append-only: the existing entries are unchanged and at most one new, valid entry is added per write
+      function repGrows(o, p) { return !('rep' in p) ? !('rep' in o)
+        : ('rep' in o ? (p.rep.size() >= o.rep.size() && p.rep.size() <= o.rep.size() + 1 && p.rep[0:o.rep.size()] == o.rep
+              && (p.rep.size() == o.rep.size() || repOk(p.rep[o.rep.size()])))
+            : (p.rep.size() == 1 && repOk(p.rep[0]))); }
+      function otherSeat() { return d().players[d().players.keys().removeAll([me()])[0]]; }
+      function lastSeen() { return ('seenAt' in otherSeat() && otherSeat().seenAt.toMillis() > d().startAt) ? otherSeat().seenAt.toMillis() : d().startAt; }
+      function otherStale() { return d().players.size() == 2 && d().startAt is int && request.time.toMillis() - lastSeen() > 30000; }
+      function resOk(x) { return x.keys().hasOnly(['forfeit','at']) && x.forfeit == true && x.at == request.time; }
       function seatOk(o, p) {
         return (!('opener' in p) || p.opener in n().players)
-          && (!('score' in p) || (p.score is int && p.score >= 0 && p.score <= 21))
           && (!('steps' in p) || (p.steps is int && p.steps >= 0 && p.steps <= 100000))
+          && (!('seenAt' in p.diff(o).affectedKeys()) || p.seenAt == request.time)
           && ('result' in o ? p.diff(o).affectedKeys().hasOnly(['seenAt','leftAt','opener'])
               : (!('result' in p) || (d().status == 'live' && resOk(p.result))))
-          && (!(('score' in p.diff(o).affectedKeys()) || ('steps' in p.diff(o).affectedKeys())) || d().status == 'live');
+          && (!('rep' in p.diff(o).affectedKeys()) || (d().status == 'live' && repGrows(o, p) && !('claimGone' in otherSeat())))
+          && (!('claimGone' in p.diff(o).affectedKeys()) || (p.claimGone == true && d().status == 'live' && otherStale()))
+          && (!('steps' in p.diff(o).affectedKeys()) || d().status == 'live');
       }
       allow read: if signedIn();
       allow create: if signedIn() && code.matches('^[A-HJ-NP-Z2-9]{4}$') && newRoom();
@@ -339,7 +357,7 @@ service cloud.firestore {
           && (!('status' in changed()) || (!started() && !(me() in n().players)
               && n().status == (n().players.size() == 0 ? 'abandoned' : 'waiting')))
           && (!(me() in n().players) ? !started()
-              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt','opener','score','steps','result'])
+              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt','opener','steps','result','rep','claimGone'])
                 && seatOk(d().players[me()], n().players[me()])
                 && (!started() || !('ready' in n().players[me()].diff(d().players[me()]).affectedKeys()))))
         // either player: both ready -> countdown with startAt = now..now+15s (only once)
@@ -421,6 +439,17 @@ service cloud.firestore {
           && getAfter(userPath()).data.zabaTokens == before() + t().amount;
         allow update, delete: if false;
       }
+    }
+
+    // Zabba reputation (reputation.js): public mirror, name + score only (never an email). Read by any signed-in user;
+    // written ONLY by the server (netlify/functions/rep-settle.js, admin SDK). Nobody can edit their own reputation.
+    // repLog/{key}: server-only ledger so each match counts once. DRAFT, not yet published.
+    match /repBoard/{uid} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /repLog/{key} {
+      allow read, write: if false;
     }
 
     match /{document=**} { allow read, write: if false; }

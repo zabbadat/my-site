@@ -1,5 +1,5 @@
 // Zabba Token wagers: stake limits, escrow, payout exactly once, refunds, silent players, every battle type.
-const W = require("../zaba-wager.js"), Z = require("../zaba-tokens.js"), B = require("../battle-rooms.js"), fsx = require("fs");
+const WH = require("./lib/washers-match.js"), W = require("../zaba-wager.js"), Z = require("../zaba-tokens.js"), B = require("../battle-rooms.js"), fsx = require("fs");
 const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
 check("min bet 1: 0, negatives, fractions rejected", !W.validStake(0) && !W.validStake(-2) && !W.validStake(1.5) && !W.validStake("3") && W.validStake(1) && /Minimum bet is 1/.test(W.stakeError(0)));
 check("MAX_STAKE single config constant (null = open)", W.MAX_STAKE === null && W.validStake(1e6));
@@ -41,28 +41,29 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   e = await caught(W.stake(fs, "a", "washers", r.code)); check("stakes close once started", e && e.status === 409);
   const bad = mkRoom("washers", 0); e = await caught(W.stake(fs, "a", "washers", bad.code)); check("room stake < 1 rejected", e && e.status === 400);
   // ---- washers payout ----
-  const res = (steps, ms, v = true) => ({ score: 21, steps, ms, verified: v, reasons: [], at: T });
+  /* Bariboshi match: a (10 cm) pitches first. played(r, A, B) = agreed rounds; a wins 21-0 in two rounds, b wins, or level at the cap. */
+  const played = (x, pa, pb) => { const rm = db[x.ref]; rm.players.a.rep = []; rm.players.b.rep = []; WH.bariboshi(rm, 10, 30); pa.forEach((p, i) => WH.round(rm, i + 1, p, pb[i])); };
+  const WIN_A = [[[5, 5, 5], [5, 5, 5]], [[0, 0, 0], [0, 0, 0]]], WIN_B = [[[0, 0, 0], [0, 0, 0]], [[5, 5, 5], [5, 5, 5]]];
   check("pending while playing", (await W.settle(fs, r.key, T)).pending);
-  db[r.ref].players.a.result = res(100, 300000); db[r.ref].players.b.result = res(150, 200000);
-  let out = await W.settle(fs, r.key, T); check("washers: fewer steps wins pot 6 (2x3)", out.status === "paid" && out.winner === "a" && bal("a") === 13 && bal("b") === 2 && db["users/a/tokenTx/payout-" + r.key].amount === 6);
+  played(r, [[5, 5, 5], [5, 5, 5]], [[0, 0, 0], [0, 0, 0]]);
+  let out = await W.settle(fs, r.key, T); check("washers: first to 21 wins pot 6 (2x3)", out.status === "paid" && out.winner === "a" && bal("a") === 13 && bal("b") === 2 && db["users/a/tokenTx/payout-" + r.key].amount === 6);
   out = await W.settle(fs, r.key, T); check("double settle: no double payout", out.already && bal("a") === 13 && txs("a").filter((k) => k.includes("payout")).length === 1);
   db["wagers/" + r.key].status = "open"; out = await W.settle(fs, r.key, T); check("even if status were reopened, payout ledger id blocks a second credit", bal("a") === 13);
   check("reads before writes in every transaction", !readAfterWrite);
   // ---- refunds ----
   async function staked(game, stake) { setUser("a", 20); setUser("b", 20); const x = mkRoom(game, stake); await W.stake(fs, "a", game, x.code); await W.stake(fs, "b", game, x.code); return x; }
-  r = await staked("washers", 2); goLive(r); db[r.ref].players.a.result = res(100, 300000); db[r.ref].players.b.result = res(100, 300000);
-  out = await W.settle(fs, r.key, T); check("washers exact tie: refund both", out.status === "refunded" && bal("a") === 20 && bal("b") === 20 && db["users/a/tokenTx/refund-" + r.key].amount === 2);
-  r = await staked("washers", 2); goLive(r); db[r.ref].players.a.result = res(100, 300000, false); db[r.ref].players.b.result = res(120, 300000);
-  out = await W.settle(fs, r.key, T); check("unverified game: refund both + flagged", out.status === "refunded" && out.flag === "unverified" && db["wagers/" + r.key].flag === "unverified" && bal("a") === 20);
-  r = await staked("washers", 2); goLive(r); db[r.ref].players.a.result = res(10, 20000); db[r.ref].players.b.result = res(120, 300000);
-  out = await W.settle(fs, r.key, T); check("implausibly fast 21: refund + flagged", out.flag === "implausible" && bal("a") === 20);
+  r = await staked("washers", 2); goLive(r); played(r, [[5, 5, 5], [3, 3, 0]], [[5, 5, 5], [3, 3, 0]]);
+  out = await W.settle(fs, r.key, T); check("washers level at 21+: overtime, still pending", out.pending === true);
+  r = await staked("washers", 2); goLive(r); played(r, Array.from({ length: 30 }, (_, i) => (i < 3 ? [5, 5, 5] : [0, 0, 0])), Array.from({ length: 30 }, (_, i) => (i < 3 ? [5, 5, 5] : [0, 0, 0])));
+  out = await W.settle(fs, r.key, T); check("washers level at the round cap (draw): refund both", out.status === "refunded" && out.reason === "tie" && bal("a") === 20 && bal("b") === 20 && db["users/a/tokenTx/refund-" + r.key].amount === 2);
   r = await staked("washers", 2); goLive(r); db[r.ref].players.b.result = { forfeit: true, at: T };
   out = await W.settle(fs, r.key, T); check("forfeit loses the pot", out.status === "paid" && out.winner === "a" && bal("a") === 22 && bal("b") === 18);
   r = await staked("washers", 2); goLive(r); db[r.ref].players.a.leftAt = T;
   out = await W.settle(fs, r.key, T); check("left mid-battle loses", out.winner === "b" && bal("b") === 22);
-  r = await staked("washers", 2); goLive(r); db[r.ref].players.a.result = res(100, 300000);
-  check("one finished, other silent < 15 min: pending", (await W.settle(fs, r.key, T + 60000)).pending);
-  out = await W.settle(fs, r.key, T + W.SILENT_MS + 1000); check("silent player loses after 15 min", out.winner === "a" && bal("a") === 22);
+  r = await staked("washers", 2); goLive(r); db[r.ref].players.a.claimGone = true;
+  out = await W.settle(fs, r.key, T); check("opponent silent 30 s (claimGone): the silent player loses", out.winner === "a" && bal("a") === 22);
+  r = await staked("washers", 2); goLive(r); played(r, [[5, 5, 5]], [[0, 0, 0]]);
+  check("one round agreed, match not over: pending", (await W.settle(fs, r.key, T + 60000)).pending);
   r = await staked("washers", 2); goLive(r);
   out = await W.settle(fs, r.key, T + W.MAX_GAME_MS + 1000); check("both disconnected (nobody finished in 4 h): refund", out.status === "refunded" && out.reason === "both-silent" && bal("a") === 20);
   r = await staked("washers", 2);

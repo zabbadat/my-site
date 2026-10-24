@@ -1,79 +1,130 @@
-// Tests for washers-battle.js: validation, winner resolution, and a two-player room flow over a mock Firestore.
-const W = require("../washers-battle.js");
-const B = require("../battle-rooms.js");
-const fsx = require("fs");
+// Zabba Washer Battle match play, Bariboshi style (rules.html v1.9): pairing flags, Bariboshi order, packs/rounds, confirm/dispute,
+// winner (first to 21), overtime, forfeit / 30 s silence, write-once reports, match states, rules draft wiring.
+const W = require("../washers-battle.js"), B = require("../battle-rooms.js"), H = require("./lib/washers-match.js"), fsx = require("fs");
 const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
-check("score 0..21 ints only", W.validScore(0) && W.validScore(21) && !W.validScore(22) && !W.validScore(-1) && !W.validScore(2.5) && !W.validScore("3"));
-check("steps 0..100000 ints only", W.validSteps(0) && W.validSteps(100000) && !W.validSteps(100001) && !W.validSteps(-2) && !W.validSteps(1.2));
-check("ms >0 and <= 4h", W.validMs(1) && !W.validMs(0) && W.validMs(14400000) && !W.validMs(14400001));
-const TS = { __ts: 1 };
-const res = W.makeResult({ steps: 120, ms: 300000.4, verified: true, reasons: [] }, TS);
-check("makeResult shape matches rules", JSON.stringify(Object.keys(res).sort()) === JSON.stringify(["at", "ms", "reasons", "score", "steps", "verified"]) && res.score === 21 && res.ms === 300000 && res.at === TS);
-check("makeResult rejects bad steps/ms", W.makeResult({ steps: -1, ms: 5 }, TS) === null && W.makeResult({ steps: 5, ms: 0 }, TS) === null);
-check("makeResult caps reasons at 8", W.makeResult({ steps: 1, ms: 9, reasons: Array(20).fill("x") }, TS).reasons.length === 8);
-check("validResult: result + forfeit ok, junk rejected", W.validResult({ ...res, at: 1 }) && W.validResult({ forfeit: true, at: 1 }) && !W.validResult({ ...res, score: 20 }) && !W.validResult({ forfeit: true, at: 1, x: 1 }) && !W.validResult(null));
-const room = (a, b, extra) => ({ status: "live", players: { a: { name: "A", ...a }, b: { name: "B", ...b } }, ...extra });
-const done = (steps, ms) => ({ result: { score: 21, steps, ms, verified: true, reasons: [], at: 1 } });
-check("nobody finished: not done", !W.decide(room({ score: 10 }, { score: 15 })).done);
-check("only one finished, other still playing: not done", !W.decide(room(done(100, 5000), { score: 18 })).done);
-let d = W.decide(room(done(100, 9000), done(140, 5000))); check("both 21: fewer steps wins", d.done && d.winner === "a" && d.reason === "steps");
-d = W.decide(room(done(100, 9000), done(100, 5000))); check("steps tie: quicker time wins", d.winner === "b" && d.reason === "time");
-d = W.decide(room(done(100, 5000), done(100, 5000))); check("full tie: no winner", d.done && d.winner === null && d.reason === "tie");
-d = W.decide(room(done(300, 9000), { result: { forfeit: true, at: 1 } })); check("opponent forfeit: finisher wins", d.winner === "a" && d.reason === "forfeit");
-d = W.decide(room({ score: 4, leftAt: 5 }, done(300, 9000))); check("left after start counts as forfeit", d.winner === "b");
-d = W.decide(room({ result: { forfeit: true, at: 1 } }, { leftAt: 3 })); d = W.decide(room({ score: 7 }, { result: { forfeit: true, at: 1 } })); check("forfeit wins at once for the player still playing", d.done && d.winner === "a");
-d = W.decide(room({ result: { forfeit: true, at: 1 } }, { leftAt: 3 })); check("both out: no winner", d.done && d.winner === null);
-check("not decided before live", !W.decide({ ...room(done(1, 1), done(2, 2)), status: "countdown" }).done);
-check("result text", /fewer steps/.test(W.resultText(room(done(100, 9000), done(140, 5000)), "a")) && /more steps/.test(W.resultText(room(done(100, 9000), done(140, 5000)), "b")));
-check("publishPatch clamps own seat", JSON.stringify(W.publishPatch("a", { score: 25, steps: -3 })) === JSON.stringify({ "players.a.score": 21, "players.a.steps": 0 }));
-// rules draft present, marked DRAFT/unpublished, and matches client fields
-const rules = fsx.readFileSync(__dirname + "/../firestore.rules", "utf8");
-const blk = rules.slice(rules.indexOf("match /washersBattles/{code}"), rules.indexOf("match /tutBattleStats"));
-check("rules: washersBattles block marked DRAFT, not yet published", /DRAFT, not yet published/.test(rules.slice(rules.indexOf("match /washersBattles") - 600, rules.indexOf("match /washersBattles"))));
-check("rules: result keys match makeResult", blk.includes("['score','steps','ms','verified','reasons','at']") && blk.includes("['forfeit','at']") && blk.includes("x.score == 21"));
-check("rules: own seat fields cover client writes", blk.includes("'ready','seenAt','leftAt','opener','score','steps','result'"));
-check("rules: washers tokenTx clause untouched", /t\(\)\.source == 'washers' && t\(\)\.units == 'wins'\s+&& t\(\)\.qty == 1\s+&& t\(\)\.amount == 1\)\)/.test(rules));
-// index wiring
-const html = fsx.readFileSync(__dirname + "/../index.html", "utf8");
-check("hub card points at the battle UI", /href="#washerbattle" data-battle="washers"/.test(html) && html.includes('id="washerbattle"'));
-check("module loaded, collection washersBattles", html.includes('src="/washers-battle.js"') && html.includes('mkBattleFs("washersBattles")'));
-check("user-facing spelling Zabba", html.includes("Zabba Washer Battle") && !/>[^<]*\bZaba\b[^<]*</.test(html.slice(html.indexOf('id="washerbattle"'), html.indexOf('id="washerbattle"') + 3000)));
-check("no push-counter DEFAULTS change", /maxRepMs:\s*6000/.test(fsx.readFileSync(__dirname + "/../push-counter.js", "utf8")));
-
-// ---- two-player flow over a mock Firestore ----
-let T = 1_000_000; let docs = {}; const subs = {}; const SERVER = { __ts: 1 }, DEL = { __del: 1 };
-const deep = (v) => (v === SERVER ? T : v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deep(x)])) : v);
-const clone = (o) => (o == null ? null : JSON.parse(JSON.stringify(o)));
-function apply(d, p) { d = clone(d); for (const [k, v] of Object.entries(p)) { const ks = k.split("."); let o = d; for (const s of ks.slice(0, -1)) o = o[s] = o[s] || {}; const last = ks[ks.length - 1]; if (v === DEL) delete o[last]; else o[last] = deep(v); } return d; }
-const emit = (c) => setTimeout(() => (subs[c] || []).slice().forEach((f) => f(clone(docs[c]))));
-let lock = Promise.resolve();
-const fs = {
-  tx: (c, fn) => (lock = lock.then(async () => { await new Promise((r) => setTimeout(r, 1)); let next; const out = fn({ get: () => clone(docs[c]), set: (x) => (next = deep(x)), update: (p) => (next = apply(next || docs[c], p)) }); if (next) { docs[c] = next; emit(c); } return out; })),
-  update: async (c, p) => { docs[c] = apply(docs[c], p); emit(c); },
-  watch: (c, cb) => { (subs[c] = subs[c] || []).push(cb); setTimeout(() => cb(clone(docs[c]))); return () => { subs[c] = subs[c].filter((f) => f !== cb); }; },
-  ts: () => SERVER, del: () => DEL, toMs: (v) => (typeof v === "number" ? v : null),
-};
-const A = { uid: "a", name: "Zab" }, Bu = { uid: "b", name: "Pal" };
+const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// ---- validation (Art. 5.1 pack of 3; Art. 6 bank 5 / shoot 3 / box-bound 2 / out 0) ----
+check("pack = exactly 3 washers, each 0/2/3/5", W.validPack([5, 3, 2]) && W.validPack([0, 0, 0]) && !W.validPack([5, 3]) && !W.validPack([5, 3, 2, 0]) && !W.validPack([4, 0, 0]) && !W.validPack([1, 0, 0]) && !W.validPack(["5", 0, 0]));
+check("entry shapes", W.validEntry({ k: "b", n: 1, d: 0 }) && W.validEntry({ k: "r", n: 2, pack: [5, 5, 5] }) && W.validEntry({ k: "c", t: "r", n: 1, ok: false }) && W.validEntry({ k: "x", n: 1, who: "a", pack: [0, 0, 0] })
+  && !W.validEntry({ k: "b", n: 1, d: -1 }) && !W.validEntry({ k: "b", n: 1, d: 3000 }) && !W.validEntry({ k: "r", n: 1, pack: [5, 5, 5], extra: 1 }) && !W.validEntry({ k: "z" }) && !W.validEntry(null));
+check("steps are an optional logged extra: validSteps + publishPatch clamp", W.validSteps(0) && !W.validSteps(-1) && !W.validSteps(1.5) && eq(W.publishPatch("a", { steps: -3 }), { "players.a.steps": 0 }) && eq(W.publishPatch("a", { steps: 250000 }), { "players.a.steps": 100000 }));
+// ---- Bariboshi (Art. 4) ----
+let r = H.room();
+let an = W.analyze(r);
+check("before any report: Bariboshi attempt 1, both must pitch", an.current.kind === "b" && an.current.n === 1 && !an.order && an.actions.a[0].type === "b" && an.actions.b[0].type === "b");
+H.add(r, "a", { k: "b", n: 1, d: 40 }); an = W.analyze(r);
+check("one reported: other still to pitch, reporter has nothing yet", an.actions.a.length === 0 && an.actions.b[0].type === "b");
+H.add(r, "b", { k: "b", n: 1, d: 15 }); an = W.analyze(r);
+check("both reported: each must confirm the other's distance", an.current.stage === "confirm" && an.pending.length === 2 && an.actions.a[0].type === "c" && an.actions.a[0].d === 15 && an.actions.b[0].d === 40);
+H.add(r, "a", { k: "c", t: "b", n: 1, ok: true }); H.add(r, "b", { k: "c", t: "b", n: 1, ok: true }); an = W.analyze(r);
+check("closest to the cup pitches first (4.2)", eq(an.order, ["b", "a"]) && an.bari.winner === "b" && an.current.kind === "r" && an.current.turn === "b" && an.current.n === 1);
+r = H.bariboshi(H.room(), 0, 0); an = W.analyze(r);
+check("both in the cup: Bariboshi again (4.3)", !an.order && an.current.kind === "b" && an.current.n === 2 && an.bari.attempts[0].result === "again");
+r = H.bariboshi(H.room(), 12, 12); check("equal distance also again", W.analyze(r).current.n === 2);
+r = H.room(); H.add(r, "a", { k: "b", n: 1, d: 10 }); H.add(r, "b", { k: "b", n: 1, d: 30 }); H.add(r, "a", { k: "c", t: "b", n: 1, ok: true }); H.add(r, "b", { k: "c", t: "b", n: 1, ok: false }); an = W.analyze(r);
+check("disputed Bariboshi report: pitch again, dispute counted (Art. 11)", an.current.n === 2 && an.disputes === 1 && !an.order);
+r = H.room(); for (let n = 1; n <= W.MAX_BARI; n++) H.bariboshi(r, 5, 5, n);
+check("never settled after 8 tries: falls back to seat order, flagged", W.analyze(r).bari.fallback === true && W.analyze(r).order.length === 2);
+// ---- turns, packs, rounds (Art. 5) ----
+r = H.bariboshi(H.room(), 10, 30); an = W.analyze(r);  // a pitches first
+check("round 1: Bariboshi winner pitches the first pack; opponent waits (5.4)", an.current.turn === "a" && an.actions.a[0].type === "r" && an.actions.b.length === 0);
+check("second pitcher can't report before the first (turn order)", !W.allowed(r, "b", { k: "r", n: 1, pack: [5, 5, 5] }) && W.allowed(r, "a", { k: "r", n: 1, pack: [5, 5, 5] }));
+H.report(r, "a", 1, [5, 3, 0]); an = W.analyze(r);
+check("after first pack: opponent must confirm, and may pitch next", an.pending[0].who === "a" && an.pending[0].by === "b" && an.actions.b.some((x) => x.type === "c") && an.actions.b.some((x) => x.type === "r") && an.current.turn === "b");
+H.report(r, "b", 1, [2, 2, 0]); H.confirm(r, "b", 1); an = W.analyze(r);
+check("round open until both confirm", an.rounds.length === 0 && an.pending.length === 1 && an.pending[0].by === "a");
+H.confirm(r, "a", 1); an = W.analyze(r);
+check("round 1 scored: Ann 8 (5+3+0), Bo 4 (2+2+0)", an.rounds.length === 1 && an.totals.a === 8 && an.totals.b === 4 && !an.done);
+check("5.5: side that scored more in the previous round pitches first (a again)", an.current.n === 2 && an.current.turn === "a");
+H.round(r, 2, [0, 0, 0], [5, 0, 0]); an = W.analyze(r);
+check("round 2 -> b scored more, so b pitches first in round 3", an.rounds.length === 2 && an.current.n === 3 && an.current.turn === "b" && an.current.first === "b");
+r = H.bariboshi(H.room(), 10, 30); H.round(r, 1, [2, 0, 0], [2, 0, 0]);
+check("5.6: tied round keeps the order", W.analyze(r).current.turn === "a" && W.analyze(r).rounds[0].scores.a === 2);
+// ---- winner: first to 21 (Art. 1.1), no steps/time tie-break ----
+r = H.bariboshi(H.room(), 10, 30); H.round(r, 1, [5, 5, 5], [5, 3, 2]); H.round(r, 2, [2, 2, 2], [2, 3, 0]);
+let d = W.decide(r); an = W.analyze(r);
+check("15+6 = 21 vs 10+5 = 15: first to 21 wins", d.done && d.winner === "a" && d.reason === "score" && an.totals.a === 21 && an.totals.b === 15);
+r = H.bariboshi(H.room(), 10, 30); H.round(r, 1, [5, 5, 5], [5, 5, 5]); H.round(r, 2, [5, 0, 0], [3, 0, 0]);
+check("20 vs 18: nobody at 21 yet, play on", !W.decide(r).done && W.analyze(r).totals.a === 20);
+H.round(r, 3, [0, 0, 0], [5, 5, 0]); 
+check("both over 21 the same round: higher total wins (rules silent, documented)", W.decide(r).winner === "b" && W.analyze(r).totals.b === 28);
+r = H.bariboshi(H.room(), 10, 30); H.round(r, 1, [5, 5, 5], [5, 5, 5]); H.round(r, 2, [3, 3, 0], [3, 3, 0]);
+d = W.decide(r); an = W.analyze(r);
+check("tied at 21+: overtime round, not a draw yet", !d.done && an.overtime && an.totals.a === 21 && an.totals.b === 21 && an.current.n === 3);
+H.round(r, 3, [5, 0, 0], [2, 0, 0]);
+check("overtime round decides it", W.decide(r).winner === "a" && W.decide(r).reason === "score");
+r = H.bariboshi(H.room(), 10, 30); for (let n = 1; n <= W.MAX_ROUNDS; n++) H.round(r, n, n <= 3 ? [5, 5, 5] : [0, 0, 0], n <= 3 ? [5, 5, 5] : [0, 0, 0]);
+d = W.decide(r); check("level at the round cap: draw (tie)", d.done && d.winner === null && d.reason === "tie" && /Tie/.test(W.resultText(r, "a")));
+check("result text names the score", /You win 21 to 15/.test(W.resultText(H.round(H.round(H.bariboshi(H.room(), 10, 30), 1, [5, 5, 5], [5, 3, 2]), 2, [2, 2, 2], [2, 3, 0]), "a")));
+// steps / time never decide: lots of steps for the winner changes nothing
+r = H.bariboshi(H.room(), 10, 30); r.players.a.steps = 99999; r.players.b.steps = 1; H.round(r, 1, [0, 0, 0], [5, 5, 5]); H.round(r, 2, [0, 0, 0], [5, 5, 5]);
+check("steps are only logged: more steps does not matter, b wins on score", W.decide(r).winner === "b");
+// ---- disputes (Art. 11): Bariboshi winner rules ----
+r = H.bariboshi(H.room(), 10, 30); H.report(r, "a", 1, [5, 5, 5]); H.confirm(r, "b", 1, false); an = W.analyze(r);
+check("disputed pack: Bariboshi winner (a) must rule; round not scored", an.disputed.length === 1 && an.disputed[0].ruler === "a" && an.disputed[0].who === "a" && an.actions.a.some((x) => x.type === "x") && !an.rounds.length);
+check("only the Bariboshi winner may rule", W.allowed(r, "a", { k: "x", n: 1, who: "a", pack: [5, 5, 0] }) && !W.allowed(r, "b", { k: "x", n: 1, who: "a", pack: [0, 0, 0] }));
+H.add(r, "a", { k: "x", n: 1, who: "a", pack: [5, 5, 0] }); H.report(r, "b", 1, [0, 0, 0]); H.confirm(r, "a", 1); an = W.analyze(r);
+check("ruling replaces the disputed pack; resolved against the reporter", an.rulings.length === 1 && an.rulings[0].against === "a" && an.totals.a === 10 && an.rounds.length === 1);
+r = H.bariboshi(H.room(), 10, 30); H.report(r, "a", 1, [5, 5, 5]); H.confirm(r, "b", 1, false); H.add(r, "a", { k: "x", n: 1, who: "a", pack: [5, 5, 5] });
+check("ruling that upholds the report is against the disputer", W.analyze(r).rulings[0].against === "b");
+// ---- forfeits (explicit, left, 30 s silence) ----
+r = H.bariboshi(H.room(), 10, 30); r.players.b.result = { forfeit: true, at: 1 };
+d = W.decide(r); check("forfeit: opponent wins at once", d.done && d.winner === "a" && d.reason === "forfeit" && /forfeited/.test(W.resultText(r, "a")));
+r = H.bariboshi(H.room(), 10, 30); r.players.a.leftAt = 5; check("leaving after start = forfeit", W.decide(r).winner === "b");
+r = H.room(); r.players.a.result = { forfeit: true, at: 1 }; r.players.b.leftAt = 3; d = W.decide(r); check("both out: no winner", d.done && d.winner === null && d.reason === "both-forfeit");
+r = H.bariboshi(H.room({ startAt: 100000 }), 10, 30); r.players.b.seenAt = 105000;
+check("30 s grace: seen 20 s ago is fine", !W.staleOpponent(r, "a", 125000) && W.staleOpponent(r, "a", 135001));
+r.players.b.seenAt = undefined; delete r.players.b.seenAt; check("never heartbeat: grace counts from the shared start", !W.staleOpponent(r, "a", 129000) && W.staleOpponent(r, "a", 130001));
+check("not stale outside live / after a decision / for a left player", !W.staleOpponent({ ...r, status: "countdown" }, "a", 999999) && !W.staleOpponent(H.room({ startAt: 1 , players: { a: H.seat("A"), b: H.seat("B", { leftAt: 1 }) } }), "a", 999999));
+r.players.a.claimGone = true; d = W.decide(r);
+check("claimGone ends the match: the silent player forfeits, claimer wins", d.done && d.winner === "a" && d.reason === "forfeit" && W.forfeitedBy(r, "b") && !W.forfeitedBy(r, "a"));
+r = H.bariboshi(H.room(), 10, 30); H.round(r, 1, [5, 5, 5], [0, 0, 0]); H.round(r, 2, [5, 5, 5], [0, 0, 0]); r.players.b.leftAt = 9;
+check("a decided score stays decided if the loser leaves afterwards", W.decide(r).reason === "score" && W.decide(r).winner === "a");
+// ---- write-once and gating ----
+r = H.bariboshi(H.room(), 10, 30);
+check("write-once: a second report for the same round is rejected", W.allowed(r, "a", { k: "r", n: 1, pack: [5, 5, 5] }) && (H.report(r, "a", 1, [5, 5, 5]), !W.allowed(r, "a", { k: "r", n: 1, pack: [0, 0, 0] })));
+check("can't report a future round or a bad pack", !W.allowed(H.bariboshi(H.room(), 10, 30), "a", { k: "r", n: 2, pack: [5, 5, 5] }) && !W.allowed(H.bariboshi(H.room(), 10, 30), "a", { k: "r", n: 1, pack: [5, 5, 4] }));
+check("can't confirm your own report, or something not reported", !W.allowed(r, "a", { k: "c", t: "r", n: 1, ok: true }) && !W.allowed(H.bariboshi(H.room(), 10, 30), "b", { k: "c", t: "r", n: 1, ok: true }) && W.allowed(r, "b", { k: "c", t: "r", n: 1, ok: true }));
+check("writes need a live room, a seat, and no forfeit/claim", !W.allowed(H.room({ status: "countdown" }), "a", { k: "b", n: 1, d: 5 }) && !W.allowed(H.room(), "z", { k: "b", n: 1, d: 5 }) && W.allowed(H.room(), "a", { k: "b", n: 1, d: 5 })
+  && !W.allowed(H.room({ players: { a: H.seat("A", { result: { forfeit: true, at: 1 } }), b: H.seat("B") } }), "a", { k: "b", n: 1, d: 5 })
+  && !W.allowed(H.room({ players: { a: H.seat("A"), b: H.seat("B", { claimGone: true }) } }), "a", { k: "b", n: 1, d: 5 }));
+// ---- match states (waiting, ready, countdown, live, finished, cancelled) ----
+const T0 = 1e6, tm = (v) => (typeof v === "number" ? v : null);
+check("state waiting: one seat", W.matchState({ status: "waiting", createdAt: T0, players: { a: H.seat("A") } }, T0 + 1000, tm) === "waiting");
+check("state ready: two seated, not started", W.matchState({ status: "waiting", createdAt: T0, players: { a: H.seat("A"), b: H.seat("B") } }, T0 + 1000, tm) === "ready");
+check("state countdown", W.matchState(H.room({ status: "countdown" }), T0, tm) === "countdown");
+check("state live", W.matchState(H.room(), T0, tm) === "live");
+check("state finished", W.matchState(H.round(H.round(H.bariboshi(H.room(), 10, 30), 1, [5, 5, 5], [0, 0, 0]), 2, [5, 5, 5], [0, 0, 0]), T0, tm) === "finished");
+check("state cancelled: abandoned, or nobody joined within 30 min", W.matchState({ status: "abandoned", players: {} }, T0, tm) === "cancelled" && W.matchState({ status: "waiting", createdAt: T0, players: { a: H.seat("A") } }, T0 + B.EXPIRE_MS + 1, tm) === "cancelled" && W.matchState(null) === "cancelled");
+check("cancelled / unstarted rooms are never 'decided'", !W.decide({ status: "waiting", players: { a: H.seat("A"), b: H.seat("B") } }).done && !W.decide({ status: "abandoned", players: {} }).done);
+// ---- pairing flags the match relies on (battle-rooms.js): code, exactly two seats, expiry ----
+check("pairing: 4-char code, two seats max, expiry 30 min", B.CODE_LEN === 4 && B.MAX === 2 && B.EXPIRE_MS === 30 * 60 * 1000 && /full/.test(B.joinError({ status: "waiting", players: { a: {}, b: {} } }, "c", 0, 0)) && /expired/.test(B.joinError({ status: "waiting", players: { a: {} } }, "c", 31 * 60000, 0)));
+// ---- write path over a mock room doc ----
+let doc = H.bariboshi(H.room(), 10, 30), wrote = 0; const SV = { __sv: 1 };
+const mfs = { ts: () => SV, toMs: tm, tx: async (c, fn) => fn({ get: () => JSON.parse(JSON.stringify(doc)), update: (p) => { wrote++; for (const [k, v] of Object.entries(p)) { const ks = k.split("."); let o = doc; ks.slice(0, -1).forEach((s) => (o = o[s])); o[ks[ks.length - 1]] = v; } } }) };
 (async () => {
-  const pa = B.controller(fs, { now: () => T + 2000 }), pb = B.controller(fs, { now: () => T - 1500 });
-  const code = await pa.createRoom(A); await pb.joinRoom(code, Bu);
-  check("room: two seats", Object.keys(docs[code].players).length === 2);
-  check("no publish before live", (await W.submitResult(fs, code, "a", { steps: 5, ms: 10 })) === false && !docs[code].players.a.result);
-  await pa.setReady(code, A, true); await pb.setReady(code, Bu, true);
-  check("both ready -> countdown 5 s", docs[code].status === "countdown" && Math.abs(docs[code].startAt - T - B.LEAD_MS) < 50);
-  T += 5100; await pb.markLive(code);
-  check("live", docs[code].status === "live");
-  await W.publishLive(fs, code, "a", { score: 12, steps: 40 }); await W.publishLive(fs, code, "b", { score: 9, steps: 30 });
-  check("shared scoreboard sees both", docs[code].players.a.score === 12 && docs[code].players.b.steps === 30);
-  check("A reaches 21: result written", await W.submitResult(fs, code, "a", { steps: 80, ms: 400000, verified: true, reasons: [] }));
-  check("write-once: second result rejected", (await W.submitResult(fs, code, "a", { steps: 1, ms: 1 })) === false && docs[code].players.a.result.steps === 80 && docs[code].players.a.score === 21);
-  check("A finished, B playing: not decided", !W.decide(docs[code]).done);
-  check("B result -> decided (fewer steps A)", await W.submitResult(fs, code, "b", { steps: 95, ms: 300000, verified: true, reasons: [] }) && W.decide(docs[code]).winner === "a");
-  check("result validates", W.validResult(docs[code].players.a.result) && W.validResult(docs[code].players.b.result));
-  // forfeit room
-  const c2 = await pa.createRoom(A); await pb.joinRoom(c2, Bu); await pa.setReady(c2, A, true); await pb.setReady(c2, Bu, true); T += 5100; await pa.markLive(c2);
-  check("forfeit written", await W.forfeit(fs, c2, "b") && docs[c2].players.b.result.forfeit === true);
-  check("after forfeit no result", (await W.submitResult(fs, c2, "b", { steps: 1, ms: 5 })) === false);
-  check("forfeit then A finishes: A wins", await W.submitResult(fs, c2, "a", { steps: 50, ms: 9000 }) && W.decide(docs[c2]).winner === "a");
-  const pass = R.filter(Boolean).length; console.log(`${pass}/${R.length} passed`); process.exit(pass === R.length ? 0 : 1);
+  check("report() appends the entry once", (await W.report(mfs, "K7QX", "a", { k: "r", n: 1, pack: [5, 3, 2] })) === true && doc.players.a.rep.length === 3);
+  check("report() refuses a duplicate", (await W.report(mfs, "K7QX", "a", { k: "r", n: 1, pack: [0, 0, 0] })) === false && doc.players.a.rep.filter((e) => e.k === "r").length === 1);
+  check("report() refuses out of turn", (await W.report(mfs, "K7QX", "a", { k: "c", t: "r", n: 1, ok: true })) === false);
+  check("forfeit() writes a forfeit result once", (await W.forfeit(mfs, "K7QX", "b")) === true && doc.players.b.result.forfeit === true && (await W.forfeit(mfs, "K7QX", "b")) === false);
+  doc = H.bariboshi(H.room({ startAt: 100000 }), 10, 30);
+  check("claimGone() refused while the opponent is fresh, allowed once stale", (await W.claimGone(mfs, "K7QX", "a", 120000)) === false && (await W.claimGone(mfs, "K7QX", "a", 140000)) === true && doc.players.a.claimGone === true && (await W.claimGone(mfs, "K7QX", "a", 140000)) === false);
+  const pass = R.filter(Boolean).length;
+  // ---- rules draft + index wiring ----
+  const rules = fsx.readFileSync(__dirname + "/../firestore.rules", "utf8");
+  const blk = rules.slice(rules.indexOf("match /washersBattles/{code}"), rules.indexOf("match /tutBattleStats"));
+  check("rules: washersBattles block marked DRAFT, not yet published", /DRAFT, not yet published/.test(rules.slice(rules.indexOf("match /washersBattles") - 900, rules.indexOf("match /washersBattles"))));
+  check("rules: no stray ';' before '&&' (syntax) in any battle room block", !/\);\s*&&/.test(rules));
+  check("rules: seat fields cover the reports, claim and steps", blk.includes("'ready','seenAt','leftAt','opener','steps','result','rep','claimGone'"));
+  check("rules: report entries are append-only and validated", blk.includes("function repOk(e)") && blk.includes("function packOk(a)") && /a\[0\] in \[0,2,3,5\]/.test(blk) && blk.includes("p.rep[0:o.rep.size()] == o.rep"));
+  check("rules: claimGone only when the other seat's heartbeat is stale 30 s", /function otherStale\(\)/.test(blk) && blk.includes("30000") && blk.includes("claimGone"));
+  check("rules: result still write-once forfeit; seenAt must be server time", blk.includes("resOk(") && blk.includes("p.seenAt == request.time"));
+  check("rules: wager hooks inert without a stake (stakeOk / wagerReady pass when no stake)", blk.includes("!('stake' in n()) ||") && blk.includes("!('stake' in d()) ||"));
+  check("rules: washers tokenTx clause untouched", /t\(\)\.source == 'washers' && t\(\)\.units == 'wins'\s+&& t\(\)\.qty == 1\s+&& t\(\)\.amount == 1\)\)/.test(rules));
+  const html = fsx.readFileSync(__dirname + "/../index.html", "utf8");
+  check("hub card points at the battle UI", /href="#washerbattle" data-battle="washers"/.test(html) && html.includes('id="washerbattle"'));
+  check("module loaded, collection washersBattles", html.includes('src="/washers-battle.js"') && html.includes('mkBattleFs("washersBattles")'));
+  check("user-facing spelling Zabba in the battle section", html.includes("Zabba Washer Battle") && !/>[^<]*\bZaba\b[^<]*</.test(html.slice(html.indexOf('id="washerbattle"'), html.indexOf('id="washerbattle"') + 4000)));
+  check("match panel + scorekeeper wired in index", html.includes('id="wbMatch"') && /function wbMatchPaint\(/.test(html) && /WB\.report\(/.test(html) && /WB\.claimGone\(/.test(html) && /WB\.heartbeat\(/.test(html));
+  const p2 = R.filter(Boolean).length; console.log(`${p2}/${R.length} passed`); process.exit(p2 === R.length ? 0 : 1);
 })();

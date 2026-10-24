@@ -20,9 +20,9 @@
   const COL = { washers: "washersBattles", tut: "tutBattles", plank: "battles" };
   const LABEL = { washers: "Zabba Washer Battle", tut: "TUT Battle", plank: "Plank Battle" };
   const GRACE_MS = 60000;              // after a timed battle should have ended
-  const SILENT_MS = 15 * 60000;        // washers: one finished, the other silent this long -> silent player loses
+  const SILENT_MS = 15 * 60000;        // legacy constant (unused by washers since the Bariboshi match)
   const MAX_GAME_MS = 4 * 3600000;     // nobody finished after this -> both disconnected -> refund
-  const MIN_WASHERS_MS = 60000;        // 21 points in under a minute is not plausible -> flag + refund
+  const MIN_WASHERS_MS = 60000;        // legacy constant (unused)
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
   function validStake(n) { return isInt(n) && n >= MIN_STAKE && (MAX_STAKE == null || n <= MAX_STAKE); }
   function stakeError(n) {
@@ -42,25 +42,10 @@
   function gameOutcome(game, room, nowMs, toMs) {
     const start = room.startAt;
     if (game === "washers") {
+      // Bariboshi match (washers-battle.js): both phones derive the same decision from the reports; wager uses it as-is.
       const d = WB.decide(room);
-      const fins = seated(room).filter((u) => WB.finished(room.players[u]));
-      const bad = fins.find((u) => !room.players[u].result.verified);
-      const fast = fins.find((u) => room.players[u].result.ms < MIN_WASHERS_MS);
-      if (d.done) {
-        if (d.winner == null) return { state: "refund", reason: d.reason };
-        if (bad) return { state: "refund", reason: "unverified", flag: "unverified" };
-        if (fast) return { state: "refund", reason: "implausible", flag: "implausible" };
-        return { state: "win", winner: d.winner, reason: d.reason };
-      }
-      if (fins.length === 1) {
-        const at = toMs(room.players[fins[0]].result.at);
-        if (at != null && nowMs - at > SILENT_MS) {
-          if (bad) return { state: "refund", reason: "unverified", flag: "unverified" };
-          if (fast) return { state: "refund", reason: "implausible", flag: "implausible" };
-          return { state: "win", winner: fins[0], reason: "silent" };
-        }
-      }
-      if (!fins.length && start != null && nowMs - start > MAX_GAME_MS) return { state: "refund", reason: "both-silent" };
+      if (d.done) return d.winner == null ? { state: "refund", reason: d.reason } : { state: "win", winner: d.winner, reason: d.reason };
+      if (start != null && nowMs - start > MAX_GAME_MS) return { state: "refund", reason: "both-silent" };
       return { state: "pending" };
     }
     if (game === "tut") {
