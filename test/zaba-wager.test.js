@@ -1,7 +1,7 @@
 // ZAB wagers: stake limits, escrow, payout exactly once, refunds, silent players, every battle type.
 const WH = require("./lib/washers-match.js"), W = require("../zaba-wager.js"), Z = require("../zab-balance.js"), B = require("../battle-rooms.js"), fsx = require("fs");
 const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
-check("min bet 1: 0, negatives, fractions rejected", !W.validStake(0) && !W.validStake(-2) && !W.validStake(1.5) && !W.validStake("3") && W.validStake(1) && /Minimum bet is 1/.test(W.stakeError(0)));
+check("min bet 1: 0, negatives, fractions rejected", !W.validStake(0) && !W.validStake(-2) && !W.validStake(1.5) && !W.validStake("3") && W.validStake(1) && /Minimum wager is 1/.test(W.stakeError(0)));
 check("MAX_STAKE single config constant (null = open)", W.MAX_STAKE === null && W.validStake(1e6));
 check("pot = 2 x stake", W.pot(1) === 2 && W.pot(5) === 10);
 check("key includes room createdAt", W.roomKey("tut", "K7QX", 123) === "tut_K7QX_123");
@@ -115,7 +115,7 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   check("settle checks caller is in the wager", /Not your wager/.test(fn("wager-settle.js")));
   const html = fsx.readFileSync(__dirname + "/../index.html", "utf8");
   check("UI: script, stake picker, join confirm, pot line, all 3 controllers gated", html.includes('src="/zaba-wager.js"') && /mkWager\("plank"/.test(html) && /mkWager\("tut"/.test(html) && /mkWager\("washers"/.test(html) && /Winner takes the pot/.test(html) && (html.match(/wagerGate\("(plank|tut|washers)"\)/g) || []).length === 3);
-  check("user-facing bet text says ZAB + ring (no old currency wording)", /Bet ZAB<svg class="zab-ring"/.test(html) && !/Zab+a Tok[e]n/.test(html));
+  check("user-facing bet text says ZAB + ring (no old currency wording)", /Wager ZAB<svg class="zab-ring"/.test(html) && !/Zab+a Tok[e]n/.test(html));
   // sweep helper
   const sw = require("../netlify/functions/wager-sweep.js");
   r = await staked("washers", 1); const fake = Object.assign({}, fs, { db: { collection: () => ({ where: () => ({ limit: () => ({ get: async () => ({ docs: Object.keys(db).filter((k) => k.startsWith("wagers/") && db[k].status === "open").map((k) => ({ id: k.slice(7) })) }) }) }) }) } });

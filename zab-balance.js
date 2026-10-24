@@ -110,7 +110,7 @@
     var amt = Number(t.amount) || 0, when = d ? d.toLocaleString() : "just now";
     // Battle bets (server-written): stake is negative, win / refund positive.
     if (t.source === "wager") {
-      var g = WAGER_GAME[t.game] || "Battle", w = WAGER_TYPE[t.type] || "Battle bet";
+      var g = WAGER_GAME[t.game] || "Battle", w = WAGER_TYPE[t.type] || "Battle wager";
       return { source: w, amount: (amt < 0 ? "−" : "+") + Math.abs(amt), qty: g + (t.code ? " " + t.code : ""), when: when };
     }
     return { source: src, amount: (amt < 0 ? "−" + Math.abs(amt) : "+" + amt), qty: UNIT[t.source] ? UNIT[t.source](q) : q + " " + (t.units || ""), when: when };

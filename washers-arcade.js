@@ -59,7 +59,7 @@
     if (r.status === "waiting" || (r.status !== "countdown" && r.status !== "live" && r.status !== "done")) {
       if (ids.length < 2) return { key: "waiting", title: "INSERT COIN", sub: "Waiting for challenger" };
       const both = ids.every((u) => r.players[u].ready);
-      const st = r.stake ? " · bet " + r.stake + " ZAB each" : "";
+      const st = r.stake ? " · wager " + r.stake + " ZAB each" : "";
       return { key: "ready", title: "READY?", sub: (both ? (r.stake ? "Waiting for both stakes" : "Both ready") : "Tap I'm ready") + st };
     }
     if (r.status === "countdown") return { key: "countdown", title: countdownLabel(ctx.cd), sub: "Get into position" };

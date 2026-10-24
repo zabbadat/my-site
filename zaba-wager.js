@@ -27,8 +27,8 @@
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
   function validStake(n) { return isInt(n) && n >= MIN_STAKE && (MAX_STAKE == null || n <= MAX_STAKE); }
   function stakeError(n) {
-    if (!isInt(n) || n < MIN_STAKE) return "Minimum bet is " + MIN_STAKE + " ZAB.";
-    if (MAX_STAKE != null && n > MAX_STAKE) return "Maximum bet is " + MAX_STAKE + " ZAB.";
+    if (!isInt(n) || n < MIN_STAKE) return "Minimum wager is " + MIN_STAKE + " ZAB.";
+    if (MAX_STAKE != null && n > MAX_STAKE) return "Maximum wager is " + MAX_STAKE + " ZAB.";
     return "";
   }
   const pot = (stake) => 2 * stake;
@@ -101,7 +101,7 @@
    *   ts() server timestamp; toMs(v) } paths are arrays. All reads happen before writes (Firestore transactions). */
   const ledger = (uid, type, amount, w, extra) => Object.assign({ uid, type, source: "wager", game: w.game, amount, wager: w.key, code: w.code }, extra || {});
   function stake(fs, uid, game, rawCode) {
-    if (!uid) return Promise.reject(err(401, "Sign in to bet."));
+    if (!uid) return Promise.reject(err(401, "Sign in to wager."));
     if (!isGame(game)) return Promise.reject(err(400, "Unknown battle."));
     const code = BR.normCode(rawCode); if (!BR.isValidCode(code)) return Promise.reject(err(400, "Bad room code."));
     return fs.tx((t) => t.get([COL[game], code]).then((room) => {
@@ -116,7 +116,7 @@
         if (w && w.status !== "open") throw err(409, "This wager is already settled.");
         if (w && stakers(w).length >= 2) throw err(409, "Both stakes are already in.");
         const bal = u && isInt(u.zabBalance) ? u.zabBalance : 0;
-        if (bal < room.stake) throw err(402, "Not enough ZAB: you have " + bal + ", the bet is " + room.stake + ".");
+        if (bal < room.stake) throw err(402, "Not enough ZAB: you have " + bal + ", the wager is " + room.stake + ".");
         const seat = { amount: room.stake, at: fs.ts() };
         if (w) t.update(wRef, { ["players." + uid]: seat });
         else t.set(wRef, { key, game, code, roomCreatedAt: createdMs, stake: room.stake, players: { [uid]: seat }, status: "open", createdAt: fs.ts() });
@@ -156,7 +156,7 @@
     if (!w || w.status === "open") return w ? "Pot: " + pot(w.stake) + " ZAB" : "";
     if (w.status === "paid") return w.winner === uid ? "You won the pot: +" + pot(w.stake) + " ZAB." : "Your opponent won the pot.";
     const why = { unverified: " (unverified game, flagged)", implausible: " (result flagged)" }[w.flag] || "";
-    return "Bet refunded: +" + ((w.players && w.players[uid] && w.players[uid].amount) || w.stake) + " ZAB" + why + ".";
+    return "Wager refunded: +" + ((w.players && w.players[uid] && w.players[uid].amount) || w.stake) + " ZAB" + why + ".";
   }
   const api = { MIN_STAKE, MAX_STAKE, COL, LABEL, GRACE_MS, SILENT_MS, MAX_GAME_MS, MIN_WASHERS_MS, validStake, stakeError, pot, roomKey, isGame, allStaked, gameOutcome, plan, stake, settle, outcomeText };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
