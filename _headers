@@ -1,0 +1,9 @@
+# Netlify headers file. Static images and the video rarely change and are not fingerprinted:
+# let browsers reuse them for a day, then revalidate. HTML and the .js files keep Netlify's default
+# (revalidate every load), because their names carry no version and index.html must always load matching scripts.
+/*.svg
+  Cache-Control: public, max-age=86400
+/*.png
+  Cache-Control: public, max-age=86400
+/*.mp4
+  Cache-Control: public, max-age=86400
