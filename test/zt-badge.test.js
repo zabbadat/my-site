@@ -22,7 +22,7 @@ function env(user) {
 { const e = env(null); e.ctx.paintZabSection(null); let pd = 0; e.ctx.ztBadgeClick({ preventDefault: () => pd++ });
   check("signed out: badge links to #play, scrolls to the sign-in box and focuses the Google button", e.g.attrs.href === "#play" && pd === 1 && e.log.join(",") === "scroll:start,focus"); }
 check("static: badge defaults to #play / Sign in; click handler wired", html.includes('<a class="zt-badge" id="ztBadge" href="#play" aria-label="Sign in">Sign in</a>') && html.includes('$("ztBadge").onclick = ztBadgeClick;'));
-check("the ZAB page label stays above #ztBalance, styled like the stat labels", html.includes('<div class="stat"><span class="zt-bag-label" id="ztBagLabel">Zabba Bag</span><b id="ztBalance">') && /\.stat \.zt-bag-label \{ display:/.test(html));
+check("the ZAB page label stays above #ztBalance, styled like the stat labels", html.includes('<div class="stat"><span class="zt-bag-label" id="ztBagLabel">ZAB</span><b id="ztBalance">') && /\.stat \.zt-bag-label \{ display:/.test(html));
 check("header badge no longer says 'Zabba Bag:' and the name has a CSS ellipsis", !/Zabba Bag:/.test(html) && /\.zt-badge \.zt-name\{[^}]*text-overflow:ellipsis/.test(html));
 check("user-facing spelling Zabba", !/Zaba Bag|Zaba ZAB/.test(html + fs.readFileSync(path.join(__dirname, "..", "zab-balance.js"), "utf8")));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

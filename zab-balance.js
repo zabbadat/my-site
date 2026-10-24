@@ -127,18 +127,18 @@
     if (n.length > maxName) n = n.slice(0, maxName - 1).trim() + "\u2026";
     return { name: n, amount: Math.max(0, Math.floor(Number(balance) || 0)).toLocaleString("en-US") };
   }
-  // Public "Top Zabba Bag" mirror: zabBoard/{uid} = { uid, name, total, updatedAt } (name = leaderboard publicName,
+  // Public "Top ZAB" mirror: zabBoard/{uid} = { uid, name, total, updatedAt } (name = leaderboard publicName,
   // never an email; total = the owner's users/{uid}.zabBalance, enforced by rules). Written best-effort, outside the
   // award transaction, so earning never depends on it.
   function boardEntry(uid, name, total) {
     var n = badgeParts(name, total, 40).name;
     return { uid: String(uid), name: n, total: Math.max(0, Math.floor(Number(total) || 0)) };
   }
-  // "Bank of Zabba \u2013 Top Zabba Bags: Zab \u00b7 12 ZAB" (the ring is added by ZabCurrency) or null (hide) when there is no usable entry.
+  // "Bank of Zabba \u2013 Top ZAB: Zab \u00b7 12 ZAB" (the ring is added by ZabCurrency) or null (hide) when there is no usable entry.
   function topLine(entry) {
     if (!entry || !(Number(entry.total) > 0)) return null;
     var p = badgeParts(entry.name, entry.total, 24), t = Math.floor(Number(entry.total));
-    return "Bank of Zabba \u2013 Top Zabba Bags: " + p.name + " \u00b7 " + t.toLocaleString("en-US") + " ZAB";
+    return "Bank of Zabba \u2013 Top ZAB: " + p.name + " \u00b7 " + t.toLocaleString("en-US") + " ZAB";
   }
   var api = { boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
     profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };

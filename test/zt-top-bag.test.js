@@ -1,14 +1,14 @@
-// "Top Zabba Bag" line: zabBoard mirror entry, line text, hide rules, draft rules shape.
+// "Top ZAB" line: zabBoard mirror entry, line text, hide rules, draft rules shape.
 const fs = require("fs"), path = require("path"), vm = require("vm"), ZT = require("../zab-balance.js"), ZC = require("../zab-currency.js");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8"), rules = fs.readFileSync(path.join(__dirname, "..", "firestore.rules"), "utf8");
 let pass = 0, fail = 0; const check = (n, ok) => { ok ? pass++ : fail++; console.log((ok ? "PASS " : "FAIL ") + n); };
-check("line text", ZT.topLine({ name: "Zab", total: 12 }) === "Bank of Zabba \u2013 Top Zabba Bags: Zab \u00b7 12 ZAB" && ZT.topLine({ name: "Zab", total: 1 }) === "Bank of Zabba \u2013 Top Zabba Bags: Zab \u00b7 1 ZAB" && ZT.topLine({ name: "Zab", total: 1500 }) === "Bank of Zabba \u2013 Top Zabba Bags: Zab \u00b7 1,500 ZAB");
+check("line text", ZT.topLine({ name: "Zab", total: 12 }) === "Bank of Zabba \u2013 Top ZAB: Zab \u00b7 12 ZAB" && ZT.topLine({ name: "Zab", total: 1 }) === "Bank of Zabba \u2013 Top ZAB: Zab \u00b7 1 ZAB" && ZT.topLine({ name: "Zab", total: 1500 }) === "Bank of Zabba \u2013 Top ZAB: Zab \u00b7 1,500 ZAB");
 check("hidden when empty / zero / missing", ZT.topLine(null) === null && ZT.topLine({ name: "Zab", total: 0 }) === null && ZT.topLine({}) === null);
 check("never an email (entry and line)", ZT.boardEntry("u1", "zab@example.com", 3).name === "Player" && !/@/.test(ZT.topLine({ name: "a@b.co", total: 3 })));
 check("entry shape uid/name/total only", JSON.stringify(ZT.boardEntry("u1", "Zab", 7.9)) === '{"uid":"u1","name":"Zab","total":7}');
 const fn = (name) => { const i = html.indexOf("function " + name + "("); const e = html.indexOf("\n", i); const l = html.slice(i, e); return /\}\s*$/.test(l) && l.split("{").length === l.split("}").length ? l : html.slice(i, html.indexOf("\n}", i) + 2); };
 { const el = { textContent: "x", hidden: false }; const ctx = { $: () => el, ZT, window: { ZabCurrency: ZC }, document: {} }; vm.createContext(ctx); vm.runInContext(fn("paintTopBag"), ctx);
-  ctx.paintTopBag({ name: "Zab", total: 4 }); const shown = !el.hidden && /^Bank of Zabba \u2013 Top Zabba Bags: Zab \u00b7 4 <span class="zab">ZAB/.test(el.innerHTML) && /zab-ring/.test(el.innerHTML || "");
+  ctx.paintTopBag({ name: "Zab", total: 4 }); const shown = !el.hidden && /^Bank of Zabba \u2013 Top ZAB: Zab \u00b7 4 <span class="zab">ZAB/.test(el.innerHTML) && /zab-ring/.test(el.innerHTML || "");
   ctx.paintTopBag(null); check("paintTopBag shows the line, hides on null (empty / no permission / error)", shown && el.hidden && el.innerHTML === ""); }
 { const writes = []; let fail1 = true; const ctx = { ZT, db: {}, doc: (db, c, id) => c + "/" + id, serverTimestamp: () => "TS", setDoc: (p, d) => { writes.push([p, d]); return fail1 ? Promise.reject(new Error("denied")) : Promise.resolve(); },
     publicName: (s) => String(s).split("@")[0], displayNameOf: (u) => u.displayName || u.email, ztMirrored: null };

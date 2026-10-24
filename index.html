@@ -693,7 +693,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="zab">
     <h2><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></h2>
     <p class="lead">Earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> for the work you log. Earn only: <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> can't be bet or spent yet.</p>
-    <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">Zabba Bag</span><b id="ztBalance">—</b><span>Your balance</span></div></div>
+    <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">ZAB</span><b id="ztBalance">—</b><span>Your balance</span></div></div>
     <p class="note" id="ztTop" hidden></p>
     <p class="note" id="ztSignedOut">Sign in to start earning. <a href="#play" id="ztSignInLink">Go to sign-in</a></p>
     <h3>Earn rates</h3>
@@ -1092,6 +1092,7 @@ let saveRemote = async () => { throw new Error("Live board is not connected"); }
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
 // ZAB (internal: zabBalance): awardZab(source, qty, setId) is wired to Firestore after sign-in setup; no-op until then.
 const ZT = window.ZabBalance || null;
+if (window.ZabCurrency && $("ztBagLabel")) window.ZabCurrency.ring($("ztBagLabel"));
 if (ZT && $("ztRates")) $("ztRates").innerHTML = ZT.rateLines().map((l) => "<li>" + window.ZabCurrency.html(l) + "</li>").join("");
 let awardZab = async () => ({ credited: 0 });
 function zabRing(el) { if (window.ZabCurrency) window.ZabCurrency.ring(el); }
@@ -2323,7 +2324,7 @@ saveRemoteWalk = async (r) => {
 
 const ztFs = { ts: () => serverTimestamp(), tx: (fn) => runTransaction(db, (t) => fn({ get: (p) => t.get(doc(db, ...p)).then((x) => (x.exists() ? x.data() : null)), set: (p, d) => t.set(doc(db, ...p), d), update: (p, d) => t.update(doc(db, ...p), d) })) };
 let ztOff = null, ztTopOff = null, ztMirrored = null;
-// Top Zabba Bag line (signed in only): hidden when empty, not permitted (rules not published) or on any error.
+// Top ZAB line (signed in only): hidden when empty, not permitted (rules not published) or on any error.
 function paintTopBag(entry) { const el = $("ztTop"); if (!el) return; const line = ZT && ZT.topLine ? ZT.topLine(entry) : null; window.ZabCurrency.set(el, line || ""); el.hidden = !line; }
 function mirrorBoard(u, total) {
   if (!ZT || !ZT.boardEntry || !u || total == null || ztMirrored === u.uid + ":" + total) return;
