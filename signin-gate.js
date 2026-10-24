@@ -31,7 +31,8 @@
       box.setAttribute("aria-labelledby", "signGateTitle"); box.setAttribute("aria-describedby", "signGateText");
       const h = doc.createElement("h2"); h.id = "signGateTitle"; h.textContent = "Please sign in";
       const p = doc.createElement("p"); p.id = "signGateText";
-      p.textContent = practice ? "Sign in to save your sets, steps and Zabba Tokens." : "Sign in to play a battle. Battles need an account so both players see each other.";
+      p.textContent = practice ? "Sign in to save your sets, steps and ZAB." : "Sign in to play a battle. Battles need an account so both players see each other.";
+      if (doc.defaultView && doc.defaultView.ZabCurrency) doc.defaultView.ZabCurrency.ring(p);
       const row = doc.createElement("div"); row.className = "row";
       const sign = btn("btn", "signGateSignIn", "Sign in", () => { close(); if (o.onSignIn) o.onSignIn(feature); });
       row.appendChild(sign);

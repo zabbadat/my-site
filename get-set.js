@@ -11,10 +11,12 @@
   var SHOWN = ["3", "2", "1"];
   var AT = [0, 0.35, 0.7]; // fraction of the window
   function g() { return typeof window !== "undefined" ? window : root; }
+  /* the currency is written ZAB but spoken "Zab" (never spelled out) */
+  function say(t) { return String(t == null ? "" : t).replace(/\bZAB\b/g, "Zab"); }
   function utter(text, volume) {
     var w = g();
     if (!w || !w.speechSynthesis || typeof w.SpeechSynthesisUtterance !== "function") return;
-    var u = new w.SpeechSynthesisUtterance(text); u.rate = 1.3; if (volume !== undefined) u.volume = volume;
+    var u = new w.SpeechSynthesisUtterance(say(text)); u.rate = 1.3; if (volume !== undefined) u.volume = volume;
     w.speechSynthesis.speak(u);
   }
   function defaultUnlock() { var w = g(); if (!w || !w.speechSynthesis) return; w.speechSynthesis.cancel(); utter(" ", 0); }
@@ -114,7 +116,7 @@
         else {
           var w = g();
           if (w && w.speechSynthesis && typeof w.SpeechSynthesisUtterance === "function") {
-            var u = new w.SpeechSynthesisUtterance(text); u.rate = 1.1; u.onend = ended; u.onerror = ended;
+            var u = new w.SpeechSynthesisUtterance(say(text)); u.rate = 1.1; u.onend = ended; u.onerror = ended;
             w.speechSynthesis.cancel(); w.speechSynthesis.speak(u); started = true;
           }
         }

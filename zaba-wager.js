@@ -26,8 +26,8 @@
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
   function validStake(n) { return isInt(n) && n >= MIN_STAKE && (MAX_STAKE == null || n <= MAX_STAKE); }
   function stakeError(n) {
-    if (!isInt(n) || n < MIN_STAKE) return "Minimum bet is " + MIN_STAKE + " Zabba Token.";
-    if (MAX_STAKE != null && n > MAX_STAKE) return "Maximum bet is " + MAX_STAKE + " Zabba Tokens.";
+    if (!isInt(n) || n < MIN_STAKE) return "Minimum bet is " + MIN_STAKE + " ZAB.";
+    if (MAX_STAKE != null && n > MAX_STAKE) return "Maximum bet is " + MAX_STAKE + " ZAB.";
     return "";
   }
   const pot = (stake) => 2 * stake;
@@ -112,7 +112,7 @@
         if (w && w.status !== "open") throw err(409, "This wager is already settled.");
         if (w && stakers(w).length >= 2) throw err(409, "Both stakes are already in.");
         const bal = u && isInt(u.zabaTokens) ? u.zabaTokens : 0;
-        if (bal < room.stake) throw err(402, "Not enough Zabba Tokens: you have " + bal + ", the bet is " + room.stake + ".");
+        if (bal < room.stake) throw err(402, "Not enough ZAB: you have " + bal + ", the bet is " + room.stake + ".");
         const seat = { amount: room.stake, at: fs.ts() };
         if (w) t.update(wRef, { ["players." + uid]: seat });
         else t.set(wRef, { key, game, code, roomCreatedAt: createdMs, stake: room.stake, players: { [uid]: seat }, status: "open", createdAt: fs.ts() });
@@ -149,10 +149,10 @@
   function err(status, message) { const e = new Error(message); e.status = status; return e; }
   // Client-side text for the result line.
   function outcomeText(w, uid) {
-    if (!w || w.status === "open") return w ? "Pot: " + pot(w.stake) + " Zabba Tokens" : "";
-    if (w.status === "paid") return w.winner === uid ? "You won the pot: +" + pot(w.stake) + " Zabba Tokens." : "Your opponent won the pot.";
+    if (!w || w.status === "open") return w ? "Pot: " + pot(w.stake) + " ZAB" : "";
+    if (w.status === "paid") return w.winner === uid ? "You won the pot: +" + pot(w.stake) + " ZAB." : "Your opponent won the pot.";
     const why = { unverified: " (unverified game, flagged)", implausible: " (result flagged)" }[w.flag] || "";
-    return "Bet refunded: +" + ((w.players && w.players[uid] && w.players[uid].amount) || w.stake) + " Zabba Tokens" + why + ".";
+    return "Bet refunded: +" + ((w.players && w.players[uid] && w.players[uid].amount) || w.stake) + " ZAB" + why + ".";
   }
   const api = { MIN_STAKE, MAX_STAKE, COL, LABEL, GRACE_MS, SILENT_MS, MAX_GAME_MS, MIN_WASHERS_MS, validStake, stakeError, pot, roomKey, isGame, allStaked, gameOutcome, plan, stake, settle, outcomeText };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

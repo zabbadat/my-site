@@ -13,6 +13,7 @@
  */
 (function (root) {
   "use strict";
+  var ZC = typeof module !== "undefined" && module.exports ? require("./zab-currency.js") : root.ZabCurrency;
   var RATES = {
     pushups: { units: "reps", per: 10, max: 5000 },
     plank: { units: "seconds", per: 60, max: 7200 },
@@ -101,7 +102,7 @@
     washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; } };
   var OF = { pushups: "", plank: " of plank", tut: " of TUT", walk: " of walking" };
   // Display lines built from RATES so the page always matches the earn math.
-  function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { return UNIT[k](RATES[k].per) + OF[k] + " = 1 token"; }).concat(["Won Zabba Washers game = 1 token"]); }
+  function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { return UNIT[k](RATES[k].per) + OF[k] + " = 1 ZAB"; }).concat(["Won Zabba Washers game = 1 ZAB"]); }
   function txLine(t) {
     t = t || {};
     var src = LABEL[t.source] || String(t.source || "?"), q = Number(t.qty) || 0;
@@ -115,8 +116,8 @@
     return { source: src, amount: (amt < 0 ? "−" + Math.abs(amt) : "+" + amt), qty: UNIT[t.source] ? UNIT[t.source](q) : q + " " + (t.units || ""), when: when };
   }
   function txRowsHtml(list, esc) {
-    if (!list || !list.length) return '<tr><td colspan="4">No tokens earned yet. Finish a set, plank or walk to earn your first.</td></tr>';
-    return list.map(function (t) { var l = txLine(t); return "<tr><td>" + esc(l.source) + "</td><td>" + esc(l.amount) + "</td><td>" + esc(l.qty) + "</td><td>" + esc(l.when) + "</td></tr>"; }).join("");
+    if (!list || !list.length) return '<tr><td colspan="4">No ZAB earned yet. Finish a set, plank or walk to earn your first.</td></tr>';
+    return list.map(function (t) { var l = txLine(t); return "<tr><td>" + esc(l.source) + "</td><td>" + esc(l.amount) + (ZC ? " " + ZC.html("ZAB") : " ZAB") + "</td><td>" + esc(l.qty) + "</td><td>" + esc(l.when) + "</td></tr>"; }).join("");
   }
   var api = { rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, tokensFor: tokensFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
     profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };

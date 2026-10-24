@@ -115,7 +115,7 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   check("settle checks caller is in the wager", /Not your wager/.test(fn("wager-settle.js")));
   const html = fsx.readFileSync(__dirname + "/../index.html", "utf8");
   check("UI: script, stake picker, join confirm, pot line, all 3 controllers gated", html.includes('src="/zaba-wager.js"') && /mkWager\("plank"/.test(html) && /mkWager\("tut"/.test(html) && /mkWager\("washers"/.test(html) && /Winner takes the pot/.test(html) && (html.match(/wagerGate\("(plank|tut|washers)"\)/g) || []).length === 3);
-  check("user-facing spelling Zabba in bet text", /Bet Zabba Tokens/.test(html) && !/Zaba Token/.test(html));
+  check("user-facing spelling Zabba in bet text", /Bet ZAB<svg class="zab-ring"/.test(html) && !/Zabba Token|Zaba Token/.test(html));
   // sweep helper
   const sw = require("../netlify/functions/wager-sweep.js");
   r = await staked("washers", 1); const fake = Object.assign({}, fs, { db: { collection: () => ({ where: () => ({ limit: () => ({ get: async () => ({ docs: Object.keys(db).filter((k) => k.startsWith("wagers/") && db[k].status === "open").map((k) => ({ id: k.slice(7) })) }) }) }) }) } });
