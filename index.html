@@ -391,10 +391,72 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .btn.ghost{border:1px solid transparent!important;background:linear-gradient(#0e1412,#0e1412) padding-box,var(--grad) border-box!important;color:var(--lime-2)!important}
 :where(a):focus-visible,button:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--pink-2)!important;outline-offset:2px}
 .social-btn:not([data-brand]){border-color:rgba(198,255,0,.4)}
-.zt-badge .zt-name{display:inline-block;max-width:7.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
-.zt-badge{max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
-#tokens .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
-#tokens .zt-rates li{border:1px solid rgba(198,255,0,.35);border-radius:10px;padding:.5rem .7rem}
+.zt-badge{white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
+#zab .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
+.zab{display:inline-flex;align-items:center;gap:.28em;font-weight:700;letter-spacing:.06em;white-space:nowrap}.zab-ring{width:.95em;height:.95em;display:inline-block;flex:none}
+.tuts-l{font-weight:800;color:#7fe3ff;text-shadow:0 0 8px rgba(127,227,255,.55)}
+#zab .zt-rates li{border:1px solid rgba(198,255,0,.35);border-radius:10px;padding:.5rem .7rem}
+/* ARC-START Zabba Washer Battle arcade scoreboard (washers-arcade.js). Every animation lives in the no-preference block. */
+@property --arc-n { syntax:'<integer>'; inherits:false; initial-value:0; }
+.wb-board { background:#0a0618; border:2px solid #3a2a7a; box-shadow:0 0 18px rgba(120,80,255,.35), inset 0 0 24px rgba(0,0,0,.6); color:#e8f0ff; font-family:ui-monospace,"SF Mono","Courier New",monospace; letter-spacing:.04em; position:relative; overflow:hidden; }
+.wb-board .arc-head { display:flex; justify-content:space-between; align-items:center; gap:.5rem; margin:0 0 .4rem; }
+.wb-board .arc-head strong { color:#ffe14d; text-shadow:0 0 8px rgba(255,225,77,.7); font-size:.8rem; text-transform:uppercase; }
+.wb-board .arc-mute { background:transparent; color:#9fb4ff; border:1px solid #3a2a7a; border-radius:6px; font:inherit; font-size:.7rem; padding:.15rem .5rem; cursor:pointer; }
+.arc-top { text-align:center; margin:.2rem 0 .6rem; }
+.arc-state { display:block; font-size:1.7rem; font-weight:800; color:#fff; text-shadow:0 0 10px #4df, 0 0 22px #4df; text-transform:uppercase; }
+.arc-s-waiting, .arc-s-ready { color:#ffe14d; text-shadow:0 0 10px #ffb400, 0 0 22px #ffb400; }
+.arc-s-countdown { color:#7dff7d; text-shadow:0 0 12px #2bff2b, 0 0 26px #2bff2b; font-size:2.6rem; }
+.arc-s-disputed, .arc-s-cancelled { color:#ff5a7a; text-shadow:0 0 10px #ff1f4d, 0 0 22px #ff1f4d; }
+.arc-s-finished { color:#ffe14d; text-shadow:0 0 12px #ffb400, 0 0 28px #ff8a00; font-size:2.2rem; }
+.arc-sub { display:block; font-size:.78rem; color:#9fb4ff; margin-top:.15rem; min-height:1em; }
+.arc-panels { display:grid; grid-template-columns:1fr auto 1fr; gap:.5rem; align-items:stretch; }
+.arc-vs { align-self:center; color:#ff5adf; font-weight:800; text-shadow:0 0 8px #ff1fc8; }
+.arc-panel { background:#120a2a; border:2px solid #2a2a6a; border-radius:8px; padding:.5rem .55rem; min-width:0; }
+.arc-p1 { border-color:#19c6ff; box-shadow:0 0 14px rgba(25,198,255,.45); }
+.arc-p2 { border-color:#ff3ad0; box-shadow:0 0 14px rgba(255,58,208,.45); }
+.arc-panel header { display:flex; flex-wrap:wrap; align-items:center; gap:.3rem; }
+.arc-tag { font-size:.7rem; font-weight:800; padding:0 .3rem; border-radius:4px; background:#fff; color:#0a0618; }
+.arc-name { font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+.arc-name em { font-style:normal; font-size:.6rem; color:#7dff7d; }
+.arc-badge { font-size:.62rem; font-weight:800; padding:.05rem .35rem; border-radius:4px; border:1px solid currentColor; }
+.arc-rep-shaky { color:#ff7a7a; } .arc-rep-steady { color:#ffe14d; } .arc-rep-trusted { color:#7dff7d; }
+.arc-score { font-size:3.2rem; font-weight:800; line-height:1.05; color:#fff; text-shadow:0 0 12px currentColor; margin:.2rem 0; }
+.arc-p1 .arc-score { color:#7fe3ff; } .arc-p2 .arc-score { color:#ff9ae9; }
+.arc-score small { font-size:1rem; color:#9fb4ff; text-shadow:none; }
+.arc-score .c { display:none; --arc-n:var(--to); }
+.arc-score.arc-static { font-size:2.6rem; } .arc-score.arc-static .n { display:inline; }
+.arc-bar { height:.7rem; background:#1b1440; border-radius:4px; overflow:hidden; border:1px solid #2a2a6a; }
+.arc-bar i { display:block; height:100%; background:linear-gradient(90deg,#19c6ff,#7dff7d); box-shadow:0 0 8px #4df; }
+.arc-p2 .arc-bar i { background:linear-gradient(90deg,#ff3ad0,#ffe14d); box-shadow:0 0 8px #ff3ad0; }
+.arc-meta { display:flex; justify-content:space-between; gap:.4rem; font-size:.68rem; color:#9fb4ff; margin-top:.35rem; }
+.arc-turn .arc-turnline { color:#7dff7d; text-shadow:0 0 6px #2bff2b; font-weight:800; }
+.arc-tally, .arc-steps { font-size:.7rem; color:#c8d4ff; margin-top:.2rem; }
+.arc-steps b { color:#ffe14d; }
+.arc-win { border-color:#ffe14d; box-shadow:0 0 22px rgba(255,225,77,.8); }
+.arc-out { opacity:.6; }
+.arc-fx { position:absolute; inset:0; pointer-events:none; display:flex; align-items:center; justify-content:center; }
+.arc-banner { font-size:2.4rem; font-weight:800; color:#fff; text-shadow:0 0 14px #4df, 0 0 30px #ff3ad0; background:rgba(10,6,24,.8); padding:.3rem 1rem; border-radius:8px; }
+.arc-banner-win { color:#ffe14d; }
+@media (max-width:520px) { .arc-score { font-size:2.4rem; } .arc-panels { gap:.3rem; } .arc-state { font-size:1.3rem; } }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes arc-count { from { --arc-n:var(--from); } to { --arc-n:var(--to); } }
+  @keyframes arc-flash { 0% { filter:brightness(2.4); transform:scale(1.04); } 100% { filter:none; transform:none; } }
+  @keyframes arc-shake { 0%,100% { transform:translateX(0); } 20% { transform:translateX(-6px); } 40% { transform:translateX(6px); } 60% { transform:translateX(-4px); } 80% { transform:translateX(4px); } }
+  @keyframes arc-banner { 0% { opacity:0; transform:scale(.6); } 15% { opacity:1; transform:scale(1.08); } 80% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(1.1); } }
+  @keyframes arc-blink { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+  @keyframes arc-glow { 0%,100% { box-shadow:0 0 14px rgba(255,225,77,.5); } 50% { box-shadow:0 0 34px rgba(255,225,77,1); } }
+  .arc-score .n { display:none; }
+  .arc-score .c { display:inline; animation:arc-count .7s steps(12,end) both; counter-reset:arcn var(--arc-n); }
+  .arc-score .c::after { content:counter(arcn); }
+  .arc-flash { animation:arc-flash .6s ease-out; }
+  .arc-shake { animation:arc-shake .5s ease-in-out; }
+  .arc-banner { animation:arc-banner 1.8s ease-out both; }
+  .arc-turn .arc-turnline, .arc-s-waiting, .arc-s-disputed { animation:arc-blink 1s steps(2,jump-none) infinite; }
+  .arc-win { animation:arc-glow 1.2s ease-in-out infinite; }
+  .arc-bar i { transition:width .5s ease-out; }
+}
+@media (prefers-reduced-motion: reduce) { .wb-board *, .wb-board { animation:none !important; transition:none !important; } .arc-score .n { display:inline !important; } .arc-score .c { display:none !important; } }
+/* ARC-END */
 </style>
 </head>
 <body>
@@ -411,7 +473,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
     <a href="#plank">Plank House</a>
     <a href="#steps">Step Equity</a>
     <a href="#battles-hub">Battles</a>
-    <a href="#tokens">Zabba Tokens</a>
+    <a href="#zab"><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a>
     <a href="#league">League</a>
     <a href="#cooling-box">Cooling box</a>
     <a href="#corporate">Companies</a>
@@ -486,7 +548,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="who" id="who">
       <div>
         <strong id="whoName">Not signed in</strong>
-        <div class="note" id="zabaTokensRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Zabba Tokens: <span id="zabaBal" style="color:var(--accent-2)">0</span></div>
+        <div class="note" id="zabBalanceRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Balance: <span id="zabaBal" style="color:var(--accent-2)">0</span> <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></div>
         <div class="note" style="margin:0">Google or X sign-in keeps your board name consistent.</div>
       </div>
       <button class="btn" id="signInBtn" type="button">Sign in with Google</button>
@@ -507,6 +569,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <input id="player" type="text" placeholder="Sign in, then pick a board name" maxlength="20" disabled>
     <label for="xHandle">X handle (optional)</label>
     <input id="xHandle" type="text" placeholder="@yourhandle" maxlength="20">
+<div id="wbPlayBoard" class="card wb-board" hidden aria-live="off"><div class="arc-head"><strong>Zabba Washer Battle live board</strong><button type="button" class="arc-mute" data-arc-mute hidden>Sound: on</button></div><div id="wbPlayBoardBody" class="arc"><div class="arc-fx"></div><div class="arc-main"></div></div></div>
 <div class="stats">
       <div class="stat"><b id="score">0</b><span>Score / 21</span></div>
       <div class="stat"><b id="steps">0</b><span>Steps</span></div>
@@ -620,15 +683,15 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h2>Battles</h2>
     <p class="lead">Every head-to-head on ZabbaDat. Pick one and jump in.</p>
     <div class="grid">
-      <a class="card" href="#tutbattles" data-battle="tutbattles"><h3>TUT Battles</h3><p>One long set, head to head.</p></a>
-      <a class="card" href="#battles" data-battle="battles"><h3>Plank Battles</h3><p>Challenge a friend to a plank, phone to phone.</p></a>
-      <a class="card" href="#washers" data-battle="washers"><h3>Zabba Washer Battle</h3><p>Reach 21 with the fewest steps and the quickest time.</p></a>
+      <a class="card" href="#tutbattles" data-battle="tutbattles"><h3>TUT Battles</h3><p><span class="tuts-l">T</span>ime <span class="tuts-l">u</span>nder <span class="tuts-l">t</span>ension <span class="tuts-l">s</span>et, three minutes, head to head. Optional ZAB bet.</p></a>
+      <a class="card" href="#battles" data-battle="battles"><h3>Plank Battles</h3><p>Longest hold wins. Challenge a friend, with an optional ZAB bet.</p></a>
+      <a class="card" href="#washerbattle" data-battle="washers"><h3>Zabba Washer Battle</h3><p>First to 21, Bariboshi style. Challenge a friend with a room code.</p></a>
     </div>
   </section>
 
-  <section id="tokens">
-    <h2>Zabba Tokens</h2>
-    <p class="lead">Earn tokens for the work you log. Earn only: tokens can't be bet or spent yet.</p>
+  <section id="zab">
+    <h2><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></h2>
+    <p class="lead">Earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> for the work you log. Earn only: <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> can't be bet or spent yet.</p>
     <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">Zabba Bag</span><b id="ztBalance">—</b><span>Your balance</span></div></div>
     <p class="note" id="ztTop" hidden></p>
     <p class="note" id="ztSignedOut">Sign in to start earning. <a href="#play" id="ztSignInLink">Go to sign-in</a></p>
@@ -636,12 +699,12 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <ul class="zt-rates" id="ztRates"></ul>
     <p class="fine">Each set or walk counts on its own; leftovers don't carry over.</p>
     <h3>Recent earnings</h3>
-    <table><thead><tr><th>Source</th><th>Tokens</th><th>Amount</th><th>When</th></tr></thead><tbody id="ztTxBody"><tr><td colspan="4">Sign in to see your earnings.</td></tr></tbody></table>
+    <table><thead><tr><th>Source</th><th><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></th><th>Amount</th><th>When</th></tr></thead><tbody id="ztTxBody"><tr><td colspan="4">Sign in to see your earnings.</td></tr></tbody></table>
   </section>
 
   <section id="tutbattles">
     <h2>TUT Battles</h2>
-    <p class="lead">Three minutes, head to head. Both tap ready, the 5-second countdown is shared, then a 3:00 clock runs on both phones and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Stand up, drop a knee or leave the frame for 2 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins (then more reps; still tied is a draw). Video never uploads.</p>
+    <p class="lead">Three minutes, head to head. Both tap ready, the 5-second countdown is shared, then a 3:00 clock runs on both phones and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Stand up, drop a knee or leave the frame for 2 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins (then more reps; still tied is a draw). Video never uploads. Optional ZAB bet: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. A tie refunds both stakes, and leaving or 30 seconds of silence counts as a forfeit.</p>
     <p class="note" id="tbSignIn"><a href="#play">Sign in</a> to create or join a TUT battle.</p>
     <div id="tbStart" hidden>
       <div class="row"><button class="btn" id="tbCreate" type="button">Create room</button></div>
@@ -655,6 +718,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="stat"><b id="tbP1">…</b><span id="tbP1s">Player 1</span></div>
         <div class="stat"><b id="tbP2">Waiting…</b><span id="tbP2s">Player 2</span></div>
       </div>
+      <div id="tbBoard" class="card wb-board" hidden aria-live="off"><div class="arc-head"><strong>TUT Battle live board</strong></div><div id="tbBoardBody" class="arc"><div class="arc-fx"></div><div class="arc-main"></div></div></div>
       <div class="battle-count" id="tbCount" hidden></div>
       <div id="tbCamWrap" hidden style="margin:.6rem auto;max-width:16rem"><video id="tbVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video></div>
       <p class="note" id="tbCamNote" style="text-align:center"></p>
@@ -666,6 +730,30 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Best TUT</th><th>Best reps</th></tr></thead>
       <tbody id="tbBoardBody"><tr><td colspan="6">Waiting for battles…</td></tr></tbody>
     </table>
+  </section>
+
+  <section id="washerbattle">
+    <h2>Zabba Washer Battle</h2>
+    <p class="lead">One on one, phone to phone, Bariboshi style. No video: you pitch at your own box and report each pitch, your opponent confirms or disputes, and the first to 21 wins. Make a room, share the code, both tap ready, and a shared countdown starts the match. The opening pitch (closest to the cup goes first), then rounds of one pack of 3 washers each, scored Bank 5, Shoot 3, Box-bound 2, Out 0. Your phone counts your steps as an optional extra. Forfeit, leave, or go silent for 30 seconds and your opponent wins. See the <a href="/rules">official regulations</a>.</p>
+    <p class="note" id="wbSignIn"><a href="#play">Sign in</a> to create or join a Zabba Washer Battle.</p>
+    <div id="wbStart" hidden>
+      <div class="row"><button class="btn" id="wbCreate" type="button">Create room</button></div>
+      <label for="wbCode">Or join with a code</label>
+      <div class="row"><input id="wbCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="K7QX" style="max-width:9rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="wbJoin" type="button">Join</button></div>
+    </div>
+    <div class="card" id="wbLobby" hidden>
+      <p class="note" style="margin:0">Room code. Share it with your opponent.</p>
+      <div class="battle-code" id="wbRoomCode">----</div>
+      <div class="stats duo">
+        <div class="stat"><b id="wbP1">…</b><span id="wbP1s">Player 1</span></div>
+        <div class="stat"><b id="wbP2">Waiting…</b><span id="wbP2s">Player 2</span></div>
+      </div>
+      <div class="battle-count" id="wbCount" hidden></div>
+      <div id="wbBoard" class="card wb-board" hidden aria-live="off"><div class="arc-head"><strong>Zabba Washer Battle live board</strong><button type="button" class="arc-mute" data-arc-mute hidden>Sound: on</button></div><div id="wbBoardBody" class="arc"><div class="arc-fx"></div><div class="arc-main"></div></div></div>
+      <div id="wbMatch" hidden></div>
+      <div class="row"><button class="btn" id="wbReady" type="button" hidden>I'm ready</button><a class="btn ghost" id="wbToGame" href="#play" hidden>Game controls</a><button class="btn danger" id="wbForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="wbLeave" type="button">Leave</button></div>
+    </div>
+    <p class="note" id="wbStatus" aria-live="polite"></p>
   </section>
 
   <section class="washers" id="tut-board">
@@ -742,7 +830,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="battles">
     <h2>Plank Battles</h2>
-    <p class="lead">Challenge a friend to a plank, phone to phone. Make a room, share the 4-letter code, and you both get the same countdown.</p>
+    <p class="lead">Challenge a friend to a plank, phone to phone. Make a room, share the 4-letter code, and you both get the same countdown. Hold from GO; when you drop, tap I dropped. Last one holding wins. Forfeit or leave and your opponent wins. Keep this page open: switching away marks your hold unverified. Honor system. Optional ZAB bet: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. With a bet, the longest hold wins, holds within 1 second are a draw and both stakes come back, and 30 seconds of silence counts as a forfeit.</p>
     <p class="note" id="battleSignIn"><a href="#play">Sign in</a> to create or join a battle.</p>
     <div id="battleStart" hidden>
       <div class="row"><button class="btn" id="battleCreate" type="button">Create room</button></div>
@@ -756,8 +844,9 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="stat"><b id="battleP1">…</b><span id="battleP1s">Player 1</span></div>
         <div class="stat"><b id="battleP2">Waiting…</b><span id="battleP2s">Player 2</span></div>
       </div>
+      <div id="battleBoard" class="card wb-board" hidden aria-live="off"><div class="arc-head"><strong>Plank Battle live board</strong></div><div id="battleBoardBody" class="arc"><div class="arc-fx"></div><div class="arc-main"></div></div></div>
       <div class="battle-count" id="battleCount" hidden></div>
-      <div class="row"><button class="btn" id="battleReady" type="button" hidden>I'm ready</button><button class="btn ghost" id="battleLeave" type="button">Leave</button></div>
+      <div class="row"><button class="btn" id="battleReady" type="button" hidden>I'm ready</button><button class="btn" id="battleDrop" type="button" hidden>I dropped</button><button class="btn danger" id="battleForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="battleLeave" type="button">Leave</button></div>
     </div>
     <p class="note" id="battleStatus" aria-live="polite"></p>
   </section>
@@ -953,10 +1042,17 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/signin-gate.js"></script>
   <script src="/live-walk.js"></script>
   <script src="/members.js"></script>
-  <script src="/zaba-tokens.js"></script>
+  <script src="/zab-currency.js"></script>
+  <script src="/zab-balance.js"></script>
   <script src="/email-auth.js"></script>
   <script src="/battle-rooms.js"></script>
+  <script src="/battle-presence.js"></script>
   <script src="/tut-battle.js"></script>
+  <script src="/washers-battle.js"></script>
+  <script src="/plank-battle.js"></script>
+  <script src="/zaba-wager.js"></script>
+  <script src="/reputation.js"></script>
+  <script src="/washers-arcade.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
     const firebaseConfig = {
@@ -983,6 +1079,7 @@ function requireSignIn(feature, startFn, opts) { return signGate ? signGate.requ
 let pocketOn = false; // washers game lock (main Start button)
 let walkLockOn = false; // live walk lock (steps section), independent of pocketOn
 let relockTimer = null;
+let wbHook = null; // Zabba Washer Battle hooks (set below; null = solo only)
 const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 };
 let pushMode = (function (m) { return m === "sets" || m === "challenge" ? m : "long"; })(localStorage.getItem("zabbadat-push-mode"));
 // Three-minute challenge: fixed 3:00 clock, top-hold TUT capped at 10 s per hold (push-challenge.js).
@@ -992,11 +1089,12 @@ const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostu
 let lastViolFlag = 0;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
-// Zabba Tokens: awardTokens(source, qty, setId) is wired to Firestore after sign-in setup; no-op until then.
-const ZT = window.ZabaTokens || null;
-if (ZT && $("ztRates")) $("ztRates").innerHTML = ZT.rateLines().map((l) => "<li>" + escapeHtml(l) + "</li>").join("");
-let awardTokens = async () => ({ credited: 0 });
-function tokenNote(r) { return r && r.credited > 0 ? " +" + r.credited + " Zabba Token" + (r.credited === 1 ? "" : "s") + "." : ""; }
+// ZAB (internal: zabBalance): awardZab(source, qty, setId) is wired to Firestore after sign-in setup; no-op until then.
+const ZT = window.ZabBalance || null;
+if (ZT && $("ztRates")) $("ztRates").innerHTML = ZT.rateLines().map((l) => "<li>" + window.ZabCurrency.html(l) + "</li>").join("");
+let awardZab = async () => ({ credited: 0 });
+function zabRing(el) { if (window.ZabCurrency) window.ZabCurrency.ring(el); }
+function zabNote(r) { return r && r.credited > 0 ? " +" + r.credited + " ZAB." : ""; }
 
 // Washers lock lives on #startBtn: locked = "Hold to score", unlocked = "Hold to stop", idle = "Start game".
 function paintGameBtn() {
@@ -1085,6 +1183,7 @@ function render() {
   const now = state.running ? Date.now() - state.startedAt + state.elapsed : state.elapsed;
   $("clock").textContent = formatTime(now);
   if (state.running) stepVerifier.tick(performance.now());
+  if (wbHook) wbHook.render();
 }
 function setStatus(msg) { $("status").textContent = msg; }
 function displayNameOf(user) {
@@ -1303,6 +1402,7 @@ async function finishGame() {
   const ms = state.elapsed + (state.startedAt ? Date.now() - state.startedAt : 0);
   state.elapsed = ms;
   const check = stepVerifier.result(state.steps, ms);
+  if (wbHook) wbHook.finish({ steps: state.steps, ms, verified: check.verified, reasons: check.reasons });
         const typed = ($("player").value || "").trim().slice(0, 20);
   const name = currentUser
     ? (typed || displayNameOf(currentUser))
@@ -1335,11 +1435,11 @@ async function finishGame() {
     return;
   }
   if (!state.gameId) state.gameId = ZT ? ZT.newSetId() : "";
-  const winTok = ZT && currentUser ? awardTokens("washers", ZT.qtyFrom("washers", 1), state.gameId).catch(() => null) : Promise.resolve(null);
+  const winTok = ZT && currentUser ? awardZab("washers", ZT.qtyFrom("washers", 1), state.gameId).catch(() => null) : Promise.resolve(null);
   try {
     await saveRemote(record);
     setStatus(name + " posted: 21 in " + formatTime(ms) + " with " + state.steps.toLocaleString() + " steps.");
-    winTok.then((tk) => { if (tk && tk.credited) setStatus($("status").textContent + tokenNote(tk)); }, () => {});
+    winTok.then((tk) => { if (tk && tk.credited) setStatus($("status").textContent + zabNote(tk)); if (typeof zabRing === "function") zabRing($("status")); }, () => {});
   } catch (err) {
     paintRows(local);
     setStatus("Saved locally. Live post failed: " + (err.message || err));
@@ -1544,10 +1644,10 @@ function finishPushSet() {
     return;
   }
   const tokSet = ZT ? ZT.newSetId() : "";
-  const tokP = Promise.all([awardTokens("pushups", record.reps, tokSet), pushMode === "long" && ZT ? awardTokens("tut", ZT.qtyFrom("tut", window.ZabbadatSession.tutToAdd(pushMode, ms, pushState.tut)), tokSet) : null])
+  const tokP = Promise.all([awardZab("pushups", record.reps, tokSet), pushMode === "long" && ZT ? awardZab("tut", ZT.qtyFrom("tut", window.ZabbadatSession.tutToAdd(pushMode, ms, pushState.tut)), tokSet) : null])
     .then((a) => ({ credited: a.reduce((n, x) => n + ((x && x.credited) || 0), 0) }), () => null);
   saveRemotePush(record)
-    .then(() => tokP).then((tk) => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + viol + tokenNote(tk); })
+    .then(() => tokP).then((tk) => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + viol + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
 // One Start button: gate -> wake + speech unlock + spoken placement line (in the tap) -> camera -> pose -> spoken
@@ -1588,10 +1688,10 @@ function showPositioning(kind, el, cancelled, part) {
 }
 function cancelGetSet() { if (getSet) getSet.cancel(); if (quickSet) quickSet.cancel(); }
 function unlockGetSet() { if (getSet) getSet.unlock(); }
-let pushStarting = false, pushStartToken = 0;
+let pushStarting = false, pushStartSeq = 0;
 function cancelPushStart(msg) {
   if (!pushStarting) return;
-  pushStartToken += 1; pushStarting = false; cancelGetSet();
+  pushStartSeq += 1; pushStarting = false; cancelGetSet();
   if ($("pushStartBtn")) $("pushStartBtn").disabled = false;
   if (pushWake && !pushState.running) pushWake.stop().catch(() => {});
   if (msg) $("pushStatus").textContent = msg;
@@ -1602,7 +1702,7 @@ async function startPush() {
   if (pushWake) pushWake.start().catch(() => {}); // inside the tap, before any await or timer
   unlockGetSet(); // iOS: silent utterance inside the tap so the coaching lines and countdown can speak
   if (typeof plankLoop !== "undefined" && plankLoop) stopPlankCam();
-  const my = ++pushStartToken; const live = () => my === pushStartToken;
+  const my = ++pushStartSeq; const live = () => my === pushStartSeq;
   pushStarting = true; $("pushStartBtn").disabled = true;
   const fail = (msg) => { if (!live()) return; cancelPushStart(msg); };
   try {
@@ -1898,7 +1998,7 @@ function plankEnded(r) {
   $("plankStatus").textContent = "Hold ended: " + why + ". Time " + formatTut(r.ms) + "." + (isSet ? " Set " + day.sets + " today." : " Under 10 seconds, not counted as a set.");
   if (!currentUser) { $("plankStatus").textContent += " Sign in to post to the Plank House board."; paintPlankRows(localPlanks()); return; }
   if (day) saveRemotePlankDaily(day, record).catch(() => { $("plankStatus").textContent += " Sets saved on this phone (sets board offline)."; });
-  if (ZT) awardTokens("plank", ZT.qtyFrom("plank", r.ms), ZT.newSetId()).then((tk) => { $("plankStatus").textContent += tokenNote(tk); }, () => {});
+  if (ZT) awardZab("plank", ZT.qtyFrom("plank", r.ms), ZT.newSetId()).then((tk) => { $("plankStatus").textContent += zabNote(tk); if (typeof zabRing === "function") zabRing($("plankStatus")); }, () => {});
   saveRemotePlank(record).then(() => { $("plankStatus").textContent += " Posted to the Plank House board."; })
     .catch(() => { $("plankStatus").textContent += " Saved on this phone (board offline)."; paintPlankRows(localPlanks()); });
 }
@@ -1931,7 +2031,7 @@ async function startPlankCam() {
   if (!requireSignIn("plank", () => startPlankCam(), { practice: true })) return;
   if (plankWake) plankWake.start().catch(() => {}); // inside the tap, before any await or timer
   unlockGetSet(); // iOS: silent utterance inside the tap so the coaching lines and countdown can speak
-  const my = ++plankStartToken; const live = () => my === plankStartToken;
+  const my = ++plankStartSeq; const live = () => my === plankStartSeq;
   plankStarting = true;
   try {
     if (camOn) stopCam();
@@ -1965,9 +2065,9 @@ async function startPlankCam() {
     plankLoop = true; plankTick();
   } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = "Camera or pose blocked."; } }
 }
-let plankStarting = false, plankStartToken = 0;
+let plankStarting = false, plankStartSeq = 0;
 function cancelPlankStart() {
-  plankStartToken += 1; plankStarting = false; cancelGetSet();
+  plankStartSeq += 1; plankStarting = false; cancelGetSet();
   if (plankStream && !plankLoop) { plankStream.getTracks().forEach((t) => t.stop()); plankStream = null; $("plankWrap").hidden = true; }
   if (plankWake && !plankLoop) plankWake.stop().catch(() => {});
   $("plankCamBtn").textContent = "Start plank camera";
@@ -2092,8 +2192,8 @@ async function endWalk(r) {
   const q = WS.qualifies(r), label = WS.formatClock(r.ms) + " with " + r.steps.toLocaleString() + " steps" + why;
   if (!q.ok) { $("walkStatus").textContent = "Session " + label + ". Not logged: " + q.why; return; }
   if (!currentUser) { $("walkStatus").textContent = "Session " + label + ". Sign in to post sessions to the board."; return; }
-  const tokP = ZT ? awardTokens("walk", ZT.qtyFrom("walk", r.ms), ZT.newSetId()).catch(() => null) : Promise.resolve(null);
-  try { await saveRemoteWalk(r); $("walkStatus").textContent = "Posted session " + label + "." + tokenNote(await tokP); }
+  const tokP = ZT ? awardZab("walk", ZT.qtyFrom("walk", r.ms), ZT.newSetId()).catch(() => null) : Promise.resolve(null);
+  try { await saveRemoteWalk(r); $("walkStatus").textContent = "Posted session " + label + "." + zabNote(await tokP); if (typeof zabRing === "function") zabRing($("walkStatus")); }
   catch (e) { $("walkStatus").textContent = "Session " + label + ". Board offline, not posted."; }
 }
 function paintWalkRows(rows) {
@@ -2223,16 +2323,16 @@ saveRemoteWalk = async (r) => {
 const ztFs = { ts: () => serverTimestamp(), tx: (fn) => runTransaction(db, (t) => fn({ get: (p) => t.get(doc(db, ...p)).then((x) => (x.exists() ? x.data() : null)), set: (p, d) => t.set(doc(db, ...p), d), update: (p, d) => t.update(doc(db, ...p), d) })) };
 let ztOff = null, ztTopOff = null, ztMirrored = null;
 // Top Zabba Bag line (signed in only): hidden when empty, not permitted (rules not published) or on any error.
-function paintTopBag(entry) { const el = $("ztTop"); if (!el) return; const line = ZT && ZT.topLine ? ZT.topLine(entry) : null; el.textContent = line || ""; el.hidden = !line; }
+function paintTopBag(entry) { const el = $("ztTop"); if (!el) return; const line = ZT && ZT.topLine ? ZT.topLine(entry) : null; window.ZabCurrency.set(el, line || ""); el.hidden = !line; }
 function mirrorBoard(u, total) {
   if (!ZT || !ZT.boardEntry || !u || total == null || ztMirrored === u.uid + ":" + total) return;
   ztMirrored = u.uid + ":" + total;
   const e = ZT.boardEntry(u.uid, publicName(displayNameOf(u)), total);
-  setDoc(doc(db, "tokenBoard", u.uid), { uid: e.uid, name: e.name, total: e.total, updatedAt: serverTimestamp() }).catch(() => { ztMirrored = null; });
+  setDoc(doc(db, "zabBoard", u.uid), { uid: e.uid, name: e.name, total: e.total, updatedAt: serverTimestamp() }).catch(() => { ztMirrored = null; });
 }
-function paintTokens(n) { const row = $("zabaTokensRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintTokenSection(n); }
-function paintTokenSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.textContent = on ? Number(n).toLocaleString() : "—"; if (o) o.hidden = on; if (g) { g.setAttribute("href", on ? "#tokens" : "#play"); g.setAttribute("aria-label", on ? "Your Zabba Bag" : "Sign in"); if (on && ZT && ZT.badgeParts) { const p = ZT.badgeParts(typeof auth !== "undefined" && auth.currentUser ? publicName(displayNameOf(auth.currentUser)) : "", n); g.innerHTML = '<span class="zt-name">' + escapeHtml(p.name) + '</span> \u00b7 ' + escapeHtml(p.tokens); g.title = p.name + " \u00b7 " + p.tokens; } else { g.textContent = on ? "Zabba Bag: " + Number(n).toLocaleString() : "Sign in"; g.title = ""; } } }
-// Badge: signed in -> #tokens (plain link); signed out -> #play sign-in box, scrolled into view with the Google button focused.
+function paintZab(n) { const row = $("zabBalanceRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintZabSection(n); }
+function paintZabSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.innerHTML = on ? window.ZabCurrency.amountHtml(Number(n)) : "—"; if (o) o.hidden = on; if (g) { g.setAttribute("href", on ? "#zab" : "#play"); g.setAttribute("aria-label", on ? "ZAB balance" : "Sign in"); if (on) g.innerHTML = window.ZabCurrency.amountHtml(Number(n)); else g.textContent = "Sign in"; } }
+// Badge: signed in -> #zab (plain link); signed out -> #play sign-in box, scrolled into view with the Google button focused.
 function ztBadgeClick(ev) {
   if (typeof auth !== "undefined" && auth.currentUser) return;
   if (ev && ev.preventDefault) ev.preventDefault();
@@ -2241,26 +2341,26 @@ function ztBadgeClick(ev) {
   if (b && b.focus) setTimeout(() => b.focus(), 300);
 }
 if ($("ztBadge")) $("ztBadge").onclick = ztBadgeClick;
-function paintTokenTx(list) { const t = $("ztTxBody"); if (t && ZT) t.innerHTML = ZT.txRowsHtml(list, escapeHtml); }
+function paintZabLedger(list) { const t = $("ztTxBody"); if (t && ZT) t.innerHTML = ZT.txRowsHtml(list, escapeHtml); }
 let ztTxOff = null;
-awardTokens = async (source, qty, setId) => {
+awardZab = async (source, qty, setId) => {
   if (!ZT || !auth.currentUser) return { credited: 0 };
   const e = ZT.buildEarn(auth.currentUser.uid, source, qty, setId);
   const r = await ZT.earnAndQueue(ztFs, localStorage, e);
-  if (r && r.balance != null) paintTokens(r.balance);
+  if (r && r.balance != null) paintZab(r.balance);
   return r;
 };
-function tokensOnUser(u) {
+function zabOnUser(u) {
   if (ztOff) { ztOff(); ztOff = null; }
   if (ztTxOff) { ztTxOff(); ztTxOff = null; }
   if (ztTopOff) { ztTopOff(); ztTopOff = null; }
-  paintTokens(null); paintTopBag(null); ztMirrored = null;
+  paintZab(null); paintTopBag(null); ztMirrored = null;
   if ($("ztTxBody")) $("ztTxBody").innerHTML = '<tr><td colspan="4">Sign in to see your earnings.</td></tr>';
   if (!u || !ZT) return;
-  ztTxOff = onSnapshot(query(collection(db, "users", u.uid, "tokenTx"), orderBy("createdAt", "desc"), limit(10)), (snap) => paintTokenTx(snap.docs.map((d) => d.data())), () => paintTokenTx([]));
-  ztTopOff = onSnapshot(query(collection(db, "tokenBoard"), orderBy("total", "desc"), limit(1)), (snap) => paintTopBag(snap.empty ? null : snap.docs[0].data()), () => paintTopBag(null));
-  ZT.ensureProfile(ztFs, u.uid).then((p) => { paintTokens(p.zabaTokens); return ZT.flush(ztFs, localStorage, u.uid); }).catch(() => {}).finally(() => {
-    if (auth.currentUser && auth.currentUser.uid === u.uid && !ztOff) ztOff = onSnapshot(doc(db, "users", u.uid), (d) => { if (d.exists()) { const n = ZT.profileFrom(d.data(), u.uid).zabaTokens; paintTokens(n); mirrorBoard(u, n); } }, () => {});
+  ztTxOff = onSnapshot(query(collection(db, "users", u.uid, "zabLedger"), orderBy("createdAt", "desc"), limit(10)), (snap) => paintZabLedger(snap.docs.map((d) => d.data())), () => paintZabLedger([]));
+  ztTopOff = onSnapshot(query(collection(db, "zabBoard"), orderBy("total", "desc"), limit(1)), (snap) => paintTopBag(snap.empty ? null : snap.docs[0].data()), () => paintTopBag(null));
+  ZT.ensureProfile(ztFs, u.uid).then((p) => { paintZab(p.zabBalance); return ZT.flush(ztFs, localStorage, u.uid); }).catch(() => {}).finally(() => {
+    if (auth.currentUser && auth.currentUser.uid === u.uid && !ztOff) ztOff = onSnapshot(doc(db, "users", u.uid), (d) => { if (d.exists()) { const n = ZT.profileFrom(d.data(), u.uid).zabBalance; paintZab(n); mirrorBoard(u, n); } }, () => {});
   });
 }
 
@@ -2388,9 +2488,66 @@ const battleFs = {
   ts: () => serverTimestamp(),
   toMs: (v) => (v && v.toMillis ? v.toMillis() : typeof v === "number" ? v : null),
 };
-const battle = BR.controller(battleFs);
-let battleRoom = null, battleCode = null, battleOff = null, battleTick = null;
-const bStatus = (t) => { $("battleStatus").textContent = t || ""; };
+/* ---- shared helpers for the Plank / TUT battles: arcade board, presence (heartbeat + 30 s silence forfeit), reputation ---- */
+const repMap = {}, repOffs = {}, repPaints = [], repDone = {};
+function repWatch(r) {
+  Object.keys((r && r.players) || {}).forEach((u) => { if (repOffs[u]) return;
+    repOffs[u] = onSnapshot(doc(db, "repBoard", u), (d) => { const v = d.exists() ? d.data().rep : 50; repMap[u] = Number.isInteger(v) ? v : 50; repPaints.forEach((f) => f()); }, () => {}); });
+}
+function repStop() { Object.keys(repOffs).forEach((u) => { repOffs[u](); delete repOffs[u]; delete repMap[u]; }); }
+/* Ask the server to score reputation for a finished battle once (each phone asks; repLog counts it once). Retries while the result is still pending. */
+function repSettle(game, code, startAt, tries) {
+  const u = auth.currentUser, k = game + ":" + code + ":" + startAt; if (!u || !code) return; if (!tries) { if (repDone[k]) return; repDone[k] = true; }
+  u.getIdToken().then((t) => fetch("/.netlify/functions/rep-settle", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + t }, body: JSON.stringify({ code, game }) }))
+    .then((res) => res.json()).then((j) => { if (j && j.pending && (tries || 0) < 6) setTimeout(() => repSettle(game, code, startAt, (tries || 0) + 1), 30000); }).catch(() => {});
+}
+/* Heartbeat every BEAT_MS while the battle is live and you are still in it; after GONE_MS of silence from the opponent, record it (claimGone). */
+function mkPresence(o) {
+  const ZP = window.ZabbaPresence; let beat = null;
+  const want = () => { const r = o.room(), u = currentUser; return !!(ZP && r && u && o.code() && r.status === "live" && r.players && u.uid in r.players && !o.done(r) && o.canBeat(r, u.uid)); };
+  function tick() {
+    if (!want()) return; const r = o.room(), uid = currentUser.uid;
+    ZP.heartbeat(o.fs, o.code(), uid).catch(() => {});
+    if (o.stale(r, uid, o.now(), o.fs.toMs)) o.claim(o.fs, o.code(), uid, o.now()).catch(() => {});
+  }
+  return { sync() { if (want() && !beat) { beat = setInterval(tick, ZP.BEAT_MS); tick(); } else if (!want() && beat) { clearInterval(beat); beat = null; } },
+    stop() { if (beat) clearInterval(beat); beat = null; } };
+}
+/* Arcade board (washers-arcade.js skin) for a Plank or TUT battle room; names only, reputation badge from repBoard. */
+function mkArcBoard(o) {
+  let prev = null, html = "", bannerKey = ""; const el = (id) => $(o.prefix + id);
+  return { paint() {
+    const AX = window.ZabbaArcade, r = o.room(), show = !!(AX && AX.battleModel && r && o.code() && currentUser);
+    el("Board").hidden = !show; if (!show) { prev = null; html = ""; return; }
+    const me = currentUser.uid, ps = BR.orderedPlayers(r, o.fs.toMs), m = AX.battleModel(o.game, r, ps, me, o.ctx(r)), f = AX.fx(prev, m), h = AX.html(m, f, prev);
+    if (h !== html) { html = h; el("BoardBody").querySelector(".arc-main").innerHTML = h; }
+    if (f.banner) { const bk = f.banner + ":" + m.mode.key; if (bk !== bannerKey) { bannerKey = bk; const x = el("BoardBody").querySelector(".arc-fx"); x.innerHTML = AX.bannerHtml(f.banner, m.mode.key === "finished"); setTimeout(() => { x.innerHTML = ""; }, 2000); } }
+    const pt = o.pot ? o.pot() : "", n = el("Board").querySelector("strong"); if (n) window.ZabCurrency.set(n, o.title + (pt ? " · " + pt : ""));
+    prev = m; },
+    reset() { prev = null; html = ""; bannerKey = ""; } };
+}
+// ZAB bets (zaba-wager.js): set up after the three battle sections; countdown waits for both stakes.
+const WG = window.ZabaWager || null, PBm = window.ZabbaPlankBattle;
+const wagerOk = {};
+let wgPlank = null, wgTut = null, wgWb = null;
+const wagerGate = (g) => ({ canStart: (r) => !wagerOk[g] || wagerOk[g](r) });
+const battle = BR.controller(battleFs, wagerGate("plank"));
+let battleRoom = null, battleCode = null;
+// Battles: spoken "Ready, get set" when the shared 5 s countdown appears and "Go" at GO (unlocked in the ready tap).
+const battleVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeBattleVoice ? window.ZabbadatGetSet.makeBattleVoice() : null;
+const tbRepVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? window.ZabbadatGetSet.makeRepVoice() : null;
+let plankLiveFor = null, plankHidden = false, plankSent = false;
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && plankLiveFor && plankLiveFor === battleCode) plankHidden = true; });
+let battleOff = null, battleTick = null;
+/* Plank decision with the shared server clock (wagered rooms wait 1 s after a drop so a near-equal hold can still draw). */
+const pbNow = () => BR.serverNow(Date.now(), battle.offset);
+const pbDec = (r) => (r && PBm ? PBm.decide(r, pbNow()) : { done: false });
+const plankPres = mkPresence({ fs: battleFs, room: () => battleRoom, code: () => battleCode, done: (r) => pbDec(r).done, canBeat: (r, uid) => !(r.players[uid] && r.players[uid].result),
+  now: pbNow, stale: (r, u, n, t) => PBm.stale(r, u, n, t), claim: (fs, c, u, n) => PBm.claimGone(fs, c, u, n) });
+const plankArc = mkArcBoard({ prefix: "battle", game: "plank", fs: battleFs, room: () => battleRoom, code: () => battleCode, title: "Plank Battle live board", pot: () => (wgPlank ? wgPlank.potText() : ""),
+  ctx: (r) => ({ nowMs: pbNow(), cd: battle.state(r.startAt), reps: repMap }) });
+repPaints.push(() => plankArc.paint());
+const bStatus = (t) => { window.ZabCurrency.set($("battleStatus"), t || ""); };
 // Seat names are shown to the opponent: never an email address (publicName strips it to the local part).
 function battleUser() { return currentUser ? { uid: currentUser.uid, name: publicName($("player").value.trim() || displayNameOf(currentUser)).slice(0, 20) } : null; }
 function paintBattle() {
@@ -2401,7 +2558,11 @@ function paintBattle() {
   const ps = r ? BR.orderedPlayers(r, battleFs.toMs) : [], me = currentUser && currentUser.uid;
   [0, 1].forEach((i) => { const p = ps[i];
     $("battleP" + (i + 1)).textContent = p ? p.name + (p.uid === me ? " (you)" : "") : "Waiting…";
-    $("battleP" + (i + 1) + "s").textContent = "Player " + (i + 1) + (p ? (BR.started(r) ? (p.leftAt ? " · left" : "") : p.ready ? " · Ready ✓" : " · Not ready") : ""); });
+    let sub = "Player " + (i + 1) + (p ? (BR.started(r) ? (p.leftAt && !p.result ? " · left" : "") : p.ready ? " · Ready ✓" : " · Not ready") : "");
+    if (p && p.result) sub += p.result.forfeit ? " · forfeited" : " · held " + fmtT(p.result.holdMs) + (p.result.verified ? "" : " (unverified)");
+    const pd = pbDec(r);
+    if (p && pd.done) sub += pd.winner === p.uid ? " · WIN" : pd.winner ? "" : " · TIE";
+    $("battleP" + (i + 1) + "s").textContent = sub; });
   const mine = r && me && r.players && r.players[me];
   const pre = r && !BR.started(r) && r.status !== "abandoned";
   $("battleReady").hidden = !(pre && mine && ps.length === 2);
@@ -2409,22 +2570,43 @@ function paintBattle() {
   if (!r || r.status === "abandoned") bStatus("This room is closed. Make a new one.");
   else if (pre && ps.length < 2) bStatus("Waiting for a second player…");
   else if (pre) bStatus(mine && mine.ready ? "Waiting for the other player to tap ready…" : "Tap I'm ready when you're in position.");
+  const pdec = pbDec(r), plive = r && r.status === "live";
+  $("battleDrop").hidden = $("battleForfeit").hidden = !(plive && mine && !mine.result && !pdec.done && plankLiveFor === battleCode);
+  if (plive && pdec.done) {
+    bStatus(PBm.resultText(r, me, pbNow()));
+    // Winner records its own final hold once, for the result line (write-once).
+    if (pdec.winner === me && mine && !mine.result && !plankSent) { plankSent = true; PBm.submitDrop(battleFs, battleCode, me, BR.serverNow(Date.now(), battle.offset), !plankHidden).catch(() => {}); }
+  } else if (plive && mine && mine.result) bStatus(mine.result.forfeit ? "You forfeited." : "You dropped. Waiting for the result…");
+  if (wgPlank) wgPlank.paint();
+  repWatch(r); plankArc.paint(); plankPres.sync();
+  if (r && pdec.done && r.status !== "abandoned") repSettle("plank", battleCode, r.startAt);
   if (pre && BR.bothReady(r)) battle.maybeStart(battleCode).catch(() => {});
   if (plankBattleWake) plankBattleWake.want(!!(mine && r && r.status !== "abandoned" && (mine.ready || r.status === "countdown" || r.status === "live"))).catch(() => {});
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt) { if (!battleTick) battleTick = setInterval(tickBattle, 100); tickBattle(); }
   else { clearInterval(battleTick); battleTick = null; $("battleCount").hidden = true; }
 }
 const pbVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeSharedCountdownVoice ? window.ZabbadatGetSet.makeSharedCountdownVoice() : null;
+// Plank Battle: spoken hold time every 15 s from GO (same helper as Plank House); silent once you drop / the battle is decided.
+const pbTimeVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeHoldVoice ? window.ZabbadatGetSet.makeHoldVoice() : null;
+let pbTimeKey = null;
+let pbPaintedDone = null;
 function tickBattle() {
-  const st = battle.state(battleRoom && battleRoom.startAt), c = $("battleCount");
+  const st = battle.state(battleRoom && battleRoom.startAt), c = $("battleCount"); plankArc.paint();
   if (pbVoice && battleRoom) pbVoice.phase("plank:" + battleCode + ":" + battleRoom.startAt, st.phase, st.n);
   c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
   if (st.phase === "countdown") { c.textContent = st.n; bStatus("Get into position…"); }
   else if (st.phase === "go") c.textContent = "GO!";
   else if (st.phase === "live") {
-    c.textContent = "Battle on. Video and form check coming next."; bStatus("");
+    if (plankLiveFor !== battleCode) { plankLiveFor = battleCode; plankHidden = document.visibilityState === "hidden"; plankSent = false; paintBattle(); }
     if (battleRoom.status === "countdown") battle.markLive(battleCode).catch(() => {});
-    clearInterval(battleTick); battleTick = null;
+    const me = currentUser && currentUser.uid, mine = me && battleRoom.players && battleRoom.players[me], dec = PBm ? pbDec(battleRoom) : { done: true };
+    const pbKey = battleCode + ":" + battleRoom.startAt;
+    if (typeof pbTimeVoice !== "undefined" && pbTimeVoice && pbTimeKey !== pbKey) { pbTimeKey = pbKey; pbTimeVoice.reset(); }
+    if (!dec.done && mine && !mine.result) { const hm = PBm.holdMs(battleRoom, BR.serverNow(Date.now(), battle.offset)); c.textContent = "Hold: " + fmtT(hm); bStatus(""); if (typeof pbTimeVoice !== "undefined" && pbTimeVoice) pbTimeVoice.tick(hm); }
+    else { if (typeof pbTimeVoice !== "undefined" && pbTimeVoice) pbTimeVoice.end(); c.textContent = dec.done ? "Battle over." : "Waiting…";
+      /* a wagered room decides 1 s after a drop with no new room update: repaint once when the decision flips */
+      if (dec.done && pbPaintedDone !== pbKey) { pbPaintedDone = pbKey; paintBattle(); }
+      if (dec.done) { clearInterval(battleTick); battleTick = null; } }
   }
 }
 function enterBattle(code) {
@@ -2433,7 +2615,7 @@ function enterBattle(code) {
   battleOff = battle.watch(code, (r) => { battleRoom = r; paintBattle(); });
   paintBattle();
 }
-function exitBattle() { try { localStorage.removeItem("zdBattle"); } catch (e) {} if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; clearInterval(battleTick); battleTick = null; paintBattle(); }
+function exitBattle() { try { localStorage.removeItem("zdBattle"); } catch (e) {} if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; plankLiveFor = null; if (wgPlank) wgPlank.stop(); plankPres.stop(); plankArc.reset(); clearInterval(battleTick); battleTick = null; paintBattle(); }
 async function resumeBattle(u) {
   let code = null; try { code = localStorage.getItem("zdBattle"); } catch (e) {}
   if (!code || battleCode) return;
@@ -2442,18 +2624,22 @@ async function resumeBattle(u) {
 $("battleCreate").onclick = async () => {
   const u = battleUser(); if (!u) { requireSignIn("plank battle"); return void bStatus("Sign in to create a battle."); };
   $("battleCreate").disabled = true; bStatus("Making a room…");
-  try { enterBattle(await battle.createRoom(u)); } catch (e) { bStatus(e.message || "Couldn't create a room."); }
+  try { await wagerCreate(wgPlank, battle, u, enterBattle, bStatus); } catch (e) { bStatus(e.message || "Couldn't create a room."); }
   finally { $("battleCreate").disabled = false; }
 };
 $("battleJoin").onclick = async () => {
   const u = battleUser(); if (!u) { requireSignIn("plank battle"); return void bStatus("Sign in to join a battle."); };
   $("battleJoin").disabled = true; bStatus("Joining…");
-  try { enterBattle(await battle.joinRoom($("battleCode").value, u)); } catch (e) { bStatus(e.code === "permission-denied" ? "Couldn't join that room." : e.message); }
+  try { await wagerJoin(wgPlank, battle, $("battleCode").value, u, enterBattle, bStatus); } catch (e) { bStatus(e.code === "permission-denied" ? "Couldn't join that room." : e.message); }
   finally { $("battleJoin").disabled = false; }
 };
 $("battleCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("battleJoin").click(); });
 $("battleReady").onclick = async () => { if (!requireSignIn("plank battle")) return; unlockGetSet(); /* iOS: speech unlocked in this tap for the shared countdown */ const u = battleUser(), mine = battleRoom && battleRoom.players && battleRoom.players[u.uid]; if (plankBattleWake && !(mine && mine.ready)) plankBattleWake.start().catch(() => {}); try { await battle.setReady(battleCode, u, !(mine && mine.ready)); } catch (e) { bStatus("Couldn't update: " + (e.message || e)); } };
-$("battleLeave").onclick = async () => { const c = battleCode, u = battleUser(); exitBattle(); bStatus("You left the room."); if (u && c) battle.leave(c, u).catch(() => {}); };
+$("battleDrop").onclick = async () => { const u = battleUser(); if (!u || !battleCode) return; try { await PBm.submitDrop(battleFs, battleCode, u.uid, BR.serverNow(Date.now(), battle.offset), !plankHidden); } catch (e) { bStatus("Couldn't post: " + (e.message || e)); } };
+$("battleForfeit").onclick = async () => { const u = battleUser(); if (!u || !battleCode || !confirm("Forfeit this plank battle? Your opponent wins.")) return; try { await PBm.forfeit(battleFs, battleCode, u.uid); } catch (e) { bStatus("Couldn't forfeit: " + (e.message || e)); } };
+$("battleLeave").onclick = async () => { const c = battleCode, u = battleUser();
+  if (u && battleRoom && PBm && PBm.canWrite(battleRoom, u.uid) && !pbDec(battleRoom).done) { if (!confirm("Leaving now forfeits the battle. Leave?")) return; await PBm.forfeit(battleFs, c, u.uid).catch(() => {}); }
+  exitBattle(); bStatus("You left the room."); if (u && c) battle.leave(c, u).catch(() => {}); };
 // ---- TUT Battles (rooms module reused on tutBattles/{code}; solo push game untouched) ----
 const TBm = window.ZabbaTutBattle;
 const mkBattleFs = (col) => ({
@@ -2465,22 +2651,29 @@ const mkBattleFs = (col) => ({
   toMs: (v) => (v && v.toMillis ? v.toMillis() : typeof v === "number" ? v : null),
 });
 const tbFs = mkBattleFs("tutBattles"), tbStatsFs = mkBattleFs("tutBattleStats");
-const tb = BR.controller(tbFs);
+const tb = BR.controller(tbFs, wagerGate("tut"));
 let tbRoom = null, tbCodeCur = null, tbOff = null, tbTick = null, tbStream = null, tbLoop = false, tbCounter = null, tbJudge = null, tbMine = { reps: 0, tutMs: 0 }, tbPub = null, tbLostSent = false, tbRecorded = null, tbLiveT0 = null;
 // 3:00 battle clock: TUT per counted rep + top holds (capped 10 s each) via push-challenge.js (separate instance).
 let tbChal = null, tbEnded = false, tbSettleTimer = null, tbDraw = null;
 const TBC = window.ZabbadatChallenge;
-const tbStat = (t) => { $("tbStatus").textContent = t || ""; };
+const tbStat = (t) => { window.ZabCurrency.set($("tbStatus"), t || ""); };
 // TUT Battles voice: same coaching lines as solo TUT, the shared countdown spoken, reps counted up.
 const tbVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeSharedCountdownVoice ? window.ZabbadatGetSet.makeSharedCountdownVoice() : null;
-const tbRepVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? window.ZabbadatGetSet.makeRepVoice() : null;
 let tbCoaching = false;
+const tbNow = () => BR.serverNow(Date.now(), tb.offset);
+const tbPres = mkPresence({ fs: tbFs, room: () => tbRoom, code: () => tbCodeCur, done: (r) => TBm.isDone(r), canBeat: () => true,
+  now: tbNow, stale: (r, u, n, t) => TBm.stale(r, u, n, t), claim: (fs, c, u, n) => TBm.claimGone(fs, c, u, n) });
+const tbArc = mkArcBoard({ prefix: "tb", game: "tut", fs: tbFs, room: () => tbRoom, code: () => tbCodeCur, title: "TUT Battle live board", pot: () => (wgTut ? wgTut.potText() : ""),
+  ctx: (r) => ({ nowMs: tbNow(), cd: tb.state(r.startAt), reps: repMap, draw: tbDraw === tbCodeCur, timeLeft: r.startAt != null ? TBm.timeLeft(r, tbNow()) : null,
+    mine: currentUser ? { uid: currentUser.uid, reps: tbMine.reps, tutMs: tbMine.tutMs } : null }) });
+repPaints.push(() => tbArc.paint());
 const fmtT = (ms) => { const t = Math.max(0, Math.floor((ms || 0) / 1000)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
 function tbPaint() {
   const r = tbRoom, me = currentUser && currentUser.uid;
   $("tbSignIn").hidden = !!currentUser; $("tbStart").hidden = !currentUser || !!tbCodeCur; $("tbLobby").hidden = !tbCodeCur;
   if (!tbCodeCur) { if (tbWake) tbWake.stop().catch(() => {}); return; }
   $("tbRoomCode").textContent = tbCodeCur;
+  if (wgTut) wgTut.paint();
   const ps = r ? BR.orderedPlayers(r, tbFs.toMs) : [], pre = r && !BR.started(r) && r.status !== "abandoned";
   const inPlay = r && (r.status === "live" || r.status === "done");
   [0, 1].forEach((i) => { const p = ps[i];
@@ -2502,12 +2695,24 @@ function tbPaint() {
   else if (pre) tbStat(!tbStream ? "Turn on the camera, calibrate at the top, then tap I'm ready." : mine && mine.ready ? "Waiting for the other player…" : "Tap I'm ready when you're in position.");
   if (pre && BR.bothReady(r)) tb.maybeStart(tbCodeCur).catch(() => {});
   if (tbWake) tbWake.want(!!(mine && r && (pre || r.status === "countdown" || r.status === "live") && (tbStream || mine.ready || r.status === "countdown" || r.status === "live"))).catch(() => {});
-  if (r && (r.status === "countdown" || r.status === "live") && r.startAt) { if (!tbTick) tbTick = setInterval(tbTickFn, 100); tbTickFn(); }
+  if (r && (r.status === "countdown" || r.status === "live") && r.startAt && !(r.status === "live" && TBm.forfeitLoser(r))) { if (!tbTick) tbTick = setInterval(tbTickFn, 100); tbTickFn(); }
   else { clearInterval(tbTick); tbTick = null; if (!(r && r.status === "done")) $("tbCount").hidden = true; }
+  repWatch(r); tbArc.paint(); tbPres.sync();
+  const ff = r && r.status !== "done" ? TBm.forfeitLoser(r) : null;
+  if (ff) { tbForfeitEnd(r, ff); }
+  if (r && (r.status === "done" || ff || tbDraw === tbCodeCur)) repSettle("tut", tbCodeCur, r.startAt);
   if (r && r.status === "done") tbFinish(r);
 }
+/* Left the battle or 30 s of silence before any result: the other player wins (both out: no winner). Same call on both phones. */
+function tbForfeitEnd(r, ff) {
+  clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; tbLostSent = true; tbEnded = true; clearTimeout(tbSettleTimer); if (tbWake) tbWake.stop().catch(() => {});
+  const me = currentUser && currentUser.uid, c = $("tbCount"); c.hidden = false; c.className = "battle-count result";
+  if (ff.both) { c.textContent = "Battle over"; return tbStat("Both players left. No winner."); }
+  const won = ff.loser !== me; c.textContent = won ? "You win!" : "You lose";
+  tbStat(won ? "Your opponent left or went silent for 30 seconds. You win." : "You left or went silent for 30 seconds. You lose.");
+}
 function tbTickFn() {
-  const r = tbRoom; if (!r) return; const st = tb.state(r.startAt), c = $("tbCount");
+  const r = tbRoom; if (!r) return; const st = tb.state(r.startAt), c = $("tbCount"); tbArc.paint(); if (r.status !== "done" && TBm.forfeitLoser(r)) return;
   if (tbVoice) tbVoice.phase("tut:" + tbCodeCur + ":" + r.startAt, st.phase, st.n);
   c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
   if (st.phase === "countdown") { c.textContent = st.n; tbStat("Get into plank at the top…"); }
@@ -2588,16 +2793,246 @@ function tbFinish(r) {
   const loser = r.players && r.players[r.loserUid], winner = r.players && r.players[r.winnerUid];
   clearTimeout(tbSettleTimer);
   tbStat(r.loseReason === TBm.TIME_UP ? (winner ? winner.name : "Opponent") + " wins. " + TBm.WIN_REASON + "." : (loser ? loser.name : "Opponent") + ": " + TBm.resultText(r, r.loserUid) + ".");
-  if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); if (ZT) awardTokens("tut", ZT.qtyFrom("tut", tbMine.tutMs), "b" + r.code).catch(() => {}); }
+  if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); if (ZT) awardZab("tut", ZT.qtyFrom("tut", tbMine.tutMs), "b" + r.code).catch(() => {}); }
 }
 function tbEnter(code) {
   tbCodeCur = code; tbRecorded = null; tbLiveT0 = null; try { localStorage.setItem("zdTutBattle", code); } catch (e) {}
   if (tbOff) tbOff(); tbOff = tb.watch(code, (r) => { tbRoom = r; tbPaint(); }); tbPaint();
 }
-function tbExit() { clearTimeout(tbSettleTimer); tbDraw = null; try { localStorage.removeItem("zdTutBattle"); } catch (e) {} if (tbOff) tbOff(); tbOff = null; tbRoom = null; tbCodeCur = null; clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; tbPaint(); }
+function tbExit() { if (wgTut) wgTut.stop(); tbPres.stop(); tbArc.reset(); clearTimeout(tbSettleTimer); tbDraw = null; try { localStorage.removeItem("zdTutBattle"); } catch (e) {} if (tbOff) tbOff(); tbOff = null; tbRoom = null; tbCodeCur = null; clearInterval(tbTick); tbTick = null; tbCamOff(); tbLiveT0 = null; tbPaint(); }
 async function tbResume(u) { let code = null; try { code = localStorage.getItem("zdTutBattle"); } catch (e) {} if (!code || tbCodeCur) return; try { if (await tb.resume(code, { uid: u.uid })) tbEnter(code); else localStorage.removeItem("zdTutBattle"); } catch (e) {} }
-$("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making a room…"); try { tbEnter(await tb.createRoom(u)); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
-$("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { tbEnter(await tb.joinRoom($("tbCode").value, u)); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
+/* ---- Zabba Washer Battle: Bariboshi match (rules.html v1.9). Rooms/ready/countdown from battle-rooms.js on washersBattles/{code}.
+   No video: each player pitches at their own box and reports; the opponent confirms or disputes. Phones count steps (optional extra). ---- */
+const WB = window.ZabbaWasherBattle, ARC = window.ZabbaArcade;
+const wbFs = mkBattleFs("washersBattles");
+const wbc = BR.controller(wbFs, wagerGate("washers"));
+let wbRoom = null, wbCodeCur = null, wbOff = null, wbTick = null, wbBeat = null, wbPlayingFor = null, wbLastSteps = -1, wbLastBeat = 0, wbSettledKey = null, wbMatchHtml = "";
+const wbReps = repMap, wbArcSound = ARC ? ARC.makeSound(window) : null;
+let arcPrev = null, arcHtml = "", arcBannerKey = "";
+const wbPub = WB ? WB.throttle(WB.PUBLISH_MS, () => Date.now()) : null;
+const wbStat = (t) => { window.ZabCurrency.set($("wbStatus"), t || ""); };
+const wbSrvNow = () => BR.serverNow(Date.now(), wbc.offset);
+function wbPlaying() { return !!(wbCodeCur && wbPlayingFor === wbCodeCur && wbRoom && wbRoom.status === "live" && currentUser && WB.canWrite(wbRoom, currentUser.uid)); }
+/* Hooks called by the solo game: only the optional live step count goes to the room; the solo game never decides the match. */
+wbHook = {
+  render() { if (!wbPlaying() || state.steps === wbLastSteps || !wbPub || !wbPub()) return; wbLastSteps = state.steps; WB.publishLive(wbFs, wbCodeCur, currentUser.uid, { steps: state.steps }).catch(() => {}); },
+  finish() {},
+};
+/* Reputation (repBoard/{uid}: name + score only). Missing doc = a new player at 50; unreadable = no badge. */
+function wbWatchReps(r) { repWatch(r); }
+function wbStopReps() { repStop(); }
+/* Finished match: ask the server to score reputation once (each phone asks; the server counts the match once). */
+function wbSettleRep() {
+  const r = wbRoom; if (!r || !wbCodeCur) return; const k = wbCodeCur + ":" + r.startAt; if (wbSettledKey === k) return; wbSettledKey = k;
+  repSettle("washers", wbCodeCur, r.startAt);
+}
+/* Match panel: only the actions that are open to me right now (report, confirm or dispute, rule). */
+const wbPackSel = (cls, v) => [0, 1, 2].map((i) => '<select class="' + cls + '" aria-label="Washer ' + (i + 1) + '">' + WB.PTS.map((p) => '<option value="' + p + '"' + (v && v[i] === p ? " selected" : "") + ">" + WB.POINTS[p] + "</option>").join("") + "</select>").join(" ");
+function wbMatchPaint() {
+  const box = $("wbMatch"), r = wbRoom, me = currentUser && currentUser.uid;
+  if (!box) return;
+  const on = !!(r && me && r.players && me in r.players && r.status === "live" && !WB.decide(r).done);
+  let h = "";
+  if (on) {
+    const an = WB.analyze(r), acts = an.actions[me] || [], nm = (u) => escapeHtml(ARC ? ARC.safeName(r.players[u] && r.players[u].name) : "Player"), opp = WB.other(r, me);
+    acts.forEach((a) => {
+      if (a.type === "b") h += '<div class="card" data-form="b"><p class="note" style="margin:0 0 .3rem"><strong>Opening pitch (Bariboshi)</strong>: pitch one washer. How far is it from the center of the cup, in cm? 0 means in the cup. Closest goes first.</p><div class="row"><input class="bd" type="number" inputmode="numeric" min="0" max="2000" step="1" value="0" style="max-width:6rem"><button class="btn" data-act="b" data-n="' + a.n + '" type="button">Report</button></div></div>';
+      else if (a.type === "r") h += '<div class="card" data-form="r"><p class="note" style="margin:0 0 .3rem"><strong>Round ' + a.n + ': your pack of 3</strong>. Score each washer by its final lie.</p><div class="row">' + wbPackSel("pk", null) + '</div><div class="row"><button class="btn" data-act="r" data-n="' + a.n + '" type="button">Report my pack</button></div></div>';
+      else if (a.type === "c") h += '<div class="card" data-form="c"><p class="note" style="margin:0 0 .3rem"><strong>' + nm(a.who) + "</strong> reports " + (a.t === "b" ? a.d + " cm from the cup (opening pitch)." : "round " + a.n + ": " + WB.packText(a.pack) + ".") + '</p><div class="row"><button class="btn" data-act="c" data-t="' + a.t + '" data-n="' + a.n + '" data-ok="1" type="button">Confirm</button><button class="btn danger" data-act="c" data-t="' + a.t + '" data-n="' + a.n + '" data-ok="0" type="button">Dispute</button></div></div>';
+      else if (a.type === "x") h += '<div class="card" data-form="x"><p class="note" style="margin:0 0 .3rem"><strong>Referee check</strong>: ' + nm(a.who) + " reported " + WB.packText(a.pack) + " for round " + a.n + ' and it was disputed. As the Bariboshi winner you rule on the final pack.</p><div class="row">' + wbPackSel("pk", a.pack) + '</div><div class="row"><button class="btn" data-act="x" data-n="' + a.n + '" data-who="' + escapeHtml(a.who) + '" type="button">Rule</button></div></div>';
+    });
+    if (!acts.length) h = '<p class="note">' + (an.pending.length ? "Waiting for " + nm(an.pending[0].by) + " to confirm." : an.disputed.length ? "Referee check: waiting for " + nm(an.disputed[0].ruler) + " to rule." : "Waiting for " + nm(opp) + ".") + "</p>";
+  }
+  if (h === wbMatchHtml) return; wbMatchHtml = h; box.hidden = !on; box.innerHTML = h;
+}
+async function wbMatchClick(e) {
+  const b = e.target.closest && e.target.closest("button[data-act]"); if (!b || !wbCodeCur || !currentUser) return;
+  const form = b.closest("[data-form]"), n = Number(b.dataset.n), pack = form ? [...form.querySelectorAll(".pk")].map((x) => Number(x.value)) : [];
+  let en = null;
+  if (b.dataset.act === "b") en = { k: "b", n, d: Math.max(0, Math.min(2000, Math.round(Number(form.querySelector(".bd").value) || 0))) };
+  else if (b.dataset.act === "r") en = { k: "r", n, pack };
+  else if (b.dataset.act === "c") en = { k: "c", t: b.dataset.t, n, ok: b.dataset.ok === "1" };
+  else if (b.dataset.act === "x") en = { k: "x", n, who: b.dataset.who, pack };
+  if (!en) return; b.disabled = true;
+  try { const ok = await WB.report(wbFs, wbCodeCur, currentUser.uid, en); if (!ok) wbStat("That report isn't open right now."); } catch (err) { wbStat("Couldn't send: " + (err.code === "permission-denied" ? "not allowed yet." : err.message || err)); } finally { b.disabled = false; }
+}
+function wbPaint() {
+  if (!WB) return;
+  const r = wbRoom, me = currentUser && currentUser.uid;
+  $("wbSignIn").hidden = !!currentUser; $("wbStart").hidden = !currentUser || !!wbCodeCur; $("wbLobby").hidden = !wbCodeCur;
+  if (!wbCodeCur) return;
+  $("wbRoomCode").textContent = wbCodeCur;
+  if (r) wbWatchReps(r);
+  const ps = r ? BR.orderedPlayers(r, wbFs.toMs) : [], pre = r && !BR.started(r) && r.status !== "abandoned";
+  const dec = r ? WB.decide(r) : { done: false }, live = r && r.status === "live", st = r ? WB.matchState(r, wbSrvNow(), wbFs.toMs) : "cancelled";
+  [0, 1].forEach((i) => { const p = ps[i];
+    $("wbP" + (i + 1)).textContent = p ? WB.pubName(p.name) + (p.uid === me ? " (you)" : "") : "Waiting…";
+    let sub = "Player " + (i + 1);
+    if (p && pre) sub += p.ready ? " · Ready ✓" : " · Not ready";
+    if (p && dec.done) sub += dec.winner === p.uid ? " · WIN" : dec.winner ? "" : " · TIE";
+    $("wbP" + (i + 1) + "s").textContent = sub; });
+  const mine = r && me && r.players && r.players[me];
+  $("wbReady").hidden = !(pre && mine && ps.length === 2 && st !== "cancelled");
+  if (mine) $("wbReady").textContent = mine.ready ? "Not ready" : "I'm ready";
+  $("wbForfeit").hidden = !(live && mine && !mine.result && !dec.done);
+  $("wbToGame").hidden = !(live && mine && !mine.result && !dec.done);
+  if (!r || r.status === "abandoned") wbStat("This room is closed. Make a new one.");
+  else if (pre && st === "cancelled") wbStat("This room expired because nobody started a match. Make a new one.");
+  else if (pre && ps.length < 2) wbStat("Waiting for a second player…");
+  else if (pre) wbStat(mine && mine.ready ? "Waiting for the other player to tap ready…" : "Tap I'm ready when you're set.");
+  else if (dec.done) { wbStat(WB.resultText(r, me)); if (wbPlayingFor === wbCodeCur) wbStopGame(); wbSettleRep(); }
+  else if (live) wbStat("Match on. Use the panel to report each pitch and confirm your opponent's.");
+  if (pre && BR.bothReady(r) && st !== "cancelled") wbc.maybeStart(wbCodeCur).catch(() => {});
+  wbBoardPaint(); wbMatchPaint();
+  if (wgWb) wgWb.paint();
+  if (r && (r.status === "countdown" || r.status === "live") && r.startAt && !dec.done) { if (!wbTick) wbTick = setInterval(wbTickFn, 100); wbTickFn(); }
+  else { clearInterval(wbTick); wbTick = null; $("wbCount").hidden = true; }
+  if (live && !dec.done && mine && !wbBeat) { wbBeat = setInterval(wbBeatFn, 5000); wbBeatFn(); }
+  else if ((!live || dec.done) && wbBeat) { clearInterval(wbBeat); wbBeat = null; }
+}
+/* Heartbeat every 10 s while live; if the opponent has been silent for 30 s, record it (they forfeit). */
+function wbBeatFn() {
+  const r = wbRoom, u = currentUser; if (!r || !u || !wbCodeCur || r.status !== "live" || WB.decide(r).done) return;
+  if (Date.now() - wbLastBeat >= WB.BEAT_MS - 500) { wbLastBeat = Date.now(); WB.heartbeat(wbFs, wbCodeCur, u.uid).catch(() => {}); }
+  if (WB.staleOpponent(r, u.uid, wbSrvNow(), wbFs.toMs)) WB.claimGone(wbFs, wbCodeCur, u.uid, wbSrvNow()).catch(() => {});
+}
+/* Arcade scoreboard on both screens (lobby card + above the game controls): same look for one shared screen or each phone. */
+let wbBoardTimer = null;
+function wbBoardPaint() {
+  const r = wbRoom, show = !!(ARC && WB && r && wbCodeCur && currentUser);
+  ["wbBoard", "wbPlayBoard"].forEach((id) => { $(id).hidden = !show; });
+  if (!show) { arcPrev = null; arcHtml = ""; return; }
+  const me = currentUser.uid, ps = BR.orderedPlayers(r, wbFs.toMs), ctx = { nowMs: wbSrvNow(), toMs: wbFs.toMs, cd: wbc.state(r.startAt), reps: wbReps };
+  const m = ARC.model(r, ps, me, ctx), f = ARC.fx(arcPrev, m), html = ARC.html(m, f, arcPrev);
+  if (html !== arcHtml) { arcHtml = html; ["wbBoardBody", "wbPlayBoardBody"].forEach((id) => { $(id).querySelector(".arc-main").innerHTML = html; }); }
+  if (f.banner) { const bk = f.banner + ":" + m.round + ":" + m.mode.key, bh = ARC.bannerHtml(f.banner, m.mode.key === "finished"); if (bk !== arcBannerKey) { arcBannerKey = bk;
+    ["wbBoardBody", "wbPlayBoardBody"].forEach((id) => { $(id).querySelector(".arc-fx").innerHTML = bh; }); setTimeout(() => { ["wbBoardBody", "wbPlayBoardBody"].forEach((id) => { const x = $(id).querySelector(".arc-fx"); if (x) x.innerHTML = ""; }); }, 2000); } }
+  if (wbArcSound) f.sound.forEach((c) => wbArcSound.cue(c));
+  const potTxt = wgWb ? wgWb.potText() : ""; ["wbBoard", "wbPlayBoard"].forEach((id) => { const n = $(id).querySelector("strong"); if (n) window.ZabCurrency.set(n, "Zabba Washer Battle live board" + (potTxt ? " · " + potTxt : "")); });
+  arcPrev = m;
+}
+repPaints.push(wbBoardPaint);
+/* Start the step counter (the normal washers game, as a pedometer) when the shared countdown hits GO (once per room). */
+function wbStartGame() {
+  if (wbPlayingFor === wbCodeCur) return;
+  const mine = wbRoom && currentUser && wbRoom.players && wbRoom.players[currentUser.uid]; if (!mine || mine.result) return;
+  wbPlayingFor = wbCodeCur; wbLastSteps = -1;
+  setPocket(false); $("resetBtn").onclick(); $("startBtn").onclick();
+  setStatus("Battle on. Your steps are counted for the board. Report your scores in the Zabba Washer Battle panel.");
+}
+/* Battle decided while this phone is still counting: stop the local game, no board post. */
+function wbStopGame() { if (state.running && !state.finished) { setPocket(false); $("pauseBtn").onclick(); setStatus("Battle over. " + WB.resultText(wbRoom, currentUser && currentUser.uid)); } wbPlayingFor = null; }
+function wbTickFn() {
+  const st = wbc.state(wbRoom && wbRoom.startAt), c = $("wbCount");
+  if (battleVoice && wbRoom) battleVoice.phase("washers:" + wbCodeCur + ":" + wbRoom.startAt, st.phase);
+  c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
+  if (st.phase === "countdown") { c.textContent = st.n; wbStat("Get set to pitch…"); }
+  else if (st.phase === "go" || st.phase === "live") {
+    c.textContent = st.phase === "go" ? "GO!" : "Battle on.";
+    if (wbRoom.status === "countdown") wbc.markLive(wbCodeCur).catch(() => {});
+    wbStartGame();
+    if (st.phase === "live") { clearInterval(wbTick); wbTick = null; }
+  }
+  wbBoardPaint();
+}
+function wbUser() { return currentUser ? { uid: currentUser.uid, name: publicName($("player").value.trim() || displayNameOf(currentUser)).slice(0, 20) } : null; }
+function wbEnter(code) { wbCodeCur = code; wbSettledKey = null; try { localStorage.setItem("zdWasherBattle", code); } catch (e) {} if (wbOff) wbOff(); wbOff = wbc.watch(code, (r) => { wbRoom = r; wbPaint(); }); wbPaint(); }
+function wbExit() { if (wgWb) wgWb.stop(); try { localStorage.removeItem("zdWasherBattle"); } catch (e) {} if (wbOff) wbOff(); wbOff = null; wbRoom = null; wbCodeCur = null; wbPlayingFor = null; clearInterval(wbTick); wbTick = null; clearInterval(wbBeat); wbBeat = null; wbStopReps(); wbMatchHtml = ""; wbBoardPaint(); wbMatchPaint(); wbPaint(); }
+async function wbResume(u) { let code = null; try { code = localStorage.getItem("zdWasherBattle"); } catch (e) {} if (!code || wbCodeCur) return; try { if (await wbc.resume(code, { uid: u.uid })) wbEnter(code); else localStorage.removeItem("zdWasherBattle"); } catch (e) {} }
+if (WB) {
+  if (wbArcSound && wbArcSound.available) document.querySelectorAll("[data-arc-mute]").forEach((b) => { b.hidden = false; b.textContent = "Sound: " + (wbArcSound.muted ? "off" : "on");
+    b.onclick = () => { const m = wbArcSound.setMuted(!wbArcSound.muted); document.querySelectorAll("[data-arc-mute]").forEach((x) => { x.textContent = "Sound: " + (m ? "off" : "on"); }); if (!m) { wbArcSound.unlock(); wbArcSound.cue("score"); } }; });
+  $("wbMatch").addEventListener("click", wbMatchClick);
+  $("wbCreate").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to create a battle."); }
+    if (wbArcSound) wbArcSound.unlock();
+    $("wbCreate").disabled = true; wbStat("Making a room…");
+    try { await wagerCreate(wgWb, wbc, u, wbEnter, wbStat); } catch (e) { wbStat(e.message || "Couldn't create a room."); } finally { $("wbCreate").disabled = false; } };
+  $("wbJoin").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to join a battle."); }
+    if (wbArcSound) wbArcSound.unlock();
+    $("wbJoin").disabled = true; wbStat("Joining…");
+    try { await wagerJoin(wgWb, wbc, $("wbCode").value, u, wbEnter, wbStat); } catch (e) { wbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("wbJoin").disabled = false; } };
+  $("wbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("wbJoin").click(); });
+  $("wbReady").onclick = async () => { if (!requireSignIn("washer battle")) return; if (battleVoice) battleVoice.unlock(); if (wbArcSound) wbArcSound.unlock(); const u = wbUser(), mine = wbRoom && wbRoom.players && wbRoom.players[u.uid];
+    /* iPhone: ask for motion access inside this tap so the step sensor works when GO starts the step count. */
+    if (!(mine && mine.ready) && typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") DeviceMotionEvent.requestPermission().catch(() => {});
+    if (gameWake && !(mine && mine.ready)) gameWake.start().catch(() => {});
+    try { await wbc.setReady(wbCodeCur, u, !(mine && mine.ready)); } catch (e) { wbStat("Couldn't update: " + (e.message || e)); } };
+  $("wbForfeit").onclick = async () => { if (!wbCodeCur || !currentUser || !confirm("Forfeit this battle? Your opponent wins.")) return;
+    try { await WB.forfeit(wbFs, wbCodeCur, currentUser.uid); wbStopGame(); } catch (e) { wbStat("Couldn't forfeit: " + (e.message || e)); } };
+  $("wbLeave").onclick = async () => { const c = wbCodeCur, u = wbUser(), live = wbRoom && wbRoom.status === "live";
+    if (live && u && WB.canWrite(wbRoom, u.uid) && !WB.decide(wbRoom).done && !confirm("Leaving now forfeits the battle. Leave?")) return;
+    if (live && u) { await WB.forfeit(wbFs, c, u.uid).catch(() => {}); wbStopGame(); }
+    wbExit(); wbStat("You left the room."); if (u && c) wbc.leave(c, u).catch(() => {}); };
+}
+// ---- ZAB bets on battles (zaba-wager.js). Spending is server-side: wager-stake / wager-settle functions.
+// Clients only read wagers/{key}; the countdown waits until both seated stakes are in escrow.
+function mkWager(game, o) {
+  if (!WG) return null;
+  const P = o.prefix; let off = null, curKey = null, w = null, lastSettle = 0, busy = false;
+  // stake picker (create) + wager line / stake button (lobby), added once
+  const start = $(P + "Start"), count = $(P + "Count");
+  if (start) start.insertAdjacentHTML("beforeend", '<label for="' + P + 'Stake">Bet ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg> (optional, minimum ' + WG.MIN_STAKE + (WG.MAX_STAKE ? ", maximum " + WG.MAX_STAKE : "") + ')</label><div class="row"><input id="' + P + 'Stake" type="number" inputmode="numeric" min="' + WG.MIN_STAKE + '" step="1" placeholder="No bet" style="max-width:9rem"></div><p class="note" style="margin:.2rem 0 0">Both players stake the same amount; the winner takes the pot (2x the bet). Ties, draws, unverified games and rooms that never start are refunded.</p>');
+  if (count) count.insertAdjacentHTML("beforebegin", '<p class="note" id="' + P + 'Wager" hidden style="text-align:center;font-weight:700"></p><div class="row" id="' + P + 'StakeRow" hidden style="justify-content:center"><button class="btn" id="' + P + 'StakeBtn" type="button">Lock in</button></div>');
+  const keyOf = (r) => (r && r.stake ? WG.roomKey(game, o.code(), o.fs.toMs(r.createdAt)) : null);
+  async function call(name, body) {
+    const u = auth.currentUser; if (!u) throw new Error("Sign in to bet.");
+    const res = await fetch("/.netlify/functions/" + name, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await u.getIdToken()) }, body: JSON.stringify(body) });
+    const j = await res.json().catch(() => ({})); if (!res.ok) throw new Error(j.error || "Bet service unavailable."); return j;
+  }
+  async function stakeNow() {
+    if (busy || !o.code()) return; busy = true; $(P + "StakeBtn").disabled = true;
+    try { await call("wager-stake", { game, code: o.code() }); o.status("Locked in. Waiting for your opponent's stake…"); }
+    catch (e) { o.status("Bet: " + (e.message || e)); } finally { busy = false; $(P + "StakeBtn").disabled = false; }
+  }
+  $(P + "StakeBtn").onclick = stakeNow;
+  function settle(force) {
+    if (!curKey || !w || w.status !== "open" || (!force && Date.now() - lastSettle < 15000)) return;
+    lastSettle = Date.now(); call("wager-settle", { key: curKey }).catch(() => {});
+  }
+  // stake value chosen on Create: {} for no bet, {stake:n} for a bet, null when invalid (message shown)
+  function extra() {
+    const raw = ($(P + "Stake") && $(P + "Stake").value || "").trim(); if (!raw) return {};
+    const n = Number(raw), e = WG.stakeError(n); if (e) { o.status(e); return null; } return { stake: n };
+  }
+  // Join confirmation showing the stake; false = cancelled.
+  async function confirmJoin(raw) {
+    const code = BR.normCode(raw); if (!BR.isValidCode(code)) return true;
+    let r = null; try { r = await o.fs.tx(code, (t) => t.get()); } catch (e) { return true; }
+    if (!r || !r.stake || (currentUser && r.players && currentUser.uid in r.players)) return true;
+    return confirm("This battle has a bet of " + r.stake + " ZAB each. Winner takes the pot of " + WG.pot(r.stake) + ". Join and stake " + r.stake + "?");
+  }
+  function paint() {
+    const r = o.room(), me = currentUser && currentUser.uid, k = keyOf(r);
+    if (k !== curKey) { if (off) off(); off = null; w = null; curKey = k;
+      if (k) off = onSnapshot(doc(db, "wagers", k), (d) => { w = d.exists() ? d.data() : null; o.repaint(); }, () => {}); }
+    const line = $(P + "Wager"), row = $(P + "StakeRow"); if (!line) return;
+    if (!k || !o.code()) { line.hidden = true; row.hidden = true; return; }
+    const mineSeated = r && r.players && me in r.players, staked = !!(w && w.players && w.players[me]);
+    const pre = r && !BR.started(r) && r.status !== "abandoned";
+    line.hidden = false;
+    if (w && w.status !== "open") line.textContent = WG.outcomeText(w, me);
+    else { const n = w ? Object.keys(w.players || {}).length : 0;
+      window.ZabCurrency.set(line, "Bet " + r.stake + " each · Pot " + WG.pot(r.stake) + " ZAB" + (pre ? " · " + n + "/2 locked in" + (staked ? " (you ✓)" : "") + (n < 2 ? " · countdown starts when both are locked in" : "") : "")); }
+    row.hidden = !(pre && mineSeated && !staked && (!w || w.status === "open"));
+    window.ZabCurrency.set($(P + "StakeBtn"), "Lock in " + r.stake + " ZAB");
+    if (r && BR.started(r) && o.decided(r)) settle(false);
+    if (r && (r.status === "abandoned") && w && w.status === "open") settle(false);
+  }
+  function autoStake() { const r = o.room(), w0 = w, me = currentUser && currentUser.uid; if (r && r.stake && !BR.started(r) && !(w0 && w0.players && w0.players[me])) stakeNow(); }
+  function stop() { if (off) off(); off = null; w = null; curKey = null; const l = $(P + "Wager"), rw = $(P + "StakeRow"); if (l) l.hidden = true; if (rw) rw.hidden = true; }
+  wagerOk[game] = (r) => WG.allStaked(r, r && keyOf(r) === curKey ? w : null);
+  return { paint, stop, autoStake, extra, confirmJoin, stakeNow, settle, wager: () => w, potText: () => (w ? WG.outcomeText(w, currentUser && currentUser.uid) : "") };
+}
+wgPlank = mkWager("plank", { prefix: "battle", fs: battleFs, code: () => battleCode, room: () => battleRoom, repaint: () => paintBattle(), status: bStatus, decided: (r) => pbDec(r).done });
+wgTut = mkWager("tut", { prefix: "tb", fs: tbFs, code: () => tbCodeCur, room: () => tbRoom, repaint: () => tbPaint(), status: tbStat,
+  decided: (r) => r.status === "done" || (r.status === "live" && TBm.endAt(r) != null && BR.serverNow(Date.now(), tb.offset) > TBm.endAt(r) + TBm.RULES.settleMs + WG.GRACE_MS) });
+wgWb = mkWager("washers", { prefix: "wb", fs: wbFs, code: () => wbCodeCur, room: () => wbRoom, repaint: () => wbPaint(), status: wbStat, decided: (r) => WB.decide(r).done });
+// Create with an optional bet, then stake it right away; join shows the bet first, then stakes.
+async function wagerCreate(wg, ctl, u, enter, stat) { const ex = wg ? wg.extra() : {}; if (ex === null) return; const code = await ctl.createRoom(u, ex); enter(code); if (wg && ex.stake) await wg.stakeNow(); }
+async function wagerJoin(wg, ctl, raw, u, enter, stat) { if (wg && !(await wg.confirmJoin(raw))) return void stat("Join cancelled."); const code = await ctl.joinRoom(raw, u); enter(code);
+  /* the joiner has seen the bet in the confirm dialog and on the pot line; the Lock in button commits the stake */ }
+$("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making a room…"); try { await wagerCreate(wgTut, tb, u, tbEnter, tbStat); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
+$("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { await wagerJoin(wgTut, tb, $("tbCode").value, u, tbEnter, tbStat); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
 $("tbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tbJoin").click(); });
 $("tbCam").onclick = () => { if (!requireSignIn("tut battle")) return; if (tbWake) tbWake.start().catch(() => {}); unlockGetSet(); const restart = sessionPlan("tut-battle") === "restart"; /* restart: no placement/criteria intro */ sessionCommit("tut-battle"); const placed = restart ? null : showPositioning("tut", $("tbCamNote"), () => false, "place"); return tbCamOn(placed); };
 $("tbReady").onclick = async () => { if (!requireSignIn("tut battle")) return; unlockGetSet(); /* iOS: speech unlocked in this tap for the shared countdown */ const u = battleUser(), m = tbRoom && tbRoom.players && tbRoom.players[u.uid]; if (tbWake && !(m && m.ready)) tbWake.start().catch(() => {}); try { await tb.setReady(tbCodeCur, u, !(m && m.ready)); } catch (e) { tbStat(e.message); } };
@@ -2629,7 +3064,7 @@ getRedirectResult(auth)
   })
   .catch(() => {});
 let dailySyncOff = null, liveWalkOff = null;
-onAuthStateChanged(auth, (u) => { tokensOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+onAuthStateChanged(auth, (u) => { zabOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); if (!u && wbCodeCur) wbExit(); else if (u) wbResume(u); wbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("boardAllBtn").onclick = () => {
   boardFilter = "all";
   $("boardAllBtn").className = "btn";

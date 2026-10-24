@@ -32,10 +32,10 @@ const WAKES = line("const gameWake = makeWake(") + line("const plankBattleWake =
 const BASE = [line("const WAKE_NOTE"), fnSrc("makeWake"), WAKES].join("\n");
 const STATE = [line("const state = {"), line("let pocketOn = false;"), line("let walkLockOn = false;"), line("let relockTimer = null;"),
   line("const pushState = {"), "let pushMode = 'sets';", fnSrc("paintGameBtn"), fnSrc("setPocket"), fnSrc("setWalkLock")].join("\n");
-const STUBS = `function requireSignIn() { return true; } let gameHoldDone = false; let currentUser = null; const postureGuard = null; const ZT = null; let saveRemotePush = async () => {}; let awardTokens = async () => ({});
+const STUBS = `function requireSignIn() { return true; } let gameHoldDone = false; let currentUser = null; const postureGuard = null; const ZT = null; let saveRemotePush = async () => {}; let awardZab = async () => ({});
 function render() {} function setStatus() {} function startPhoneSteps() {} function stopPhoneSteps() {} function renderPush() {} function resetPoseBaseline() {}
 function paintPushRows() {} function localPush() { return []; } function pushTotalKey() { return "a"; } function pushSetsKey() { return "b"; } function pushTutKey() { return "c"; }
-function savedPushTotal() { return 0; } function savedPushSets() { return 0; } function savedPushTut() { return 0; } function formatTime() { return ""; } function tokenNote() { return ""; }
+function savedPushTotal() { return 0; } function savedPushSets() { return 0; } function savedPushTut() { return 0; } function formatTime() { return ""; } function zabNote() { return ""; }
 function displayNameOf() { return "x"; } window.ZabbadatSession = { setsToAdd: () => 0, tutToAdd: () => 0 };
 const stepDetector = { reset() {} }; const stepVerifier = { reset() {}, resume() {}, pause() {}, result: () => ({ verified: true, reasons: [] }) };
 let camStream = null, camOn = false, poseLoopOn = false, plankLoop = false, plankHold = null, plankSaved = false, plankStream = null, plankSessionStartedAt = 0;

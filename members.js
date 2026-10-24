@@ -44,8 +44,8 @@
   }
   async function call(path) {
     if (!state.user) throw new Error("Sign in first.");
-    var token = await state.user.getIdToken();
-    var r = await fetch("/.netlify/functions/" + path, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: "{}" });
+    var credential = await state.user.getIdToken();
+    var r = await fetch("/.netlify/functions/" + path, { method: "POST", headers: { Authorization: "Bearer " + credential, "Content-Type": "application/json" }, body: "{}" });
     var j = {}; try { j = await r.json(); } catch (e) {}
     if (r.status === 503) { state.configured = false; apply(); throw new Error("Membership is not set up yet."); }
     if (!r.ok || !j.url) throw new Error(j.error || ("Request failed (" + r.status + ")"));
