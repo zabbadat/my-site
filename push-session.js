@@ -41,12 +41,12 @@
       }
     }
     var w = ls && rs ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : null;
-    // A floor camera sees a plank's legs running straight down the frame, so an upright-looking
+    // A camera looking along the plank sees the legs running straight down the frame, so an upright-looking
     // line only counts when the shoulders have also moved away from the camera.
     if (upright && (!(w && topWidth > 0) || w < 0.8 * topWidth)) return "standing";
     if (knees) return "knees";
     if (w && topWidth > 0) {
-      if (w < o.shrink * topWidth) return "standing"; // left the plank: moved far from the floor camera
+      if (w < o.shrink * topWidth) return "standing"; // left the plank: moved far from the camera
       return "ok";
     }
     return known ? "ok" : null;

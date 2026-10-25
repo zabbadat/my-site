@@ -129,7 +129,7 @@
   }
   // Camera setup prompt (max 2 short lines) shown while the camera loads and ~2 s after it opens, before the countdown.
   var POSITION = {
-    pushups: ["Phone flat under your chest · Shoulders in frame", "Arms straight · Eyes forward"],
+    pushups: ["Lean your phone up in front of you, camera facing you", "Shoulders and hands in frame"],
     plank: ["Prop the phone on the floor off to your side, a few steps away, screen facing you, so your whole body shows side-on, head to heels."]
   };
   // Plank setup line is also SPOKEN once when the camera opens; the countdown waits for it to finish.
@@ -165,8 +165,8 @@
   // Spoken + on-screen start coaching, one shared sequence for all camera exercises:
   //   tap -> PLACE line (spoken in the tap; camera opens meanwhile) -> CRITERIA line -> countdown.
   var COACH = {
-    pushups: { place: "Place your phone flat on the ground under your chest.", criteria: "Shoulders in frame, arms straight, eyes forward. Go all the way down and back up." },
-    tut: { place: "Place your phone flat on the ground under your chest.", criteria: "Shoulders in frame, arms straight, eyes forward. Slow, controlled reps, all the way down and back up." },
+    pushups: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Go all the way down and back up." },
+    tut: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up." },
     plank: { place: "Place your phone on the ground off to your side.", criteria: "Get your whole body in camera view. Get into your plank and hold." }
   };
   function coachLines(kind) { return COACH[kind] || COACH.pushups; }

@@ -1,7 +1,14 @@
 /* Zabbadat pushup counter: pure rep-counting logic (no DOM, no camera).
- * Phone lies face-up under the chest. Going down brings the chest toward the
- * camera, so the shoulders look wider. We track that apparent size, not
- * vertical screen position.
+ * Camera only. Setup: the phone leans up against something in front of the user at about chest or face height,
+ * camera facing them, shoulders and hands in frame. Nothing is drawn on screen from these points.
+ * Signals (all from MoveNet keypoints, every distance divided by the user's own shoulder width so the phone's
+ * distance does not matter):
+ *   - main: shoulder and head height in the frame (shoulders sink and the head drops going down), with a rolling top.
+ *   - second: wrist-to-shoulder distance (the planted hands get closer to the shoulders going down).
+ *   A rep counts only when BOTH signals reach depth and return, credited on the way up. If no wrist is visible
+ *   the second signal is skipped and the main signal decides alone.
+ * Smoothing: speed-adaptive One Euro filter (opts.filter = "ema" gives a fixed EMA with tauMs, for comparison).
+ * Zero calibration: the first real dip sets the top and counts as rep 1.
  * Usage: const c = ZabbadatPush.createCounter();
  *        const r = c.update(keypoints, timeMs, frameWidth);  // r.counted, r.status, r.phase
  */
@@ -11,45 +18,74 @@
     minScore: 0.3,        // per-keypoint confidence gate
     holdMs: 300,          // reuse last good value this long when a point drops out
     poorMs: 1000,         // after this long without a usable signal, show a framing message
-    tauMs: 70,            // time constant of the EMA smoothing
-    glitchRatio: 0.45,    // single-frame jumps bigger than this (relative) are ignored
+    minCutoff: 3.0,       // One Euro: resting cutoff (Hz). Lower = smoother at rest, more lag
+    beta: 6,              // One Euro: cutoff grows with speed (per shoulder-width/s). Higher = less lag while moving
+    dCutoff: 1.0,         // One Euro: cutoff for the speed estimate (Hz)
+    tauMs: 70,            // only for opts.filter = "ema"
+    glitchRatio: 0.45,    // single-frame jumps in shoulder width bigger than this (relative) are ignored
     glitchMaxMs: 250,     // ...unless they persist this long (then they are real)
-    calibMs: 1000,        // how long the top must be steady
-    steadyTol: 0.05,      // steady = size within +/-5% over calibMs
-    minDepth: 0.12,       // first rep must make the shoulders >= 12% wider than the top
+    calibMs: 1000,        // a level held this long counts as "parked" (setup), not a rep
+    steadyTol: 0.05,      // steady = within +/-0.05 shoulder widths
+    minDepth: 0.2,        // the first rep must drop shoulders/head >= 0.2 shoulder widths
     downRom: 0.7,         // % range of motion to be "down"
     upRom: 0.3,           // % range of motion to be back "up"
     minBottomMs: 120,
     minRepMs: 400,
     maxRepMs: 6000,
     adapt: 0.15,          // how fast top/bottom follow the user after each good rep
-    elbowFrac: 0.4        // rep must bend at least 40% of the user's own elbow range
+    reachFrac: 0.4,       // rep must close at least 40% of the user's own wrist-to-shoulder range
+    reachReturn: 0.35,    // ...and open back up at least 35% of it before the rep is credited
+    topFollowMs: 400,     // the top follows upward movement of the body this fast
+    topWinMs: 7000        // window (longer than maxRepMs) with no return to the top = the body moved, re-base
   };
 
-  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
-  function angleDeg(a, b, c) {
-    var ang = Math.abs(Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x)) * 180 / Math.PI;
-    return ang > 180 ? 360 - ang : ang;
+  // One Euro filter (Casiez et al.): low cutoff at rest (kills jitter), cutoff rises with speed (kills lag).
+  function oneEuro(o) {
+    var x = null, dx = 0, t = null;
+    function alpha(fc, dt) { var tau = 1 / (2 * Math.PI * fc); return 1 / (1 + tau / dt); }
+    return {
+      f: function (v, time) {
+        if (x == null) { x = v; t = time; return v; }
+        var dt = Math.max(0.001, (time - t) / 1000); t = time;
+        dx += alpha(o.dCutoff, dt) * ((v - x) / dt - dx);
+        x += alpha(o.minCutoff + o.beta * Math.abs(dx), dt) * (v - x);
+        return x;
+      },
+      reset: function (v, time) { x = v; dx = 0; t = time; }
+    };
   }
+  function emaFilter(tauMs) {
+    var x = null, t = null;
+    return {
+      f: function (v, time) { if (x == null) x = v; else x += (1 - Math.exp(-(time - t) / tauMs)) * (v - x); t = time; return x; },
+      reset: function (v, time) { x = v; t = time; }
+    };
+  }
+
+  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  function avg(a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null; }
 
   function createCounter(opts) {
     var o = {}, k;
     for (k in DEFAULTS) o[k] = DEFAULTS[k];
     for (k in (opts || {})) o[k] = opts[k];
-    var s;
+    var s, fY, fQ;
+
+    function mkFilter() { return o.filter === "ema" ? emaFilter(o.tauMs) : oneEuro(o); }
 
     function reset() {
+      fY = mkFilter(); fQ = mkFilter();
       s = {
         held: {},             // name -> {x,y,t}
-        smooth: null, lastT: null, glitchSince: null,
+        smooth: null, lastT: null, glitchSince: null, gref: null,
         lastGoodT: null, firstT: null,
-        phase: "calibrate",   // calibrate -> first -> ready
-        win: [],              // [t, size] for steadiness check
+        phase: "calibrate",   // calibrate (waiting for the first real dip) -> ready
+        base: null, parkLv: null, win: [],
         top: null, bottom: null,
-        topElbow: null, bottomElbow: null, elbowTopSamples: [],
+        topQ: null, bottomQ: null, qTopSamples: [], qs: null, minQ: null,
         stage: "up", needTop: false, repStart: null, lastTopT: null, bottomT: null, bottomMs: 0,
-        peak: null, minElbow: null, repTopMin: null,
-        reps: 0, status: o.lockOnDip ? "Do one full, slow pushup to set the top" : "Hold the top to calibrate"
+        peak: null, repTopMin: null, noseOff: null, roll: [], rollT: null, swS: null, topSize: null,
+        reps: 0, status: "Start your push-ups"
       };
     }
     reset();
@@ -62,30 +98,43 @@
       return h && t - h.t <= o.holdMs ? h : null;
     }
 
-    // Apparent size relative to frame width. Shoulder width is primary; when the
-    // nose is visible we blend in the nose-shoulder triangle (sqrt of area).
+    // One frame -> { y, reach, sw }.
+    //  y     = shoulder (and head) height in the frame / shoulder width in pixels; y grows downward ("sw" units)
+    //  reach = mean wrist-to-shoulder distance / shoulder width in pixels (null when no wrist is visible)
+    //  sw    = shoulder width / frame width (only for glitch rejection and the posture guard's reference)
     function measure(kps, t, w) {
       var ls = point(kps, "left_shoulder", t), rs = point(kps, "right_shoulder", t);
       if (!ls || !rs) return null;
-      var sw = dist(ls, rs) / w;
-      var n = point(kps, "nose", t), size = sw;
+      var swPx = dist(ls, rs);
+      if (!(swPx > 1)) return null;
+      var n = point(kps, "nose", t), midY = (ls.y + rs.y) / 2, y = midY / swPx;
       if (n) {
-        var area = Math.abs((rs.x - ls.x) * (n.y - ls.y) - (n.x - ls.x) * (rs.y - ls.y)) / 2;
-        var tri = Math.sqrt(area) / w * 1.6; // ~same scale as shoulder width for a typical body
-        if (tri > sw * 0.4 && tri < sw * 2.5) size = 0.7 * sw + 0.3 * tri;
-      }
-      var angs = [];
-      ["left", "right"].forEach(function (side) {
-        var a = point(kps, side + "_shoulder", t), e = point(kps, side + "_elbow", t), wr = point(kps, side + "_wrist", t);
-        if (a && e && wr) angs.push(angleDeg(a, e, wr));
+        var off = (n.y - midY) / swPx;
+        s.noseOff = s.noseOff == null ? off : s.noseOff + 0.2 * (off - s.noseOff);
+        y = (midY + n.y) / 2 / swPx;
+      } else if (s.noseOff != null) y = midY / swPx + s.noseOff / 2; // keep the head share steady when the nose drops out
+      var rr = [];
+      [ls, rs].forEach(function (sh, i) {
+        var wr = point(kps, (i ? "right" : "left") + "_wrist", t);
+        if (wr) rr.push(dist(wr, sh) / swPx);
       });
-      var elbow = angs.length ? angs.reduce(function (x, y) { return x + y; }, 0) / angs.length : null;
-      return { size: size, elbow: elbow };
+      return { y: y, reach: avg(rr), sw: swPx / w };
     }
 
     function result(counted, repMs) {
       return { counted: counted, repMs: counted ? repMs : 0, reps: s.reps, phase: s.phase, status: s.status, stage: s.stage,
                rom: s.top != null && s.bottom != null && s.smooth != null ? (s.smooth - s.top) / (s.bottom - s.top) : null };
+    }
+
+    // Wrist-to-shoulder gate for the rep in progress. 'ok' = closed enough and opened again, 'wait' = closed enough
+    // but not yet open again, 'bad' = never closed enough, 'skip' = second signal unavailable.
+    function reachGate() {
+      if (s.topQ == null || s.bottomQ == null || s.minQ == null) return "skip";
+      var span = s.topQ - s.bottomQ;
+      if (!(span > 0.08)) return "skip";
+      if (s.minQ > s.topQ - o.reachFrac * span) return "bad";
+      if (s.qs != null && s.qs < s.bottomQ + o.reachReturn * span) return "wait";
+      return "ok";
     }
 
     function update(kps, t, frameW) {
@@ -96,155 +145,115 @@
         if (since > o.poorMs) s.status = "Move so shoulders are in view";
         return result(false);
       }
-      // glitch rejection: ignore a sudden jump unless it persists
-      if (s.smooth != null && Math.abs(m.size - s.smooth) / s.smooth > o.glitchRatio) {
+      // glitch rejection: ignore a sudden jump in shoulder width unless it persists
+      var accepted = false;
+      if (s.gref != null && Math.abs(m.sw - s.gref) / s.gref > o.glitchRatio) {
         if (s.glitchSince == null) s.glitchSince = t;
         if (t - s.glitchSince < o.glitchMaxMs) return result(false);
-        s.smooth = m.size; // persisted: accept as the new reality
-      } else s.glitchSince = null;
+        accepted = true; // persisted: accept as the new reality (filters restart from here)
+      }
+      s.glitchSince = null;
+      s.gref = m.sw;
       s.lastGoodT = t;
-      // time-based EMA
-      if (s.smooth == null) s.smooth = m.size;
-      else { var a = 1 - Math.exp(-(t - s.lastT) / o.tauMs); s.smooth += a * (m.size - s.smooth); }
+      if (accepted || s.smooth == null) { fY.reset(m.y, t); fQ.reset(m.reach == null ? 0 : m.reach, t); s.qs = m.reach; s.swS = m.sw; }
+      var v = s.smooth = fY.f(m.y, t);
+      s.swS += 0.3 * (m.sw - s.swS);
+      if (m.reach != null) s.qs = s.qs == null ? m.reach : fQ.f(m.reach, t);
       s.lastT = t;
-      var v = s.smooth, counted = false;
+      var counted = false;
 
-      // lockOnDip (solo push-ups): never lock the top from opening / setup frames. Wait for one genuine dip
-      // (down >= minDepth, then back up), lock top = the level the dip started from and bottom = its peak, and
-      // count it like the old first rep. A "dip" that parks at a new level (see parkLv below)
-      // (user moved closer / got into plank) only moves the start level; downward drift follows at once.
-      if (s.phase === "calibrate" && o.lockOnDip) {
-        if (m.elbow != null && (s.base == null || v <= s.base * (1 + o.steadyTol))) { s.elbowTopSamples.push(m.elbow); if (s.elbowTopSamples.length > 60) s.elbowTopSamples.shift(); }
+      // Zero calibration. Never lock the top from opening / setup frames: wait for one genuine dip (down >= minDepth,
+      // then back up), lock top = the level the dip started from and bottom = its peak, and count it as rep 1.
+      // A "dip" that parks at a new level (user stepped closer / got into plank) only moves the start level;
+      // upward drift follows at once.
+      if (s.phase === "calibrate") {
+        if (s.qs != null && (s.base == null || v - s.base <= o.steadyTol)) { s.qTopSamples.push(s.qs); if (s.qTopSamples.length > 60) s.qTopSamples.shift(); }
         if (s.base == null) s.base = v;
         if (s.repStart == null) {
           if (v < s.base) s.base = v;
-          else if (v > s.base * (1 + o.minDepth * 0.5)) { s.repStart = t; s.peak = v; s.minElbow = m.elbow; s.win = []; }
-          s.status = "Do one full, slow pushup to set the top";
+          else if (v - s.base > o.minDepth * 0.5) { s.repStart = t; s.peak = v; s.minQ = s.qs; s.win = []; }
+          s.status = "Start your push-ups";
           return result(false);
         }
         if (v > s.peak) s.peak = v;
-        if (m.elbow != null && (s.minElbow == null || m.elbow < s.minElbow)) s.minElbow = m.elbow;
+        if (s.qs != null && (s.minQ == null || s.qs < s.minQ)) s.minQ = s.qs;
         s.win.push([t, v]); while (s.win.length && t - s.win[0][0] > o.calibMs) s.win.shift();
         var dv = s.win.map(function (x) { return x[1]; }), dlo = Math.min.apply(null, dv), dhi = Math.max.apply(null, dv), dmean = (dlo + dhi) / 2;
         // Parked at a new level (steady calibMs, >= 2 x calibMs into the "dip"): only a CANDIDATE start level. A slow
         // rep's bottom is steady for ~1 s too, so re-base only if the user then dips further from it (it was a setup
-        // level: moved closer / got into plank) or stays parked >= maxRepMs; coming back up completes the rep as usual.
-        var parked = t - s.win[0][0] >= o.calibMs * 0.9 && (dhi - dlo) / dmean <= o.steadyTol * 2 && t - s.repStart >= o.calibMs * 2;
+        // level) or stays parked >= maxRepMs; coming back up completes the rep as usual.
+        var parked = t - s.win[0][0] >= o.calibMs * 0.9 && dhi - dlo <= o.steadyTol * 2 && t - s.repStart >= o.calibMs * 2;
         if (parked && s.parkLv == null) s.parkLv = dmean;
-        if (s.parkLv != null && v > s.parkLv * (1 + o.minDepth * 0.5)) {
-          s.base = s.parkLv; s.parkLv = null; s.repStart = t; s.peak = v; s.minElbow = m.elbow; s.elbowTopSamples = []; s.win = [[t, v]];
+        if (s.parkLv != null && v - s.parkLv > o.minDepth * 0.5) {
+          s.base = s.parkLv; s.parkLv = null; s.repStart = t; s.peak = v; s.minQ = s.qs; s.qTopSamples = []; s.win = [[t, v]];
           return result(false);
         }
         if (parked && t - s.repStart >= o.maxRepMs) {
-          s.base = dmean; s.parkLv = null; s.repStart = null; s.peak = null; s.minElbow = null; s.elbowTopSamples = []; s.win = [];
+          s.base = dmean; s.parkLv = null; s.repStart = null; s.peak = null; s.minQ = null; s.qTopSamples = []; s.win = [];
           return result(false);
         }
         if (v < s.base + o.upRom * (s.peak - s.base)) {
-          var dd = (s.peak - s.base) / s.base, ddur = t - s.repStart;
+          var dd = s.peak - s.base, ddur = t - s.repStart;
           if (dd >= o.minDepth && ddur >= o.minRepMs && ddur <= o.maxRepMs * 2) {
-            var tes = s.elbowTopSamples.slice(-30);
-            s.top = s.base; s.bottom = s.peak; s.topElbow = tes.length ? tes.reduce(function (x, y) { return x + y; }, 0) / tes.length : null; s.bottomElbow = s.minElbow;
-            s.phase = "ready"; s.stage = "up"; s.reps += 1; counted = true; s.lastRepMs = ddur; s.lastTopT = t; s.needTop = false;
-            s.status = "Top set. Counted " + s.reps;
-          } else s.status = dd < o.minDepth ? "Go lower to set the top" : "Do one full, slow pushup to set the top";
-          s.repStart = null; s.peak = null; s.minElbow = null; s.win = []; s.parkLv = null;
-        }
-        return result(counted, s.lastRepMs);
-      }
-      if (s.phase === "calibrate") {
-        s.win.push([t, v]); if (m.elbow != null) s.elbowTopSamples.push(m.elbow);
-        while (s.win.length && t - s.win[0][0] > o.calibMs) s.win.shift();
-        var vals = s.win.map(function (x) { return x[1]; });
-        var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), mean = (lo + hi) / 2;
-        var span = s.win.length ? t - s.win[0][0] : 0;
-        if (span >= o.calibMs * 0.9 && (hi - lo) / mean <= o.steadyTol * 2) {
-          s.top = mean;
-          var es = s.elbowTopSamples.slice(-30);
-          s.topElbow = es.length ? es.reduce(function (x, y) { return x + y; }, 0) / es.length : null;
-          s.phase = "first"; s.stage = "up"; s.peak = null; s.minElbow = null;
-          s.status = "Calibrated. Do one full, slow pushup";
-        } else {
-          if (hi - lo > mean * o.steadyTol * 2) { s.win = s.win.slice(-1); s.elbowTopSamples = []; }
-          s.status = "Hold the top to calibrate";
-        }
-        return result(false);
-      }
-
-      if (s.phase === "first") {
-        // Re-calibrate if the top was locked while the user was still getting into position (single Start opens
-        // the camera and calibrates on the first steady second, often while placing the phone). Uses the same
-        // steadiness test as calibration. Triggers only when steady for calibMs AND either below the locked top
-        // (the real top is narrower) or parked at one level >= calibMs inside a "first rep" that began >= 2 x calibMs
-        // ago (the real top is wider). A rare 1 s+ pause at the bottom of the first rep re-centres there, then the
-        // next steady second at the real top re-centres back (below case); at most that one rep is not counted.
-        s.win.push([t, v]); if (m.elbow != null) { s.elbowTopSamples.push(m.elbow); if (s.elbowTopSamples.length > 60) s.elbowTopSamples.shift(); }
-        while (s.win.length && t - s.win[0][0] > o.calibMs) s.win.shift();
-        var fv = s.win.map(function (x) { return x[1]; }), flo = Math.min.apply(null, fv), fhi = Math.max.apply(null, fv), fmean = (flo + fhi) / 2;
-        var fsteady = t - s.win[0][0] >= o.calibMs * 0.9 && (fhi - flo) / fmean <= o.steadyTol * 2;
-        if (!fsteady && fhi - flo > fmean * o.steadyTol * 2) s.win = s.win.slice(-1);
-        if (fsteady && (fmean < s.top * (1 - o.steadyTol * 2) || (s.repStart != null && t - s.repStart >= o.calibMs * 2))) {
-          s.top = fmean;
-          var fes = s.elbowTopSamples.slice(-30);
-          s.topElbow = fes.length ? fes.reduce(function (x, y) { return x + y; }, 0) / fes.length : s.topElbow;
-          s.repStart = null; s.peak = null; s.minElbow = null; s.win = s.win.slice(-1); s.recalibrated = (s.recalibrated || 0) + 1;
-          s.status = "Calibrated. Do one full, slow pushup";
-          return result(false);
-        }
-        // learn bottom from the first rep's peak
-        var returned = s.repStart != null && v < s.top + o.upRom * (s.peak - s.top);
-        if (!returned && v > s.top * (1 + o.minDepth * 0.5)) {
-          if (s.repStart == null) s.repStart = t;
-          if (s.peak == null || v > s.peak) s.peak = v;
-          if (m.elbow != null && (s.minElbow == null || m.elbow < s.minElbow)) s.minElbow = m.elbow;
-        } else if (returned) {
-          var depth = (s.peak - s.top) / s.top, dur = t - s.repStart;
-          if (depth >= o.minDepth && dur >= o.minRepMs && dur <= o.maxRepMs * 2) {
-            s.bottom = s.peak; s.bottomElbow = s.minElbow;
-            s.phase = "ready"; s.reps += 1; counted = true;
-            s.status = "Ready. Counted " + s.reps;
-            s.lastRepMs = dur;
-          } else s.status = depth < o.minDepth ? "Go lower on the first rep to calibrate" : "Calibrated. Do one full, slow pushup";
-          s.repStart = null; s.peak = null; s.minElbow = null;
+            s.top = s.base; s.bottom = s.peak; s.topQ = avg(s.qTopSamples.slice(-30)); s.bottomQ = s.minQ;
+            s.phase = "ready"; s.stage = "up"; s.reps += 1; counted = true; s.lastRepMs = ddur; s.lastTopT = t; s.needTop = false; s.roll = []; s.topSize = s.swS;
+            s.status = "Counted " + s.reps;
+          } else s.status = dd < o.minDepth ? "Go a little lower" : "Start your push-ups";
+          s.repStart = null; s.peak = null; s.minQ = null; s.win = []; s.parkLv = null;
         }
         return result(counted, s.lastRepMs);
       }
 
       // ready: count by % range of motion with hysteresis
       var range = s.bottom - s.top, rom = (v - s.top) / range;
+      // Rolling top: the whole top/bottom pair translates with the body. It follows upward movement at once (never
+      // while a rep is in progress), and re-bases when the last topWinMs (longer than any legal rep) never came back
+      // near the top: the user shifted or the phone was nudged.
+      var dtT = Math.max(0, t - (s.rollT == null ? t : s.rollT)); s.rollT = t;
+      if (s.stage === "up" && s.repStart == null && rom < o.upRom) s.topSize += 0.1 * (s.swS - s.topSize);
+      if (rom < 0 && s.stage === "up" && s.repStart == null) { var mv = (1 - Math.exp(-dtT / o.topFollowMs)) * (v - s.top); s.top += mv; s.bottom += mv; }
+      s.roll.push([t, v]); while (s.roll.length && t - s.roll[0][0] > o.topWinMs) s.roll.shift();
+      if (s.roll.length > 4 && t - s.roll[0][0] >= o.topWinMs * 0.95) {
+        var rs2 = s.roll.map(function (x) { return x[1]; }), q10 = function (a) { a = a.slice().sort(function (x, y) { return x - y; }); return a[Math.floor(a.length * 0.1)]; };
+        var rmin = q10(rs2); // 10th percentile: ignores a few transition frames
+        if ((rmin - s.top) / range > 0.35) {
+          rmin = q10(rs2.slice(Math.floor(rs2.length / 2))); // new top from the latter half only (the first part may still hold the move itself)
+          s.bottom = rmin + range; s.top = rmin; s.roll = []; s.rebased = (s.rebased || 0) + 1;
+          s.stage = "up"; s.repStart = null; s.peak = null; s.needTop = false; s.repTopMin = null;
+        }
+      }
+      range = s.bottom - s.top; rom = (v - s.top) / range;
       if (s.stage === "up") {
         if (rom < o.upRom * 0.5) s.lastTopT = t;   // rep timing starts when the user leaves the top
         if (rom < o.upRom) s.needTop = false;
         if (s.needTop) return result(false);
         if (rom < o.upRom) { s.repTopMin = s.repTopMin == null ? v : Math.min(s.repTopMin, v); s.repStart = null; }
-        else if (s.repStart == null) { s.repStart = s.lastTopT != null ? s.lastTopT : t; s.peak = v; s.minElbow = m.elbow; }
+        else if (s.repStart == null) { s.repStart = s.lastTopT != null ? s.lastTopT : t; s.peak = v; s.minQ = s.qs; }
         if (s.repStart != null) {
           if (v > s.peak) s.peak = v;
-          if (m.elbow != null && (s.minElbow == null || m.elbow < s.minElbow)) s.minElbow = m.elbow;
+          if (s.qs != null && (s.minQ == null || s.qs < s.minQ)) s.minQ = s.qs;
         }
         if (rom > o.downRom && s.repStart != null) { s.stage = "down"; s.bottomT = t; s.bottomMs = 0; }
         else if (s.repStart != null && t - s.repStart > o.maxRepMs) { s.repStart = null; s.needTop = true; }
       } else {
         if (v > s.peak) s.peak = v;
-        if (m.elbow != null && (s.minElbow == null || m.elbow < s.minElbow)) s.minElbow = m.elbow;
+        if (s.qs != null && (s.minQ == null || s.qs < s.minQ)) s.minQ = s.qs;
         if (rom > o.downRom) { s.bottomMs += t - s.bottomT; } s.bottomT = t;
-        if (rom < o.upRom) {
-          var d = t - s.repStart, ok = d >= o.minRepMs && d <= o.maxRepMs && s.bottomMs >= o.minBottomMs;
-          if (ok && s.topElbow != null && s.bottomElbow != null && s.minElbow != null) {
-            var need = s.topElbow - o.elbowFrac * (s.topElbow - s.bottomElbow);
-            if (s.minElbow > need) ok = false;
-          }
+        var gate = rom < o.upRom ? reachGate() : null;
+        if (rom < o.upRom && gate !== "wait") {
+          var d = t - s.repStart, ok = d >= o.minRepMs && d <= o.maxRepMs && s.bottomMs >= o.minBottomMs && gate !== "bad";
           if (ok) {
             s.reps += 1; counted = true; s.status = "Counted " + s.reps; s.lastRepMs = d;
             // slow adaptation with outlier rejection (no ever-growing range)
             var pr = (s.peak - s.top) / range;
             if (pr > 0.7 && pr < 1.6) s.bottom += o.adapt * (s.peak - s.bottom);
             if (s.repTopMin != null) { var tr = (s.repTopMin - s.top) / range; if (tr > -0.4 && tr < 0.3) s.top += o.adapt * (s.repTopMin - s.top); }
-            if (s.minElbow != null && s.bottomElbow != null) s.bottomElbow += o.adapt * (s.minElbow - s.bottomElbow);
-          } else s.status = d > o.maxRepMs ? "Too slow, not counted" : "Not counted: go all the way down";
+            if (s.minQ != null && s.bottomQ != null) s.bottomQ += o.adapt * (s.minQ - s.bottomQ);
+          } else s.status = d > o.maxRepMs ? "Too slow, not counted" : gate === "bad" ? "Not counted: bring your hands closer to your shoulders" : "Not counted: go all the way down";
           s.stage = "up"; s.repStart = null; s.repTopMin = null; s.lastTopT = t;
         } else if (t - s.repStart > o.maxRepMs) { s.stage = "up"; s.repStart = null; s.needTop = true; s.status = "Too slow, not counted"; }
       }
-      if (!counted && /view|calibrat/i.test(s.status)) s.status = "Ready";
+      if (!counted && /view|Start your/i.test(s.status)) s.status = "Ready";
       return result(counted, s.lastRepMs);
     }
 

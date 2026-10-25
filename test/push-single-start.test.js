@@ -123,10 +123,10 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   { const e = env({ camBlocked: true }); e.$("plankCamBtn").onclick(); await e.advance(100);
     check("plank camera blocked: message, wake released", e.$("plankStatus").textContent === "Camera or pose blocked." && e.run("plankWake.held") === false); }
   // ---- static UI
-  check("static: single push Start button, no Phone on floor / camBtn", !html.includes('id="camBtn"') && !html.includes("Phone on floor") && html.includes('<button class="btn" id="pushStartBtn" type="button">Start set</button>'));
+  check("static: single push Start button, no old phone-placement button / camBtn", !html.includes('id="camBtn"') && !html.includes("Phone on floor") && html.includes('<button class="btn" id="pushStartBtn" type="button">Start set</button>'));
   check("static: Stop camera kept", html.includes('<button class="btn ghost" id="camStopBtn" type="button" hidden>Stop camera</button>'));
-  check("static: note near the button", html.includes('Get set first: tapping Start turns on your camera and talks you through setup, then a slow countdown ("Ready" … "get set" … "three, two, one, go"). Counting starts at Go; your first full, slow pushup sets the top and counts.'));
-  check("static: solo counter locks the top from the first real dip", html.includes("createCounter({ lockOnDip: true })") && !html.includes("function waitCalibrated("));
+  check("static: note near the button", html.includes('Get set first: tapping Start turns on your camera and talks you through setup, then a slow countdown ("Ready" … "get set" … "three, two, one, go"). Counting starts at Go; your first full push-up counts.'));
+  check("static: solo counter needs no calibration (the first real dip sets the top and counts)", html.includes("pushCounter = window.ZabbadatPush.createCounter();") && !html.includes("function waitCalibrated("));
   check("static: default status", html.includes('<p class="note" id="pushStatus">Ready. Get set, then tap Start.</p>'));
   check("static: no 'Start, get, set' text left", !/Start, get, set|"get", "set"|Set!/.test(html + GS_SRC));
   check("static: no Calibrate or Place phone and camera labels", !/>\s*Calibrate\s*</.test(html) && !html.includes("Place phone and camera"));

@@ -1,7 +1,7 @@
 // Harness: real push flow functions sliced from an index.html version + real modules, synthetic MoveNet frames.
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const ROOT = path.join(__dirname, "..", "..");
-module.exports = function run(htmlPath, { mode = "sets", script, ms = 30000, camAlreadyOn = false, opts = { lockOnDip: true }, spoken = null }) {
+module.exports = function run(htmlPath, { mode = "sets", script, ms = 30000, camAlreadyOn = false, opts = {}, spoken = null, frames = null }) {
   const html = fs.readFileSync(htmlPath, "utf8");
   const between = (a, b) => { const i = html.indexOf(a); if (i < 0) throw new Error("missing " + a); return html.slice(i, html.indexOf(b, i + a.length) + b.length); };
   const fnSrc = (n) => { const a = "function " + n + "("; const i = html.indexOf(a); if (i < 0) throw new Error("missing " + n); const eol = html.indexOf("\n", i); const l = html.slice(i, eol);
@@ -16,9 +16,10 @@ module.exports = function run(htmlPath, { mode = "sets", script, ms = 30000, cam
   if (spoken) { ctx.speechSynthesis = { cancel() {}, speak: (u) => { spoken.push({ w: u.text, at: now, vol: u.volume }); if (u.onend) timers.push({ at: now + 1000, f: () => u.onend() }); } }; ctx.SpeechSynthesisUtterance = function (t) { this.text = t; }; }
   ctx.window = ctx; vm.createContext(ctx);
   for (const f of ["push-counter.js", "push-session.js", "push-challenge.js", "get-set.js"]) vm.runInContext(fs.readFileSync(path.join(ROOT, f), "utf8"), ctx);
-  const frame = (t) => { const w = script(t); const sx = 320 - w.w * 320, a = (180 - w.e) * Math.PI / 180;
-    return [{ name: "left_shoulder", x: sx, y: 240, score: .9 }, { name: "right_shoulder", x: 320 + w.w * 320, y: 240, score: .9 },
-      { name: "left_elbow", x: sx, y: 300, score: .9 }, { name: "left_wrist", x: sx + 60 * Math.sin(a), y: 300 + 60 * Math.cos(a), score: .9 }]; };
+  // script(t) -> { d: depth 0 (top) .. 1 (bottom), sw?: shoulder width / frame width, y?: shoulder height at the top (px) };
+  // or pass frames(t) -> keypoints directly.
+  const SY = require("./push-synth.js");
+  const frame = frames ? frames : (t) => { const w = script(t); return SY.frameFor(w.d, Object.assign({}, SY.BASE, w.sw != null ? { sw: w.sw } : {}, w.y != null ? { topY: w.y } : {}), t); };
   const pre = `
 const log = [];
 function requireSignIn() { return true; }

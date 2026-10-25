@@ -3,7 +3,7 @@ const { tutHistory, rankTut, tutToAdd, setsToAdd, canSwitchMode, classify, creat
 const R = [];
 const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
 const K = (o, score = 0.9) => Object.entries(o).map(([name, [x, y]]) => ({ name, x, y, score }));
-// floor camera, plank: shoulders wide (top width 200 px), legs out of view
+// camera looking along the plank: shoulders wide (top width 200 px), legs out of view
 const plank = K({ left_shoulder: [220, 240], right_shoulder: [420, 240] });
 const away = K({ left_shoulder: [290, 240], right_shoulder: [350, 240] });           // width 60 < 0.55*200
 const kneesDown = K({ left_shoulder: [100, 200], left_hip: [300, 220], left_knee: [400, 300], left_ankle: [300, 310] }); // ~ folded knee
@@ -22,7 +22,7 @@ check("classify plank = ok", classify(plank, TOP) === "ok");
 check("classify left plank (far from camera) = standing", classify(away, TOP) === "standing");
 check("classify upright body = standing", classify(upright, TOP) === "standing");
 const plankLegs = K({ left_shoulder: [220, 240], right_shoulder: [420, 240], left_hip: [230, 330], left_knee: [235, 400], left_ankle: [238, 470] });
-check("floor view of plank with legs down the frame = ok", classify(plankLegs, TOP) === "ok");
+check("plank seen along its length, legs down the frame = ok", classify(plankLegs, TOP) === "ok");
 check("classify collapsed knee = knees", classify(kneesDown, TOP) === "knees");
 check("classify low confidence = uncertain (null)", classify(lowConf, TOP) === null);
 check("classify no calibration + shoulders only = uncertain", classify(plank, 0) === null);

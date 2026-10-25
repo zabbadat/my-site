@@ -152,8 +152,8 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   check("leaving the exercise (hashchange) resets the session; stops and finishes touch it",
     /addEventListener\("hashchange", \(\) => \{ if \(sessionTrack\) sessionTrack\.reset\(\); \}\)/.test(html) && /function finishPushSet\(\) \{\n  if \(pushState\.finished\) return;\n  sessionTouch\(\);/.test(html) && /function stopPlankCam\(\) \{\n  sessionTouch\(\);/.test(html) && /function plankEnded\(r\) \{\n[^\n]*plankTimeVoice\.end\(\);\n  sessionTouch\(\);/.test(html) && /function tbFinish\(r\) \{\n  sessionTouch\(\); clearInterval/.test(html));
   check("session is committed only after the first countdown finishes (push-ups and plank)", /sessionCommit\(coachKind\);\n    pushStarting = false;/.test(html) && /sessionCommit\("plank"\);\n    plankStarting = false;/.test(html));
-  check("get-set.js unchanged defaults: COACH lines and the 7 s STEPS", GS.STEPS.length === 6 && GS.COUNTDOWN_MS === 7000 && C.pushups.place === "Place your phone flat on the ground under your chest." && C.plank.place === "Place your phone on the ground off to your side.");
-  check("push-counter.js DEFAULTS untouched by this change", require("child_process").execSync("git diff --name-only", { cwd: path.join(__dirname, "..") }).toString().indexOf("push-counter.js") < 0);
+  check("get-set.js defaults: push-up COACH place line (leaned-up setup), plank line unchanged, and the 7 s STEPS", GS.STEPS.length === 6 && GS.COUNTDOWN_MS === 7000 && C.pushups.place === "Lean your phone up in front of you, camera facing you." && C.plank.place === "Place your phone on the ground off to your side.");
+  check("push-counter.js still exports DEFAULTS with the same rep-duration limits", require("../push-counter.js").DEFAULTS.minRepMs === 400 && require("../push-counter.js").DEFAULTS.maxRepMs === 6000);
   check("no 'zaba' user-facing or location text added in get-set.js", !/zaba(?!bba)/i.test(GS_SRC) && !/jersey/i.test(GS_SRC));
   const f = R.filter((x) => !x).length; console.log(`\n${R.length - f} passed, ${f} failed`); process.exit(f ? 1 : 0);
 })();

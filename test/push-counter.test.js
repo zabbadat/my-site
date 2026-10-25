@@ -1,92 +1,50 @@
-// Synthetic tests for push-counter.js. Run: node test/push-counter.test.js
-// A pinhole camera lies face-up under the chest; going down shrinks distance D,
-// so the shoulders look wider. Keypoints are projected from a simple 3D body.
-const { createCounter, tutForRep, formatTut } = require("../push-counter.js");
-let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(2 * Math.PI * rnd());
-
-// depth profile: list of segments [durationMs, fromFrac, toFrac], frac 0=top 1=bottom
-function full(ms) { return [[ms * 0.45, 0, 1], [ms * 0.1, 1, 1], [ms * 0.45, 1, 0]]; }
-function half(ms, f) { return [[ms * 0.45, 0, f], [ms * 0.1, f, f], [ms * 0.45, f, 0]]; }
-function hold(ms) { return [[ms, 0, 0]]; }
-
-function run(name, segs, expected, cfg = {}) {
-  const c = Object.assign({ W: 640, H: 480, f: 0.5, Dtop: 0.6, Dbot: 0.3, cx: 0, cy: 0, fps: 30, noise: 0,
-    drop: 0, elbowTop: 165, elbowBot: 85, arms: 2, nose: true, glitchAt: null, gone: null, drift: 0 }, cfg);
-  const ctr = createCounter(); const dt = 1000 / c.fps; let t = 0, statuses = new Set(), total = 0, tut = 0, badRepMs = false;
-  for (const [dur, a, b] of segs) total += dur;
-  let segIdx = 0, segT = 0;
-  for (t = 0; t <= total; t += dt) {
-    // locate depth fraction
-    let acc = 0, frac = 0;
-    for (const [dur, a, b] of segs) { if (t <= acc + dur) { frac = a + (b - a) * ((t - acc) / dur); break; } acc += dur; }
-    const drift = 1 + c.drift * (t / total);
-    const D = (c.Dtop + (c.Dbot - c.Dtop) * frac) * drift;
-    const fpx = c.f * c.W;
-    const proj = (X, Y) => ({ x: c.W / 2 + fpx * (X + c.cx) / D, y: c.H / 2 + fpx * (Y + c.cy) / D });
-    const jit = (p) => ({ x: p.x + gauss() * c.noise * c.W, y: p.y + gauss() * c.noise * c.W });
-    const sc = () => (rnd() < c.drop ? 0.15 : 0.6 + 0.3 * rnd());
-    const ls = jit(proj(-0.2, 0)), rs = jit(proj(0.2, 0));
-    const kps = [{ name: "left_shoulder", ...ls, score: sc() }, { name: "right_shoulder", ...rs, score: sc() }];
-    if (c.nose) kps.push({ name: "nose", ...jit(proj(0, -0.22)), score: sc() });
-    const eb = c.elbowBotAfter != null && t > c.elbowBotAfter ? c.elbowTop - 10 : c.elbowBot;
-    const ang = (c.elbowTop + (eb - c.elbowTop) * frac) * Math.PI / 180;
-    ["left", "right"].slice(0, c.arms).forEach((side, i) => {
-      const sh = i === 0 ? ls : rs, sgn = i === 0 ? -1 : 1, L = 60 * 0.6 / D;
-      const e = { x: sh.x + sgn * L, y: sh.y + L * 0.3 };
-      const dir = Math.atan2(sh.y - e.y, sh.x - e.x) + sgn * ang; // rotate from upper arm
-      const w = { x: e.x + L * Math.cos(dir), y: e.y + L * Math.sin(dir) };
-      kps.push({ name: side + "_elbow", ...e, score: sc() }, { name: side + "_wrist", ...w, score: sc() });
-    });
-    let frame = kps;
-    if (c.glitchAt != null && Math.abs(t - c.glitchAt) < dt / 2) frame = kps.map((k) => k.name === "right_shoulder" ? { ...k, x: k.x + 0.9 * c.W } : k);
-    if (c.gone && t >= c.gone[0] && t < c.gone[1]) frame = [];
-    const r = ctr.update(frame, t, c.W);
-    if (r.counted) tut += tutForRep(r.repMs, 10000); else if (r.repMs) badRepMs = true;
-    statuses.add(r.status.replace(/\d+/g, "N"));
-  }
-  const got = ctr.state().reps, pass = got === expected;
-  console.log(`${pass ? "PASS" : "FAIL"}  ${name.padEnd(48)} expected ${String(expected).padStart(2)}  got ${String(got).padStart(2)}`);
-  return { pass: pass && !badRepMs, statuses, tut, reps: got };
-}
-const reps = (n, ms) => Array.from({ length: n }, () => full(ms)).flat();
-const cal = hold(1600);
+// Synthetic tests for push-counter.js: leaned-up front-facing camera (test/lib/push-synth.js). Camera only.
+// Run: node test/push-counter.test.js
+const { createCounter, tutForRep, formatTut } = require("../push-counter.js"), S = require("./lib/push-synth.js");
 const R = [];
-R.push(run("baseline: 10 reps @1.5s", [...cal, ...reps(10, 1500), ...hold(500)], 10));
-R.push(run("far phone, 480px frame, offset placement", [...cal, ...reps(10, 1500), ...hold(500)], 10, { W: 480, H: 640, Dtop: 0.8, Dbot: 0.45, cx: 0.12, cy: 0.1 }));
-R.push(run("close phone, shallow-ish ROM (0.45->0.32m)", [...cal, ...reps(10, 1500), ...hold(500)], 10, { Dtop: 0.45, Dbot: 0.32 }));
-R.push(run("keypoint noise 0.4% + 10% low-score frames", [...cal, ...reps(10, 1500), ...hold(500)], 10, { noise: 0.004, drop: 0.1 }));
-R.push(run("single glitch frame at the top", [...cal, ...reps(4, 1500), ...hold(800), ...reps(6, 1500), ...hold(500)], 10, { glitchAt: 1600 + 6000 + 400 }));
-R.push(run("fast reps 0.6s", [...cal, ...reps(10, 600), ...hold(500)], 10));
-R.push(run("half reps (40% depth) ignored", [...cal, ...reps(3, 1500), ...Array.from({ length: 5 }, () => half(1500, 0.4)).flat(), ...reps(2, 1500), ...hold(500)], 5));
-R.push(run("near-miss half reps (60% depth) ignored", [...cal, ...reps(3, 1500), ...Array.from({ length: 4 }, () => half(1200, 0.6)).flat(), ...hold(500)], 3));
-// no lockout: one full rep down, then bounce between bottom and half-way (never back near the top)
+function run(name, segs, expected, cfg, opts) {
+  S.reseed(5); const r = S.run(createCounter, segs, cfg, opts), pass = r.reps === expected;
+  console.log(`${pass ? "PASS" : "FAIL"}  ${name.padEnd(56)} expected ${String(expected).padStart(2)}  got ${String(r.reps).padStart(2)}`);
+  // tut as the page computes it: sum of the counted reps' cycle times
+  R.push({ pass }); return Object.assign({ pass }, r);
+}
+const { full, half, hold, reps } = S, cal = hold(1200), end = hold(500);
+run("baseline: 10 reps @1.5s", [...cal, ...reps(10, 1500), ...end], 10);
+run("far phone (shoulders 12% of the frame)", [...cal, ...reps(10, 1500), ...end], 10, { sw: 0.12, topY: 200 });
+run("close phone (shoulders 34% of the frame)", [...cal, ...reps(10, 1500), ...end], 10, { sw: 0.34, topY: 120 });
+run("off-centre placement", [...cal, ...reps(10, 1500), ...end], 10, { cx: 90 });
+run("keypoint noise 0.3% + 10% low-score frames", [...cal, ...reps(10, 1500), ...end], 10, { noise: 0.003, drop: 0.1 });
+run("heavier noise 0.6% + 20% low-score frames", [...cal, ...reps(10, 1500), ...end], 10, { noise: 0.006, drop: 0.2 });
+{ // single frame where one shoulder jumps across the frame
+  S.reseed(5); const c = createCounter(), segs = [...cal, ...reps(10, 1500), ...end], dt = 1000 / 30, cfg = Object.assign({}, S.BASE); let n = 0;
+  for (let t = 0; t <= S.total(segs); t += dt, n++) { let k = S.frameFor(S.fracAt(segs, t), cfg, t); if (n === 250) k = k.map((p) => (p.name === "right_shoulder" ? { ...p, x: p.x + 0.9 * 640 } : p)); c.update(k, t, 640); }
+  const pass = c.state().reps === 10; console.log(`${pass ? "PASS" : "FAIL"}  ${"single glitch frame (shoulder jumps across the frame)".padEnd(56)} expected 10  got ${String(c.state().reps).padStart(2)}`); R.push({ pass }); }
+run("fast reps 0.6s", [...cal, ...reps(10, 600), ...end], 10);
+run("slow reps 4s", [...cal, ...reps(5, 4000), ...end], 5);
+run("half reps (40% depth) ignored", [...cal, ...reps(3, 1500), ...Array.from({ length: 5 }, () => half(1500, 0.4)).flat(), ...reps(2, 1500), ...end], 5);
+run("near-miss half reps (60% depth) ignored", [...cal, ...reps(3, 1500), ...Array.from({ length: 4 }, () => half(1200, 0.6)).flat(), ...end], 3);
 { const bob = Array.from({ length: 5 }, () => [[400, 1, 0.5], [400, 0.5, 1]]).flat();
-  R.push(run("bottom bounces without lockout not counted", [...cal, ...reps(3, 1500), [600, 0, 1], ...bob, [600, 1, 0], ...hold(500)], 4)); }
-// bouncy too-fast reps (0.25s) not counted
-R.push(run("bouncy 0.25s reps not counted", [...cal, ...reps(2, 1500), ...reps(6, 250), ...hold(500)], 2));
-R.push(run("no elbows visible (size only)", [...cal, ...reps(10, 1500), ...hold(500)], 10, { arms: 0 }));
-R.push(run("one arm visible", [...cal, ...reps(10, 1500), ...hold(500)], 10, { arms: 1 }));
-R.push(run("no nose (shoulders only)", [...cal, ...reps(10, 1500), ...hold(500)], 10, { nose: false }));
-R.push(run("low frame rate 12 fps", [...cal, ...reps(10, 1500), ...hold(500)], 10, { fps: 12 }));
-R.push(run("too-slow rep (10s) not counted", [...cal, ...reps(2, 1500), ...full(10000), ...reps(1, 1500), ...hold(500)], 3));
-R.push(run("small bounces at top (15% depth) = 0 after calib", [...cal, ...reps(1, 1500), ...Array.from({ length: 8 }, () => half(700, 0.15)).flat(), ...hold(500)], 1));
-R.push(run("slow drift of phone/body 15% over set", [...cal, ...reps(10, 1500), ...hold(500)], 10, { drift: 0.15 }));
-const gone = run("shoulders out of view 1.5s mid-set", [...cal, ...reps(5, 1500), ...hold(2500), ...reps(5, 1500), ...hold(500)], 10, { gone: [1600 + 7500 + 300, 1600 + 7500 + 1800] });
-R.push(gone);
-console.log("  status shown when out of view:", gone.statuses.has("Move so shoulders are in view") ? "yes" : "NO");
-R.push(run("never steady (no calibration) = 0", Array.from({ length: 10 }, () => half(900, 0.5)).flat(), 0));
-R.push(run("heavier noise 1% + 20% low-score frames", [...cal, ...reps(10, 1500), ...hold(500)], 10, { noise: 0.01, drop: 0.2 }));
-// head/chest dip with straight arms: first rep normal, then elbows stay straight
-{ const segs = [...cal, ...reps(1, 1500), ...reps(5, 1500), ...hold(500)];
-  R.push(run("dips with straight arms after calib rep: elbow check", segs, 1, { elbowBotAfter: 1600 + 1500 })); }
+  run("bottom bounces without coming back up not counted", [...cal, ...reps(3, 1500), [600, 0, 1], ...bob, [600, 1, 0], ...end], 4); }
+run("bouncy 0.25s reps not counted", [...cal, ...reps(2, 1500), ...reps(6, 250), ...end], 2);
+run("no wrists visible (head/shoulder signal only)", [...cal, ...reps(10, 1500), ...end], 10, { wrists: 0 });
+run("one wrist visible", [...cal, ...reps(10, 1500), ...end], 10, { wrists: 1 });
+run("no nose (shoulders only)", [...cal, ...reps(10, 1500), ...end], 10, { nose: false });
+run("low frame rate 12 fps", [...cal, ...reps(10, 1500), ...end], 10, { fps: 12 });
+run("too-slow rep (10s) not counted", [...cal, ...reps(2, 1500), ...full(10000), ...reps(1, 1500), ...end], 3);
+run("small bounces at top (15% depth) = 0 after rep 1", [...cal, ...reps(1, 1500), ...Array.from({ length: 8 }, () => half(700, 0.15)).flat(), ...end], 1);
+run("slow drift of the user 0.3 shoulder widths over the set", [...cal, ...reps(10, 1500), ...end], 10, { driftY: 0.3 * 0.2 * 640 });
+run("shoulders out of view 1.5s mid-set", [...cal, ...reps(5, 1500), ...hold(2500), ...reps(5, 1500), ...end], 10, { gone: [1200 + 7500 + 300, 1200 + 7500 + 1800] });
+run("steady, never dips = 0 (no calibration step, nothing to count)", hold(10000), 0);
+run("first dip counts with no hold (zero calibration)", [...hold(100), ...reps(10, 1500), ...end], 10);
+run("hands travel with the shoulders after 2 reps (second signal): not counted", [...cal, ...reps(2, 1500), ...reps(5, 1500), ...end], 2, { followAfter: 1200 + 3000 });
 // time under tension
 function check(name, ok) { console.log(`${ok ? "PASS" : "FAIL"}  ${name}`); R.push({ pass: !!ok }); }
-{ const r = run("TUT: 10 reps of 1.5s", [...cal, ...reps(10, 1500), ...hold(500)], 10);
-  console.log("  tut ms:", Math.round(r.tut));
-  check("TUT ~ 10 x rep cycle (each 0.8-2.2s)", r.tut >= 8000 && r.tut <= 22000); }
-{ const r = run("TUT: 5 reps of 3s", [...cal, ...reps(5, 3000), ...hold(500)], 5);
-  check("TUT 3s reps ~ 5 x (2-4s)", r.tut >= 10000 && r.tut <= 20000); }
+{ const segs = [...cal, ...reps(10, 1500), ...end]; S.reseed(5); const c = createCounter(), dt = 1000 / 30; let tut = 0;
+  for (let t = 0; t <= S.total(segs); t += dt) { const r = c.update(S.frameFor(S.fracAt(segs, t), S.BASE, t), t, 640); if (r.counted) tut += tutForRep(r.repMs, 10000); }
+  console.log("  tut ms:", Math.round(tut)); check("TUT ~ 10 x rep cycle (each 0.8-2.2s)", tut >= 8000 && tut <= 22000); }
+{ const segs = [...cal, ...reps(5, 3000), ...end]; S.reseed(5); const c = createCounter(), dt = 1000 / 30; let tut = 0;
+  for (let t = 0; t <= S.total(segs); t += dt) { const r = c.update(S.frameFor(S.fracAt(segs, t), S.BASE, t), t, 640); if (r.counted) tut += tutForRep(r.repMs, 10000); }
+  check("TUT 3s reps ~ 5 x (2-4s)", tut >= 10000 && tut <= 20000); }
 check("tutForRep caps at 10s", tutForRep(25000, 10000) === 10000 && tutForRep(1500) === 1500);
 check("tutForRep ignores bad input", tutForRep(undefined) === 0 && tutForRep(-5) === 0 && tutForRep(NaN) === 0);
 check("formatTut m:ss", formatTut(0) === "0:00" && formatTut(65400) === "1:05" && formatTut(3599999) === "59:59");

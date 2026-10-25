@@ -654,7 +654,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </section>
 <section id="push">
     <h2>TUT set-push-up</h2>
-    <p class="lead">Same login as washers. Start the clock and set the phone on the floor under your chest; the camera counts each full rep. Honor system. Not a form judge and not medical treatment.</p>
+    <p class="lead">Same login as washers. Start the clock and lean your phone up in front of you, camera facing you; the camera counts each full rep. Honor system. Not a form judge and not medical treatment.</p>
 <div class="mode-toggle" role="group" aria-label="Pushup mode">
       <button type="button" id="modeLongBtn" aria-pressed="true">Time under tension set<span class="btn-tut">TUT</span></button>
       <button type="button" id="modeSetsBtn" aria-pressed="false">Sets</button>
@@ -687,11 +687,10 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="cam-hud" id="camHud" aria-hidden="true"><span id="camHudReps">0</span> reps<br><small id="camHudClock">00:00</small></div>
       <button class="btn ghost" id="camFsBtn" type="button">Full screen</button>
       <video id="camVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video>
-      <canvas id="camCvs" hidden></canvas>
     </div>
     <div class="note" id="challengeResult" hidden></div>
-   <p class="note" id="camNote">Phone on the floor, screen up, under your chest. The camera counts each full rep. Video stays on this phone.</p>
-    <p class="note" id="pushGetSetNote">Get set first: tapping Start turns on your camera and talks you through setup, then a slow countdown ("Ready" … "get set" … "three, two, one, go"). Counting starts at Go; your first full, slow pushup sets the top and counts.</p>
+   <p class="note" id="camNote">Lean your phone up in front of you, camera facing you, shoulders and hands in frame. The camera counts each full rep. Video stays on this phone.</p>
+    <p class="note" id="pushGetSetNote">Get set first: tapping Start turns on your camera and talks you through setup, then a slow countdown ("Ready" … "get set" … "three, two, one, go"). Counting starts at Go; your first full push-up counts.</p>
     <p class="note" id="camStatus" aria-live="polite"></p>
     <p class="note" id="pushStatus">Ready. Get set, then tap Start.</p>
     <p class="fine">Signed-in finishes post to the push board. Unsigned stays on this phone. Video never uploads.</p>
@@ -1686,7 +1685,7 @@ function finishPushSet() {
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
 // One Start button: gate -> wake + speech unlock + spoken placement line (in the tap) -> camera -> pose -> spoken
-// criteria line -> 7 s countdown -> clock. Push-ups lock the top from the first real dip (counter lockOnDip).
+// criteria line -> 7 s countdown -> clock. Push-ups need no calibration: the first real dip sets the top and counts.
 // Plank House "Start plank camera" uses the same sequence, then its 1.5 s good-form hold.
 // 7 s start countdown: "Ready" · "get set" · "three" · "two" · "one" · "Go" (get-set.js STEPS)
 const GET_SET_MS = 7000;
@@ -1832,7 +1831,7 @@ function loadCamLibs() {
   if (!camLibsPromise) {
     camLibsPromise = CAM_SCRIPTS.reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve())
       .then(() => {
-        if (!pushCounter && window.ZabbadatPush) pushCounter = window.ZabbadatPush.createCounter({ lockOnDip: true });
+        if (!pushCounter && window.ZabbadatPush) pushCounter = window.ZabbadatPush.createCounter();
       })
       .catch((e) => { camLibsPromise = null; throw e; });
   }
@@ -1848,7 +1847,7 @@ function setCamStatus(text) {
 
 function resetPoseBaseline() {
   if (pushCounter) pushCounter.reset();
-  setCamStatus(camOn ? "Do one full, slow pushup to set the top" : "");
+  setCamStatus(camOn ? "Start your push-ups" : "");
 }
 
 async function ensurePose() {
@@ -1859,7 +1858,7 @@ async function ensurePose() {
   await tf.ready();
   poseDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
     modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-    enableSmoothing: true
+    enableSmoothing: false // the counter has its own speed-adaptive One Euro filter: one smoother, not two
   });
   return poseDetector;
 }
@@ -1870,15 +1869,16 @@ async function poseTick() {
   try {
     const det = await ensurePose();
     if (!pushCounter) throw new Error("Counter not loaded");
+    const tFrame = performance.now(); // stamp the frame BEFORE inference: the pose is of this moment, not of when the model finished
     const poses = await det.estimatePoses(vid, { flipHorizontal: true });
     const pose = poses && poses[0];
     const w = vid.videoWidth || 640;
-    // Feed every frame (also before Start) so calibration can happen first.
-    const r = pushCounter.update(pose ? pose.keypoints : [], performance.now(), w);
+    // Feed every frame (also before Start): no calibration hold, the first real dip counts.
+    const r = pushCounter.update(pose ? pose.keypoints : [], tFrame, w);
     setCamStatus(r.status);
     if ((pushMode === "long" || pushMode === "challenge") && postureGuard && pushState.running && !pushState.finished) {
       const st = pushCounter.state();
-      const g = postureGuard.update(pose ? pose.keypoints : [], performance.now(), st.top ? st.top * w : 0);
+      const g = postureGuard.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0);
       if (g.event && pushMode === "challenge") challengeFlags[g.event] = (challengeFlags[g.event] || 0) + 1;
       if (g.event) $("pushStatus").textContent = (g.event === "knees" ? "Knees down" : "Stood up / left plank") + " flagged. Clock keeps running.";
       const f = $("pushViolFlag");
@@ -1926,7 +1926,7 @@ async function openCam() {
     resetPoseBaseline();
     $("camWrap").hidden = false;
     $("camStopBtn").hidden = false;
-    $("camNote").textContent = "Get into plank. After Go, your first full, slow pushup sets the top and counts.";
+    $("camNote").textContent = "Get into plank. After Go, your first full push-up counts.";
     poseTick();
     return true;
   } catch (e) {
@@ -2727,7 +2727,7 @@ function tbPaint() {
   $("tbRematch").textContent = r && r.rematchCode && r.rematchBy !== me ? "Join rematch" : "Rematch";
   if (!r || r.status === "abandoned") tbStat("This room is closed. Make a new one.");
   else if (pre && ps.length < 2) tbStat("Waiting for a second player… Turn on your camera and get set while you wait.");
-  else if (pre) tbStat(!tbStream ? "Turn on the camera, calibrate at the top, then tap I'm ready." : mine && mine.ready ? "Waiting for the other player…" : "Tap I'm ready when you're in position.");
+  else if (pre) tbStat(!tbStream ? "Turn on the camera, then tap I'm ready." : mine && mine.ready ? "Waiting for the other player…" : "Tap I'm ready when you're in position.");
   if (pre && BR.bothReady(r)) tb.maybeStart(tbCodeCur).catch(() => {});
   if (tbWake) tbWake.want(!!(mine && r && (pre || r.status === "countdown" || r.status === "live") && (tbStream || mine.ready || r.status === "countdown" || r.status === "live"))).catch(() => {});
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt && !(r.status === "live" && TBm.forfeitLoser(r))) { if (!tbTick) tbTick = setInterval(tbTickFn, 100); tbTickFn(); }
@@ -2775,7 +2775,7 @@ async function tbCamOn(placed) {
     tbStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
     const v = $("tbVid"); v.srcObject = tbStream; await v.play(); await ensurePose();
     tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
-    $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Phone under your chest. Arms straight, hold still to calibrate."; requestAnimationFrame(tbPose); tbPaint();
+    $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
     if (placed) { tbCoaching = true; await placed; await showPositioning("tut", $("tbCamNote"), () => !tbLoop, "criteria"); tbCoaching = false; }
   } catch (e) { $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
 }
@@ -2783,8 +2783,8 @@ function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach
 async function tbPose() {
   if (!tbLoop) return;
   try {
-    const v = $("tbVid"), poses = await poseDetector.estimatePoses(v, { flipHorizontal: true }), kps = poses && poses[0] ? poses[0].keypoints : [];
-    const w = v.videoWidth || 640, now = performance.now(), r = tbCounter.update(kps, now, w);
+    const v = $("tbVid"), tFrame = performance.now(), poses = await poseDetector.estimatePoses(v, { flipHorizontal: true }), kps = poses && poses[0] ? poses[0].keypoints : [];
+    const w = v.videoWidth || 640, now = tFrame, r = tbCounter.update(kps, now, w);
     if (tbLiveT0 == null) { if (!tbCoaching) $("tbCamNote").textContent = r.status; }
     else if (tbRoom && tbRoom.status === "live" && !tbLostSent) {
       if (!tbEnded) {
@@ -2793,7 +2793,7 @@ async function tbPose() {
         tbMine = { reps: c.reps, tutMs: c.tutMs };
         if (c.ended) tbTimeUp();
         else {
-          const lost = tbJudge.update(kps, now, st.top ? st.top * w : 0);
+          const lost = tbJudge.update(kps, now, st.topSize ? st.topSize * w : 0);
           if (lost) { tbLostSent = true; $("tbCamNote").textContent = TBm.REASONS[lost]; TBm.reportLoss(tbFs, tbCodeCur, currentUser.uid, lost, tbMine).catch(() => { tbLostSent = false; }); }
           else {
             if (tbPub()) TBm.publishLive(tbFs, tbCodeCur, currentUser.uid, tbMine).catch(() => {});
