@@ -46,7 +46,12 @@ const at = (needle) => sec.indexOf(needle);
 check("scoreboard is inside the ZAB section, after the ZAB heading and balance", at('id="ztHolders"') > at("<h2>") && at('id="ztHolders"') > at('id="ztBalance"') && at('id="ztHolders"') > 0);
 check("scoreboard comes ABOVE the 'Recent earnings' heading and its table", at('id="ztHolders"') < at("<h3>Recent earnings</h3>") && at('id="ztHolders"') < at('id="ztTxBody"'));
 check("scoreboard comes above the earn rates too, and the top-line note stays above it", at('id="ztHolders"') < at('id="ztRates"') && at('id="ztTop"') < at('id="ztHolders"'));
-check("heading reads 'Top ZAB (ring) Holders'; body has an aria-live region; one 'Recent earnings' section only", /<h3 class="zt-board-title">Top <span class="zab">ZAB<svg[\s\S]*?<\/svg><\/span> Holders<\/h3>/.test(sec) && /id="ztHoldersBody" aria-live="polite"/.test(sec) && (html.match(/Recent earnings/g) || []).length === 1);
+check("heading: 'The Bank of Zaba \u2014 top ' + the site's ZAB markup (span.zab with the ring svg, as in the table header) + ' holders'", (() => { const m = sec.match(/<h3 class="zt-board-title">([\s\S]*?)<\/h3>/); if (!m) return false; const h = m[1];
+  const zabSpan = /<span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle[^>]*\/><circle[^>]*\/><\/svg><\/span>/;
+  const same = sec.match(/<th><span class="zab">ZAB<svg[\s\S]*?<\/svg><\/span><\/th>/); // the existing table-header markup
+  const plain = h.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, "");
+  return h.startsWith("The Bank of Zaba \u2014 top ") && zabSpan.test(h) && h.endsWith("</span> holders") && plain === "The Bank of Zaba \u2014 top ZAB holders" && !/symbol/i.test(h) && !!same && h.match(zabSpan)[0] === same[0].replace(/^<th>|<\/th>$/g, ""); })());
+check("heading is the scoreboard's heading: it sits right before the aria-live body, and there is one 'Recent earnings' section only", /<h3 class="zt-board-title">[\s\S]*?<\/h3>\s*<div id="ztHoldersBody" aria-live="polite"/.test(sec) && (html.match(/Recent earnings/g) || []).length === 1);
 check("mobile styles present (row grid, ellipsis for long names, small-screen media query)", /#zab \.zt-h-name\{[^}]*text-overflow:ellipsis/.test(html) && /@media \(max-width:480px\)\{#zab \.zt-board/.test(html));
 check("the static /zab page has no 'Recent earnings' section (balances are loaded only on the main page)", !/Recent earnings/.test(fs.readFileSync(path.join(__dirname, "..", "zab.html"), "utf8")));
 
