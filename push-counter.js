@@ -273,7 +273,7 @@
     return h ? h + ":" + (m < 10 ? "0" : "") + m + ":" + ss : m + ":" + ss;
   }
 
-  var api = { createCounter: createCounter, DEFAULTS: DEFAULTS, tutForRep: tutForRep, formatTut: formatTut };
+  var api = { createCounter: createCounter, oneEuro: oneEuro, DEFAULTS: DEFAULTS, tutForRep: tutForRep, formatTut: formatTut };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatPush = api;
 })(this);
