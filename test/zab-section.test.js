@@ -31,10 +31,7 @@ ok(/collection\(db, "users", u\.uid, "zabLedger"\), orderBy\("createdAt", "desc"
 ok(html.includes('id="zabBalanceRow"')&&html.includes('" ZAB." : ""'),'legacy line + status note intact');
 // no one-B user text
 const text=html.replace(/<script[\s\S]*?<\/script>/g,'').replace(/<style[\s\S]*?<\/style>/g,'').replace(/<[^>]+>/g,' ');
-// The one deliberate exception: the holders scoreboard heading is specified verbatim as "The Bank of Zaba — top ZAB holders" (one b).
-const heading='The Bank of Zaba — top';
-ok(text.split(heading).length===2,'the exact one-b heading text appears once (the scoreboard heading)');
-ok(!/\bZaba\b/.test(text.replace(heading,'')),'no other one-B Zaba in page text');
+ok(!/\bZaba\b/.test(text),'no one-B Zaba in page text');
 ok(!/\bZaba\b/.test(lines.join(' ')+rows),'no one-B Zaba in rendered ZAB text');
 // rules
 const rules=fs.readFileSync(path.join(__dirname,'..','firestore.rules'),'utf8');
