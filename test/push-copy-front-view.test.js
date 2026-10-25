@@ -22,7 +22,7 @@ check("criteria: shoulders and hands in frame, then all the way down and back up
 check("TUT shares the push-up setup lines", G.positionPrompt("tut") === G.positionPrompt("pushups"));
 check("no calibration hold in the copy (zero calibration): no 'calibrate' / 'hold still' / 'sets the top' in push-up lines", strings.every((s) => !/calibrat|hold still|sets the top/i.test(s)));
 check("setup lines are short and spoken-style (each under 80 characters)", [G.COACH.pushups.place, G.COACH.pushups.criteria, G.COACH.tut.place].every((s) => s.length < 80) && G.positionPrompt("pushups").split("\n").length <= 2);
-check("the plank copy is untouched (side-on setup)", /off to your side/.test(G.COACH.plank.place) && /side-on, head to heels/.test(G.POSITION.plank[0]));
+check("the plank copy is the side-view setup (not leaned-up front-facing); see plank-copy.test.js", /off to your side/.test(G.COACH.plank.place) && /head to heels/.test(G.POSITION.plank[1]) && !/lean/i.test(G.COACH.plank.place + G.COACH.plank.criteria));
 check("no location text in the push-up copy", strings.every((s) => !/jersey|yardley|south nj/i.test(s)));
 { const files = fs.readdirSync(path.join(__dirname, "..")).filter((f) => /\.(html|js|md|json|xml)$/.test(f) && f !== "package-lock.json");
   const hits = files.filter((f) => /face-?up|under (your|the) chest|screen up|flat on the ground|lies face/i.test(read(f)));

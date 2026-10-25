@@ -58,7 +58,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   const C = { pushups: GS.coachLines("pushups"), tut: GS.coachLines("tut"), plank: GS.coachLines("plank") };
   const INTRO = (k) => [C[k].place, C[k].criteria];
   const NOINTRO = (e, from) => !SAID(e).slice(from || 0).some((x) => [].concat(INTRO("pushups"), INTRO("tut"), INTRO("plank")).includes(x.w));
-  const FULL = (k, t0) => [C[k].place + "@" + t0, C[k].criteria + "@" + (t0 + 1000), "Ready@" + (t0 + 3000), "get set@" + (t0 + 5000), "three@" + (t0 + 7000), "two@" + (t0 + 8000), "one@" + (t0 + 9000), "Go@" + (t0 + 10000)].join(",");
+  const FULL = (k, t0) => [C[k].place + "@" + t0, C[k].criteria + "@" + (t0 + 1000), "Ready@" + (t0 + 3000), "get set@" + (t0 + 5000), "three@" + (t0 + 7000), "two@" + (t0 + 8000), "one@" + (t0 + 9000), "Go@" + (t0 + 10000)].concat(k === "plank" ? [C.plank.rules + "@" + (t0 + 10000)] : []).join(","); // a fresh plank start also speaks the what-ends-the-hold line right after Go
   const QUICK = (t0) => ["Ready@" + t0, "set@" + (t0 + 1200), "Go@" + (t0 + 2400)].join(",");
   // ---- get-set.js: quick countdown
   { const said = [], shown = [], q = []; const g = GS.makeQuickCountdown({ speak: (w) => said.push(w), unlock() {}, schedule: (f, d) => q.push([f, d]) });
@@ -133,7 +133,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     check("plank restart tap: no placement line, wake + unlock inside the tap", SAID(e).length === n && e.log.slice(-3).join(",") === "plankWake:start,speech:cancel,speech:unlock" && e.$("plankStatus").textContent !== C.plank.place);
     await e.advance(2500);
     check("plank restart: only Ready, set, Go, no coaching, no 3-2-1", words(e, n) === QUICK(t0) && NOINTRO(e, n));
-    check("plank restart: hold armed + status exactly as a first start", e.log.lastIndexOf("plankHold") > e.log.lastIndexOf("say:Go") && e.run("plankLoop") === true && e.$("plankStatus").textContent === "Phone off to your side, whole body in view. Hold a straight plank for 1.5 seconds to start the clock.");
+    check("plank restart: hold armed + status exactly as a first start", e.log.lastIndexOf("plankHold") > e.log.lastIndexOf("say:Go") && e.run("plankLoop") === true && e.$("plankStatus").textContent === "Whole body in the outline, side-on. Hold a straight plank for 1.5 seconds to start the clock. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.");
     e.run("plankHold = null; stopPlankCam();"); n = SAID(e).length; t0 = e.now(); e.$("plankCamBtn").onclick(); await e.advance(2500);
     check("plank: third start is quick too", words(e, n) === QUICK(t0));
     /* switch exercise: push-ups after plank is a new session, and plank after push-ups is new again */
@@ -152,7 +152,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   check("leaving the exercise (hashchange) resets the session; stops and finishes touch it",
     /addEventListener\("hashchange", \(\) => \{ if \(sessionTrack\) sessionTrack\.reset\(\); \}\)/.test(html) && /function finishPushSet\(\) \{\n  if \(pushState\.finished\) return;\n  sessionTouch\(\);/.test(html) && /function stopPlankCam\(\) \{\n  sessionTouch\(\);/.test(html) && /function plankEnded\(r\) \{\n[^\n]*plankTimeVoice\.end\(\);\n  sessionTouch\(\);/.test(html) && /function tbFinish\(r\) \{\n  sessionTouch\(\); clearInterval/.test(html));
   check("session is committed only after the first countdown finishes (push-ups and plank)", /sessionCommit\(coachKind\);\n    pushStarting = false;/.test(html) && /sessionCommit\("plank"\);\n    plankStarting = false;/.test(html));
-  check("get-set.js defaults: push-up COACH place line (leaned-up setup), plank line unchanged, and the 7 s STEPS", GS.STEPS.length === 6 && GS.COUNTDOWN_MS === 7000 && C.pushups.place === "Lean your phone up in front of you, camera facing you." && C.plank.place === "Place your phone on the ground off to your side.");
+  check("get-set.js defaults: push-up COACH place line (leaned-up setup), plank line is the sideways side-view setup, and the 7 s STEPS", GS.STEPS.length === 6 && GS.COUNTDOWN_MS === 7000 && C.pushups.place === "Lean your phone up in front of you, camera facing you." && C.plank.place === "Prop your phone sideways on the floor, off to your side. Turn so the camera sees your side.");
   check("push-counter.js still exports DEFAULTS with the same rep-duration limits", require("../push-counter.js").DEFAULTS.minRepMs === 400 && require("../push-counter.js").DEFAULTS.maxRepMs === 6000);
   check("no 'zaba' user-facing or location text added in get-set.js", !/zaba(?!bba)/i.test(GS_SRC) && !/jersey/i.test(GS_SRC));
   const f = R.filter((x) => !x).length; console.log(`\n${R.length - f} passed, ${f} failed`); process.exit(f ? 1 : 0);

@@ -1,0 +1,25 @@
+// Plank instructions (spoken + on-screen) walk through the side-view setup and what ends the hold. Run: node test/plank-copy.test.js
+const fs = require("fs"), path = require("path");
+const rd = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
+const G = require("../get-set.js"), P = require("../plank-session.js");
+const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
+const C = G.COACH.plank, words = (t) => t.trim().split(/\s+/).length;
+check("spoken place line (in the tap)", C.place === "Prop your phone sideways on the floor, off to your side. Turn so the camera sees your side.");
+check("spoken criteria line (camera up)", C.criteria === "Step back until the outline shows your whole body, head to heels. Hold still until I say go.");
+check("spoken rules line (right after Go, fresh start only)", C.rules === "Hips sagging, hips piking up, knees down, standing up, or leaving the frame for a second ends the hold.");
+check("each spoken line is short enough to finish inside the 10 s speech cap (<= 22 words)", [C.place, C.criteria, C.rules].every((l) => words(l) <= 22));
+check("the lines cover the walk-through: sideways on the floor, step back to the outline, turn to show your side, hold still until go", /sideways on the floor, off to your side/.test(C.place) && /sees your side/.test(C.place) && /Step back until the outline/.test(C.criteria) && /head to heels/.test(C.criteria) && /Hold still until I say go/.test(C.criteria));
+check("the rules line names every hold-ender", ["sagging", "piking up", "knees down", "standing up", "leaving the frame"].every((w) => C.rules.includes(w)));
+check("on-screen setup prompt (get-set.js POSITION.plank) matches", G.POSITION.plank.length <= 2 && G.POSITION.plank[0] === "Prop your phone sideways on the floor, off to your side." && /outline shows your whole body, head to heels/.test(G.POSITION.plank[1]));
+const html = rd("index.html"), plank = rd("plank.html");
+const setup = html.match(/id="plankSetup">([\s\S]*?)<\/p>/)[1], status = html.match(/id="plankStatus"[^>]*>([\s\S]*?)<\/p>/)[1];
+check("index.html set-up note: sideways on the floor, outline, head to heels, turn to show your side, hold still until it says go", /Prop your phone sideways on the floor, off to your side/.test(setup) && /dashed outline shows your whole body, head to heels/.test(setup) && /turn so the camera sees your side/.test(setup) && /Hold still until it says go/.test(setup));
+check("index.html status note names every hold-ender and says framing never ends a hold", /sagging/.test(status) && /piking up/.test(status) && /knees/.test(status) && /standing up/.test(status) && /leaving the frame/.test(status) && /never ends a hold/.test(status));
+check("after Go the on-screen line repeats what ends the hold; the rules line is spoken once, not on a quick restart", html.includes("Whole body in the outline, side-on. Hold a straight plank for 1.5 seconds to start the clock. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.") && /if \(!restart && window\.ZabbadatGetSet && window\.ZabbadatGetSet\.interruptSpeak\) window\.ZabbadatGetSet\.interruptSpeak\(window\.ZabbadatGetSet\.COACH\.plank\.rules\)/.test(html));
+check("plank.html describes the same setup and hold-enders", /Prop your phone sideways on the floor, off to your side/.test(plank) && /outline shows your whole body, head to heels/.test(plank) && /Turn so the camera sees your side/.test(plank) && /Hips sagging, hips piking up, dropping to your knees, standing up, or leaving the frame for a second ends the hold/.test(plank));
+check("no old plank setup wording left anywhere (a few steps away, screen facing you, Place your phone on the ground)", ![html, plank, rd("get-set.js")].some((t) => /a few steps away, (with the )?screen facing you|Place your phone on the ground|Get your whole body in camera view/.test(t)));
+check("framing messages shown on screen come from the guide (whole body / turn / sideways)", P.MSG.whole === "Step back until your whole body fits" && html.includes('"Step back until your whole body fits"') && /r\.framing\.msg/.test(html));
+check("plank stays side-view only: no front-view or placement choice text", !/front-facing|lean your phone/i.test(C.place + C.criteria + C.rules + setup + status));
+check("push-up copy is unchanged (leaned-up front-facing)", G.COACH.pushups.place === "Lean your phone up in front of you, camera facing you." && G.COACH.pushups.criteria === "Shoulders and hands in frame. Go all the way down and back up." && G.COACH.tut.criteria === "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up.");
+check("plank page: the Plank House board and ZAB lines are untouched", /Every 60 seconds of plank earns 1 <span class="zab">ZAB/.test(plank) && /honor system, not a form judge/.test(plank));
+const fails = R.filter((x) => !x).length; console.log(`\n${R.length - fails}/${R.length} passed`); process.exit(fails ? 1 : 0);
