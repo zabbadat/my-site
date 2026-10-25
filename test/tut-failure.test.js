@@ -53,7 +53,7 @@ function page(mode, extra) {
   const ctx = vm.createContext(Object.assign({ pushState, pushMode: mode, pushWake: { stop: () => ({ catch() {} }) }, pushChallenge: { reset: () => log.push("challengeReset") },
     tutTimeVoice: { end: () => log.push("tutVoice.end") }, clearInterval: () => log.push("clearInterval"), Date: { now: () => 31000 }, $: el,
     formatTime: (ms) => Math.round(ms / 1000) + "s", renderPush: () => log.push("renderPush"),
-    window: { ZabbadatSession: { FAIL_TEXT: SS.FAIL_TEXT }, ZabbadatGetSet: { interruptSpeak: (w) => log.push("say:" + w), TUT_FAIL_LINE: G.TUT_FAIL_LINE } },
+    window: { ZabbadatSession: { FAIL_TEXT: SS.FAIL_TEXT }, ZabbadatGetSet: { interruptSpeak: (w) => log.push("say:" + w), SET_DONE_LINE: G.SET_DONE_LINE } },
     localStorage: { setItem: (k) => store.push(k), removeItem: (k) => store.push(k) },
     finishPushSet: () => log.push("finishPushSet"), saveRemotePush: () => log.push("saveRemotePush"), awardZab: () => log.push("awardZab"), paintPushRows: () => log.push("paintPushRows") }));
   vm.runInContext(fnSrc, ctx);
@@ -69,7 +69,7 @@ for (const mode of ["long", "challenge"]) {
 }
 { const p = page("sets"); p.void("knees"); check("regular Sets: voidTutSet does nothing (no stop, no void, no speech)", p.pushState.running === true && p.pushState.reps === 12 && p.log.length === 0); }
 { const p = page("long"); p.void("knees"); p.log.length = 0; p.void("standing"); check("a second failure after the set ended does nothing", p.log.length === 0); }
-check("the failure line is exactly 'Set done.'", G.TUT_FAIL_LINE === "Set done.");
+check("the failure line is exactly 'Set done.'", G.SET_DONE_LINE === "Set done.");
 
 // ---- page wiring pins
 const pt = html.slice(html.indexOf("async function poseTick()"), html.indexOf("async function openCam()"));
@@ -81,7 +81,7 @@ check("TUT copy says the set is voided and nothing is saved", /ends the set and 
 
 // ---- regular Sets: no timed voice, no failure. Sets-mode code path speaks only rep numbers and the start coaching.
 check("regular Sets get NO 15 s count: the one tutTimeVoice.tick call is gated on long/challenge only", html.split("tutTimeVoice.tick(").length === 2 && /\(pushMode === "long" \|\| pushMode === "challenge"\) && pushState\.running && !pushState\.finished\) tutTimeVoice\.tick\(now\)/.test(html));
-check("regular Sets: nothing else speaks on a timer (only sayRep and the shared coaching lines call speech in the push-up code)", (html.match(/interruptSpeak\(/g) || []).length === 3 && !/pushMode === "sets"[^\n]*(interruptSpeak|tick\()/.test(html));
+check("regular Sets: nothing else speaks on a timer (4 interruptSpeak call sites: rules line, TUT void, TUT Battle loss, plank failure end; only sayRep and the shared coaching lines call speech in the push-up code)", (html.match(/interruptSpeak\(/g) || []).length === 4 && !/pushMode === "sets"[^\n]*(interruptSpeak|tick\()/.test(html));
 { const sets = html.slice(html.indexOf('if ($("pushPauseBtn")) $("pushPauseBtn").onclick'), html.indexOf('if ($("pushResetBtn"))'));
   check("Sets pause/resume path has no voice or failure code", !/tutTimeVoice|failWatch|voidTutSet|interruptSpeak/.test(sets)); }
 
@@ -94,6 +94,6 @@ check("regular Sets: nothing else speaks on a timer (only sayRep and the shared 
 
 // ---- TUT Battles
 check("TUT Battle: polite 15 s count from the shared 3:00 (3:00 mark never spoken), reset at GO, ended on loss / time-up / done", /const tbTimeVoice = [^\n]*makeHoldVoice\(\{ polite: true \}\)/.test(html) && /tbTimeVoice\.tick\(TBm\.RULES\.durationMs - left\)/.test(html) && /left > 0\) tbTimeVoice\.tick/.test(html) && /tbRepVoice\.reset\(\); if \(tbTimeVoice\) tbTimeVoice\.reset\(\);/.test(html) && /tbLostSent = true; if \(tbTimeVoice\) tbTimeVoice\.end\(\);/.test(html));
-check("TUT Battle failure: 'Set done.' spoken when the judge calls you out; the loss is still recorded (reportLoss), not voided", /tbTimeVoice\.end\(\); if \(window\.ZabbadatGetSet[^\n]*interruptSpeak\(window\.ZabbadatGetSet\.TUT_FAIL_LINE\)[^\n]*TBm\.reportLoss\(/.test(html));
+check("TUT Battle failure: 'Set done.' spoken when the judge calls you out; the loss is still recorded (reportLoss), not voided", /tbTimeVoice\.end\(\); if \(window\.ZabbadatGetSet[^\n]*interruptSpeak\(window\.ZabbadatGetSet\.SET_DONE_LINE\)[^\n]*TBm\.reportLoss\(/.test(html));
 check("Plank House / Plank Battle voices untouched", /const plankTimeVoice = [^\n]*makeHoldVoice\(\) : null;/.test(html) && /const pbTimeVoice = [^\n]*makeHoldVoice\(\) : null;/.test(html));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

@@ -1630,7 +1630,7 @@ function voidTutSet(reason) {
   const why = (window.ZabbadatSession.FAIL_TEXT || {})[reason] || "Set ended";
   $("pushStatus").textContent = "Set voided: " + why + ". It lasted " + formatTime(lasted) + " and nothing was saved. Tap Reset to try again.";
   $("camNote").textContent = "Set voided";
-  const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.TUT_FAIL_LINE); // short failure line; may interrupt other speech
+  const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.SET_DONE_LINE); // short failure line; may interrupt other speech
   renderPush();
 }
 function finishChallenge() {
@@ -2085,6 +2085,9 @@ function plankEnded(r) {
   if (plankSaved) return;
   if (!plankSessionStartedAt) return; // only a live camera session can end (and save) a hold
   plankSaved = true;
+  // Any FAILURE end (sag, pike, knees, standing, left frame, frozen/repeat) says the one shared line, once (plankSaved guards a second call).
+  // A Stop tap and the 60 s "Minute set done!" auto-end both end with reason "stopped" and stay silent. Time held is still saved below.
+  if (r.reason && r.reason !== "stopped") { const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.SET_DONE_LINE); }
   const why = window.ZabbadatPlank.reasonText(r.reason);
   $("plankClock").textContent = formatTut(r.ms);
   $("plankMsg").textContent = "Final " + formatTut(r.ms);
@@ -2900,7 +2903,7 @@ async function tbPose() {
         if (c.ended) tbTimeUp();
         else {
           const lost = tbJudge.update(kps, now, st.topSize ? st.topSize * w : 0);
-          if (lost) { tbLostSent = true; if (tbTimeVoice) tbTimeVoice.end(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.interruptSpeak) window.ZabbadatGetSet.interruptSpeak(window.ZabbadatGetSet.TUT_FAIL_LINE); $("tbCamNote").textContent = TBm.REASONS[lost]; TBm.reportLoss(tbFs, tbCodeCur, currentUser.uid, lost, tbMine).catch(() => { tbLostSent = false; }); }
+          if (lost) { tbLostSent = true; if (tbTimeVoice) tbTimeVoice.end(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.interruptSpeak) window.ZabbadatGetSet.interruptSpeak(window.ZabbadatGetSet.SET_DONE_LINE); $("tbCamNote").textContent = TBm.REASONS[lost]; TBm.reportLoss(tbFs, tbCodeCur, currentUser.uid, lost, tbMine).catch(() => { tbLostSent = false; }); }
           else {
             if (tbPub()) TBm.publishLive(tbFs, tbCodeCur, currentUser.uid, tbMine).catch(() => {});
             $("tbCamNote").textContent = c.capped ? "Top hold capped at 10 seconds" : r.counted || $("tbCamNote").textContent === "Top hold capped at 10 seconds" ? "Counted " + tbMine.reps : $("tbCamNote").textContent;
