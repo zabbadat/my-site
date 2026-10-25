@@ -140,7 +140,46 @@
     var p = badgeParts(entry.name, entry.total, 24), t = Math.floor(Number(entry.total));
     return "Bank of Zabba \u2013 Top ZAB: " + p.name + " \u00b7 " + t.toLocaleString("en-US") + " ZAB";
   }
-  var api = { boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
+  // ---- "ZAB Holders" scoreboard (top 10 from the zabBoard mirror: { uid, name, total, updatedAt }; the name was
+  // written as a leaderboard name, never an email, and the rules forbid '@'). Pure view logic, no DOM.
+  // Safe name: trimmed, never an email-looking or empty value (fallback "Zabba #1234", stable per uid), long names cut.
+  function holderName(entry, maxLen) {
+    maxLen = maxLen || 24;
+    var e = entry || {}, n = String(e.name == null ? "" : e.name).replace(/\s+/g, " ").trim();
+    if (!n || n.indexOf("@") >= 0 || (/\S+\.\S+/.test(n) && /\.(com|net|org|io|co|me)\b/i.test(n))) {
+      var h = 0, id = String(e.uid || e.id || n || "");
+      for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 10000;
+      return "Zabba #" + (1000 + h % 9000);
+    }
+    var chars = Array.from(n);
+    return chars.length > maxLen ? chars.slice(0, maxLen - 1).join("").trim() + "\u2026" : n;
+  }
+  // Top `max` holders with a balance above zero. Sorted by balance (high first), ties by name then uid so the order is
+  // stable. Ties share a rank (1, 1, 3). Top three ranks are flagged for highlighting. `me` = the viewer's uid.
+  function holdersView(entries, me, max) {
+    max = max || 10;
+    var rows = (entries || []).filter(function (e) { return e && Number(e.total) > 0; }).map(function (e) {
+      return { uid: String(e.uid || e.id || ""), name: holderName(e), total: Math.floor(Number(e.total)) };
+    });
+    rows.sort(function (a, b) {
+      return b.total - a.total || (a.name.toLowerCase() < b.name.toLowerCase() ? -1 : a.name.toLowerCase() > b.name.toLowerCase() ? 1 : 0) || (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0);
+    });
+    rows = rows.slice(0, max);
+    rows.forEach(function (r, i) { r.rank = i && rows[i - 1].total === r.total ? rows[i - 1].rank : i + 1; r.top = r.rank <= 3; r.me = !!me && r.uid === me; });
+    return rows;
+  }
+  var HOLDER_NOTE = { loading: "Loading the ZAB holders\u2026", empty: "No ZAB holders on the board yet. Earn some ZAB and be the first.", error: "Couldn\u2019t load the ZAB holders right now. Try again in a moment.", signedout: "Sign in to see the ZAB holders." };
+  // state: "loading" | "empty" | "error" | "signedout" | "ok" (rows from holdersView).
+  function holdersHtml(state, rows, esc) {
+    esc = esc || function (x) { return String(x).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+    if (state !== "ok" || !rows || !rows.length) return '<p class="zt-h-note" data-state="' + (state === "ok" ? "empty" : state) + '">' + esc(HOLDER_NOTE[state === "ok" ? "empty" : state] || HOLDER_NOTE.error) + "</p>";
+    return '<ol class="zt-holders">' + rows.map(function (r) {
+      return '<li class="zt-h' + (r.top ? " zt-top zt-r" + r.rank : "") + (r.me ? " zt-me" : "") + '"><span class="zt-h-rank" aria-label="Rank ' + r.rank + '">' + r.rank + '</span>' +
+        '<span class="zt-h-name">' + esc(r.name) + (r.me ? ' <em class="zt-h-you">you</em>' : "") + '</span>' +
+        '<span class="zt-h-bal">' + esc(r.total.toLocaleString("en-US")) + (ZC ? " " + ZC.html("ZAB") : " ZAB") + "</span></li>";
+    }).join("") + "</ol>";
+  }
+  var api = { holderName: holderName, holdersView: holdersView, holdersHtml: holdersHtml, boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
     profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabBalance = api;
 })(typeof window !== "undefined" ? window : this);

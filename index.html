@@ -419,6 +419,22 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .zab{display:inline-flex;align-items:center;gap:.28em;font-weight:700;letter-spacing:.06em;white-space:nowrap}.zab-ring{width:.95em;height:.95em;display:inline-block;flex:none}
 .tuts-l{font-weight:800;color:#7fe3ff;text-shadow:0 0 8px rgba(127,227,255,.55)}
 #zab .zt-rates li{border:1px solid rgba(198,255,0,.35);border-radius:10px;padding:.5rem .7rem}
+#zab .zt-board{margin:1.2rem 0 1.6rem;padding:1rem 1rem 1.1rem;border:2px solid rgba(198,255,0,.45);border-radius:16px;background:rgba(14,20,18,.6);box-shadow:0 0 22px rgba(198,255,0,.12)}
+#zab .zt-board-title{margin:0 0 .7rem;font-size:clamp(1.5rem,5.5vw,2.1rem);line-height:1.15}
+#zab .zt-holders{list-style:none;margin:0;padding:0;display:grid;gap:.45rem}
+#zab .zt-h{display:grid;grid-template-columns:2.6rem minmax(0,1fr) auto;align-items:center;gap:.7rem;padding:.6rem .8rem;border:1px solid rgba(255,46,147,.28);border-radius:12px;font-size:1.05rem}
+#zab .zt-h-rank{display:inline-flex;align-items:center;justify-content:center;width:2.2rem;height:2.2rem;border-radius:50%;font-weight:800;background:rgba(255,255,255,.08)}
+#zab .zt-h-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+#zab .zt-h-bal{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+#zab .zt-top{font-size:1.2rem;padding:.8rem .9rem}
+#zab .zt-top .zt-h-rank{color:#0e1412;width:2.5rem;height:2.5rem;font-size:1.2rem}
+#zab .zt-r1{border-color:#ffd54a;background:rgba(255,213,74,.12);box-shadow:0 0 14px rgba(255,213,74,.3)}#zab .zt-r1 .zt-h-rank{background:#ffd54a}
+#zab .zt-r2{border-color:#cfd8dc;background:rgba(207,216,220,.1)}#zab .zt-r2 .zt-h-rank{background:#cfd8dc}
+#zab .zt-r3{border-color:#d9895b;background:rgba(217,137,91,.12)}#zab .zt-r3 .zt-h-rank{background:#d9895b}
+#zab .zt-me{outline:2px solid var(--accent-2,#c6ff00);outline-offset:1px}
+#zab .zt-h-you{font-style:normal;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-left:.3rem;padding:.05rem .4rem;border-radius:999px;background:var(--grad);color:#0e1412}
+#zab .zt-h-note{margin:.3rem 0;color:var(--muted);font-size:1.05rem}
+@media (max-width:480px){#zab .zt-board{padding:.8rem .6rem 1rem}#zab .zt-h{grid-template-columns:2.2rem minmax(0,1fr) auto;gap:.5rem;padding:.55rem .55rem;font-size:.95rem}#zab .zt-top{font-size:1.05rem}#zab .zt-h-rank{width:2rem;height:2rem}#zab .zt-top .zt-h-rank{width:2.2rem;height:2.2rem}}
 /* ARC-START Zabba Washer Battle arcade scoreboard (washers-arcade.js). Every animation lives in the no-preference block. */
 @property --arc-n { syntax:'<integer>'; inherits:false; initial-value:0; }
 .wb-board { background:#0a0618; border:2px solid #3a2a7a; box-shadow:0 0 18px rgba(120,80,255,.35), inset 0 0 24px rgba(0,0,0,.6); color:#e8f0ff; font-family:ui-monospace,"SF Mono","Courier New",monospace; letter-spacing:.04em; position:relative; overflow:hidden; }
@@ -717,6 +733,11 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="lead">Earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> for the work you log.</p>
     <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">ZAB bag</span><b id="ztBalance">—</b><span>Your balance</span></div></div>
     <p class="note" id="ztTop" hidden></p>
+    <div class="zt-board" id="ztHolders">
+      <h3 class="zt-board-title">Top <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> Holders</h3>
+      <div id="ztHoldersBody" aria-live="polite"><p class="zt-h-note" data-state="signedout">Sign in to see the ZAB holders.</p></div>
+      <p class="fine">Top 10 by balance. Names only, never emails.</p>
+    </div>
     <p class="note" id="ztSignedOut">Sign in to start earning. <a href="#play" id="ztSignInLink">Go to sign-in</a></p>
     <h3>Earn rates</h3>
     <ul class="zt-rates" id="ztRates"></ul>
@@ -2356,9 +2377,11 @@ saveRemoteWalk = async (r) => {
 };
 
 const ztFs = { ts: () => serverTimestamp(), tx: (fn) => runTransaction(db, (t) => fn({ get: (p) => t.get(doc(db, ...p)).then((x) => (x.exists() ? x.data() : null)), set: (p, d) => t.set(doc(db, ...p), d), update: (p, d) => t.update(doc(db, ...p), d) })) };
-let ztOff = null, ztTopOff = null, ztMirrored = null;
+let ztOff = null, ztTopOff = null, ztHoldersOff = null, ztMirrored = null;
 // Top ZAB line (signed in only): hidden when empty, not permitted (rules not published) or on any error.
 function paintTopBag(entry) { const el = $("ztTop"); if (!el) return; const line = ZT && ZT.topLine ? ZT.topLine(entry) : null; window.ZabCurrency.set(el, line || ""); el.hidden = !line; }
+// ZAB Holders scoreboard (zabBoard top 10; signed-in read only under the current rules): loading / empty / error / signed-out / ranked list.
+function paintHolders(state, docs, me) { const el = $("ztHoldersBody"); if (!el || !ZT || !ZT.holdersHtml) return; el.innerHTML = ZT.holdersHtml(state, state === "ok" ? ZT.holdersView(docs, me, 10) : null, escapeHtml); }
 function mirrorBoard(u, total) {
   if (!ZT || !ZT.boardEntry || !u || total == null || ztMirrored === u.uid + ":" + total) return;
   ztMirrored = u.uid + ":" + total;
@@ -2389,10 +2412,13 @@ function zabOnUser(u) {
   if (ztOff) { ztOff(); ztOff = null; }
   if (ztTxOff) { ztTxOff(); ztTxOff = null; }
   if (ztTopOff) { ztTopOff(); ztTopOff = null; }
-  paintZab(null); paintTopBag(null); ztMirrored = null;
+  if (ztHoldersOff) { ztHoldersOff(); ztHoldersOff = null; }
+  paintZab(null); paintTopBag(null); paintHolders("signedout"); ztMirrored = null;
   if ($("ztTxBody")) $("ztTxBody").innerHTML = '<tr><td colspan="4">Sign in to see your earnings.</td></tr>';
   if (!u || !ZT) return;
   ztTxOff = onSnapshot(query(collection(db, "users", u.uid, "zabLedger"), orderBy("createdAt", "desc"), limit(10)), (snap) => paintZabLedger(snap.docs.map((d) => d.data())), () => paintZabLedger([]));
+  paintHolders("loading");
+  ztHoldersOff = onSnapshot(query(collection(db, "zabBoard"), orderBy("total", "desc"), limit(10)), (snap) => paintHolders(snap.empty ? "empty" : "ok", snap.docs.map((d) => Object.assign({ id: d.id }, d.data())), u.uid), () => paintHolders("error"));
   ztTopOff = onSnapshot(query(collection(db, "zabBoard"), orderBy("total", "desc"), limit(1)), (snap) => paintTopBag(snap.empty ? null : snap.docs[0].data()), () => paintTopBag(null));
   ZT.ensureProfile(ztFs, u.uid).then((p) => { paintZab(p.zabBalance); return ZT.flush(ztFs, localStorage, u.uid); }).catch(() => {}).finally(() => {
     if (auth.currentUser && auth.currentUser.uid === u.uid && !ztOff) ztOff = onSnapshot(doc(db, "users", u.uid), (d) => { if (d.exists()) { const n = ZT.profileFrom(d.data(), u.uid).zabBalance; paintZab(n); mirrorBoard(u, n); } }, () => {});
