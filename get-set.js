@@ -197,16 +197,34 @@
   }
   // tick(ms) with the hold's own elapsed ms; speaks once per new 15 s mark (a skipped mark speaks only the latest),
   // cancels anything queued first; end() silences it until reset() (a new hold / set starts from 0).
+  // Optional polite mode (opts.polite, used by the TUT set count; Plank keeps the default): a mark never cancels or talks over
+  // other speech. If something is speaking when the mark arrives, the count waits up to opts.graceMs (4 s) for it to finish, then is
+  // dropped (never piles up, never repeats). opts.busy() overrides the speech check. Beyond opts.denseMs (10 min) only whole
+  // minutes are spoken, and nothing is spoken past opts.maxMs (60 min).
   function makeHoldVoice(opts) {
     opts = opts || {};
     var speak = safe(opts.speak || interruptSpeak), stopSpeech = safe(opts.speak ? (opts.stop || defaultStop) : function () {}), every = opts.everyMs || HOLD_EVERY_MS, last = 0, ended = false;
+    var polite = !!opts.polite, busy = opts.busy || isSpeaking, grace = opts.graceMs != null ? opts.graceMs : 4000, dense = opts.denseMs != null ? opts.denseMs : 600000, cap = opts.maxMs != null ? opts.maxMs : 3600000, pend = null;
     return {
       tick: function (ms) {
         if (ended) return null;
-        var k = Math.floor((Number(ms) || 0) / every); if (k < 1 || k <= last) return null;
-        last = k; var w = holdCallout(k * every / 1000); stopSpeech(); speak(w); return w;
+        ms = Number(ms) || 0;
+        var k = Math.floor(ms / every);
+        if (!polite) {
+          if (k < 1 || k <= last) return null;
+          last = k; var w = holdCallout(k * every / 1000); stopSpeech(); speak(w); return w;
+        }
+        if (k >= 1 && k > last) {
+          last = k; var at = k * every;
+          pend = at > cap || (at > dense && at % 60000 !== 0) ? null : { at: at, word: holdCallout(at / 1000) };
+        }
+        if (!pend) return null;
+        if (ms - pend.at > grace) { pend = null; return null; }
+        var b = false; try { b = !!busy(); } catch (e) { b = false; }
+        if (b) return null;
+        var word = pend.word; pend = null; speak(word); return word;
       },
-      end: function () { ended = true; }, reset: function () { last = 0; ended = false; }
+      end: function () { ended = true; pend = null; }, reset: function () { last = 0; ended = false; pend = null; }
     };
   }
   // Shared battle countdown (battle-rooms.js: 5 s, n = 5..1 then "go"): same words as the solo countdown, one per

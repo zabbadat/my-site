@@ -1538,6 +1538,9 @@ function savedPushTut() { return Number(localStorage.getItem(pushTutKey())) || 0
 function pushSetsKey() { return pushTotalKey().replace("zabbadat-push-total-", "zabbadat-push-sets-"); }
 function savedPushSets() { return Number(localStorage.getItem(pushSetsKey())) || 0; }
 function clearPushTotals() { localStorage.removeItem(pushTotalKey()); localStorage.removeItem(pushTutKey()); localStorage.removeItem(pushSetsKey()); }
+// TUT set voice (push-up "One long set"): the elapsed time under tension is spoken at every 15 s, same words and helper as Plank
+// (get-set.js makeHoldVoice) but polite: never cancels other speech, skips a mark if speech stays busy for 4 s, once per mark.
+const tutTimeVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeHoldVoice ? window.ZabbadatGetSet.makeHoldVoice({ polite: true }) : null;
 function formatTut(ms) {
   const t = Math.max(0, Math.floor((Number(ms) || 0) / 1000)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = String(t % 60).padStart(2, "0");
   return h ? h + ":" + String(m).padStart(2, "0") + ":" + sec : m + ":" + sec;
@@ -1552,6 +1555,7 @@ function renderPush() {
     now = Math.min(now, 180000);
     if (pushState.running) pushState.tut = pushChallenge.snapshot(performance.now()).tutMs;
   }
+  if (typeof tutTimeVoice !== "undefined" && tutTimeVoice && pushMode === "long" && pushState.running && !pushState.finished) tutTimeVoice.tick(now); // TUT in this mode is the running clock
   const liveTut = pushMode === "long" ? now : pushState.tut;
   if ($("pushTut")) $("pushTut").textContent = formatTut(savedPushTut() + (pushState.finished ? 0 : liveTut));
   if ($("pushRepsBig")) $("pushRepsBig").textContent = pushState.reps;
@@ -1684,6 +1688,7 @@ function finishPushSet() {
   }
   pushState.running = false;
   pushState.finished = true;
+  if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.end();
   clearInterval(pushState.tick);
   if (pushWake) pushWake.stop().catch(() => {});
   const ms = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
@@ -1800,6 +1805,7 @@ async function startPush() {
 function beginPushClock() {
   if (pushState.finished || pushState.running) return;
   if (typeof repVoice !== "undefined" && repVoice) repVoice.reset();
+  if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.reset();
   pushState.running = true;
   pushState.startedAt = Date.now();
   if (pushMode === "challenge" && pushChallenge) {
@@ -1828,6 +1834,7 @@ if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
   clearInterval(pushState.tick);
   if (pushWake) pushWake.stop().catch(() => {});
   Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 });
+  if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.reset();
   resetPoseBaseline();
   if (postureGuard) postureGuard.reset();
   if (pushMode === "challenge" && pushChallenge) { pushChallenge.reset(); if ($("challengeResult")) $("challengeResult").hidden = true; }
