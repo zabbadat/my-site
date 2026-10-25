@@ -693,8 +693,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button type="button" id="modeChallengeBtn" aria-pressed="false">Three-minute challenge</button>
     </div>
     <div class="olt-banner" id="oltBanner"><span>TIME UNDER TENSION SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
-    <p class="note" id="longNote" hidden>Time under tension set: the clock runs nonstop from Start. Stay in plank. Standing up or dropping to your knees is flagged (the clock keeps running). Rule breaks: <span class="vcount" id="pushViol">0</span></p>
-    <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock from Start, no pause. Stay in plank the whole time; push-ups or holding the top both count. Standing up or dropping to your knees is flagged (the clock keeps running). Each hold at the top counts for at most 10 seconds of time under tension. Score: reps plus seconds under tension.</p>
+    <p class="note" id="longNote" hidden>Time under tension set: the clock runs nonstop from Start. Stay in plank. Standing up, dropping to your knees for a second, or leaving the frame for two seconds ends the set and voids it: nothing is saved or posted. Rule breaks: <span class="vcount" id="pushViol">0</span></p>
+    <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock from Start, no pause. Stay in plank the whole time; push-ups or holding the top both count. Standing up, dropping to your knees for a second, or leaving the frame for two seconds ends the set and voids it: nothing is saved or posted. Each hold at the top counts for at most 10 seconds of time under tension. Score: reps plus seconds under tension.</p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
       <div class="stat"><b id="pushSets">0</b><span>Total sets today</span></div>
@@ -1157,6 +1157,8 @@ let pushMode = (function (m) { return m === "sets" || m === "challenge" ? m : "l
 const pushChallenge = window.ZabbadatChallenge ? window.ZabbadatChallenge.createChallenge({ durationMs: 180000, topCapMs: 10000 }) : null;
 let challengeFlags = { standing: 0, knees: 0 };
 const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostureGuard() : null;
+// TUT failure watch (One long set + 3:00 challenge only; regular Sets never use it): knees / stood up / out of frame ends and VOIDS the set.
+const failWatch = window.ZabbadatSession && window.ZabbadatSession.createFailureWatch ? window.ZabbadatSession.createFailureWatch() : null;
 let lastViolFlag = 0;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
@@ -1555,7 +1557,7 @@ function renderPush() {
     now = Math.min(now, 180000);
     if (pushState.running) pushState.tut = pushChallenge.snapshot(performance.now()).tutMs;
   }
-  if (typeof tutTimeVoice !== "undefined" && tutTimeVoice && pushMode === "long" && pushState.running && !pushState.finished) tutTimeVoice.tick(now); // TUT in this mode is the running clock
+  if (typeof tutTimeVoice !== "undefined" && tutTimeVoice && (pushMode === "long" || pushMode === "challenge") && pushState.running && !pushState.finished) tutTimeVoice.tick(now); // TUT modes only (the running clock; the challenge returns above at 3:00, so no "3 minutes"). Regular Sets: no timed voice
   const liveTut = pushMode === "long" ? now : pushState.tut;
   if ($("pushTut")) $("pushTut").textContent = formatTut(savedPushTut() + (pushState.finished ? 0 : liveTut));
   if ($("pushRepsBig")) $("pushRepsBig").textContent = pushState.reps;
@@ -1611,6 +1613,26 @@ if ($("modeSetsBtn")) $("modeSetsBtn").onclick = () => setPushMode("sets");
 if ($("modeLongBtn")) $("modeLongBtn").onclick = () => setPushMode("long");
 if ($("modeChallengeBtn")) $("modeChallengeBtn").onclick = () => setPushMode("challenge");
 // Three-minute challenge end: show the result card, then reuse the normal save/post path.
+// A camera-detected failure in a TUT mode (One long set / 3:00 challenge) ends the set at once and VOIDS it: the clock stops, reps and
+// time under tension go to 0, nothing is saved locally, no board row, no ZAB, no remote write (finishPushSet is never reached).
+// Regular Sets are not TUT and never get here. Reset starts a fresh set.
+function voidTutSet(reason) {
+  if (pushState.finished || !pushState.running || (pushMode !== "long" && pushMode !== "challenge")) return;
+  const lasted = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
+  pushState.running = false; pushState.finished = true;
+  clearInterval(pushState.tick);
+  if (pushWake) pushWake.stop().catch(() => {});
+  if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.end();
+  Object.assign(pushState, { reps: 0, tut: 0, elapsed: 0, startedAt: 0 });
+  if (pushChallenge) pushChallenge.reset();
+  if ($("challengeResult")) $("challengeResult").hidden = true;
+  if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
+  const why = (window.ZabbadatSession.FAIL_TEXT || {})[reason] || "Set ended";
+  $("pushStatus").textContent = "Set voided: " + why + ". It lasted " + formatTime(lasted) + " and nothing was saved. Tap Reset to try again.";
+  $("camNote").textContent = "Set voided";
+  const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.TUT_FAIL_LINE); // short failure line; may interrupt other speech
+  renderPush();
+}
 function finishChallenge() {
   if (pushState.finished || !pushChallenge) return;
   pushChallenge.update(performance.now() + 180000, {}); // closes the clock; nothing past 3:00 is credited
@@ -1806,6 +1828,7 @@ function beginPushClock() {
   if (pushState.finished || pushState.running) return;
   if (typeof repVoice !== "undefined" && repVoice) repVoice.reset();
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.reset();
+  if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(performance.now());
   pushState.running = true;
   pushState.startedAt = Date.now();
   if (pushMode === "challenge" && pushChallenge) {
@@ -1835,6 +1858,7 @@ if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
   if (pushWake) pushWake.stop().catch(() => {});
   Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 });
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.reset();
+  if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(null);
   resetPoseBaseline();
   if (postureGuard) postureGuard.reset();
   if (pushMode === "challenge" && pushChallenge) { pushChallenge.reset(); if ($("challengeResult")) $("challengeResult").hidden = true; }
@@ -1925,7 +1949,9 @@ async function poseTick() {
       const st = pushCounter.state();
       const g = postureGuard.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0);
       if (g.event && pushMode === "challenge") challengeFlags[g.event] = (challengeFlags[g.event] || 0) + 1;
-      if (g.event) $("pushStatus").textContent = (g.event === "knees" ? "Knees down" : "Stood up / left plank") + " flagged. Clock keeps running.";
+      if (g.event) $("pushStatus").textContent = (g.event === "knees" ? "Knees down" : "Stood up / left plank") + " flagged: fix it now or the set is voided.";
+      const failed = typeof failWatch !== "undefined" && failWatch ? failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0) : null;
+      if (failed) voidTutSet(failed); // clock stops here; the checks below see finished and skip
       const f = $("pushViolFlag");
       if (f) { f.hidden = !g.active; if (g.active) f.textContent = (g.active === "knees" ? "Knees down" : "Standing") + " · " + g.count; }
       if ($("pushViol")) $("pushViol").textContent = String(g.count);
@@ -2648,6 +2674,8 @@ let battleRoom = null, battleCode = null;
 // Battles: spoken "Ready, get set" when the shared 5 s countdown appears and "Go" at GO (unlocked in the ready tap).
 const battleVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeBattleVoice ? window.ZabbadatGetSet.makeBattleVoice() : null;
 const tbRepVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? window.ZabbadatGetSet.makeRepVoice() : null;
+// TUT Battle: spoken elapsed time every 15 s of the shared 3:00 (same polite helper as the solo TUT modes); ends when you are out or time is up.
+const tbTimeVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeHoldVoice ? window.ZabbadatGetSet.makeHoldVoice({ polite: true }) : null;
 let plankLiveFor = null, plankHidden = false, plankSent = false;
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && plankLiveFor && plankLiveFor === battleCode) plankHidden = true; });
 let battleOff = null, battleTick = null;
@@ -2833,6 +2861,7 @@ function tbTickFn() {
     const left = TBm.timeLeft(r, BR.serverNow(Date.now(), tb.offset));
     if (tbDraw === tbCodeCur) c.textContent = "Draw";
     else c.textContent = left > 0 ? "Battle on: " + tbMine.reps + " reps · TUT " + fmtT(tbMine.tutMs) + " · " + fmtT(left) + " left" : "Time! Checking the result…";
+    if (tbTimeVoice && tbLiveT0 != null && !tbLostSent && !tbEnded && r.status !== "done" && left > 0) tbTimeVoice.tick(TBm.RULES.durationMs - left);
     tbGoLive(r); if (r.status === "countdown") tb.markLive(tbCodeCur).catch(() => {});
     if (left === 0 && tbLiveT0 != null) tbTimeUp();
   }
@@ -2840,7 +2869,7 @@ function tbTickFn() {
 function tbGoLive(r) {
   if (tbLiveT0 != null || !currentUser || !(currentUser.uid in r.players)) return;
   tbLiveT0 = performance.now() - Math.max(0, BR.serverNow(Date.now(), tb.offset) - r.startAt);
-  tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false; tbEnded = false; tbDraw = null; clearTimeout(tbSettleTimer); if (tbRepVoice) tbRepVoice.reset();
+  tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false; tbEnded = false; tbDraw = null; clearTimeout(tbSettleTimer); if (tbRepVoice) tbRepVoice.reset(); if (tbTimeVoice) tbTimeVoice.reset();
   tbChal = TBC.createChallenge({ durationMs: TBm.RULES.durationMs, topCapMs: TBm.RULES.topCapMs }); tbChal.start(tbLiveT0);
   tbJudge = TBm.createJudge(window.ZabbadatSession.createPostureGuard({ holdMs: TBm.RULES.postureHoldMs })); tbJudge.reset(performance.now());
   tbPub = TBm.throttle(TBm.RULES.publishMs, () => performance.now());
@@ -2871,7 +2900,7 @@ async function tbPose() {
         if (c.ended) tbTimeUp();
         else {
           const lost = tbJudge.update(kps, now, st.topSize ? st.topSize * w : 0);
-          if (lost) { tbLostSent = true; $("tbCamNote").textContent = TBm.REASONS[lost]; TBm.reportLoss(tbFs, tbCodeCur, currentUser.uid, lost, tbMine).catch(() => { tbLostSent = false; }); }
+          if (lost) { tbLostSent = true; if (tbTimeVoice) tbTimeVoice.end(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.interruptSpeak) window.ZabbadatGetSet.interruptSpeak(window.ZabbadatGetSet.TUT_FAIL_LINE); $("tbCamNote").textContent = TBm.REASONS[lost]; TBm.reportLoss(tbFs, tbCodeCur, currentUser.uid, lost, tbMine).catch(() => { tbLostSent = false; }); }
           else {
             if (tbPub()) TBm.publishLive(tbFs, tbCodeCur, currentUser.uid, tbMine).catch(() => {});
             $("tbCamNote").textContent = c.capped ? "Top hold capped at 10 seconds" : r.counted || $("tbCamNote").textContent === "Top hold capped at 10 seconds" ? "Counted " + tbMine.reps : $("tbCamNote").textContent;

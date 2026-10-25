@@ -73,6 +73,30 @@
     }
     return { update: update, reset: reset, state: function () { return g; } };
   }
+  // Failure watch for the TUT modes (One long set, 3:00 challenge): the set is over (and voided by the page) when the camera sees
+  //  - "knees": hip-knee-ankle bent like kneeling (needs the legs in view),
+  //  - "standing": upright line or the shoulders moved far from the camera (shoulders-only, works from a leaned-up front camera),
+  //  - "frame": no shoulder confidently visible for frameMs.
+  // Same rule as Plank (a bad pose must last badMs = 1 s; any good or uncertain frame restarts that); Plank also ends on 1 s missing,
+  // here it is 2 s (the same out-of-frame time the TUT Battle judge uses; a front camera drops tracking more often than a side one).
+  // A normal rep (bottom, pause, top hold) never produces these. Once failed it stays failed until reset().
+  var FAIL = { badMs: 1000, frameMs: 2000, minScore: 0.3 };
+  function createFailureWatch(opts) {
+    var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed;
+    function reset(t0) { guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs })); seen = t0 == null ? null : t0; failed = null; }
+    reset(null);
+    function upper(kps) { for (var i = 0; i < (kps || []).length; i++) { var k = kps[i]; if (k && /shoulder$/.test(k.name) && (k.score == null || k.score >= o.minScore)) return true; } return false; }
+    function update(kps, t, topWidth) {
+      if (failed) return failed;
+      if (seen == null) seen = t;
+      if (upper(kps)) seen = t; else if (t - seen >= o.frameMs) return (failed = "frame");
+      var g = guard.update(kps, t, topWidth);
+      if (g.event === "knees" || g.event === "standing") return (failed = g.event);
+      return null;
+    }
+    return { update: update, reset: reset, failed: function () { return failed; } };
+  }
+  var FAIL_TEXT = { knees: "Knees down", standing: "Stood up / left plank", frame: "Out of frame" };
   // Personal history from localStorage entries [[key, value], ...]: per-day time under tension
   // (tutPrefix, e.g. "zabbadat-push-tut-guest-") and reps (repsPrefix, "zabbadat-push-total-guest-").
   // Returns today, best day (by time), all-time totals and days (newest first).
@@ -107,7 +131,7 @@
       .sort(function (a, b) { return Number(b.ms) - Number(a.ms); }).slice(0, n || 50);
   }
 
-  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, GUARD: GUARD };
+  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);
