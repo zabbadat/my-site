@@ -22,6 +22,8 @@
     flat: 1.0,          // shoulder->ankle rise must be <= flat * run (else standing/upright)
     readyMs: 1500,      // good plank (and good framing) before the clock starts
     readyGraceMs: 250,  // a bad stretch shorter than this does not reset the ready countdown
+    cue: false,         // true: when ready is satisfied the hold goes ready -> "cue" (the page speaks "Hold plank.") -> begin(t) starts the clock
+    cueMaxMs: 8000,     // safety: the clock starts by itself this long after the cue phase began (speech stuck / never ended)
     badMs: 1000,        // bad form longer than this ends the hold
     missMs: 1000,       // body missing longer than this ends the hold
     liveWindowMs: 8000, // liveness window
@@ -193,7 +195,7 @@
     function reset() {
       live.reset(); pf.reset();
       h = { phase: "ready", goodSince: null, readyBadSince: null, startT: null, badSince: null, badType: null, missSince: null, ms: 0, reason: null, lastT: null,
-            wasOk: false, fr: { ok: false, issue: null, msg: "" }, frIssue: null, frIssueSince: null, frClearSince: null };
+            cueAt: null, cueSeq: 0, cueBadSince: null, wasOk: false, fr: { ok: false, issue: null, msg: "" }, frIssue: null, frIssueSince: null, frClearSince: null };
     }
     reset();
     function end(t, reason, creditT) { h.phase = "ended"; h.reason = reason; h.ms = Math.max(0, Math.round((creditT != null ? creditT : t) - h.startT)); }
@@ -213,6 +215,12 @@
         if (t - h.frIssueSince >= o.frameShowMs) h.fr = { ok: false, issue: g.issue, msg: g.msg };
       }
     }
+    // The clock starts here (cue mode): called by the page right after "Hold plank." has been spoken.
+    function begin(t) {
+      if (h.phase !== "cue") return false;
+      h.phase = "holding"; h.startT = t; h.ms = 0; h.badSince = null; h.missSince = null; live.reset();
+      return true;
+    }
     function update(kps, t, dims) {
       var raw = kps || [], fk = pf.filter(raw, t);
       var c = classifyPlank(fk, { keep: h.wasOk, sagStart: o.sagStart, sagKeep: o.sagKeep, pikeStart: o.pikeStart, pikeKeep: o.pikeKeep, minScore: o.minScore, kneeAngle: o.kneeAngle, flat: o.flat }), f = c.frame;
@@ -221,11 +229,24 @@
       framing(g, t);
       h.lastT = t;
       if (h.phase === "ended") return out(f);
+      if (h.phase === "cue") {
+        // Waiting for the cue to be spoken. Still in alignment -> stay; a bad stretch longer than readyGraceMs drops back to ready.
+        if (f === "ok" && g.ok) h.cueBadSince = null;
+        else {
+          if (h.cueBadSince == null) h.cueBadSince = t;
+          if (t - h.cueBadSince > o.readyGraceMs) { h.phase = "ready"; h.goodSince = null; h.readyBadSince = null; return out(f); }
+        }
+        if (t - h.cueAt >= o.cueMaxMs) begin(t);
+        return out(f);
+      }
       if (h.phase === "ready") {
         if (f === "ok" && g.ok) {
           h.readyBadSince = null;
           if (h.goodSince == null) h.goodSince = t;
-          if (t - h.goodSince >= o.readyMs) { h.phase = "holding"; h.startT = t; live.reset(); }
+          if (t - h.goodSince >= o.readyMs) {
+            if (o.cue) { h.phase = "cue"; h.cueAt = t; h.cueSeq += 1; h.cueBadSince = null; } // lock-in: cue first, count after begin()
+            else { h.phase = "holding"; h.startT = t; live.reset(); }
+          }
         } else if (h.goodSince != null) {
           // one noisy frame must not throw away the countdown: only a bad stretch longer than readyGraceMs does
           if (h.readyBadSince == null) h.readyBadSince = t;
@@ -253,12 +274,12 @@
       return out(f);
     }
     function out(f) {
-      return { phase: h.phase, ms: h.ms, frame: f, ended: h.phase === "ended", reason: h.reason, framing: { ok: h.fr.ok, issue: h.fr.issue, msg: h.fr.msg },
+      return { phase: h.phase, ms: h.ms, frame: f, ended: h.phase === "ended", reason: h.reason, cue: h.phase === "cue", cueSeq: h.cueSeq, framing: { ok: h.fr.ok, issue: h.fr.issue, msg: h.fr.msg },
         countdownMs: h.phase === "ready" && h.goodSince != null && h.lastT != null ? Math.max(0, o.readyMs - (h.lastT - h.goodSince)) : null };
     }
     // Manual stop (button) ends the hold with credit up to now.
-    function stop(t) { if (h.phase === "holding") end(t, "stopped"); else if (h.phase === "ready") { h.phase = "ended"; h.reason = "stopped"; } return out(null); }
-    return { update: update, stop: stop, reset: reset, state: function () { return h; } };
+    function stop(t) { if (h.phase === "holding") end(t, "stopped"); else if (h.phase === "ready" || h.phase === "cue") { h.phase = "ended"; h.reason = "stopped"; } return out(null); }
+    return { update: update, begin: begin, stop: stop, reset: reset, state: function () { return h; } };
   }
 
   var REASONS = { sag: "Hips sagged", pike: "Hips piked up", knees: "Knees down", standing: "Left the plank (stood up)",

@@ -2075,6 +2075,21 @@ function plankEnded(r) {
   saveRemotePlank(record).then(() => { $("plankStatus").textContent += " Posted to the Plank House board."; })
     .catch(() => { $("plankStatus").textContent += " Saved on this phone (board offline)."; paintPlankRows(localPlanks()); });
 }
+// "Hold plank." Cue first, count after: when the hold locks in (aligned, 1.5 s ready satisfied) it enters the "cue" phase and
+// the clock only starts (hold.begin) once this line has been spoken. It waits for any earlier line (the rules line after Go)
+// to finish instead of cutting it off, and starts on its own if speech is silent or stuck (sayAndWait caps, cueMaxMs in the logic).
+let plankCueSeq = 0;
+function plankSpeechIdle() { const GS = window.ZabbadatGetSet; return !(GS && GS.isSpeaking && GS.isSpeaking()); }
+function plankCue(r) {
+  if (!r || r.phase !== "cue" || !r.cueSeq || r.cueSeq === plankCueSeq) return;
+  plankCueSeq = r.cueSeq;
+  const hold = plankHold, GS = window.ZabbadatGetSet, cancelled = () => hold !== plankHold || !plankLoop || plankSaved;
+  const begin = () => { if (!cancelled()) hold.begin(performance.now()); };
+  const say = () => (GS && GS.sayAndWait ? GS.sayAndWait(GS.COACH.plank.cue, { minMs: 400, maxMs: 3000, cancelled }) : Promise.resolve(true)).then(begin, begin);
+  let waited = 0;
+  const wait = () => { if (cancelled()) return; if (plankSpeechIdle() || waited >= 5000) return say(); waited += 100; setTimeout(wait, 100); };
+  wait();
+}
 function plankOutlineSet(r) {
   const el = $("plankOutline"); if (!el) return;
   el.classList.toggle("ok", !!(r && r.framing && r.framing.ok));
@@ -2088,7 +2103,9 @@ async function plankTick() {
     const poses = await det.estimatePoses(vid, { flipHorizontal: true });
     const r = plankHold.update(poses && poses[0] ? poses[0].keypoints : [], tFrame, { w: vid.videoWidth || 0, h: vid.videoHeight || 0 });
     plankOutlineSet(r);
+    plankCue(r);
     if (r.ended) plankEnded(r);
+    else if (r.phase === "cue") $("plankMsg").textContent = "Hold plank";
     else if (r.phase === "ready") {
       // Framing messages (whole body in frame, side-on, level) show here and only delay the start.
       $("plankMsg").textContent = r.framing && r.framing.msg ? r.framing.msg : r.countdownMs != null ? "Hold it… " + Math.ceil(r.countdownMs / 500) / 2 + "s" : (r.frame === "missing" ? "Step back until your whole body fits" : "Get into plank");
@@ -2104,7 +2121,7 @@ async function plankTick() {
 }
 const PLANK_SET_MS = 60000; // a full set is one minute; the hold auto-ends there and counts as a set
 function newPlankHold() {
-  plankHold = window.ZabbadatPlank.createPlankHold(); plankSaved = false;
+  plankHold = window.ZabbadatPlank.createPlankHold({ cue: true }); plankSaved = false; plankCueSeq = 0;
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.reset();
   $("plankClock").textContent = "0:00"; $("plankMsg").textContent = "Get into plank";
   $("plankStopBtn").hidden = false; $("plankAgainBtn").hidden = true;
