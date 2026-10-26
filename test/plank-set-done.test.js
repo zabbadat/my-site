@@ -1,4 +1,4 @@
-// Plank failure ends say exactly "Set done." once (shared line with the TUT modes); Stop tap and the 60 s auto-end stay silent.
+// Plank failure ends say exactly "Set complete" once (own PLANK_SET_DONE_LINE; the TUT modes keep "Set done."); Stop tap and the 60 s auto-end stay silent.
 // Run: node test/plank-set-done.test.js
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const P = require("../plank-session.js"), G = require("../get-set.js");
@@ -13,7 +13,7 @@ const stand = K({ left_shoulder: [300, 50], left_hip: [300, 250], left_knee: [30
 const seq = (from, to, f, dt = 33) => { const a = []; for (let t = from; t < to; t += dt) a.push([t, f(t)]); return a; };
 const hold = (frames) => { const h = P.createPlankHold(); let r; for (const [t, k] of frames) r = h.update(k, t); return { h, r }; };
 
-check("shared line is exactly 'Set done.' and TUT_FAIL_LINE is the same constant", G.SET_DONE_LINE === "Set done." && G.TUT_FAIL_LINE === G.SET_DONE_LINE);
+check("plank line is exactly 'Set complete'; TUT lines (SET_DONE_LINE, TUT_FAIL_LINE) stay 'Set done.'", G.PLANK_SET_DONE_LINE === "Set complete" && G.SET_DONE_LINE === "Set done." && G.TUT_FAIL_LINE === "Set done.");
 
 // Run the real plankEnded from index.html with stubs.
 const m = /function plankEnded\(r\) \{[\s\S]*?\n\}\n/.exec(html);
@@ -25,7 +25,7 @@ function env() {
     plankTimeVoice: { end: () => log.push("voiceEnd") }, sessionTouch() {}, formatTut: (ms) => ms + "ms", renderPlankBest() {}, plankBest: () => 0,
     PD: { countsAsSet: (ms) => ms >= 10000, recordHold: () => ({ sets: 1 }), localDateKey: () => "2026-10-25" }, renderPlankDays() {}, paintPlankRows() {}, localPlanks: () => [],
     displayNameOf: () => "x", localStorage: { getItem: (k) => store[k] || null, setItem: (k, v) => { store[k] = String(v); log.push("save:" + k); } },
-    window: { ZabbadatPlank: P, ZabbadatGetSet: { interruptSpeak: (w) => log.push("say:" + w), SET_DONE_LINE: G.SET_DONE_LINE } } };
+    window: { ZabbadatPlank: P, ZabbadatGetSet: { interruptSpeak: (w) => log.push("say:" + w), PLANK_SET_DONE_LINE: G.PLANK_SET_DONE_LINE } } };
   vm.createContext(ctx); vm.runInContext(m[0].replace(/^function plankEnded/, "plankEnded = function"), ctx);
   return ctx;
 }
@@ -43,14 +43,14 @@ for (const [name, frames, reason] of cases) {
   const { r } = hold(frames); const c = env();
   check(`${name}: hold ends with reason ${reason}`, r.ended && r.reason === reason);
   c.plankEnded(r);
-  check(`${name}: says exactly "Set done." once`, JSON.stringify(says(c)) === JSON.stringify(["say:Set done."]));
+  check(`${name}: says exactly "Set complete" once`, JSON.stringify(says(c)) === JSON.stringify(["say:Set complete"]));
   check(`${name}: time held still saved, on-screen reason kept, not voided`, c.log.includes("save:b") && c.log.includes("save:zabbadat-plank-local") && /Hold ended: /.test(c.els.plankStatus.textContent) && c.els.plankStatus.textContent.includes(P.reasonText(reason)) && /Time \d+ms/.test(c.els.plankStatus.textContent));
   c.plankEnded(r); c.plankEnded(r);
   check(`${name}: a repeated end call does not speak again`, says(c).length === 1);
-  check(`${name}: the 15 s voice is ended before the line (failure interrupts, no count after)`, c.log.indexOf("voiceEnd") < c.log.indexOf("say:Set done."));
+  check(`${name}: the 15 s voice is ended before the line (failure interrupts, no count after)`, c.log.indexOf("voiceEnd") < c.log.indexOf("say:Set complete"));
 }
 { const c = env(); c.plankEnded({ reason: "repeat", ms: 5000 });
-  check('repeating motion (video) failure: says "Set done." once', JSON.stringify(says(c)) === JSON.stringify(["say:Set done."])); }
+  check('repeating motion (video) failure: says "Set complete" once', JSON.stringify(says(c)) === JSON.stringify(["say:Set complete"])); }
 // Not on success or Stop
 { const { h } = hold(seq(0, 20000, jitter)); const c = env(); c.plankEnded(h.stop(20000));
   check("Stop button (reason stopped): silent, time still saved", says(c).length === 0 && c.log.includes("save:b")); }
@@ -64,7 +64,7 @@ check("60 s auto-end goes through hold.stop (reason 'stopped') so it is silent",
   check("60 s auto-end: reason stopped, silent", r.reason === "stopped" && says(c).length === 0); }
 check("stopPlankCam and the Stop button also end via hold.stop (silent)", /const r = plankHold\.stop\(performance\.now\(\)\); plankEnded\(r\)/.test(html) && /\$\("plankStopBtn"\)\.onclick = \(\) => \{ if \(plankLoop && plankHold && !plankSaved\) plankEnded\(plankHold\.stop\(/.test(html));
 // single speaking site for plank failure, no per-failure lines
-check("plankEnded is the only plank place that speaks the failure line; guarded by reason !== 'stopped' after plankSaved = true", (html.match(/SET_DONE_LINE/g) || []).length === 3 && /plankSaved = true;[\s\S]{0,400}r\.reason !== "stopped"\) \{ const GS = window\.ZabbadatGetSet; if \(GS && GS\.interruptSpeak\) GS\.interruptSpeak\(GS\.SET_DONE_LINE\)/.test(html));
+check("plankEnded is the only plank place that speaks the failure line; guarded by reason !== 'stopped' after plankSaved = true", (html.match(/PLANK_SET_DONE_LINE/g) || []).length === 1 && /plankSaved = true;[\s\S]{0,400}r\.reason !== "stopped"\) \{ const GS = window\.ZabbadatGetSet; if \(GS && GS\.interruptSpeak\) GS\.interruptSpeak\(GS\.PLANK_SET_DONE_LINE\)/.test(html));
 check("no other spoken failure text in plank code ('Set done' never in plank-session.js / plank.html)", !/Set done/.test(fs.readFileSync(path.join(__dirname, "../plank-session.js"), "utf8")) && !/Set done/.test(fs.readFileSync(path.join(__dirname, "../plank.html"), "utf8")));
 // Hold plank cue is unaffected (a failure only happens during a hold, after the cue) and cancelled() stops a late cue
 check("'Hold plank.' cue untouched and its begin is cancelled once the hold is saved", G.COACH.plank.cue === "Hold plank." && /cancelled = \(\) => hold !== plankHold \|\| !plankLoop \|\| plankSaved/.test(html));

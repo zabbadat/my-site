@@ -2087,7 +2087,7 @@ function plankEnded(r) {
   plankSaved = true;
   // Any FAILURE end (sag, pike, knees, standing, left frame, frozen/repeat) says the one shared line, once (plankSaved guards a second call).
   // A Stop tap and the 60 s "Minute set done!" auto-end both end with reason "stopped" and stay silent. Time held is still saved below.
-  if (r.reason && r.reason !== "stopped") { const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.SET_DONE_LINE); }
+  if (r.reason && r.reason !== "stopped") { const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.PLANK_SET_DONE_LINE); }
   const why = window.ZabbadatPlank.reasonText(r.reason);
   $("plankClock").textContent = formatTut(r.ms);
   $("plankMsg").textContent = "Final " + formatTut(r.ms);
