@@ -1,4 +1,4 @@
-// Plank failure ends say exactly "Set complete" once (own PLANK_SET_DONE_LINE; the TUT modes keep "Set done."); Stop tap and the 60 s auto-end stay silent.
+// Plank failure ends say exactly "Set complete" once (own PLANK_SET_DONE_LINE; the TUT modes keep "Set done."); the Stop tap stays silent (there is no 60 s auto-end).
 // Run: node test/plank-set-done.test.js
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const P = require("../plank-session.js"), G = require("../get-set.js");
@@ -58,10 +58,10 @@ for (const [name, frames, reason] of cases) {
   check("Stop during hold ready/early: silent", says(c).length === 0); }
 { const h = P.createPlankHold(); let r; for (const [t, k] of seq(0, 1000, jitter)) r = h.update(k, t); const c = env(); c.plankEnded(h.stop(1000));
   check("Stop before the clock started (ready phase): silent", says(c).length === 0 && !c.log.includes("save:b")); }
-// 60 s auto-end uses hold.stop -> "stopped"
-check("60 s auto-end goes through hold.stop (reason 'stopped') so it is silent", /plankEnded\(plankHold\.stop\(performance\.now\(\)\)\); \$\("plankStatus"\)\.textContent = "Minute set done!/.test(html));
+// no 60 s auto-end any more: Stop is the only silent end (reason "stopped")
+check("no fixed-time auto-end in plankTick (PLANK_SET_MS and 'Minute set done' are gone)", !/PLANK_SET_MS|Minute set done/.test(html));
 { const { h } = hold(seq(0, 62000, jitter)); const c = env(); const r = h.stop(62000); c.plankEnded(r);
-  check("60 s auto-end: reason stopped, silent", r.reason === "stopped" && says(c).length === 0); }
+  check("Stop after 62 s: reason stopped, silent, time credited", r.reason === "stopped" && r.ms > 50000 && says(c).length === 0); }
 check("stopPlankCam and the Stop button also end via hold.stop (silent)", /const r = plankHold\.stop\(performance\.now\(\)\); plankEnded\(r\)/.test(html) && /\$\("plankStopBtn"\)\.onclick = \(\) => \{ if \(plankLoop && plankHold && !plankSaved\) plankEnded\(plankHold\.stop\(/.test(html));
 // single speaking site for plank failure, no per-failure lines
 check("plankEnded is the only plank place that speaks the failure line; guarded by reason !== 'stopped' after plankSaved = true", (html.match(/PLANK_SET_DONE_LINE/g) || []).length === 1 && /plankSaved = true;[\s\S]{0,400}r\.reason !== "stopped"\) \{ const GS = window\.ZabbadatGetSet; if \(GS && GS\.interruptSpeak\) GS\.interruptSpeak\(GS\.PLANK_SET_DONE_LINE\)/.test(html));

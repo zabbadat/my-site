@@ -227,6 +227,40 @@
       end: function () { ended = true; pend = null; }, reset: function () { last = 0; ended = false; pend = null; }
     };
   }
+  // Plank elapsed-time voice: NO end cap. A spoken mark every PLANK_TIME_EVERY_MS of the credited hold clock for as long as the hold
+  // lasts: "15 seconds", "30 seconds", "45 seconds", "One minute", "One minute fifteen", ... "Two minutes", ... "Thirty minutes",
+  // then "One hour", "One hour fifteen seconds", ... Polite and non-blocking: tick() never waits or awaits, never cancels other speech,
+  // and a mark is skipped (never queued, never repeated) when a line is still playing, when muted, or when the clock jumped past it
+  // (only the latest mark is spoken). end() silences it until reset().
+  var PLANK_TIME_EVERY_MS = 15000;
+  var ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+  var TENS = ["", "", "twenty", "thirty", "forty", "fifty"];
+  function numWord(n) { n = Math.floor(n); if (n < 20) return ONES[n]; return TENS[Math.floor(n / 10)] + (n % 10 ? "-" + ONES[n % 10] : ""); }
+  function capFirst(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+  function plankTimeCallout(sec) {
+    sec = Math.floor(Number(sec) || 0); if (sec < 1) return null;
+    if (sec < 60) return sec + " seconds";
+    var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    if (!h) return capFirst(numWord(m)) + (m === 1 ? " minute" : " minutes") + (s ? " " + numWord(s) : "");
+    return capFirst(numWord(h)) + (h === 1 ? " hour" : " hours") + (m ? " " + numWord(m) + (m === 1 ? " minute" : " minutes") : "") + (s ? " " + numWord(s) + (m ? "" : s === 1 ? " second" : " seconds") : "");
+  }
+  function makePlankTimeVoice(opts) {
+    opts = opts || {};
+    var speak = safe(opts.speak || defaultSpeak), every = opts.everyMs || PLANK_TIME_EVERY_MS, busy = opts.busy || isSpeaking, muted = opts.muted || null, last = 0, ended = false;
+    return {
+      tick: function (ms) {
+        if (ended) return null;
+        var k = Math.floor((Number(ms) || 0) / every);
+        if (k < 1 || k <= last) return null;
+        last = k; // the mark is used up even if it is skipped below: no later repeat, no catch-up
+        try { if (muted && muted()) return null; } catch (e) { return null; }
+        var b = false; try { b = !!busy(); } catch (e) { b = false; }
+        if (b) return null;
+        var word = plankTimeCallout(k * every / 1000); speak(word); return word;
+      },
+      end: function () { ended = true; }, reset: function () { last = 0; ended = false; }
+    };
+  }
   // Shared battle countdown (battle-rooms.js: 5 s, n = 5..1 then "go"): same words as the solo countdown, one per
   // second: 5 "Ready", 4 "get set", 3 "three", 2 "two", 1 "one", go "Go". Each word once per room+startAt key.
   var BATTLE_WORDS = { 5: "Ready", 4: "get set", 3: "three", 2: "two", 1: "one" };
@@ -241,7 +275,7 @@
       }
     };
   }
-  var api = { makeQuickCountdown: makeQuickCountdown, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set done.", PLANK_SET_DONE_LINE: "Set complete", TUT_FAIL_LINE: "Set done.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
+  var api = { makeQuickCountdown: makeQuickCountdown, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set done.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set done.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);

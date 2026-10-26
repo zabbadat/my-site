@@ -143,7 +143,7 @@ check("filter: opts.filter=false is a pass-through", (() => { const f = P.create
   f.filter(k, 0); const o = f.filter(k.map((p) => ({ ...p, x: p.x + 3 })), 33);
   check("browser: window.ZabbadatPlank uses window.ZabbadatPush.oneEuro (output differs from the jumped input)", !!api && o[0].x < k[0].x + 3 && o[0].x > k[0].x); }
 { const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
-  const tick = html.slice(html.indexOf("async function plankTick"), html.indexOf("const PLANK_SET_MS"));
+  const tick = html.slice(html.indexOf("async function plankTick"), html.indexOf("function newPlankHold"));
   check("page: frame stamped before inference, raw keypoints + frame size go to plankHold.update", /tFrame = performance\.now\(\)[\s\S]*estimatePoses[\s\S]*plankHold\.update\(poses[^;]*, tFrame, \{ w: /.test(tick));
   check("page: framing message shown in ready and during the hold, outline element exists, no skeleton drawing", /r\.framing/.test(tick) && html.includes('id="plankOutline"') && !/getContext\(\s*["']2d/.test(tick)); }
 

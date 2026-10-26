@@ -2043,7 +2043,7 @@ renderPush();
 // ---- Plank contest (side camera, pure logic in plank-session.js) ----
 let plankStream = null, plankLoop = false, plankHold = null, plankSaved = false;
 // Spoken hold time every 15 s of hold (same voice helper as rep counts; silent fallback). Restarts per hold / set.
-const plankTimeVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeHoldVoice ? window.ZabbadatGetSet.makeHoldVoice() : null;
+const plankTimeVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makePlankTimeVoice ? window.ZabbadatGetSet.makePlankTimeVoice() : null; // spoken time every 15 s for the whole hold, no cap
 const PLANK_BEST_KEY = "zabbadat-plank-best";
 let saveRemotePlank = async () => { throw new Error("Plank board is not connected"); };
 let saveRemotePlankDaily = async () => { throw new Error("Sets board is not connected"); };
@@ -2086,7 +2086,7 @@ function plankEnded(r) {
   if (!plankSessionStartedAt) return; // only a live camera session can end (and save) a hold
   plankSaved = true;
   // Any FAILURE end (sag, pike, knees, standing, left frame, frozen/repeat) says the one shared line, once (plankSaved guards a second call).
-  // A Stop tap and the 60 s "Minute set done!" auto-end both end with reason "stopped" and stay silent. Time held is still saved below.
+  // A Stop tap ends with reason "stopped" and stays silent (there is no fixed-time auto-end: a hold runs until alignment fails or Stop). Time held is still saved below.
   if (r.reason && r.reason !== "stopped") { const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.PLANK_SET_DONE_LINE); }
   const why = window.ZabbadatPlank.reasonText(r.reason);
   $("plankClock").textContent = formatTut(r.ms);
@@ -2146,7 +2146,6 @@ async function plankTick() {
       // Framing messages (whole body in frame, side-on, level) show here and only delay the start.
       $("plankMsg").textContent = r.framing && r.framing.msg ? r.framing.msg : r.countdownMs != null ? "Hold it… " + Math.ceil(r.countdownMs / 500) / 2 + "s" : (r.frame === "missing" ? "Step back until your whole body fits" : "Get into plank");
     } else {
-      if (r.ms >= PLANK_SET_MS && !plankSaved) { if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.tick(r.ms); plankEnded(plankHold.stop(performance.now())); $("plankStatus").textContent = "Minute set done! " + $("plankStatus").textContent + " Tap New hold for the next set."; if (plankLoop) requestAnimationFrame(plankTick); return; }
       $("plankClock").textContent = formatTut(r.ms);
       if (typeof plankTimeVoice !== "undefined" && plankTimeVoice && !plankSaved) plankTimeVoice.tick(r.ms);
       // During the hold a framing hint is information only: it never ends the hold.
@@ -2155,7 +2154,6 @@ async function plankTick() {
   } catch (e) { $("plankStatus").textContent = "Pose paused."; }
   if (plankLoop) requestAnimationFrame(plankTick);
 }
-const PLANK_SET_MS = 60000; // a full set is one minute; the hold auto-ends there and counts as a set
 function newPlankHold() {
   plankHold = window.ZabbadatPlank.createPlankHold({ cue: true }); plankSaved = false; plankCueSeq = 0;
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.reset();

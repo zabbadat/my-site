@@ -1,4 +1,4 @@
-// Spoken plank hold time every 15 s (get-set.js holdCallout / makeHoldVoice) + Plank House wiring in index.html.
+// Generic hold voice (get-set.js holdCallout / makeHoldVoice; still used by Plank Battle). Plank House has its own: test/plank-no-cap.test.js + Plank House wiring in index.html.
 const G = require("../get-set.js"), fs = require("fs");
 let pass = 0, fail = 0; const check = (n, ok) => { ok ? pass++ : fail++; console.log((ok ? "PASS " : "FAIL ") + n); };
 const f = G.holdCallout;
@@ -16,6 +16,6 @@ const b = run([16000, 31000]); b.v.end(); b.v.tick(50000); b.v.reset(); b.v.tick
 check("reset: a new hold restarts from 0", JSON.stringify(b.said) === JSON.stringify(["15 seconds", "30 seconds", "15 seconds"]));
 check("silent fallback (no speechSynthesis) never throws", (() => { try { const v = G.makeHoldVoice(); v.tick(16000); return true; } catch (e) { return false; } })());
 const h = fs.readFileSync(__dirname + "/../index.html", "utf8");
-check("Plank House: ticks while holding, ends on hold end, resets per new hold, speaks '1 minute' at set end",
-  /plankTimeVoice\.tick\(r\.ms\)/.test(h) && /function plankEnded\(r\) \{\s*if \(typeof plankTimeVoice[^\n]*\.end\(\)/.test(h) && /createPlankHold\((\{ cue: true \})?\)[^\n]*\n[^\n]*plankTimeVoice\.reset\(\)/.test(h) && /PLANK_SET_MS && !plankSaved\) \{ if \(typeof plankTimeVoice[^\n]*tick\(r\.ms\); plankEnded/.test(h));
+check("Plank House: ticks while holding, ends on hold end, resets per new hold (own uncapped voice, no 60 s end)",
+  /plankTimeVoice\.tick\(r\.ms\)/.test(h) && /function plankEnded\(r\) \{\s*if \(typeof plankTimeVoice[^\n]*\.end\(\)/.test(h) && /createPlankHold\((\{ cue: true \})?\)[^\n]*\n[^\n]*plankTimeVoice\.reset\(\)/.test(h) && !/PLANK_SET_MS/.test(h));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
