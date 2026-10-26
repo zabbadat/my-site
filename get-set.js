@@ -25,11 +25,16 @@
   // Interrupting speak for callouts (reps, hold time): WebKit / iOS Safari can silently drop an utterance queued in
   // the same tick as speechSynthesis.cancel(). Only cancel when something is actually speaking / queued, then speak
   // ~60 ms later; otherwise speak at once.
+  // Never throws: speech is optional, so a refused / failing speechSynthesis (iOS NotAllowedError, no voice, a throwing
+  // cancel) must not reach the caller. Callers such as startPlankCam call this directly inside their start flow, where an
+  // exception used to abort the start ("Camera or pose blocked.") and the hold loop never began.
   function interruptSpeak(word) {
-    var w = g(); if (!w || !w.speechSynthesis) return;
-    var ss = w.speechSynthesis;
-    if (ss.speaking || ss.pending) { ss.cancel(); setTimeout(function () { try { utter(word); } catch (e) {} }, 60); }
-    else utter(word);
+    try {
+      var w = g(); if (!w || !w.speechSynthesis) return;
+      var ss = w.speechSynthesis;
+      if (ss.speaking || ss.pending) { ss.cancel(); setTimeout(function () { try { utter(word); } catch (e) {} }, 60); }
+      else utter(word);
+    } catch (e) { /* on-screen only */ }
   }
   // true while a spoken line is playing or queued (lets a later cue wait instead of cutting it off)
   function isSpeaking() { var w = g(); return !!(w && w.speechSynthesis && (w.speechSynthesis.speaking || w.speechSynthesis.pending)); }
