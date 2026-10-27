@@ -38,7 +38,7 @@ const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); 
   const s=h.indexOf('<section id="battles-hub"'),hub=h.slice(s,h.indexOf('</section>',s));
   assert(/<a class="card" href="#washerbattle"[^>]*><h3>Zabba Washer Battle<\/h3>/.test(hub),'hub has Zabba Washer Battle card -> #washerbattle');
   assert(h.includes('<section id="washerbattle">'),'#washerbattle target exists');
-  assert(hub.indexOf('Plank Battles')<hub.indexOf('Zabba Washer Battle'),'third card after Plank Battles');
+  assert(hub.indexOf('Zabba Washer Battle')<hub.indexOf('TUT Battles') && hub.indexOf('TUT Battles')<hub.indexOf('Plank Battles'),'Washer Battle card first, above TUT Battles, then Plank Battles');
   console.log('PASS hub Zabba Washer Battle card'); }
 
 // ZAB section sits between Battles hub and TUT Battles
