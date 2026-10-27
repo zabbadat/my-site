@@ -1,0 +1,21 @@
+// The in-section entry point for the 1v1 Zabba Washer Battle: directly below the washers Live board, links to #washerbattle.
+const fs = require("fs"), path = require("path");
+const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
+const iBoard = html.indexOf('<section id="board">'), iBoardEnd = html.indexOf("</section>", iBoard), iPlay = html.indexOf('<section id="play">');
+const iEntry = html.indexOf('id="washerBattleEntry"'), iTable = html.indexOf("</table>", iBoard);
+const m = html.match(/<div class="card" id="washerBattleEntry"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/);
+const sec = m ? m[0] : "";
+check("entry card exists once", !!m && html.split('id="washerBattleEntry"').length === 2);
+check("heading is 'Zabba Washer Battle'", /<h3>Zabba Washer Battle<\/h3>/.test(sec));
+const a = sec.match(/<a class="btn" id="washerBattleEntryBtn" href="#washerbattle">Play a Zabba Washer Battle<\/a>/);
+check("button 'Play a Zabba Washer Battle' links to #washerbattle", !!a);
+check("target section #washerbattle exists", /<section id="washerbattle">/.test(html));
+check("order: single-player game section, then the Live board table, then the entry, all inside the board section", iPlay > 0 && iPlay < iBoard && iBoard < iTable && iTable < iEntry && iEntry < iBoardEnd);
+check("entry comes right after the board table (nothing between)", html.slice(iTable + 8, iEntry).replace(/<div class="card" $/, "").trim() === "<" || /<\/table>\s*<div class="card" id="washerBattleEntry"/.test(html));
+check("no new section added (entry is not its own section)", !/<section[^>]*washerBattleEntry/.test(html));
+check("reuses the card and btn styles, no new CSS", /class="card"/.test(sec) && !/washerBattleEntry\s*\{/.test(html));
+check("no 'bet' word in visible text", !/\bbet(s|ting)?\b/i.test(sec.replace(/<[^>]*>/g, " ")));
+check("wager wording is 'optional ZAB wager'", /optional ZAB wager/.test(sec));
+check("no email address", !/@/.test(sec));
+const f = R.filter((x) => !x).length; console.log(`\n${R.length - f}/${R.length} passed`); process.exit(f ? 1 : 0);
