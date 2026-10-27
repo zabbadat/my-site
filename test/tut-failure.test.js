@@ -53,7 +53,7 @@ function page(mode, extra) {
   const ctx = vm.createContext(Object.assign({ pushState, pushMode: mode, pushWake: { stop: () => ({ catch() {} }) }, pushChallenge: { reset: () => log.push("challengeReset") },
     tutTimeVoice: { end: () => log.push("tutVoice.end") }, clearInterval: () => log.push("clearInterval"), Date: { now: () => 31000 }, $: el,
     formatTime: (ms) => Math.round(ms / 1000) + "s", renderPush: () => log.push("renderPush"),
-    window: { ZabbadatSession: { FAIL_TEXT: SS.FAIL_TEXT }, ZabbadatGetSet: { interruptSpeak: (w) => log.push("say:" + w), SET_DONE_LINE: G.SET_DONE_LINE } },
+    window: { ZabbadatSession: { FAIL_TEXT: SS.FAIL_TEXT, postOnFailure: SS.postOnFailure }, ZabbadatGetSet: { interruptSpeak: (w) => log.push("say:" + w), SET_DONE_LINE: G.SET_DONE_LINE } },
     localStorage: { setItem: (k) => store.push(k), removeItem: (k) => store.push(k) },
     finishPushSet: () => log.push("finishPushSet"), saveRemotePush: () => log.push("saveRemotePush"), awardZab: () => log.push("awardZab"), paintPushRows: () => log.push("paintPushRows") }));
   vm.runInContext(fnSrc, ctx);
@@ -77,7 +77,7 @@ check("failure check lives only inside the long/challenge block of poseTick (not
 check("voidTutSet only acts in long/challenge and never calls the save/post path", /\(pushMode !== "long" && pushMode !== "challenge"\)\) return;/.test(fnSrc) && !/finishPushSet|saveRemotePush|awardZab|localStorage|paintPushRows/.test(fnSrc));
 check("failWatch resets on each clock start and on Reset", /failWatch\.reset\(performance\.now\(\)\);\n  pushState\.running = true;/.test(html) && /failWatch\.reset\(null\);\n  resetPoseBaseline\(\);/.test(html));
 check("the old 'clock keeps running' wording is gone from TUT copy (index.html, tut.html)", !/clock keeps running/i.test(html) && !/clock keeps running/i.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
-check("TUT copy says the set is voided and nothing is saved", /ends the set and voids it: nothing is saved or posted/.test(html) && /ends the set and voids it, so nothing is saved or posted/.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
+check("TUT copy says the set is voided (under one minute) and nothing is saved", /ends the set and voids it: nothing is saved or posted/.test(html) && /Before one minute it is voided, so nothing is saved or posted/.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
 
 // ---- regular Sets: no timed voice, no failure. Sets-mode code path speaks only rep numbers and the start coaching.
 check("regular Sets get NO 15 s count: the one tutTimeVoice.tick call is gated on long/challenge only", html.split("tutTimeVoice.tick(").length === 2 && /\(pushMode === "long" \|\| pushMode === "challenge"\) && pushState\.running && !pushState\.finished\) tutTimeVoice\.tick\(now\)/.test(html));

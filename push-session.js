@@ -7,6 +7,10 @@
     var v = mode === "long" ? Number(elapsedMs) : Number(repTutMs);
     return isFinite(v) && v > 0 ? v : 0;
   }
+  // One long set only: a camera-detected failure (knees / stood up / out of frame) VOIDS the set unless the clock already
+  // reached TUT_POST_MIN_MS and there is at least one rep; then the set ends like a manual End session and posts (once).
+  var TUT_POST_MIN_MS = 60000;
+  function postOnFailure(mode, elapsedMs, reps) { return mode === "long" && Number(elapsedMs) >= TUT_POST_MIN_MS && Number(reps) >= 1; }
   // A finished set / ended session counts toward Total sets only if it had reps.
   function setsToAdd(reps) { return Number(reps) > 0 ? 1 : 0; }
   function canSwitchMode(ps) { return !ps.running && !(ps.elapsed > 0 || ps.reps > 0) || !!ps.finished; }
@@ -131,7 +135,7 @@
       .sort(function (a, b) { return Number(b.ms) - Number(a.ms); }).slice(0, n || 50);
   }
 
-  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD };
+  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, TUT_POST_MIN_MS: TUT_POST_MIN_MS, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

@@ -719,7 +719,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button type="button" id="modeChallengeBtn" aria-pressed="false">Three-minute challenge</button>
     </div>
     <div class="olt-banner" id="oltBanner"><span>TIME UNDER TENSION SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
-    <p class="note" id="longNote" hidden>Time under tension set: the clock runs nonstop from Start. Stay in plank. Standing up, dropping to your knees for a second, or leaving the frame for two seconds ends the set and voids it: nothing is saved or posted. Rule breaks: <span class="vcount" id="pushViol">0</span></p>
+    <p class="note" id="longNote" hidden>Time under tension set: the clock runs nonstop from Start. Stay in plank. Standing up, dropping to your knees for a second, or leaving the frame for two seconds ends the set. Before one minute it is voided: nothing is saved or posted. From one minute on, your reps and time post. Rule breaks: <span class="vcount" id="pushViol">0</span></p>
     <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock from Start, no pause. Stay in plank the whole time; push-ups or holding the top both count. Standing up, dropping to your knees for a second, or leaving the frame for two seconds ends the set and voids it: nothing is saved or posted. Each hold at the top counts for at most 10 seconds of time under tension. Score: reps plus seconds under tension.</p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
@@ -1694,12 +1694,20 @@ if ($("modeSetsBtn")) $("modeSetsBtn").onclick = () => setPushMode("sets");
 if ($("modeLongBtn")) $("modeLongBtn").onclick = () => setPushMode("long");
 if ($("modeChallengeBtn")) $("modeChallengeBtn").onclick = () => setPushMode("challenge");
 // Three-minute challenge end: show the result card, then reuse the normal save/post path.
+// Exception: One long set at 60 s or more with at least 1 rep posts instead (finishPushSet, same as End session).
 // A camera-detected failure in a TUT mode (One long set / 3:00 challenge) ends the set at once and VOIDS it: the clock stops, reps and
 // time under tension go to 0, nothing is saved locally, no board row, no ZAB, no remote write (finishPushSet is never reached).
 // Regular Sets are not TUT and never get here. Reset starts a fresh set.
 function voidTutSet(reason) {
   if (pushState.finished || !pushState.running || (pushMode !== "long" && pushMode !== "challenge")) return;
   const lasted = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
+  // One long set that already reached the minute with reps: a failure ends the set and POSTS it (same path as End session, once).
+  if (window.ZabbadatSession.postOnFailure && window.ZabbadatSession.postOnFailure(pushMode, lasted, pushState.reps)) {
+    const GS0 = window.ZabbadatGetSet; if (GS0 && GS0.interruptSpeak) GS0.interruptSpeak(GS0.SET_DONE_LINE);
+    $("camNote").textContent = "Set ended";
+    finishPushSet((window.ZabbadatSession.FAIL_TEXT || {})[reason] || "Set ended");
+    return;
+  }
   pushState.running = false; pushState.finished = true;
   clearInterval(pushState.tick);
   if (pushWake) pushWake.stop().catch(() => {});
@@ -1782,7 +1790,8 @@ function paintPushRows(rows) {
     ? sorted.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.reps)}</td><td>${formatTime(r.ms)}</td><td>${escapeHtml(r.when || "")}</td></tr>`).join("")
     : `<tr><td colspan="5">No finished sets yet.</td></tr>`;
 }
-function finishPushSet() {
+// endedBy (optional): failure text when the camera ended the set (One long set, 60 s or more); shown in the result line.
+function finishPushSet(endedBy) {
   if (pushState.finished) return;
   sessionTouch();
   if (!pushState.running && pushState.elapsed === 0 && pushState.reps === 0) {
@@ -1818,16 +1827,17 @@ function finishPushSet() {
   renderPush();
   paintPushRows(local);
   const viol = (pushMode === "long" || pushMode === "challenge") && postureGuard ? " Rule breaks: " + postureGuard.state().count + "." : "";
+  const why = endedBy ? " Ended: " + endedBy + "." : "";
   const what = pushMode === "long" ? "Session" : pushMode === "challenge" ? "Challenge" : "Set";
   if (!currentUser) {
-    $("pushStatus").textContent = what + " saved on this device. Sign in to post." + viol;
+    $("pushStatus").textContent = what + " saved on this device. Sign in to post." + why + viol;
     return;
   }
   const tokSet = ZT ? ZT.newSetId() : "";
   const tokP = Promise.all([awardZab("pushups", record.reps, tokSet), pushMode === "long" && ZT ? awardZab("tut", ZT.qtyFrom("tut", window.ZabbadatSession.tutToAdd(pushMode, ms, pushState.tut)), tokSet) : null])
     .then((a) => ({ credited: a.reduce((n, x) => n + ((x && x.credited) || 0), 0) }), () => null);
   saveRemotePush(record)
-    .then(() => tokP).then((tk) => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + viol + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
+    .then(() => tokP).then((tk) => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + why + viol + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
 // One Start button: gate -> wake + speech unlock + spoken placement line (in the tap) -> camera -> pose -> spoken
