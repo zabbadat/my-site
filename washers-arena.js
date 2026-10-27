@@ -131,6 +131,7 @@
     for (let n = 1; n <= MAX_BARI && !order; n++) {
       const have = all.filter((u) => ent(P[u], "b", n)), missing = activeOf(a, all).filter((u) => !ent(P[u], "b", n));
       if (missing.length) { out.current = { kind: "b", n, stage: "report", turn: null }; missing.forEach((u) => out.actions[u].push({ type: "b", n })); break; }
+      if (!have.length) { out.current = { kind: "b", n, stage: "report", turn: null }; break; } // nobody left to pitch
       const verd = have.map((u) => ({ u, v: verdict(u, "b", n) }));
       if (verd.some((x) => x.v && !x.v.ok)) { out.disputes++; out.bari.attempts.push({ n, result: "disputed" }); continue; }
       const waitFor = verd.filter((x) => !x.v && activeOf(a, opposing(x.u)).length);
@@ -149,6 +150,10 @@
     for (let n = 1; n <= MAX_ROUNDS; n++) {
       const packs = {}, ruled = [], disp = [];
       let incomplete = false;
+      if (!all.some((u) => ent(P[u], "r", n))) { // nobody reported this round (everyone is out): it never completes
+        all.forEach((u) => { if (!seatOut(a, u)) out.actions[u].push({ type: "r", n }); });
+        out.current = { kind: "r", n, stage: "pitch", turn: null, first }; break;
+      }
       all.forEach((u) => {
         const e = ent(P[u], "r", n);
         if (!e) { if (!seatOut(a, u)) { incomplete = true; out.actions[u].push({ type: "r", n }); if (!out.current) out.current = { kind: "r", n, stage: "pitch", turn: null, first }; } return; }
