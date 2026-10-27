@@ -10,11 +10,11 @@ check("nav: Zabba Washers link immediately follows The Practice", /<a href="#app
 check("nav: TUT Battles link absent", !/href="#tutbattles"/.test(nav) && !/TUT Battles<\/a>/.test(nav));
 check("TUT battles section still present with its buttons", /<section id="tutbattles">/.test(html) && /id="tbCreate"/.test(html) && /id="tbJoin"/.test(html) && /id="tbReady"/.test(html));
 const sections = [...html.matchAll(/<section[^>]*id="([^"]+)"/g)].map((m) => m[1]);
-const SECT = ["approach", "washers", "play", "board", "cooling-box", "push", "battles-hub", "zab", "tutbattles", "washerbattle", "tut-board", "plank", "battles", "steps", "league", "corporate", "order", "membership"];
-check("section order: ZAB moved under Battles hub, others unchanged", JSON.stringify(sections) === JSON.stringify(SECT));
+const SECT = ["approach", "washers", "play", "board", "cooling-box", "push", "battles-hub", "zab", "washerbattle", "tutbattles", "tut-board", "plank", "battles", "steps", "league", "corporate", "order", "membership"];
+check("section order: ZAB, then Washer Battle, then TUT Battles (+ TUT board), then Plank; matches the hub card order", JSON.stringify(sections) === JSON.stringify(SECT));
 // Battles hub: between #push (TUT set-push-up) and #tutbattles; lists every battle section; anchors exist.
 { const i = html.indexOf('<section id="battles-hub">'), hub = html.slice(i, html.indexOf("</section>", i));
-  check("Battles hub sits right after #push, then ZAB, then #tutbattles", i > html.indexOf('<section id="push">') && sections.indexOf("battles-hub") + 2 === sections.indexOf("tutbattles") && sections.indexOf("battles-hub") + 1 === sections.indexOf("zab") && sections.indexOf("battles-hub") - 1 === sections.indexOf("push"));
+  check("Battles hub sits right after #push, then ZAB, then #washerbattle, then #tutbattles", i > html.indexOf('<section id="push">') && sections.indexOf("battles-hub") + 2 === sections.indexOf("washerbattle") && sections.indexOf("washerbattle") + 1 === sections.indexOf("tutbattles") && sections.indexOf("tutbattles") + 1 === sections.indexOf("tut-board") && sections.indexOf("tut-board") + 1 === sections.indexOf("plank") && sections.indexOf("battles-hub") + 1 === sections.indexOf("zab") && sections.indexOf("battles-hub") - 1 === sections.indexOf("push"));
   const hrefs = [...hub.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]);
   const battleSections = sections.filter((id) => /<h2>[^<]*Battles<\/h2>/.test(html.slice(html.indexOf('<section'+(html.includes('<section id="'+id+'"')?' id="':' class="washers" id="')+id+'"'), html.indexOf("</h2>", html.indexOf('id="'+id+'"'))+5)) && id !== "battles-hub");
   check("hub lists every battle section on the page (" + battleSections.join(", ") + ")", battleSections.length >= 2 && battleSections.every((id) => hrefs.includes(id)));
@@ -41,8 +41,8 @@ const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); 
   assert(hub.indexOf('Zabba Washer Battle')<hub.indexOf('TUT Battles') && hub.indexOf('TUT Battles')<hub.indexOf('Plank Battles'),'Washer Battle card first, above TUT Battles, then Plank Battles');
   console.log('PASS hub Zabba Washer Battle card'); }
 
-// ZAB section sits between Battles hub and TUT Battles
+// ZAB section sits between Battles hub and the first battle section (Washer Battle, then TUT Battles)
 {const h=require('fs').readFileSync(require('path').join(__dirname,'..','index.html'),'utf8');
-const hub=h.indexOf('<section id="battles-hub">'),tk=h.indexOf('<section id="zab">'),tut=h.indexOf('<section id="tutbattles">');
-if(!(hub>-1&&hub<tk&&tk<tut)){console.log('FAIL ZAB section between battles hub and TUT Battles');process.exitCode=1}else console.log('PASS ZAB section between battles hub and TUT Battles');
+const hub=h.indexOf('<section id="battles-hub">'),tk=h.indexOf('<section id="zab">'),tut=h.indexOf('<section id="washerbattle">'),tut2=h.indexOf('<section id="tutbattles">'),plank=h.indexOf('<section id="plank">');
+if(!(hub>-1&&hub<tk&&tk<tut&&tut<tut2&&tut2<plank)){console.log('FAIL ZAB, then Washer Battle, then TUT Battles, then Plank');process.exitCode=1}else console.log('PASS ZAB, then Washer Battle, then TUT Battles, then Plank');
 if(h.split('<section id="zab">').length!==2){console.log('FAIL ZAB section appears once');process.exitCode=1}else console.log('PASS ZAB section appears once');}
