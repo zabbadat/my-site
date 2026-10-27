@@ -767,7 +767,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="lead">Three minutes, head to head. Both tap ready, the 5-second countdown is shared, then a 3:00 clock runs on both phones and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Stand up, drop a knee or leave the frame for 2 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins (then more reps; still tied is a draw). Video never uploads. Optional ZAB wager: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. A tie refunds both stakes, and leaving or 30 seconds of silence counts as a forfeit.</p>
     <p class="note" id="tbSignIn"><a href="#play">Sign in</a> to create or join a TUT battle.</p>
     <div id="tbStart" hidden>
-      <div class="row"><button class="btn" id="tbCreate" type="button">Create room</button></div>
+      <div class="row"><button class="btn" id="tbCreate" type="button">Create arena</button></div>
       <label for="tbCode">Or join with a code</label>
       <div class="row"><input id="tbCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="K7QX" style="max-width:9rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="tbJoin" type="button">Join</button></div>
     </div>
@@ -797,7 +797,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="lead">One on one, phone to phone, Bariboshi style. No video: you pitch at your own box and report each pitch, your opponent confirms or disputes, and the first to 21 wins. Make a room, share the code, both tap ready, and a shared countdown starts the match. The opening pitch (closest to the cup goes first), then rounds of one pack of 3 washers each, scored Bank 5, Shoot 3, Box-bound 2, Out 0. Your phone counts your steps as an optional extra. Forfeit, leave, or go silent for 30 seconds and your opponent wins. Optional ZAB wager: set the amount when you make the room, both players put in the same amount, and the winner takes the pot. See the <a href="/rules">official regulations</a>.</p>
     <p class="note" id="wbSignIn"><a href="#play">Sign in</a> to create or join a Zabba Washer Battle, with an optional ZAB wager.</p>
     <div id="wbStart" hidden>
-      <div class="row"><button class="btn" id="wbCreate" type="button">Create room</button></div>
+      <div class="row"><button class="btn" id="wbCreate" type="button">Create arena</button></div>
       <label for="wbCode">Or join with a code</label>
       <div class="row"><input id="wbCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="K7QX" style="max-width:9rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="wbJoin" type="button">Join</button></div>
     </div>
@@ -894,7 +894,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="lead">Challenge a friend to a plank, phone to phone. Make a room, share the 4-letter code, and you both get the same countdown. Hold from GO; when you drop, tap I dropped. Last one holding wins. Forfeit or leave and your opponent wins. Keep this page open: switching away marks your hold unverified. Honor system. Optional ZAB wager: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. With a wager, the longest hold wins, holds within 1 second are a draw and both stakes come back, and 30 seconds of silence counts as a forfeit.</p>
     <p class="note" id="battleSignIn"><a href="#play">Sign in</a> to create or join a battle.</p>
     <div id="battleStart" hidden>
-      <div class="row"><button class="btn" id="battleCreate" type="button">Create room</button></div>
+      <div class="row"><button class="btn" id="battleCreate" type="button">Create arena</button></div>
       <label for="battleCode">Or join with a code</label>
       <div class="row"><input id="battleCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="K7QX" style="max-width:9rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="battleJoin" type="button">Join</button></div>
     </div>
@@ -2712,7 +2712,7 @@ async function resumeBattle(u) {
 $("battleCreate").onclick = async () => {
   const u = battleUser(); if (!u) { requireSignIn("plank battle"); return void bStatus("Sign in to create a battle."); };
   $("battleCreate").disabled = true; bStatus("Making a room…");
-  try { await wagerCreate(wgPlank, battle, u, enterBattle, bStatus); } catch (e) { bStatus(e.message || "Couldn't create a room."); }
+  try { await wagerCreate(wgPlank, battle, u, enterBattle, bStatus); } catch (e) { bStatus(e.message || "Couldn't create an arena."); }
   finally { $("battleCreate").disabled = false; }
 };
 $("battleJoin").onclick = async () => {
@@ -3034,7 +3034,7 @@ if (WB) {
   $("wbCreate").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to create a battle."); }
     if (wbArcSound) wbArcSound.unlock();
     $("wbCreate").disabled = true; wbStat("Making a room…");
-    try { await wagerCreate(wgWb, wbc, u, wbEnter, wbStat); } catch (e) { wbStat(e.message || "Couldn't create a room."); } finally { $("wbCreate").disabled = false; } };
+    try { await wagerCreate(wgWb, wbc, u, wbEnter, wbStat); } catch (e) { wbStat(e.message || "Couldn't create an arena."); } finally { $("wbCreate").disabled = false; } };
   $("wbJoin").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to join a battle."); }
     if (wbArcSound) wbArcSound.unlock();
     $("wbJoin").disabled = true; wbStat("Joining…");
