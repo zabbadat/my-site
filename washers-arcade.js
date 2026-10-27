@@ -22,7 +22,7 @@
     ctx = ctx || {}; const nowMs = ctx.nowMs, toMs = ctx.toMs, names = {};
     const st = WB.matchState(r, nowMs, toMs);
     if (!r || st === "cancelled") return { key: "cancelled", title: "GAME OVER", sub: "This room is closed" };
-    Object.keys(r.players || {}).forEach((u) => { names[u] = safeName(r.players[u].name); });
+    Object.keys(r.players || {}).forEach((u) => { names[u] = safeName(r.players[u].pubName || r.players[u].name); });
     if (st === "waiting") return { key: "waiting", title: "INSERT COIN", sub: "Waiting for challenger" };
     if (st === "ready") { const both = Object.keys(r.players).every((u) => r.players[u].ready); return { key: "ready", title: "READY?", sub: both ? "Both ready" : "Tap I'm ready" }; }
     if (st === "countdown") return { key: "countdown", title: countdownLabel(ctx.cd), sub: "Get set to pitch" };
@@ -47,6 +47,49 @@
     return { mode: m, round, me: uid, rows: rows.map((x, i) => ({ uid: x.uid, tag: "P" + (i + 1), name: safeName((x.name || "").replace(/ \(you\)$/, "")), you: x.uid === uid, repText: x.repText, tier: tiers[x.uid] || "",
       total: x.total, pct: Math.min(100, Math.round((x.total / TARGET) * 100)), roundText: x.roundText, turnText: x.turnText, status: x.status, tallyText: x.tallyText, stepsText: x.stepsText,
       turn: m.key === "live" && /^Pitching/.test(x.turnText), win: m.key === "finished" && dec.winner === x.uid, disputed: m.key === "disputed" && x.status === "Disputed", out: x.state === "forfeit" || x.state === "left" })) };
+  }
+  // ---- Zabba Washer Arena (2v2 teams, washers-arena.js): same skin, two TEAM panels with big team totals and each player's contribution beneath.
+  // The rows carry the team key as uid ('a' / 'b') and model.me is MY team key, so fx() (flash on score, banner, sound) works unchanged.
+  const AR = () => req("./washers-arena.js", "ZabbaArena");
+  const teamLabel = (X, a, t) => safeName(X.teamName(a, t));
+  function teamMode(a, ctx) {
+    ctx = ctx || {}; const X = AR(), nowMs = ctx.nowMs, toMs = ctx.toMs;
+    const st = X.matchState(a, nowMs, toMs);
+    if (!a || st === "cancelled") return { key: "cancelled", title: "GAME OVER", sub: "This arena is closed" };
+    if (st === "waiting") { const need = Math.max(0, a.size - X.seatIds(a).length); return { key: "waiting", title: "INSERT COIN", sub: "Waiting for " + need + " more player" + (need === 1 ? "" : "s") }; }
+    if (st === "ready") return { key: "ready", title: "READY?", sub: X.allReady(a) ? "All ready" : "Everyone taps I'm ready" };
+    if (st === "countdown") return { key: "countdown", title: countdownLabel(ctx.cd), sub: "Get set to pitch" };
+    const dec = X.decide(a), an = X.analyze(a);
+    if (st === "finished" || dec.done) {
+      if (dec.winner == null) return { key: "finished", title: dec.reason === "tie" ? "DRAW" : "GAME OVER", sub: dec.reason === "tie" ? "Level after the last round" : "Every player left", winner: null };
+      return { key: "finished", title: "K.O.", sub: "WINNER: " + teamLabel(X, a, dec.winner) + (dec.reason === "forfeit" ? " (forfeit)" : ""), winner: dec.winner };
+    }
+    if (an.disputed.length) return { key: "disputed", title: "REFEREE CHECK", sub: safeName(X.nameOf(a, an.disputed[0].ruler)) + " (Bariboshi winner) rules round " + an.disputed[0].n };
+    const bs = X.boardStatus(a, nowMs, toMs);
+    if (!an.order) return { key: "bariboshi", title: "OPENING PITCH", sub: bs.extra || "Opening pitch: the closest team goes first" };
+    const c = an.current, n = c && c.kind === "r" ? c.n : an.partial ? an.partial.n : an.rounds.length + 1;
+    return { key: "live", title: "ROUND " + n + (an.overtime ? " · OVERTIME" : ""), sub: bs.extra || "", round: n };
+  }
+  function teamModel(a, uid, ctx) {
+    ctx = ctx || {}; const X = AR(), m = teamMode(a, ctx), valid = !!(a && X.full(a)), an = valid ? X.analyze(a) : null, dec = valid ? X.decide(a) : { done: false };
+    const mine = valid ? X.teamOf(a, uid) : null, pre = !!a && (a.status === "waiting" || a.status === "countdown");
+    const round = m.round || (an ? an.rounds.length + 1 : 1);
+    const player = (u) => {
+      const seat = a.seats[u], out = X.seatOut(a, u); let status = "";
+      if (out) status = seat.leftAt ? "LEFT" : (seat.result && seat.result.forfeit ? "FORFEIT" : "SILENT");
+      else if (pre) status = seat.ready ? "READY" : "NOT READY";
+      else if (m.key === "live" && an) { const c = an.current; status = c && c.stage === "pitch" ? (X.ent(seat, "r", c.n) ? "REPORTED" : "TO PITCH") : ""; }
+      else if (m.key === "bariboshi") status = X.ent(seat, "b", an && an.current ? an.current.n : 1) ? "REPORTED" : "TO PITCH";
+      return { uid: u, name: safeName(X.nameOf(a, u)), you: u === uid, contrib: an ? an.contrib[u] || 0 : 0, status, out, steps: seat.steps | 0 };
+    };
+    const rows = ["a", "b"].map((t) => {
+      const ids = valid ? an.teams[t] : X.teamSeats(a || {}, t), total = an ? an.totals[t] : 0, tout = valid ? X.teamOut(a, t) : false;
+      const tally = an ? an.rounds.map((x) => "R" + x.n + " " + x.scores[t]) : [];
+      return { uid: t, team: true, tag: t.toUpperCase(), name: teamLabel(X, a || {}, t), you: mine === t, total, pct: Math.min(100, Math.round((total / TARGET) * 100)), players: ids.map((u) => player(u)),
+        roundText: m.key === "live" ? "ROUND " + round : "", turnText: "", status: tout ? "FORFEIT" : "", tallyText: tally.length ? tally.join(" · ") : "—",
+        turn: m.key === "live" && an && an.current && an.current.first === t && an.current.stage === "pitch", win: m.key === "finished" && dec.winner === t, disputed: false, out: tout };
+    });
+    return { kind: "team", mode: m, round, me: mine || "", rows };
   }
   // ---- Plank Battles / TUT Battles: same skin, game-specific rows. Rows carry big (static score text), unit, pct, extraLabel/extraText.
   const PB = () => req("./plank-battle.js", "ZabbaPlankBattle"), TB = () => req("./tut-battle.js", "ZabbaTutBattle");
@@ -123,8 +166,25 @@
     if (cur.mode.key === "finished" && prev.mode.key !== "finished") { out.banner = cur.mode.title; const w = cur.mode.winner; if (w == null || w === cur.me || !cur.rows.some((x) => x.uid === cur.me)) out.sound.push("win"); }
     return out;
   }
+  // Team panels: names are escaped text (the page also renders them with textContent-safe escaping); no email can reach here (safeName).
+  function teamHtml(m, f, prev) {
+    const panel = (x, i) => {
+      const from = prev ? (prev.rows.find((y) => y.uid === x.uid) || x).total : x.total;
+      const cls = ["arc-panel", "arc-team", i ? "arc-p2" : "arc-p1", x.turn ? "arc-turn" : "", x.win ? "arc-win" : "", x.out ? "arc-out" : "", f.flash && f.flash[x.uid] ? "arc-flash" : ""].filter(Boolean).join(" ");
+      return '<section class="' + cls + '" aria-label="' + esc(x.name) + " team score " + x.total + " of " + TARGET + '">'
+        + '<header><span class="arc-tag">' + esc(x.tag) + '</span><span class="arc-name">' + esc(x.name) + (x.you ? ' <em>YOUR TEAM</em>' : "") + "</span></header>"
+        + '<div class="arc-score"><span class="n">' + x.total + '</span><span class="c" aria-hidden="true" style="--from:' + from + ";--to:" + x.total + '"></span><small>/' + TARGET + "</small></div>"
+        + '<div class="arc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + TARGET + '" aria-valuenow="' + Math.min(TARGET, x.total) + '"><i style="width:' + x.pct + '%"></i></div>'
+        + '<div class="arc-meta"><span>' + esc((x.roundText || "").toUpperCase()) + '</span><span class="arc-turnline">' + (x.turn ? "&#9654; " : "") + esc((x.status || "").toUpperCase()) + "</span></div>"
+        + '<ul class="arc-members">' + x.players.map((p) => '<li class="' + (p.out ? "arc-mem-out" : "") + '"><span class="arc-mname">' + esc(p.name) + (p.you ? " <em>YOU</em>" : "") + '</span><b>' + p.contrib + "</b><small>" + esc(p.status) + "</small></li>").join("") + "</ul>"
+        + '<div class="arc-tally">' + esc(x.tallyText) + "</div></section>";
+    };
+    return '<div class="arc-top"><span class="arc-state arc-s-' + m.mode.key + '">' + esc(m.mode.title) + '</span><span class="arc-sub">' + esc(m.mode.sub) + "</span></div>"
+      + '<div class="arc-panels">' + panel(m.rows[0], 0) + '<div class="arc-vs">VS</div>' + panel(m.rows[1], 1) + "</div>";
+  }
   function html(m, f, prev) {
     f = f || { flash: {}, shake: {} };
+    if (m && m.kind === "team") return teamHtml(m, f, prev);
     const panel = (x, i) => {
       const from = prev ? (prev.rows.find((y) => y.uid === x.uid) || x).total : x.total;
       const cls = ["arc-panel", i ? "arc-p2" : "arc-p1", x.turn ? "arc-turn" : "", x.win ? "arc-win" : "", x.out ? "arc-out" : "", f.flash && f.flash[x.uid] ? "arc-flash" : "", f.shake && f.shake[x.uid] ? "arc-shake" : ""].filter(Boolean).join(" ");
@@ -164,7 +224,7 @@
     };
     return api;
   }
-  const api = { clock, battleMode, battleModel, TARGET, TIERS, VOLUME, CUES, safeName, countdownLabel, mode, model, fx, html, bannerHtml, makeSound, esc };
+  const api = { clock, battleMode, battleModel, teamMode, teamModel, teamHtml, TARGET, TIERS, VOLUME, CUES, safeName, countdownLabel, mode, model, fx, html, bannerHtml, makeSound, esc };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.ZabbaArcade = api;
 })(typeof window !== "undefined" ? window : null);

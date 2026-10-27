@@ -23,6 +23,20 @@
   const other = (r, uid) => ids(r).find((u) => u !== uid) || null;
   /* names only: anything that looks like an email is shown as Player */
   const pubName = (n) => { const t = String(n == null ? "" : n).trim().slice(0, 40); return !t || /\S+@\S+/.test(t) ? "Player" : t; };
+  /* Saved player names: the name always comes from the account (typed = the site's own player-name box, optional). Never an email:
+   * an address is cut to its local part exactly as the site's publicName() does, and anything left with "@" becomes Player.
+   * Signed out (no user) = Guest. HTML / control characters stripped, 24 characters at most. Render with textContent only. */
+  const GUEST = "Guest", NAME_MAX = 24;
+  const cleanText = (s) => String(s == null ? "" : s).replace(/<[^>]*>/g, "").replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim();
+  function resolveName(u) {
+    if (!u) return GUEST;
+    let n = cleanText(u.typed) || cleanText(u.displayName);
+    if (!n && u.email) n = cleanText(String(u.email).split("@")[0]);
+    if (n.indexOf("@") >= 0) n = cleanText(n.split("@")[0]);
+    return n.slice(0, NAME_MAX).trim() || "Player";
+  }
+  // The name to print for a seat: the saved pubName when the seat has one, else the older name field.
+  const seatName = (p) => pubName(p && (p.pubName || p.name));
   const reps = (p) => (p && Array.isArray(p.rep) ? p.rep : []);
   const keysOf = (o) => Object.keys(o).sort().join(",");
   function validEntry(e) {
@@ -197,14 +211,14 @@
         round = "Round " + n + (an.overtime ? " (overtime)" : ""); if (c && c.stage === "pitch") turn = c.turn === p.uid ? "Pitching pack" : "Waiting"; else if (c) turn = ent(p, "r", n) ? "Pack reported" : "Waiting"; }
       const pend = an.pending.filter((x) => x.who === p.uid).length, dis = an.disputed.filter((x) => x.who === p.uid).length;
       const status = out ? "Forfeit" : dis ? "Disputed" : pend ? "Awaiting confirm" : turn;
-      return { uid: p.uid, name: pubName(p.name) + (self ? " (you)" : ""), repText: (labels && labels[p.uid]) || "", total, scoreText: total + "/" + TARGET, tally, tallyText: tally.length ? tally.map((x) => "R" + x.n + " " + x.score).join(" · ") : "—",
+      return { uid: p.uid, name: seatName(p) + (self ? " (you)" : ""), repText: (labels && labels[p.uid]) || "", total, scoreText: total + "/" + TARGET, tally, tallyText: tally.length ? tally.map((x) => "R" + x.n + " " + x.score).join(" · ") : "—",
         roundText: round, turnText: turn, steps: p.steps | 0, stepsText: fmtSteps(p.steps), status, state: out ? "forfeit" : p.leftAt ? "left" : "playing" };
     });
   }
   // One line for the top of the board: match state + what is pending.
   function boardStatus(r, nowMs, toMs) {
     const st = matchState(r, nowMs, toMs), an = analyze(r), names = {};
-    ids(r).forEach((u) => (names[u] = pubName(r.players[u].name)));
+    ids(r).forEach((u) => (names[u] = seatName(r.players[u])));
     let extra = "";
     if (st === "live" && an.valid) {
       if (an.disputed.length) extra = "Dispute on " + an.disputed.map((x) => names[x.who] + " round " + x.n).join(", ") + ": " + names[an.order[0]] + " (Bariboshi winner) rules.";
@@ -215,7 +229,7 @@
     return { state: st, extra, text: { waiting: "Waiting for a second player", ready: "Both seated · tap ready", countdown: "Countdown", live: "Live", finished: "Finished", cancelled: "Cancelled" }[st] + (extra ? " · " + extra : "") };
   }
   const api = { TARGET, PTS, PACK, GONE_MS, BEAT_MS, PUBLISH_MS, MAX_ROUNDS, MAX_BARI, validSteps, validPack, validEntry, analyze, decide, matchState, forfeitedSeat, forfeitedBy,
-    staleOpponent, pubName, canWrite, allowed, report, forfeit, claimGone, heartbeat, publishPatch, publishLive, throttle, other, resultText, boardRows, boardStatus, packText, POINTS, sum, fmtSteps };
+    staleOpponent, pubName, GUEST, NAME_MAX, resolveName, seatName, cleanText, canWrite, allowed, report, forfeit, claimGone, heartbeat, publishPatch, publishLive, throttle, other, resultText, boardRows, boardStatus, packText, POINTS, sum, fmtSteps };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.ZabbaWasherBattle = api;
 })(typeof window !== "undefined" ? window : null);

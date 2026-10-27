@@ -321,8 +321,8 @@ service cloud.firestore {
       function isPlayer() { return me() in d().players; }
       function started() { return d().status in ['countdown','live','done']; }
       function expired() { return !started() && d().createdAt < request.time - duration.value(30, 'm'); }
-      function freshSeat(p) { return p.keys().hasOnly(['name','ready','joinedAt']) && p.name is string
-        && p.name.size() <= 40 && p.ready == false && p.joinedAt == request.time; }
+      function freshSeat(p) { return p.keys().hasOnly(['name','pubName','ready','joinedAt']) && p.name is string
+        && p.name.size() <= 40 && (!('pubName' in p) || (p.pubName is string && p.pubName.size() >= 1 && p.pubName.size() <= 24)) && p.ready == false && p.joinedAt == request.time; }
       function newRoom() { return n().code == code && n().createdBy == me() && n().status == 'waiting'
         && n().startAt == null && n().createdAt == request.time
         && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]) && stakeOk(); }
@@ -387,6 +387,131 @@ service cloud.firestore {
           && request.time.toMillis() >= d().startAt - 2000)
       );
       allow delete: if false;
+    }
+
+    // Zabba Washer Arena (washers-arena.js): the 2v2 TEAM match, one shared room (size 2 or 4; 2-player on the site stays the plain
+    // washersBattles room above, unchanged). Seats keyed by request.auth.uid. Fixed seat map: slot*2 < size = team 'a', else 'b'; each
+    // slot can be claimed once (slots map). Each player writes ONLY their own seat: heartbeat (seenAt = server time), optional steps, an
+    // APPEND-ONLY list of write-once reports (rep: opening distance, round pack, confirm / dispute of an OPPONENT player's report,
+    // ruling), a forfeit result, leftAt, and gone (append-only list: opposing players whose heartbeat is > 30 s stale). Confirms may only
+    // be about players of the other team. teamNames {a,b}: written only by a seated member of that team, <= 20 chars, before the start.
+    // seat.pubName (saved account name, <= 24) is written only by its own seat. No winner / score is stored: every phone and the server
+    // derive them from the reports. Wagers are not available on arenas yet. (staged, not published)
+    match /washersArenas/{code} {
+      function signedIn() { return request.auth != null; }
+      function me() { return request.auth.uid; }
+      function d() { return resource.data; }
+      function n() { return request.resource.data; }
+      function changed() { return n().diff(d()).affectedKeys(); }
+      function seatChanges() { return n().seats.diff(d().seats).affectedKeys(); }
+      function isPlayer() { return me() in d().seats; }
+      function myTeam() { return d().seats[me()].team; }
+      function started() { return d().status in ['countdown','live'] ; }
+      function expired() { return d().status == 'waiting' && d().createdAt < request.time - duration.value(30, 'm'); }
+      function teamFor(slot, size) { return slot * 2 < size ? 'a' : 'b'; }
+      function nameOk(p) { return !('pubName' in p) || (p.pubName is string && p.pubName.size() >= 1 && p.pubName.size() <= 24); }
+      function freshSeat(p, size) { return p.keys().hasOnly(['name','pubName','ready','joinedAt','slot','team'])
+        && p.keys().hasAll(['name','ready','joinedAt','slot','team']) && p.name is string && p.name.size() <= 40 && nameOk(p)
+        && p.ready == false && p.joinedAt == request.time && p.slot is int && p.slot >= 0 && p.slot < size
+        && p.team == teamFor(p.slot, size); }
+      function newArena() { return n().keys().hasOnly(['code','createdBy','size','status','createdAt','startAt','seats','slots','teamNames'])
+        && n().keys().hasAll(['code','createdBy','size','status','createdAt','startAt','seats','slots','teamNames'])
+        && n().code == code && n().createdBy == me() && n().size is int && n().size in [2, 4] && n().status == 'waiting'
+        && n().startAt == null && n().createdAt == request.time && n().teamNames.size() == 0
+        && n().seats.keys().hasOnly([me()]) && freshSeat(n().seats[me()], n().size)
+        && n().slots.keys().hasOnly([string(n().seats[me()].slot)]) && n().slots[string(n().seats[me()].slot)] == me(); }
+      function reusable() { return d().status == 'abandoned' || expired()
+        || (d().status == 'live' && d().createdAt < request.time - duration.value(6, 'h')); }
+      // claiming a seat number: exactly one NEW slot, held by me
+      function claim() { return n().slots.diff(d().slots).affectedKeys().size() == 1
+        && n().slots.diff(d().slots).addedKeys().hasOnly([string(n().seats[me()].slot)]) && n().slots[string(n().seats[me()].slot)] == me(); }
+      function allReady() { return d().seats.size() == d().size
+        && d().seats[d().seats.keys()[0]].ready == true && d().seats[d().seats.keys()[1]].ready == true
+        && (d().size == 2 || (d().seats[d().seats.keys()[2]].ready == true && d().seats[d().seats.keys()[3]].ready == true)); }
+      // reports (rep). packOk: a pack of exactly 3 washers, each 0 out / 2 box-bound / 3 shoot / 5 bank.
+      function packOk(a) { return a is list && a.size() == 3 && a[0] in [0,2,3,5] && a[1] in [0,2,3,5] && a[2] in [0,2,3,5]; }
+      function repOk(e) {
+        return (e.keys().hasAll(['k','n','d']) && e.keys().hasOnly(['k','n','d']) && e.k == 'b' && e.n is int && e.n >= 1 && e.n <= 8
+            && e.d is int && e.d >= 0 && e.d <= 2000)
+          || (e.keys().hasAll(['k','n','pack']) && e.keys().hasOnly(['k','n','pack']) && e.k == 'r' && e.n is int && e.n >= 1 && e.n <= 30 && packOk(e.pack))
+          // confirm / dispute: only about a player of the OTHER team
+          || (e.keys().hasAll(['k','t','n','who','ok']) && e.keys().hasOnly(['k','t','n','who','ok']) && e.k == 'c' && e.t in ['b','r']
+            && e.n is int && e.n >= 1 && e.n <= 30 && e.ok is bool && e.who is string && e.who in d().seats && d().seats[e.who].team != myTeam())
+          || (e.keys().hasAll(['k','n','who','pack']) && e.keys().hasOnly(['k','n','who','pack']) && e.k == 'x' && e.n is int
+            && e.n >= 1 && e.n <= 30 && e.who is string && e.who in d().seats && packOk(e.pack)); }
+      // append-only: existing entries unchanged, at most one new valid entry per write, at most 200 in all
+      function repGrows(o, p) { return !('rep' in p) ? !('rep' in o)
+        : ('rep' in o ? (p.rep.size() >= o.rep.size() && p.rep.size() <= o.rep.size() + 1 && p.rep.size() <= 200 && p.rep[0:o.rep.size()] == o.rep
+              && (p.rep.size() == o.rep.size() || repOk(p.rep[o.rep.size()])))
+            : (p.rep.size() == 1 && repOk(p.rep[0]))); }
+      // silence: a heartbeat older than 30 s (baseline = the shared start) of an OPPOSING player who has not left or forfeited
+      function lastSeen(t) { return ('seenAt' in d().seats[t] && d().seats[t].seenAt.toMillis() > d().startAt) ? d().seats[t].seenAt.toMillis() : d().startAt; }
+      function staleTarget(t) { return t is string && t in d().seats && d().seats[t].team != myTeam() && d().startAt is int
+        && !('result' in d().seats[t]) && !('leftAt' in d().seats[t]) && request.time.toMillis() - lastSeen(t) > 30000; }
+      function goneGrows(o, p) { return !('gone' in o) ? (p.gone is list && p.gone.size() == 1 && staleTarget(p.gone[0]))
+        : (p.gone is list && p.gone.size() == o.gone.size() + 1 && p.gone.size() <= 2 && p.gone[0:o.gone.size()] == o.gone && staleTarget(p.gone[o.gone.size()])); }
+      function resOk(x) { return x.keys().hasOnly(['forfeit','at']) && x.forfeit == true && x.at == request.time; }
+      // own seat while the match runs: seenAt / leftAt any time after the start; steps, result, reports and gone only while live
+      function seatOk(o, p) {
+        return p.diff(o).affectedKeys().hasOnly(['seenAt','leftAt','steps','result','rep','gone'])
+          && (!('seenAt' in p.diff(o).affectedKeys()) || p.seenAt == request.time)
+          && (!('leftAt' in p.diff(o).affectedKeys()) || (p.leftAt == request.time && !('leftAt' in o)))
+          && ('result' in o ? p.diff(o).affectedKeys().hasOnly(['seenAt','leftAt'])
+              : (!('result' in p) || (d().status == 'live' && resOk(p.result))))
+          && (!('rep' in p.diff(o).affectedKeys()) || (d().status == 'live' && repGrows(o, p)))
+          && (!('gone' in p.diff(o).affectedKeys()) || (d().status == 'live' && goneGrows(o, p)))
+          && (!('steps' in p.diff(o).affectedKeys()) || (d().status == 'live' && p.steps is int && p.steps >= 0 && p.steps <= 100000)); }
+      allow read: if signedIn();
+      allow create: if signedIn() && code.matches('^[A-HJ-NP-Z2-9]{4}$') && newArena()
+        && !exists(/databases/$(database)/documents/washersBattles/$(code));
+      allow update: if signedIn() && (
+        // reuse an abandoned / expired / long-dead code
+        (reusable() && newArena())
+        // claim an open seat (before start): a fresh seat on a free slot of the fixed seat map
+        || (!isPlayer() && d().status == 'waiting' && !expired() && d().seats.size() < d().size
+          && changed().hasOnly(['seats','slots']) && seatChanges().hasOnly([me()]) && freshSeat(n().seats[me()], d().size) && claim())
+        // a seated player, before start: tap ready / not ready, refresh the own saved name
+        || (isPlayer() && d().status == 'waiting' && changed().hasOnly(['seats']) && seatChanges().hasOnly([me()]) && me() in n().seats
+          && n().seats[me()].diff(d().seats[me()]).affectedKeys().hasOnly(['ready','pubName'])
+          && n().seats[me()].ready is bool && nameOk(n().seats[me()]))
+        // a seated player, before start: free the own seat and its slot; the creator leaving (or the last player) cancels the arena
+        || (isPlayer() && d().status == 'waiting' && changed().hasOnly(['seats','slots','status']) && seatChanges().hasOnly([me()])
+          && !(me() in n().seats)
+          && n().slots.diff(d().slots).affectedKeys().hasOnly([string(d().seats[me()].slot)])
+          && n().slots.diff(d().slots).removedKeys().hasOnly([string(d().seats[me()].slot)])
+          && n().status == ((me() == d().createdBy || n().seats.size() == 0) ? 'abandoned' : 'waiting'))
+        // a seated member of the team sets / clears that team's name (<= 20 chars), before the start only
+        || (isPlayer() && d().status == 'waiting' && changed().hasOnly(['teamNames'])
+          && n().teamNames.diff(d().teamNames).affectedKeys().hasOnly([myTeam()])
+          && (!(myTeam() in n().teamNames) || (n().teamNames[myTeam()] is string && n().teamNames[myTeam()].size() >= 1 && n().teamNames[myTeam()].size() <= 20)))
+        // a seated player, after start: own seat fields only (heartbeat, left, steps, forfeit, reports, gone)
+        || (isPlayer() && started() && changed().hasOnly(['seats']) && seatChanges().hasOnly([me()]) && me() in n().seats
+          && !('ready' in n().seats[me()].diff(d().seats[me()]).affectedKeys()) && seatOk(d().seats[me()], n().seats[me()]))
+        // any seated player: every seat filled and ready -> countdown with startAt = now..now+15s (only once)
+        || (isPlayer() && d().status == 'waiting' && d().startAt == null && allReady()
+          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int
+          && n().startAt > request.time.toMillis() && n().startAt < request.time.toMillis() + 15000)
+        // any seated player: countdown -> live once startAt has (nearly) passed
+        || (isPlayer() && d().status == 'countdown' && changed().hasOnly(['status']) && n().status == 'live'
+          && request.time.toMillis() >= d().startAt - 2000)
+      );
+      allow delete: if false;
+    }
+
+    // Zabba Washer Battlers board (washers-battlers.js): written ONLY by netlify/functions/battle-stats.js (admin SDK).
+    // The seasonal record holds a name + counts (never an email) and is readable by anyone, signed in or not.
+    // The lifetime tally and the one-time match log have no client access at all; the page never reads them. (staged, not published)
+    match /washersBattleSeason/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /washersBattleLifetime/{uid} {
+      allow read: if false;
+      allow write: if false;
+    }
+    match /washersBattleLog/{key} {
+      allow read: if false;
+      allow write: if false;
     }
 
     // TUT battle ranking: each player writes only their own row, from a finished battle they were in. (release 2026-10-23).

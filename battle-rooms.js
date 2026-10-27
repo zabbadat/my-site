@@ -48,7 +48,7 @@
         if (done) return; const p = d && d.players && d.players[uid]; const v = p && toMs(p[field]);
         if (v != null && v >= send + offset - 60000) { done = true; offset = estimateOffset(v, send, now()); off(); res(offset); } }); });
     }
-    const seat = (u, extra) => ({ name: String(u.name || "Player").slice(0, 40), ready: false, joinedAt: fs.ts(), ...extra });
+    const seat = (u, extra) => ({ name: String(u.name || "Player").slice(0, 40), ready: false, joinedAt: fs.ts(), ...(opts.seatExtra ? opts.seatExtra(u) : null), ...extra }); // seatExtra: optional per-game seat fields (e.g. washers: saved pubName)
     // extra: optional room fields set once at create (e.g. { stake: 3 } for a ZAB wager).
     async function createRoom(u, extra) {
       if (!u || !u.uid) throw new Error("Sign in to create a battle.");

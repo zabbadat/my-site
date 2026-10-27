@@ -500,6 +500,27 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
   .arc-bar i { transition:width .5s ease-out; }
 }
 @media (prefers-reduced-motion: reduce) { .wb-board *, .wb-board { animation:none !important; transition:none !important; } .arc-score .n { display:inline !important; } .arc-score .c { display:none !important; } }
+/* Zabba Washer Arena (2v2) + Battlers board: static layout only, no animation */
+.arc-members { list-style:none; margin:.35rem 0 0; padding:0; font-size:.78rem; }
+.arc-members li { display:grid; grid-template-columns:1fr auto auto; gap:.4rem; align-items:baseline; padding:.12rem 0; border-top:1px solid #2a2a6a; }
+.arc-members .arc-mname { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.arc-members .arc-mname em { font-style:normal; font-size:.6rem; color:#7dff7d; }
+.arc-members b { color:#ffe14d; } .arc-members small { color:#9fb4ff; font-size:.62rem; min-width:4.5em; text-align:right; }
+.arc-members .arc-mem-out { opacity:.55; }
+.wa-teams { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; margin:.4rem 0; }
+.wa-team { border:1px solid rgba(143,191,168,.25); border-radius:12px; padding:.5rem .7rem; min-width:0; }
+.wa-team h4 { margin:0 0 .3rem; font-size:1rem; overflow-wrap:anywhere; }
+.wa-team ul { list-style:none; margin:0; padding:0; font-size:.9rem; }
+.wa-team li { padding:.15rem 0; overflow-wrap:anywhere; }
+.wa-team li.open { color:var(--muted); font-style:italic; }
+.wa-me { font-weight:700; }
+#wbSizeRow button[aria-pressed="true"] { outline:2px solid var(--accent); }
+.bb-scroll { position:relative; max-height:23.5rem; overflow-y:auto; border:1px solid rgba(143,191,168,.2); border-radius:12px; margin-top:.5rem; }
+.bb-scroll table { margin-top:0; }
+.bb-scroll thead th { position:sticky; top:0; background:var(--card); z-index:1; }
+.bb-scroll td, .bb-scroll th { padding:.4rem .5rem; white-space:nowrap; }
+.bb-scroll td:nth-child(2) { white-space:normal; overflow-wrap:anywhere; }
+.bb-me td { background:rgba(143,191,168,.18); font-weight:700; }
 /* ARC-END */
 </style>
 </head>
@@ -764,12 +785,39 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="washerbattle">
     <h2>Zabba Washer Battle</h2>
-    <p class="lead">One on one, phone to phone, Bariboshi style. No video: you pitch at your own box and report each pitch, your opponent confirms or disputes, and the first to 21 wins. Make a room, share the code, both tap ready, and a shared countdown starts the match. The opening pitch (closest to the cup goes first), then rounds of one pack of 3 washers each, scored Bank 5, Shoot 3, Box-bound 2, Out 0. Your phone counts your steps as an optional extra. Forfeit, leave, or go silent for 30 seconds and your opponent wins. Optional ZAB wager: set the amount when you make the room, both players put in the same amount, and the winner takes the pot. See the <a href="/rules">official regulations</a>.</p>
+    <p class="lead">One on one, or two teams of two, phone to phone, Bariboshi style. No video: you pitch at your own box and report each pitch, your opponent confirms or disputes, and the first to 21 wins. Make an arena, share the code, everyone taps ready, and a shared countdown starts the match. Pick 1v1 or 2v2: in 2v2 the team score is the sum of both teammates' packs, and the first team to 21 wins. The opening pitch (closest to the cup goes first), then rounds of one pack of 3 washers each, scored Bank 5, Shoot 3, Box-bound 2, Out 0. Your phone counts your steps as an optional extra. Forfeit, leave, or go silent for 30 seconds and your opponent wins. Optional ZAB wager: set the amount when you make the room, both players put in the same amount, and the winner takes the pot. See the <a href="/rules">official regulations</a>.</p>
     <p class="note" id="wbSignIn"><a href="#play">Sign in</a> to create or join a Zabba Washer Battle, with an optional ZAB wager.</p>
     <div id="wbStart" hidden>
+      <label id="wbSizeLabel">Players</label>
+      <div class="row" id="wbSizeRow" role="group" aria-labelledby="wbSizeLabel"><button class="btn" id="wbSize2" type="button" aria-pressed="true">1v1</button><button class="btn ghost" id="wbSize4" type="button" aria-pressed="false">2v2</button></div>
+      <div id="wbTeamRow" hidden><label id="wbTeamLabel">Your team</label><div class="row" role="group" aria-labelledby="wbTeamLabel"><button class="btn" id="wbTeamA" type="button" aria-pressed="true">Team A</button><button class="btn ghost" id="wbTeamB" type="button" aria-pressed="false">Team B</button></div><p class="note" style="margin:.2rem 0 0">2v2: two teams of two. Players who join with the code fill the open seats so the teams stay even. Wagers are not available for 2v2 yet.</p></div>
       <div class="row"><button class="btn" id="wbCreate" type="button">Create arena</button></div>
       <label for="wbCode">Or join with a code</label>
       <div class="row"><input id="wbCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="K7QX" style="max-width:9rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="wbJoin" type="button">Join</button></div>
+    </div>
+    <div class="card" id="wbBattlers">
+      <h3 id="bbTitle">Zabba Washer Battlers, Season Q4 2026</h3>
+      <p class="note" id="bbLead" style="margin:0 0 .2rem">This season's wins and losses, and each player's <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span>. Most wins first. Scroll to find your rank. Names only.</p>
+      <p class="note" id="bbReset" style="margin:0 0 .3rem"></p>
+      <p class="note" id="bbYou" hidden style="margin:0 0 .3rem;font-weight:700;color:var(--accent-2)"></p>
+      <div class="row"><button class="btn ghost" id="bbJump" type="button" hidden>Jump to me</button></div>
+      <div class="bb-scroll" id="bbScroll" tabindex="0" role="region" aria-label="Zabba Washer Battlers ranking, scrolls">
+        <table><thead><tr><th>#</th><th>Player</th><th>Wins</th><th>Losses</th><th><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></th></tr></thead>
+        <tbody id="bbBody"><tr><td colspan="5">Waiting for battles…</td></tr></tbody></table>
+      </div>
+    </div>
+    <div class="card" id="waLobby" hidden>
+      <p class="note" style="margin:0">Arena code. Share it with the other three players.</p>
+      <div class="battle-code" id="waRoomCode">----</div>
+      <div class="wa-teams">
+        <div class="wa-team" id="waTeamA"><h4 id="waTeamAName">Team A</h4><ul id="waTeamAList"></ul></div>
+        <div class="wa-team" id="waTeamB"><h4 id="waTeamBName">Team B</h4><ul id="waTeamBList"></ul></div>
+      </div>
+      <div id="waNameRow" hidden><label for="waTeamName">Name your team (optional, up to 20 characters)</label><div class="row"><input id="waTeamName" type="text" maxlength="20" autocomplete="off" placeholder="Team name" style="max-width:14rem"><button class="btn ghost" id="waTeamNameBtn" type="button">Set team name</button></div></div>
+      <div class="battle-count" id="waCount" hidden></div>
+      <div id="waBoard" class="card wb-board" hidden aria-live="off"><div class="arc-head"><strong>Zabba Washer Arena live board</strong><button type="button" class="arc-mute" data-arc-mute hidden>Sound: on</button></div><div id="waBoardBody" class="arc"><div class="arc-fx"></div><div class="arc-main"></div></div></div>
+      <div id="waMatch" hidden></div>
+      <div class="row"><button class="btn" id="waReady" type="button" hidden>I'm ready</button><a class="btn ghost" id="waToGame" href="#play" hidden>Game controls</a><button class="btn danger" id="waForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="waLeave" type="button">Leave</button></div>
     </div>
     <div class="card" id="wbLobby" hidden>
       <p class="note" style="margin:0">Room code. Share it with your opponent.</p>
@@ -1123,6 +1171,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/plank-battle.js"></script>
   <script src="/zaba-wager.js"></script>
   <script src="/reputation.js"></script>
+  <script src="/washers-arena.js"></script>
+  <script src="/washers-battlers.js"></script>
   <script src="/washers-arcade.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
@@ -2375,7 +2425,7 @@ const {
       setPersistence, browserLocalPersistence
     } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js");
     const {
-      getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, doc, setDoc, where, runTransaction, updateDoc, deleteField
+      getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, doc, setDoc, where, runTransaction, updateDoc, deleteField, getDocs, startAfter, getCountFromServer, documentId
     } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js");const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 // One shared session for every game on the site (and the app webview): persist in localStorage.
@@ -2947,7 +2997,8 @@ async function tbResume(u) { let code = null; try { code = localStorage.getItem(
    No video: each player pitches at their own box and reports; the opponent confirms or disputes. Phones count steps (optional extra). ---- */
 const WB = window.ZabbaWasherBattle, ARC = window.ZabbaArcade;
 const wbFs = mkBattleFs("washersBattles");
-const wbc = BR.controller(wbFs, wagerGate("washers"));
+const wbc = BR.controller(wbFs, Object.assign({}, wagerGate("washers"), { seatExtra: (u) => (u && u.pubName ? { pubName: String(u.pubName).slice(0, 24) } : null) })); // seats carry the saved account name (pubName)
+let waCodeCur = null; // 2v2 arena code (see the Arena block below); null = no arena
 let wbRoom = null, wbCodeCur = null, wbOff = null, wbTick = null, wbBeat = null, wbPlayingFor = null, wbLastSteps = -1, wbLastBeat = 0, wbSettledKey = null, wbMatchHtml = "";
 const wbReps = repMap, wbArcSound = ARC ? ARC.makeSound(window) : null;
 let arcPrev = null, arcHtml = "", arcBannerKey = "";
@@ -2957,7 +3008,8 @@ const wbSrvNow = () => BR.serverNow(Date.now(), wbc.offset);
 function wbPlaying() { return !!(wbCodeCur && wbPlayingFor === wbCodeCur && wbRoom && wbRoom.status === "live" && currentUser && WB.canWrite(wbRoom, currentUser.uid)); }
 /* Hooks called by the solo game: only the optional live step count goes to the room; the solo game never decides the match. */
 wbHook = {
-  render() { if (!wbPlaying() || state.steps === wbLastSteps || !wbPub || !wbPub()) return; wbLastSteps = state.steps; WB.publishLive(wbFs, wbCodeCur, currentUser.uid, { steps: state.steps }).catch(() => {}); },
+  render() { if (waPlaying()) { if (state.steps !== waLastSteps && waPub && waPub()) { waLastSteps = state.steps; AR.publishLive(waFs, waCodeCur, currentUser.uid, { steps: state.steps }).catch(() => {}); } return; }
+    if (!wbPlaying() || state.steps === wbLastSteps || !wbPub || !wbPub()) return; wbLastSteps = state.steps; WB.publishLive(wbFs, wbCodeCur, currentUser.uid, { steps: state.steps }).catch(() => {}); },
   finish() {},
 };
 /* Reputation (repBoard/{uid}: name + score only). Missing doc = a new player at 50; unreadable = no badge. */
@@ -3001,14 +3053,14 @@ async function wbMatchClick(e) {
 function wbPaint() {
   if (!WB) return;
   const r = wbRoom, me = currentUser && currentUser.uid;
-  $("wbSignIn").hidden = !!currentUser; $("wbStart").hidden = !currentUser || !!wbCodeCur; $("wbLobby").hidden = !wbCodeCur;
+  $("wbSignIn").hidden = !!currentUser; $("wbStart").hidden = !currentUser || !!wbCodeCur || !!waCodeCur; $("wbLobby").hidden = !wbCodeCur;
   if (!wbCodeCur) return;
   $("wbRoomCode").textContent = wbCodeCur;
   if (r) wbWatchReps(r);
   const ps = r ? BR.orderedPlayers(r, wbFs.toMs) : [], pre = r && !BR.started(r) && r.status !== "abandoned";
   const dec = r ? WB.decide(r) : { done: false }, live = r && r.status === "live", st = r ? WB.matchState(r, wbSrvNow(), wbFs.toMs) : "cancelled";
   [0, 1].forEach((i) => { const p = ps[i];
-    $("wbP" + (i + 1)).textContent = p ? WB.pubName(p.name) + (p.uid === me ? " (you)" : "") : "Waiting…";
+    $("wbP" + (i + 1)).textContent = p ? WB.seatName(p) + (p.uid === me ? " (you)" : "") : "Waiting…";
     let sub = "Player " + (i + 1);
     if (p && pre) sub += p.ready ? " · Ready ✓" : " · Not ready";
     if (p && dec.done) sub += dec.winner === p.uid ? " · WIN" : dec.winner ? "" : " · TIE";
@@ -3022,7 +3074,7 @@ function wbPaint() {
   else if (pre && st === "cancelled") wbStat("This room expired because nobody started a match. Make a new one.");
   else if (pre && ps.length < 2) wbStat("Waiting for a second player…");
   else if (pre) wbStat(mine && mine.ready ? "Waiting for the other player to tap ready…" : "Tap I'm ready when you're set.");
-  else if (dec.done) { wbStat(WB.resultText(r, me)); if (wbPlayingFor === wbCodeCur) wbStopGame(); wbSettleRep(); }
+  else if (dec.done) { wbStat(WB.resultText(r, me)); if (wbPlayingFor === wbCodeCur) wbStopGame(); wbSettleRep(); bsSettle("room", wbCodeCur, r.startAt); }
   else if (live) wbStat("Match on. Use the panel to report each pitch and confirm your opponent's.");
   if (pre && BR.bothReady(r) && st !== "cancelled") wbc.maybeStart(wbCodeCur).catch(() => {});
   wbBoardPaint(); wbMatchPaint();
@@ -3043,7 +3095,7 @@ let wbBoardTimer = null;
 function wbBoardPaint() {
   const r = wbRoom, show = !!(ARC && WB && r && wbCodeCur && currentUser);
   ["wbBoard", "wbPlayBoard"].forEach((id) => { $(id).hidden = !show; });
-  if (!show) { arcPrev = null; arcHtml = ""; return; }
+  if (!show) { arcPrev = null; arcHtml = ""; if (waCodeCur) $("wbPlayBoard").hidden = !(ARC && AR && waArena && currentUser); return; } // the arena (2v2) paints its own board
   const me = currentUser.uid, ps = BR.orderedPlayers(r, wbFs.toMs), ctx = { nowMs: wbSrvNow(), toMs: wbFs.toMs, cd: wbc.state(r.startAt), reps: wbReps };
   const m = ARC.model(r, ps, me, ctx), f = ARC.fx(arcPrev, m), html = ARC.html(m, f, arcPrev);
   if (html !== arcHtml) { arcHtml = html; ["wbBoardBody", "wbPlayBoardBody"].forEach((id) => { $(id).querySelector(".arc-main").innerHTML = html; }); }
@@ -3077,7 +3129,7 @@ function wbTickFn() {
   }
   wbBoardPaint();
 }
-function wbUser() { return currentUser ? { uid: currentUser.uid, name: publicName($("player").value.trim() || displayNameOf(currentUser)).slice(0, 20) } : null; }
+function wbUser() { /* one name helper for every match (1v1 and 2v2): the saved account name (WB.resolveName; the site's player-name box wins if filled), never an email, <= 24 characters, stored on the seat as pubName at claim time */ if (!currentUser) return null; const n = WB.resolveName({ typed: $("player").value.trim(), displayName: currentUser.displayName, email: currentUser.email }); return { uid: currentUser.uid, name: n, pubName: n }; }
 function wbEnter(code) { wbCodeCur = code; wbSettledKey = null; try { localStorage.setItem("zdWasherBattle", code); } catch (e) {} if (wbOff) wbOff(); wbOff = wbc.watch(code, (r) => { wbRoom = r; wbPaint(); }); wbPaint(); }
 function wbExit() { if (wgWb) wgWb.stop(); try { localStorage.removeItem("zdWasherBattle"); } catch (e) {} if (wbOff) wbOff(); wbOff = null; wbRoom = null; wbCodeCur = null; wbPlayingFor = null; clearInterval(wbTick); wbTick = null; clearInterval(wbBeat); wbBeat = null; wbStopReps(); wbMatchHtml = ""; wbBoardPaint(); wbMatchPaint(); wbPaint(); }
 async function wbResume(u) { let code = null; try { code = localStorage.getItem("zdWasherBattle"); } catch (e) {} if (!code || wbCodeCur) return; try { if (await wbc.resume(code, { uid: u.uid })) wbEnter(code); else localStorage.removeItem("zdWasherBattle"); } catch (e) {} }
@@ -3088,11 +3140,20 @@ if (WB) {
   $("wbCreate").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to create a battle."); }
     if (wbArcSound) wbArcSound.unlock();
     $("wbCreate").disabled = true; wbStat("Making an arena…");
-    try { await wagerCreate(wgWb, wbc, u, wbEnter, wbStat); } catch (e) { wbStat(e.message || "Couldn't create an arena."); } finally { $("wbCreate").disabled = false; } };
+    try {
+      if (waSize === 4 && wac) waEnter(await wac.createArena(u, 4, { team: waTeamPick })); // 2v2 team arena
+      else await wagerCreate(wgWb, wbc, u, wbEnter, wbStat); // 1v1: exactly the plain room as before
+    } catch (e) { wbStat(e.message || "Couldn't create an arena."); } finally { $("wbCreate").disabled = false; } };
   $("wbJoin").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to join a battle."); }
     if (wbArcSound) wbArcSound.unlock();
     $("wbJoin").disabled = true; wbStat("Joining…");
-    try { await wagerJoin(wgWb, wbc, $("wbCode").value, u, wbEnter, wbStat); } catch (e) { wbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("wbJoin").disabled = false; } };
+    try {
+      /* a plain room code keeps working exactly as before; a code with no room is tried as a 2v2 arena */
+      const raw = BR.normCode($("wbCode").value); let arena = false;
+      if (wac && BR.isValidCode(raw)) { let room = true; try { room = !!(await wbFs.tx(raw, (t) => t.get())); } catch (e) {} if (!room) { try { arena = !!(await waFs.tx(raw, (t) => t.get())); } catch (e) {} } }
+      if (arena) waEnter(await wac.joinArena(raw, u, {}));
+      else await wagerJoin(wgWb, wbc, $("wbCode").value, u, wbEnter, wbStat);
+    } catch (e) { wbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("wbJoin").disabled = false; } };
   $("wbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("wbJoin").click(); });
   $("wbReady").onclick = async () => { if (!requireSignIn("washer battle")) return; if (battleVoice) battleVoice.unlock(); if (wbArcSound) wbArcSound.unlock(); const u = wbUser(), mine = wbRoom && wbRoom.players && wbRoom.players[u.uid];
     /* iPhone: ask for motion access inside this tap so the step sensor works when GO starts the step count. */
@@ -3105,6 +3166,212 @@ if (WB) {
     if (live && u && WB.canWrite(wbRoom, u.uid) && !WB.decide(wbRoom).done && !confirm("Leaving now forfeits the battle. Leave?")) return;
     if (live && u) { await WB.forfeit(wbFs, c, u.uid).catch(() => {}); wbStopGame(); }
     wbExit(); wbStat("You left the room."); if (u && c) wbc.leave(c, u).catch(() => {}); };
+}
+/* ---- Zabba Washer Battlers board (washers-battlers.js): seasonal wins / losses, read from washersBattleSeason (public). ZAB is read from the
+   signed-in-only zabBoard mirror for the rows shown; the private lifetime tally is never read by the page. ---- */
+const BT = window.ZabbaBattlers;
+const bbRows = {}, bbZab = {}, bbZabAsked = {};
+let bbSeason = null, bbCursor = null, bbDone = false, bbLoading = false, bbErr = false, bbOff = null, bbMineOff = null, bbMine = null, bbMyRank = 0, bbMoreLoaded = false, bbUid = null;
+function bbMe() { return currentUser ? currentUser.uid : null; }
+function bbPaint() {
+  if (!BT || !$("bbBody")) return;
+  const S = BT.seasonOf(Date.now()), me = bbMe();
+  $("bbTitle").textContent = BT.titleFor(Date.now()); $("bbReset").textContent = BT.seasonResetText(Date.now());
+  const rows = Object.keys(bbRows).map((k) => bbRows[k]);
+  const html = bbErr && !rows.length ? '<tr><td colspan="5">Couldn\'t load the board right now.</td></tr>' : BT.bodyHtml(rows, me, bbZab, { esc: escapeHtml, amountHtml: window.ZabCurrency.amountHtml });
+  const box = $("bbScroll"), top = box.scrollTop; $("bbBody").innerHTML = html; box.scrollTop = top;
+  const you = $("bbYou"), jump = $("bbJump");
+  if (!me) { you.hidden = true; jump.hidden = true; return; }
+  const rank = bbMyRank || BT.rankOf(rows, me);
+  window.ZabCurrency.set(you, BT.youLine(rank, bbMine, bbZab[me])); you.hidden = false; jump.hidden = !bbMine;
+}
+function bbAdd(snap) { snap.docs.forEach((d) => { const x = d.data(); if (x && x.uid && x.season === bbSeason.id) bbRows[d.id] = x; }); }
+function bbQuery(extra) {
+  const R = BT.seasonRange(bbSeason.id);
+  return query.apply(null, [collection(db, "washersBattleSeason"), where("sortKey", ">=", R.lo), where("sortKey", "<", R.hi), orderBy("sortKey", "desc")].concat(extra));
+}
+async function bbLoadZab() { // ZAB for the rows shown (+ mine), signed in only, in chunks of 10 ids
+  const me = bbMe(); if (!me) return;
+  const ids = Object.keys(bbRows).map((k) => bbRows[k].uid).concat([me]).filter((u, i, a) => a.indexOf(u) === i && !bbZabAsked[u]);
+  for (let i = 0; i < ids.length; i += 10) {
+    const chunk = ids.slice(i, i + 10); chunk.forEach((u) => { bbZabAsked[u] = true; });
+    try { const snap = await getDocs(query(collection(db, "zabBoard"), where(documentId(), "in", chunk))); snap.forEach((d) => { const t = d.data().total; if (Number.isInteger(t)) bbZab[d.id] = t; }); } catch (e) { chunk.forEach((u) => { delete bbZabAsked[u]; }); }
+  }
+  bbPaint();
+}
+async function bbMore() {
+  if (bbDone || bbLoading || !bbCursor || !bbSeason) return; bbLoading = true;
+  try { const snap = await getDocs(bbQuery([startAfter(bbCursor), limit(BT.PAGE)])); bbAdd(snap); bbMoreLoaded = true; if (snap.docs.length) bbCursor = snap.docs[snap.docs.length - 1]; if (snap.docs.length < BT.PAGE) bbDone = true; }
+  catch (e) { bbErr = true; } finally { bbLoading = false; }
+  bbPaint(); bbLoadZab();
+}
+function bbStart() {
+  if (!BT || !$("bbBody")) return;
+  const S = BT.seasonOf(Date.now());
+  if (bbSeason && bbSeason.id !== S.id) { Object.keys(bbRows).forEach((k) => delete bbRows[k]); bbCursor = null; bbDone = false; bbMoreLoaded = false; if (bbOff) bbOff(); bbOff = null; }
+  bbSeason = S; if (bbOff) return;
+  bbOff = onSnapshot(bbQuery([limit(BT.PAGE)]), (snap) => { bbErr = false; bbAdd(snap); if (!bbMoreLoaded) { bbCursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : null; bbDone = snap.docs.length < BT.PAGE; } bbPaint(); bbLoadZab(); bbRank(); }, () => { bbErr = true; bbPaint(); });
+}
+async function bbRank() { // my exact rank = 1 + how many records rank ahead of mine (count query); falls back to the loaded rows
+  const me = bbMe(); if (!me || !bbMine || !bbSeason) { bbMyRank = 0; return; }
+  try { const R = BT.seasonRange(bbSeason.id); const c = await getCountFromServer(query(collection(db, "washersBattleSeason"), where("sortKey", ">", bbMine.sortKey), where("sortKey", "<", R.hi))); bbMyRank = BT.rankFromAhead(c.data().count); } catch (e) { bbMyRank = 0; }
+  bbPaint();
+}
+function bbOnUser(u) {
+  if (!BT || !$("bbBody")) return;
+  if (bbUid === (u ? u.uid : null) && bbOff) { bbPaint(); return; }
+  bbUid = u ? u.uid : null; if (bbMineOff) { bbMineOff(); bbMineOff = null; } bbMine = null; bbMyRank = 0; Object.keys(bbZabAsked).forEach((k) => delete bbZabAsked[k]);
+  bbStart();
+  if (u) bbMineOff = onSnapshot(doc(db, "washersBattleSeason", BT.seasonOf(Date.now()).id + "_" + u.uid), (d) => { bbMine = d.exists() ? d.data() : null; if (bbMine) bbRows[d.id] = bbMine; bbPaint(); bbRank(); bbLoadZab(); }, () => {});
+  bbPaint();
+}
+async function bbJumpToMe() {
+  const me = bbMe(); if (!me) return;
+  for (let i = 0; i < 40 && !$("bbBody").querySelector("tr[data-me]") && !bbDone; i++) { await bbMore(); }
+  const row = $("bbBody").querySelector("tr[data-me]"), box = $("bbScroll");
+  if (row) box.scrollTop = Math.max(0, row.offsetTop - box.clientHeight / 2);
+}
+if (BT && $("bbBody")) {
+  $("bbScroll").addEventListener("scroll", () => { const b = $("bbScroll"); if (b.scrollTop + b.clientHeight >= b.scrollHeight - 40) bbMore(); });
+  $("bbJump").onclick = () => { bbJumpToMe().catch(() => {}); };
+  bbStart(); bbPaint();
+}
+/* Ask the server to count a finished battle on the seasonal board once (each phone asks; the guard doc counts it once). Retries while pending. */
+const bsDone = {};
+function bsSettle(kind, code, startAt, tries) {
+  const u = auth.currentUser, k = kind + ":" + code + ":" + startAt; if (!u || !code) return; if (!tries) { if (bsDone[k]) return; bsDone[k] = true; }
+  u.getIdToken().then((t) => fetch("/.netlify/functions/battle-stats", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + t }, body: JSON.stringify({ code, kind }) }))
+    .then((res) => res.json()).then((j) => { if (j && j.pending && (tries || 0) < 6) setTimeout(() => bsSettle(kind, code, startAt, (tries || 0) + 1), 30000); }).catch(() => {});
+}
+/* ---- Zabba Washer Arena: 2v2 teams (washers-arena.js, washersArenas/{code}). One shared room, two teams of two. 1v1 is the plain room above. ---- */
+const AR = window.ZabbaArena;
+const waFs = mkBattleFs("washersArenas");
+const wac = AR ? AR.controller(waFs, { codeTaken: async (c) => { try { return !!(await wbFs.tx(c, (t) => t.get())); } catch (e) { return true; } } }) : null;
+let waArena = null, waOff = null, waTick = null, waBeat = null, waPlayingFor = null, waLastSteps = -1, waLastBeat = 0, waSize = 2, waTeamPick = "a", waArcPrev = null, waArcHtml = "", waArcBannerKey = "", waMatchHtml = "", waNameSeen = "";
+const waPub = AR && WB ? WB.throttle(AR.PUBLISH_MS, () => Date.now()) : null;
+const waSrvNow = () => BR.serverNow(Date.now(), wac ? wac.offset : 0);
+function waPlaying() { return !!(AR && waCodeCur && waPlayingFor === waCodeCur && waArena && waArena.status === "live" && currentUser && AR.canWrite(waArena, currentUser.uid)); }
+const waNm = (a, u) => escapeHtml(ARC ? ARC.safeName(AR.nameOf(a, u)) : "Player");
+function waMatchPaint() {
+  const box = $("waMatch"), a = waArena, me = currentUser && currentUser.uid; if (!box) return;
+  const on = !!(a && me && AR.seatOf(a, me) && a.status === "live" && !AR.decide(a).done && AR.canWrite(a, me));
+  let h = "";
+  if (on) {
+    const an = AR.analyze(a), acts = an.actions[me] || [];
+    acts.forEach((x) => {
+      if (x.type === "b") h += '<div class="card" data-form="b"><p class="note" style="margin:0 0 .3rem"><strong>Opening pitch (Bariboshi)</strong>: pitch one washer. How far is it from the center of the cup, in cm? 0 means in the cup. The team with the closest washer goes first.</p><div class="row"><input class="bd" type="number" inputmode="numeric" min="0" max="2000" step="1" value="0" style="max-width:6rem"><button class="btn" data-act="b" data-n="' + x.n + '" type="button">Report</button></div></div>';
+      else if (x.type === "r") h += '<div class="card" data-form="r"><p class="note" style="margin:0 0 .3rem"><strong>Round ' + x.n + ': your pack of 3</strong>. Score each washer by its final lie. It counts for your team.</p><div class="row">' + wbPackSel("pk", null) + '</div><div class="row"><button class="btn" data-act="r" data-n="' + x.n + '" type="button">Report my pack</button></div></div>';
+      else if (x.type === "c") h += '<div class="card" data-form="c"><p class="note" style="margin:0 0 .3rem"><strong>' + waNm(a, x.who) + "</strong> (other team) reports " + (x.t === "b" ? x.d + " cm from the cup (opening pitch)." : "round " + x.n + ": " + WB.packText(x.pack) + ".") + '</p><div class="row"><button class="btn" data-act="c" data-t="' + x.t + '" data-n="' + x.n + '" data-who="' + escapeHtml(x.who) + '" data-ok="1" type="button">Confirm</button><button class="btn danger" data-act="c" data-t="' + x.t + '" data-n="' + x.n + '" data-who="' + escapeHtml(x.who) + '" data-ok="0" type="button">Dispute</button></div></div>';
+      else if (x.type === "x") h += '<div class="card" data-form="x"><p class="note" style="margin:0 0 .3rem"><strong>Referee check</strong>: ' + waNm(a, x.who) + " reported " + WB.packText(x.pack) + " for round " + x.n + ' and it was disputed. As the Bariboshi winner you rule on the final pack.</p><div class="row">' + wbPackSel("pk", x.pack) + '</div><div class="row"><button class="btn" data-act="x" data-n="' + x.n + '" data-who="' + escapeHtml(x.who) + '" type="button">Rule</button></div></div>';
+    });
+    if (!acts.length) h = '<p class="note">' + (an.pending.length ? "Waiting for the other team to confirm." : an.disputed.length ? "Referee check: waiting for " + waNm(a, an.disputed[0].ruler) + " to rule." : "Waiting for the other players to report.") + "</p>";
+  }
+  if (h === waMatchHtml) return; waMatchHtml = h; box.hidden = !on; box.innerHTML = h;
+}
+async function waMatchClick(e) {
+  const b = e.target.closest && e.target.closest("button[data-act]"); if (!b || !waCodeCur || !currentUser) return;
+  const form = b.closest("[data-form]"), n = Number(b.dataset.n), pack = form ? [...form.querySelectorAll(".pk")].map((x) => Number(x.value)) : [];
+  let en = null;
+  if (b.dataset.act === "b") en = { k: "b", n, d: Math.max(0, Math.min(2000, Math.round(Number(form.querySelector(".bd").value) || 0))) };
+  else if (b.dataset.act === "r") en = { k: "r", n, pack };
+  else if (b.dataset.act === "c") en = { k: "c", t: b.dataset.t, n, who: b.dataset.who, ok: b.dataset.ok === "1" };
+  else if (b.dataset.act === "x") en = { k: "x", n, who: b.dataset.who, pack };
+  if (!en) return; b.disabled = true;
+  try { const ok = await AR.report(waFs, waCodeCur, currentUser.uid, en); if (!ok) wbStat("That report isn't open right now."); } catch (err) { wbStat("Couldn't send: " + (err.code === "permission-denied" ? "not allowed yet." : err.message || err)); } finally { b.disabled = false; }
+}
+/* Seat lists: names are set with textContent only (never HTML). */
+function waSeatsPaint(a, me) {
+  ["a", "b"].forEach((t) => {
+    $("waTeam" + t.toUpperCase() + "Name").textContent = a ? AR.teamName(a, t) : (t === "a" ? "Team A" : "Team B");
+    const ul = $("waTeam" + t.toUpperCase() + "List"); ul.textContent = "";
+    const ids = a ? AR.teamSeats(a, t) : [], per = a ? a.size / 2 : 2, pre = a && (a.status === "waiting" || a.status === "countdown");
+    ids.forEach((u) => { const li = document.createElement("li"), s = a.seats[u]; if (u === me) li.className = "wa-me";
+      li.textContent = AR.nameOf(a, u) + (u === me ? " (you)" : "") + (pre ? (s.ready ? " · Ready ✓" : " · Not ready") : AR.seatOut(a, u) ? " · Out" : ""); ul.append(li); });
+    for (let i = ids.length; i < per; i++) { const li = document.createElement("li"); li.className = "open"; li.textContent = "Open seat…"; ul.append(li); }
+  });
+}
+function waPaint() {
+  const a = waArena, me = currentUser && currentUser.uid;
+  $("waLobby").hidden = !waCodeCur; $("wbStart").hidden = !currentUser || !!wbCodeCur || !!waCodeCur;
+  if (!waCodeCur || !AR) return;
+  $("waRoomCode").textContent = waCodeCur;
+  const closed = !a || a.status === "abandoned";
+  waSeatsPaint(closed ? null : a, me);
+  if (closed) { ["waReady", "waForfeit", "waToGame", "waNameRow"].forEach((id) => { $(id).hidden = true; }); $("waCount").hidden = true; wbStat("This arena is closed. Make a new one."); waBoardPaint(); waMatchPaint(); return; }
+  const st = AR.matchState(a, waSrvNow(), waFs.toMs), pre = a.status === "waiting", livenow = a.status === "live", dec = AR.decide(a), mine = me && AR.seatOf(a, me);
+  $("waReady").hidden = !(pre && mine && AR.full(a) && st !== "cancelled");
+  if (mine) $("waReady").textContent = mine.ready ? "Not ready" : "I'm ready";
+  const out = !!(mine && AR.seatOut(a, me));
+  $("waForfeit").hidden = !(livenow && mine && !out && !dec.done); $("waToGame").hidden = $("waForfeit").hidden;
+  $("waNameRow").hidden = !(pre && mine && st !== "cancelled");
+  if (!$("waNameRow").hidden && document.activeElement !== $("waTeamName")) { const cur = (a.teamNames && a.teamNames[mine.team]) || "", seen = a.code + ":" + cur; if (waNameSeen !== seen) { waNameSeen = seen; let last = ""; try { last = localStorage.getItem("zdWasherTeamName") || ""; } catch (e) {} $("waTeamName").value = cur || ""; $("waTeamName").placeholder = last ? "Team name (last used: " + last + ")" : "Team name"; } }
+  if (pre && st === "cancelled") wbStat("This arena expired because nobody started a match. Make a new one.");
+  else if (pre && !AR.full(a)) wbStat("Waiting for " + (a.size - AR.seatIds(a).length) + " more player" + (a.size - AR.seatIds(a).length === 1 ? "" : "s") + "…");
+  else if (pre) wbStat(mine && mine.ready ? "Waiting for everyone to tap ready…" : "Tap I'm ready when you're set.");
+  else if (dec.done) { wbStat(AR.resultText(a, me)); if (waPlayingFor === waCodeCur) waStopGame(); bsSettle("arena", waCodeCur, a.startAt); }
+  else if (livenow) wbStat(out ? "You are out of this match. Your team plays on." : "Match on. Use the panel to report each pitch and confirm the other team's.");
+  if (pre && AR.allReady(a) && st !== "cancelled") wac.maybeStart(waCodeCur).catch(() => {});
+  waBoardPaint(); waMatchPaint();
+  if ((a.status === "countdown" || a.status === "live") && a.startAt && !dec.done) { if (!waTick) waTick = setInterval(waTickFn, 100); waTickFn(); }
+  else { clearInterval(waTick); waTick = null; $("waCount").hidden = true; }
+  if (livenow && !dec.done && mine && !out && !waBeat) { waBeat = setInterval(waBeatFn, 5000); waBeatFn(); }
+  else if ((!livenow || dec.done || out) && waBeat) { clearInterval(waBeat); waBeat = null; }
+}
+/* Heartbeat every 10 s while live; an opposing player silent for 30 s is recorded (they stop counting; a team forfeits only when all its players are out). */
+function waBeatFn() {
+  const a = waArena, u = currentUser; if (!a || !u || !waCodeCur || a.status !== "live" || AR.decide(a).done) return;
+  if (Date.now() - waLastBeat >= AR.BEAT_MS - 500) { waLastBeat = Date.now(); AR.heartbeat(waFs, waCodeCur, u.uid).catch(() => {}); }
+  AR.staleTargets(a, u.uid, waSrvNow(), waFs.toMs).forEach((t) => AR.claimGone(waFs, waCodeCur, u.uid, t, waSrvNow()).catch(() => {}));
+}
+function waBoardPaint() {
+  const a = waArena, show = !!(ARC && AR && a && waCodeCur && currentUser && AR.full(a) && a.status !== "abandoned");
+  ["waBoard", "wbPlayBoard"].forEach((id) => { $(id).hidden = !show; });
+  if (!show) { waArcPrev = null; waArcHtml = ""; return; }
+  const m = ARC.teamModel(a, currentUser.uid, { nowMs: waSrvNow(), toMs: waFs.toMs, cd: wac.state(a.startAt) }), f = ARC.fx(waArcPrev, m), html = ARC.html(m, f, waArcPrev);
+  if (html !== waArcHtml) { waArcHtml = html; ["waBoardBody", "wbPlayBoardBody"].forEach((id) => { $(id).querySelector(".arc-main").innerHTML = html; }); }
+  if (f.banner) { const bk = f.banner + ":" + m.round + ":" + m.mode.key, bh = ARC.bannerHtml(f.banner, m.mode.key === "finished"); if (bk !== waArcBannerKey) { waArcBannerKey = bk;
+    ["waBoardBody", "wbPlayBoardBody"].forEach((id) => { $(id).querySelector(".arc-fx").innerHTML = bh; }); setTimeout(() => { ["waBoardBody", "wbPlayBoardBody"].forEach((id) => { const x = $(id).querySelector(".arc-fx"); if (x) x.innerHTML = ""; }); }, 2000); } }
+  if (wbArcSound) f.sound.forEach((c) => wbArcSound.cue(c));
+  const n = $("wbPlayBoard").querySelector("strong"); if (n) n.textContent = "Zabba Washer Arena live board";
+  waArcPrev = m;
+}
+function waStartGame() {
+  if (waPlayingFor === waCodeCur) return;
+  const mine = waArena && currentUser && AR.seatOf(waArena, currentUser.uid); if (!mine || mine.result) return;
+  waPlayingFor = waCodeCur; waLastSteps = -1;
+  setPocket(false); $("resetBtn").onclick(); $("startBtn").onclick();
+  setStatus("Battle on. Your steps are counted for the board. Report your scores in the Zabba Washer Arena panel.");
+}
+function waStopGame() { if (state.running && !state.finished) { setPocket(false); $("pauseBtn").onclick(); setStatus("Battle over. " + AR.resultText(waArena, currentUser && currentUser.uid)); } waPlayingFor = null; }
+function waTickFn() {
+  const a = waArena; if (!a) return; const st = wac.state(a.startAt), c = $("waCount");
+  if (battleVoice) battleVoice.phase("arena:" + waCodeCur + ":" + a.startAt, st.phase);
+  c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
+  if (st.phase === "countdown") { c.textContent = st.n; wbStat("Get set to pitch…"); }
+  else if (st.phase === "go" || st.phase === "live") {
+    c.textContent = st.phase === "go" ? "GO!" : "Battle on.";
+    if (a.status === "countdown") wac.markLive(waCodeCur).catch(() => {});
+    waStartGame();
+    if (st.phase === "live") { clearInterval(waTick); waTick = null; }
+  }
+  waBoardPaint();
+}
+function waEnter(code) { waCodeCur = code; waNameSeen = ""; try { localStorage.setItem("zdWasherArena", code); } catch (e) {} if (waOff) waOff(); waOff = wac.watch(code, (a) => { waArena = a; waPaint(); }); waPaint(); }
+function waExit() { try { localStorage.removeItem("zdWasherArena"); } catch (e) {} if (waOff) waOff(); waOff = null; waArena = null; waCodeCur = null; waPlayingFor = null; clearInterval(waTick); waTick = null; clearInterval(waBeat); waBeat = null; waMatchHtml = ""; waBoardPaint(); waMatchPaint(); wbPaint(); $("waLobby").hidden = true; }
+async function waResume(u) { let code = null; try { code = localStorage.getItem("zdWasherArena"); } catch (e) {} if (!code || waCodeCur || !wac) return; try { if (await wac.resume(code, { uid: u.uid })) waEnter(code); else localStorage.removeItem("zdWasherArena"); } catch (e) {} }
+if (AR && WB) {
+  $("waMatch").addEventListener("click", waMatchClick);
+  $("waReady").onclick = async () => { if (!requireSignIn("washer battle")) return; if (battleVoice) battleVoice.unlock(); if (wbArcSound) wbArcSound.unlock(); const u = wbUser(), mine = waArena && u && AR.seatOf(waArena, u.uid);
+    if (!(mine && mine.ready) && typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") DeviceMotionEvent.requestPermission().catch(() => {});
+    if (gameWake && !(mine && mine.ready)) gameWake.start().catch(() => {});
+    try { await wac.setReady(waCodeCur, u, !(mine && mine.ready)); } catch (e) { wbStat("Couldn't update: " + (e.message || e)); } };
+  $("waTeamNameBtn").onclick = async () => { const u = wbUser(); if (!u || !waCodeCur) return; const v = AR.sanitizeTeamName($("waTeamName").value);
+    try { await wac.setTeamName(waCodeCur, u, v); try { if (v) localStorage.setItem("zdWasherTeamName", v); } catch (e) {} $("waTeamName").value = v; wbStat(v ? "Team name set." : "Team name cleared."); } catch (e) { wbStat("Couldn't set the team name: " + (e.message || e)); } };
+  $("waForfeit").onclick = async () => { if (!waCodeCur || !currentUser || !confirm("Forfeit? You stop playing; if your whole team is out, the other team wins.")) return;
+    try { await AR.forfeit(waFs, waCodeCur, currentUser.uid); } catch (e) { wbStat("Couldn't forfeit: " + (e.message || e)); } };
+  $("waLeave").onclick = async () => { const c = waCodeCur, u = wbUser(), a = waArena, livenow = a && a.status === "live";
+    if (livenow && u && AR.canWrite(a, u.uid) && !AR.decide(a).done && !confirm("Leaving now means you stop playing. If your whole team leaves, the other team wins. Leave?")) return;
+    waExit(); wbStat("You left the arena."); if (u && c) wac.leave(c, u).catch(() => {}); };
 }
 // ---- ZAB bets on battles (zaba-wager.js). Spending is server-side: wager-stake / wager-settle functions.
 // Clients only read wagers/{key}; the countdown waits until both seated stakes are in escrow.
@@ -3170,6 +3437,14 @@ wgTut = mkWager("tut", { prefix: "tb", fs: tbFs, code: () => tbCodeCur, room: ()
   decided: (r) => r.status === "done" || (r.status === "live" && TBm.endAt(r) != null && BR.serverNow(Date.now(), tb.offset) > TBm.endAt(r) + TBm.RULES.settleMs + WG.GRACE_MS) });
 wgWb = mkWager("washers", { prefix: "wb", fs: wbFs, code: () => wbCodeCur, room: () => wbRoom, repaint: () => wbPaint(), status: wbStat, decided: (r) => WB.decide(r).done });
 // Create with an optional bet, then stake it right away; join shows the bet first, then stakes.
+/* 1v1 / 2v2 choice (2v2: no wager yet) */
+function waSizeUi() {
+  const four = waSize === 4;
+  [["wbSize2", !four], ["wbSize4", four], ["wbTeamA", waTeamPick === "a"], ["wbTeamB", waTeamPick === "b"]].forEach(([id, on]) => { const b = $(id); if (b) { b.setAttribute("aria-pressed", on ? "true" : "false"); b.className = on ? "btn" : "btn ghost"; } });
+  $("wbTeamRow").hidden = !four;
+  const st = $("wbStake"); if (st) { const row = st.closest(".row"), lab = row && row.previousElementSibling, note = row && row.nextElementSibling; [lab, row, note].forEach((el) => { if (el) el.hidden = four; }); }
+}
+if ($("wbSize2")) { $("wbSize2").onclick = () => { waSize = 2; waSizeUi(); }; $("wbSize4").onclick = () => { if (wac) { waSize = 4; waSizeUi(); } }; $("wbTeamA").onclick = () => { waTeamPick = "a"; waSizeUi(); }; $("wbTeamB").onclick = () => { waTeamPick = "b"; waSizeUi(); }; waSizeUi(); }
 async function wagerCreate(wg, ctl, u, enter, stat) { const ex = wg ? wg.extra() : {}; if (ex === null) return; const code = await ctl.createRoom(u, ex); enter(code); if (wg && ex.stake) await wg.stakeNow(); }
 async function wagerJoin(wg, ctl, raw, u, enter, stat) { if (wg && !(await wg.confirmJoin(raw))) return void stat("Join cancelled."); const code = await ctl.joinRoom(raw, u); enter(code);
   /* the joiner has seen the bet in the confirm dialog and on the pot line; the Lock in button commits the stake */ }
@@ -3206,7 +3481,7 @@ getRedirectResult(auth)
   })
   .catch(() => {});
 let dailySyncOff = null, liveWalkOff = null;
-onAuthStateChanged(auth, (u) => { zabOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); if (!u && wbCodeCur) wbExit(); else if (u) wbResume(u); wbPaint(); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+onAuthStateChanged(auth, (u) => { zabOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } showUser(u); if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); if (!u && wbCodeCur) wbExit(); else if (u) wbResume(u); if (!u && waCodeCur) waExit(); else if (u) waResume(u); wbPaint(); bbOnUser(u); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("boardAllBtn").onclick = () => {
   boardFilter = "all";
   $("boardAllBtn").className = "btn";
