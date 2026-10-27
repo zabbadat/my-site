@@ -1,4 +1,4 @@
-// Plank failure ends say exactly "Set complete" once (own PLANK_SET_DONE_LINE; the TUT modes keep "Set done."); the Stop tap stays silent (there is no 60 s auto-end).
+// Plank failure ends say exactly "Set complete" once (own PLANK_SET_DONE_LINE; the TUT modes say "Set complete."); the Stop tap stays silent (there is no 60 s auto-end).
 // Run: node test/plank-set-done.test.js
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const P = require("../plank-session.js"), G = require("../get-set.js");
@@ -13,7 +13,7 @@ const stand = K({ left_shoulder: [300, 50], left_hip: [300, 250], left_knee: [30
 const seq = (from, to, f, dt = 33) => { const a = []; for (let t = from; t < to; t += dt) a.push([t, f(t)]); return a; };
 const hold = (frames) => { const h = P.createPlankHold(); let r; for (const [t, k] of frames) r = h.update(k, t); return { h, r }; };
 
-check("plank line is exactly 'Set complete'; TUT lines (SET_DONE_LINE, TUT_FAIL_LINE) stay 'Set done.'", G.PLANK_SET_DONE_LINE === "Set complete" && G.SET_DONE_LINE === "Set done." && G.TUT_FAIL_LINE === "Set done.");
+check("plank line is exactly 'Set complete'; TUT lines (SET_DONE_LINE, TUT_FAIL_LINE) are 'Set complete.'", G.PLANK_SET_DONE_LINE === "Set complete" && G.SET_DONE_LINE === "Set complete." && G.TUT_FAIL_LINE === "Set complete.");
 
 // Run the real plankEnded from index.html with stubs.
 const m = /function plankEnded\(r\) \{[\s\S]*?\n\}\n/.exec(html);

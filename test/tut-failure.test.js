@@ -1,4 +1,4 @@
-// TUT failure: knees / stood up / out of frame ends the set and VOIDS it. TUT modes only (One long set, 3:00 challenge, TUT Battles voice).
+// TUT failure: knees / stood up / out of frame ends the set; with reps it POSTS the time and reps so far (see tut-post-on-end.test.js), with 0 reps it is discarded. TUT modes only (One long set, 3:00 challenge, TUT Battles voice).
 // Regular Sets get no failure watch, no void, no timed voice. Run: node test/tut-failure.test.js
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const S = require("./lib/push-synth.js"), PC = require("../push-counter.js"), SS = require("../push-session.js"), G = require("../get-set.js");
@@ -50,7 +50,7 @@ function page(mode, extra) {
   const log = [], store = [];
   const els = {}; const el = (id) => els[id] || (els[id] = { hidden: false, textContent: "" });
   const pushState = Object.assign({ reps: 12, tut: 41000, elapsed: 0, startedAt: 1000, running: true, finished: false, tick: 7 }, extra || {});
-  const ctx = vm.createContext(Object.assign({ pushState, pushMode: mode, pushWake: { stop: () => ({ catch() {} }) }, pushChallenge: { reset: () => log.push("challengeReset") },
+  const ctx = vm.createContext(Object.assign({ pushState, pushMode: mode, pushWake: { stop: () => ({ catch() {} }) }, pushChallenge: { reset: () => log.push("challengeReset"), update() {}, result: () => ({ reps: 0, tutMs: 0, score: 0 }) }, performance: { now: () => 0 },
     tutTimeVoice: { end: () => log.push("tutVoice.end") }, clearInterval: () => log.push("clearInterval"), Date: { now: () => 31000 }, $: el,
     formatTime: (ms) => Math.round(ms / 1000) + "s", renderPush: () => log.push("renderPush"),
     window: { ZabbadatSession: { FAIL_TEXT: SS.FAIL_TEXT, postOnFailure: SS.postOnFailure }, ZabbadatGetSet: { interruptSpeak: (w) => log.push("say:" + w), SET_DONE_LINE: G.SET_DONE_LINE } },
@@ -60,28 +60,28 @@ function page(mode, extra) {
   return { log, store, pushState, els, void: (why) => vm.runInContext(`voidTutSet(${JSON.stringify(why)})`, ctx) };
 }
 for (const mode of ["long", "challenge"]) {
-  const p = page(mode); p.void("knees");
+  const p = page(mode, { reps: 0 }); p.void("knees");
   check(`${mode}: clock stops at once (not running, finished, interval cleared)`, p.pushState.running === false && p.pushState.finished === true && p.log.includes("clearInterval"));
-  check(`${mode}: VOID: reps 0, TUT 0, clock 0, nothing saved locally`, p.pushState.reps === 0 && p.pushState.tut === 0 && p.pushState.elapsed === 0 && p.store.length === 0);
-  check(`${mode}: VOID: nothing posted to boards / ZAB / Firestore (no finishPushSet, saveRemotePush, awardZab)`, !p.log.some((x) => /finishPushSet|saveRemotePush|awardZab|paintPushRows/.test(x)));
-  check(`${mode}: speaks the short failure line "Set done." and silences the 15 s count`, p.log.includes("say:Set done.") && p.log.includes("tutVoice.end"));
-  check(`${mode}: result text says voided, the reason, and that nothing was saved`, /^Set voided: Knees down\. It lasted 30s and nothing was saved\./.test(p.els.pushStatus.textContent) && p.els.camNote.textContent === "Set voided");
+  check(`${mode}: 0 reps: nothing to post: reps 0, TUT 0, clock 0, nothing saved locally`, p.pushState.reps === 0 && p.pushState.tut === 0 && p.pushState.elapsed === 0 && p.store.length === 0);
+  check(`${mode}: 0 reps: nothing posted to boards / ZAB / Firestore (no finishPushSet, saveRemotePush, awardZab)`, !p.log.some((x) => /finishPushSet|saveRemotePush|awardZab|paintPushRows/.test(x)));
+  check(`${mode}: speaks the short end line "Set complete." and silences the 15 s count`, p.log.includes("say:Set complete.") && p.log.includes("tutVoice.end"));
+  check(`${mode}: result text says the set ended, the reason, and that nothing was saved (no reps)`, /^Set ended: Knees down\. It lasted 30s with no reps counted, so nothing was saved\./.test(p.els.pushStatus.textContent) && p.els.camNote.textContent === "Set ended");
 }
 { const p = page("sets"); p.void("knees"); check("regular Sets: voidTutSet does nothing (no stop, no void, no speech)", p.pushState.running === true && p.pushState.reps === 12 && p.log.length === 0); }
-{ const p = page("long"); p.void("knees"); p.log.length = 0; p.void("standing"); check("a second failure after the set ended does nothing", p.log.length === 0); }
-check("the failure line is exactly 'Set done.'", G.SET_DONE_LINE === "Set done.");
+{ const p = page("long", { reps: 0 }); p.void("knees"); p.log.length = 0; p.void("standing"); check("a second failure after the set ended does nothing", p.log.length === 0); }
+check("the end-of-set line is exactly 'Set complete.'", G.SET_DONE_LINE === "Set complete." && G.TUT_FAIL_LINE === "Set complete.");
 
 // ---- page wiring pins
 const pt = html.slice(html.indexOf("async function poseTick()"), html.indexOf("async function openCam()"));
 check("failure check lives only inside the long/challenge block of poseTick (not Sets)", /if \(\(pushMode === "long" \|\| pushMode === "challenge"\) && postureGuard && pushState\.running && !pushState\.finished\) \{[\s\S]*failWatch\.update\([\s\S]*voidTutSet\(failed\)/.test(pt) && pt.split("failWatch.update(").length === 2);
-check("voidTutSet only acts in long/challenge and never calls the save/post path", /\(pushMode !== "long" && pushMode !== "challenge"\)\) return;/.test(fnSrc) && !/finishPushSet|saveRemotePush|awardZab|localStorage|paintPushRows/.test(fnSrc));
+check("voidTutSet only acts in long/challenge; its only save/post route is finishPushSet (no direct saveRemotePush / awardZab / localStorage)", /\(pushMode !== "long" && pushMode !== "challenge"\)\) return;/.test(fnSrc) && !/saveRemotePush|awardZab|localStorage|paintPushRows/.test(fnSrc) && fnSrc.split("finishPushSet(").length === 2);
 check("failWatch resets on each clock start and on Reset", /failWatch\.reset\(performance\.now\(\)\);\n  pushState\.running = true;/.test(html) && /failWatch\.reset\(null\);\n  resetPoseBaseline\(\);/.test(html));
 check("the old 'clock keeps running' wording is gone from TUT copy (index.html, tut.html)", !/clock keeps running/i.test(html) && !/clock keeps running/i.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
-check("TUT copy says the set is voided (under one minute) and nothing is saved", /ends the set and voids it: nothing is saved or posted/.test(html) && /Before one minute it is voided, so nothing is saved or posted/.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
+check("TUT copy says the set ends and the time and reps so far still post (no 'voids it' left)", /ends the set, and the time under tension and reps so far still post/.test(html) && /ends the set, and your time under tension and reps so far still post/.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")) && !/voids it|is voided|nothing is saved or posted/.test(html + fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
 
 // ---- regular Sets: no timed voice, no failure. Sets-mode code path speaks only rep numbers and the start coaching.
 check("regular Sets get NO 15 s count: the one tutTimeVoice.tick call is gated on long/challenge only", html.split("tutTimeVoice.tick(").length === 2 && /\(pushMode === "long" \|\| pushMode === "challenge"\) && pushState\.running && !pushState\.finished\) tutTimeVoice\.tick\(now\)/.test(html));
-check("regular Sets: nothing else speaks on a timer (4 interruptSpeak call sites: rules line, TUT void, TUT Battle loss, plank failure end; only sayRep and the shared coaching lines call speech in the push-up code)", (html.match(/interruptSpeak\(/g) || []).length === 4 && !/pushMode === "sets"[^\n]*(interruptSpeak|tick\()/.test(html));
+check("regular Sets: nothing else speaks on a timer (5 interruptSpeak call sites: rules line, TUT end, TUT 0-rep end, TUT Battle loss, plank failure end; only sayRep and the shared coaching lines call speech in the push-up code)", (html.match(/interruptSpeak\(/g) || []).length === 5 && !/pushMode === "sets"[^\n]*(interruptSpeak|tick\()/.test(html));
 { const sets = html.slice(html.indexOf('if ($("pushPauseBtn")) $("pushPauseBtn").onclick'), html.indexOf('if ($("pushResetBtn"))'));
   check("Sets pause/resume path has no voice or failure code", !/tutTimeVoice|failWatch|voidTutSet|interruptSpeak/.test(sets)); }
 
@@ -94,6 +94,6 @@ check("regular Sets: nothing else speaks on a timer (4 interruptSpeak call sites
 
 // ---- TUT Battles
 check("TUT Battle: polite 15 s count from the shared 3:00 (3:00 mark never spoken), reset at GO, ended on loss / time-up / done", /const tbTimeVoice = [^\n]*makeHoldVoice\(\{ polite: true \}\)/.test(html) && /tbTimeVoice\.tick\(TBm\.RULES\.durationMs - left\)/.test(html) && /left > 0\) tbTimeVoice\.tick/.test(html) && /tbRepVoice\.reset\(\); if \(tbTimeVoice\) tbTimeVoice\.reset\(\);/.test(html) && /tbLostSent = true; if \(tbTimeVoice\) tbTimeVoice\.end\(\);/.test(html));
-check("TUT Battle failure: 'Set done.' spoken when the judge calls you out; the loss is still recorded (reportLoss), not voided", /tbTimeVoice\.end\(\); if \(window\.ZabbadatGetSet[^\n]*interruptSpeak\(window\.ZabbadatGetSet\.SET_DONE_LINE\)[^\n]*TBm\.reportLoss\(/.test(html));
+check("TUT Battle failure: 'Set complete.' spoken when the judge calls you out; the loss is still recorded (reportLoss), not voided", /tbTimeVoice\.end\(\); if \(window\.ZabbadatGetSet[^\n]*interruptSpeak\(window\.ZabbadatGetSet\.SET_DONE_LINE\)[^\n]*TBm\.reportLoss\(/.test(html));
 check("Plank Battle voice untouched (Plank House now has its own uncapped voice, see plank-no-cap.test.js)", /const plankTimeVoice = [^\n]*makePlankTimeVoice\(\) : null;/.test(html) && /const pbTimeVoice = [^\n]*makeHoldVoice\(\) : null;/.test(html));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

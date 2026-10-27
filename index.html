@@ -719,8 +719,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button type="button" id="modeChallengeBtn" aria-pressed="false">Three-minute challenge</button>
     </div>
     <div class="olt-banner" id="oltBanner"><span>TIME UNDER TENSION SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
-    <p class="note" id="longNote" hidden>Time under tension set: the clock runs nonstop from Start. Stay in plank. Standing up, dropping to your knees for a second, or leaving the frame for two seconds ends the set. Before one minute it is voided: nothing is saved or posted. From one minute on, your reps and time post. Rule breaks: <span class="vcount" id="pushViol">0</span></p>
-    <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock from Start, no pause. Stay in plank the whole time; push-ups or holding the top both count. Standing up, dropping to your knees for a second, or leaving the frame for two seconds ends the set and voids it: nothing is saved or posted. Each hold at the top counts for at most 10 seconds of time under tension. Score: reps plus seconds under tension.</p>
+    <p class="note" id="longNote" hidden>Time under tension set: the clock runs nonstop from Start. Stay in plank. Standing up, dropping to your knees for a second, or leaving the frame for two seconds ends the set, and the time under tension and reps so far still post. Rule breaks: <span class="vcount" id="pushViol">0</span></p>
+    <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock from Start, no pause. Stay in plank the whole time; push-ups or holding the top both count. Standing up, dropping to your knees for a second, or leaving the frame for two seconds ends the set, and the time under tension and reps so far still post. Each hold at the top counts for at most 10 seconds of time under tension. Score: reps plus seconds under tension.</p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Total reps (all sets today)</span></div>
       <div class="stat"><b id="pushSets">0</b><span>Total sets today</span></div>
@@ -1695,17 +1695,19 @@ if ($("modeLongBtn")) $("modeLongBtn").onclick = () => setPushMode("long");
 if ($("modeChallengeBtn")) $("modeChallengeBtn").onclick = () => setPushMode("challenge");
 // Three-minute challenge end: show the result card, then reuse the normal save/post path.
 // Exception: One long set at 60 s or more with at least 1 rep posts instead (finishPushSet, same as End session).
-// A camera-detected failure in a TUT mode (One long set / 3:00 challenge) ends the set at once and VOIDS it: the clock stops, reps and
-// time under tension go to 0, nothing is saved locally, no board row, no ZAB, no remote write (finishPushSet is never reached).
-// Regular Sets are not TUT and never get here. Reset starts a fresh set.
+// A camera-detected failure in a TUT mode (One long set / 3:00 challenge) ends the set at once. With at least 1 rep it POSTS the time under
+// tension and reps so far through finishPushSet (same fields and path as End session, once). With 0 reps there is nothing to post: the set is
+// discarded (clock stops, nothing saved, no board row, no ZAB, no remote write). Regular Sets are not TUT and never get here. Reset starts a fresh set.
 function voidTutSet(reason) {
   if (pushState.finished || !pushState.running || (pushMode !== "long" && pushMode !== "challenge")) return;
   const lasted = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
-  // One long set that already reached the minute with reps: a failure ends the set and POSTS it (same path as End session, once).
-  if (window.ZabbadatSession.postOnFailure && window.ZabbadatSession.postOnFailure(pushMode, lasted, pushState.reps)) {
-    const GS0 = window.ZabbadatGetSet; if (GS0 && GS0.interruptSpeak) GS0.interruptSpeak(GS0.SET_DONE_LINE);
+  const why = (window.ZabbadatSession.FAIL_TEXT || {})[reason] || "Set ended";
+  let r = null;
+  if (pushMode === "challenge" && pushChallenge) { pushChallenge.update(performance.now(), {}); r = pushChallenge.result(); } // credit the top hold up to now; nothing past this moment
+  if (window.ZabbadatSession.postOnFailure && window.ZabbadatSession.postOnFailure(pushMode, r ? r.reps : pushState.reps)) {
+    if (r) { pushState.tut = r.tutMs; pushState.reps = r.reps; showChallengeResult(r, "Three-minute challenge ended early: " + why); }
     $("camNote").textContent = "Set ended";
-    finishPushSet((window.ZabbadatSession.FAIL_TEXT || {})[reason] || "Set ended");
+    finishPushSet(why); // speaks "Set complete." once, saves, posts once
     return;
   }
   pushState.running = false; pushState.finished = true;
@@ -1716,11 +1718,17 @@ function voidTutSet(reason) {
   if (pushChallenge) pushChallenge.reset();
   if ($("challengeResult")) $("challengeResult").hidden = true;
   if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
-  const why = (window.ZabbadatSession.FAIL_TEXT || {})[reason] || "Set ended";
-  $("pushStatus").textContent = "Set voided: " + why + ". It lasted " + formatTime(lasted) + " and nothing was saved. Tap Reset to try again.";
-  $("camNote").textContent = "Set voided";
-  const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.SET_DONE_LINE); // short failure line; may interrupt other speech
+  $("pushStatus").textContent = "Set ended: " + why + ". It lasted " + formatTime(lasted) + " with no reps counted, so nothing was saved. Tap Reset to try again.";
+  $("camNote").textContent = "Set ended";
+  const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.SET_DONE_LINE); // short end line; may interrupt other speech
   renderPush();
+}
+function showChallengeResult(r, title) {
+  const box = $("challengeResult");
+  if (!box) return;
+  box.innerHTML = "<strong>" + escapeHtml(title) + "</strong><br>Reps: " + r.reps + "<br>Time under tension: " + formatTut(r.tutMs) +
+    "<br>Score: " + r.score + " (reps + seconds under tension)<br>Flags: " + escapeHtml(window.ZabbadatChallenge.flagSummary(challengeFlags));
+  box.hidden = false;
 }
 function finishChallenge() {
   if (pushState.finished || !pushChallenge) return;
@@ -1728,12 +1736,7 @@ function finishChallenge() {
   const r = pushChallenge.result();
   pushState.tut = r.tutMs; pushState.reps = r.reps;
   pushState.elapsed = 180000; pushState.startedAt = 0;
-  const box = $("challengeResult");
-  if (box) {
-    box.innerHTML = "<strong>Three-minute challenge done</strong><br>Reps: " + r.reps + "<br>Time under tension: " + formatTut(r.tutMs) +
-      "<br>Score: " + r.score + " (reps + seconds under tension)<br>Flags: " + escapeHtml(window.ZabbadatChallenge.flagSummary(challengeFlags));
-    box.hidden = false;
-  }
+  showChallengeResult(r, "Three-minute challenge done");
   finishPushSet();
 }
 // Hero CTAs: jump to the counter and preselect a mode (never mid-session; the camera still loads only from the counter).
@@ -1801,6 +1804,7 @@ function finishPushSet(endedBy) {
   pushState.running = false;
   pushState.finished = true;
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.end();
+  if (pushMode === "long" || pushMode === "challenge") { const GSd = window.ZabbadatGetSet; if (GSd && GSd.interruptSpeak) GSd.interruptSpeak(GSd.SET_DONE_LINE); } // "Set complete." once, every TUT end
   clearInterval(pushState.tick);
   if (pushWake) pushWake.stop().catch(() => {});
   const ms = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
@@ -2040,7 +2044,7 @@ async function poseTick() {
       const st = pushCounter.state();
       const g = postureGuard.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0);
       if (g.event && pushMode === "challenge") challengeFlags[g.event] = (challengeFlags[g.event] || 0) + 1;
-      if (g.event) $("pushStatus").textContent = (g.event === "knees" ? "Knees down" : "Stood up / left plank") + " flagged: fix it now or the set is voided.";
+      if (g.event) $("pushStatus").textContent = (g.event === "knees" ? "Knees down" : "Stood up / left plank") + " flagged: fix it now or the set ends.";
       const failed = typeof failWatch !== "undefined" && failWatch ? failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0) : null;
       if (failed) voidTutSet(failed); // clock stops here; the checks below see finished and skip
       const f = $("pushViolFlag");
