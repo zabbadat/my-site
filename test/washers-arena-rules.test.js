@@ -25,7 +25,8 @@ check("no other new rule opens a public read (only washersBattleSeason, as befor
 check("rules still balanced", ["{", "(", "["].every((c, i) => { const cl = "})]"[i]; return rules.split(c).length === rules.split(cl).length; }));
 // the 1v1 room rules: only the optional saved name was added to a seat; plank / TUT / everything else is unchanged vs the live copy
 let base = ""; try { base = cp.execSync("git show origin/main:firestore.rules", { cwd: path.join(__dirname, ".."), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); } catch (e) {}
-if (base) {
+if (base && base.indexOf("potSeatOk") >= 0) check("(origin/main already carries these rules: the pre-release comparison no longer applies)", true);
+else if (base) {
   const blk = (t, name) => { const i = t.indexOf("match /" + name), e = t.indexOf("\n    }\n", i); return t.slice(i, e); };
   check("plank, TUT, wagers, users, ZAB, reputation rules are byte-identical to the live copy", ["battles/{code}", "tutBattles/{code}", "tutBattleStats/{uid}", "wagers/{key}", "users/{uid}", "zabBoard/{uid}", "repBoard/{uid}", "repLog/{key}"].every((n) => blk(base, n) === blk(rules, n)));
   const a = blk(base, "washersBattles/{code}"), b = blk(rules, "washersBattles/{code}");
