@@ -2711,7 +2711,7 @@ async function resumeBattle(u) {
 }
 $("battleCreate").onclick = async () => {
   const u = battleUser(); if (!u) { requireSignIn("plank battle"); return void bStatus("Sign in to create a battle."); };
-  $("battleCreate").disabled = true; bStatus("Making a room…");
+  $("battleCreate").disabled = true; bStatus("Making an arena…");
   try { await wagerCreate(wgPlank, battle, u, enterBattle, bStatus); } catch (e) { bStatus(e.message || "Couldn't create an arena."); }
   finally { $("battleCreate").disabled = false; }
 };
@@ -3033,7 +3033,7 @@ if (WB) {
   $("wbMatch").addEventListener("click", wbMatchClick);
   $("wbCreate").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to create a battle."); }
     if (wbArcSound) wbArcSound.unlock();
-    $("wbCreate").disabled = true; wbStat("Making a room…");
+    $("wbCreate").disabled = true; wbStat("Making an arena…");
     try { await wagerCreate(wgWb, wbc, u, wbEnter, wbStat); } catch (e) { wbStat(e.message || "Couldn't create an arena."); } finally { $("wbCreate").disabled = false; } };
   $("wbJoin").onclick = async () => { const u = wbUser(); if (!u) { requireSignIn("washer battle"); return void wbStat("Sign in to join a battle."); }
     if (wbArcSound) wbArcSound.unlock();
@@ -3119,7 +3119,7 @@ wgWb = mkWager("washers", { prefix: "wb", fs: wbFs, code: () => wbCodeCur, room:
 async function wagerCreate(wg, ctl, u, enter, stat) { const ex = wg ? wg.extra() : {}; if (ex === null) return; const code = await ctl.createRoom(u, ex); enter(code); if (wg && ex.stake) await wg.stakeNow(); }
 async function wagerJoin(wg, ctl, raw, u, enter, stat) { if (wg && !(await wg.confirmJoin(raw))) return void stat("Join cancelled."); const code = await ctl.joinRoom(raw, u); enter(code);
   /* the joiner has seen the bet in the confirm dialog and on the pot line; the Lock in button commits the stake */ }
-$("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making a room…"); try { await wagerCreate(wgTut, tb, u, tbEnter, tbStat); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
+$("tbCreate").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to create a battle."); }; $("tbCreate").disabled = true; tbStat("Making an arena…"); try { await wagerCreate(wgTut, tb, u, tbEnter, tbStat); } catch (e) { tbStat(e.message); } finally { $("tbCreate").disabled = false; } };
 $("tbJoin").onclick = async () => { const u = battleUser(); if (!u) { requireSignIn("tut battle"); return void tbStat("Sign in to join a battle."); }; $("tbJoin").disabled = true; tbStat("Joining…"); try { await wagerJoin(wgTut, tb, $("tbCode").value, u, tbEnter, tbStat); } catch (e) { tbStat(e.code === "permission-denied" ? "Couldn't join that room." : e.message); } finally { $("tbJoin").disabled = false; } };
 $("tbCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tbJoin").click(); });
 $("tbCam").onclick = () => { if (!requireSignIn("tut battle")) return; if (tbWake) tbWake.start().catch(() => {}); unlockGetSet(); const restart = sessionPlan("tut-battle") === "restart"; /* restart: no placement/criteria intro */ sessionCommit("tut-battle"); const placed = restart ? null : showPositioning("tut", $("tbCamNote"), () => false, "place"); return tbCamOn(placed); };
