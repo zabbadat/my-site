@@ -1,0 +1,10 @@
+const fs = require("fs"), path = require("path");
+const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+let pass = 0, fail = 0;
+const ok = (c, m) => { if (c) { pass++; console.log("PASS " + m); } else { fail++; console.log("FAIL " + m); } };
+ok(html.includes("<h2>Play pitch and post solo Zabba washers</h2>"), "solo section title reads 'Play pitch and post solo Zabba washers'");
+const iP = html.indexOf('id="pvpWasherEntry"'), iB = html.indexOf('<section id="board">'), iPl = html.indexOf('<section id="play">');
+ok(iP > iPl && iP < iB, "PvP entry sits inside the play section, above the Live board");
+ok(/<h3>PvP Zabba washers battle<\/h3>/.test(html) && /id="pvpWasherEntryBtn" href="#washerbattle"/.test(html), "PvP entry labelled and linked to #washerbattle");
+console.log(pass + " passed, " + fail + " failed");
+process.exit(fail ? 1 : 0);
