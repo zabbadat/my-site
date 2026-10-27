@@ -7,7 +7,7 @@ exports.handler = async (event) => {
   const miss = missingEnv(["FIREBASE_SERVICE_ACCOUNT"]); if (miss.length) return notConfigured(miss);
   const uid = await uidFrom(event); if (!uid) return json(401, { error: "Sign in." });
   let body = {}; try { body = JSON.parse(event.body || "{}"); } catch { return json(400, { error: "Bad JSON" }); }
-  if (typeof body.key !== "string" || !/^(washers|tut|plank)_[A-HJ-NP-Z2-9]{4}_\d{1,15}$/.test(body.key)) return json(400, { error: "Bad key" });
+  if (typeof body.key !== "string" || !/^(washers|arena|tut|plank)_[A-HJ-NP-Z2-9]{4}_\d{1,15}$/.test(body.key)) return json(400, { error: "Bad key" });
   try {
     const { wagerFs } = require("../lib/wager-fs"); const fs = wagerFs();
     const w = (await fs.db.doc("wagers/" + body.key).get()).data();

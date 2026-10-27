@@ -521,6 +521,11 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .bb-scroll td, .bb-scroll th { padding:.4rem .5rem; white-space:nowrap; }
 .bb-scroll td:nth-child(2) { white-space:normal; overflow-wrap:anywhere; }
 .bb-me td { background:rgba(143,191,168,.18); font-weight:700; }
+.zab-wager{text-transform:none;letter-spacing:0;font-variant:normal}
+.wg-pot{margin:.6rem 0;padding:.6rem .7rem;border:1px solid var(--line,#3a3a3a);border-radius:10px}.wg-title{margin:0 0 .3rem}
+.wg-seats{list-style:none;margin:.2rem 0;padding:0}.wg-seats li{padding:.15rem 0}.wg-seats .wg-me{font-weight:700}
+.wg-entry{align-items:center;gap:.5rem}.wg-entry input{max-width:9rem}.wg-label{display:inline-flex;align-items:center;margin:0;font-weight:700}
+.wg-ask{font-weight:700;margin:.3rem 0}
 /* ARC-END */
 </style>
 </head>
@@ -790,7 +795,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div id="wbStart" hidden>
       <label id="wbSizeLabel">Players</label>
       <div class="row" id="wbSizeRow" role="group" aria-labelledby="wbSizeLabel"><button class="btn" id="wbSize2" type="button" aria-pressed="true">1v1</button><button class="btn ghost" id="wbSize4" type="button" aria-pressed="false">2v2</button></div>
-      <div id="wbTeamRow" hidden><label id="wbTeamLabel">Your team</label><div class="row" role="group" aria-labelledby="wbTeamLabel"><button class="btn" id="wbTeamA" type="button" aria-pressed="true">Team A</button><button class="btn ghost" id="wbTeamB" type="button" aria-pressed="false">Team B</button></div><p class="note" style="margin:.2rem 0 0">2v2: two teams of two. Players who join with the code fill the open seats so the teams stay even. Wagers are not available for 2v2 yet.</p></div>
+      <div id="wbTeamRow" hidden><label id="wbTeamLabel">Your team</label><div class="row" role="group" aria-labelledby="wbTeamLabel"><button class="btn" id="wbTeamA" type="button" aria-pressed="true">Team A</button><button class="btn ghost" id="wbTeamB" type="button" aria-pressed="false">Team B</button></div><p class="note" style="margin:.2rem 0 0">2v2: two teams of two. Players who join with the code fill the open seats so the teams stay even.</p></div>
+      <p class="note" id="wbWagerNote" style="margin:.2rem 0 0">Each player sets their own <span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> wager in the lobby: enter an amount, Submit, then Confirm. Your wager is final once confirmed, and 0 means no wager. When everyone has locked in, all players agree to one pot. The winner takes it (2v2: the winning team splits it equally). Ties and matches that never start are refunded.</p>
       <div class="row"><button class="btn" id="wbCreate" type="button">Create arena</button></div>
       <label for="wbCode">Or join with a code</label>
       <div class="row"><input id="wbCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="K7QX" style="max-width:9rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="wbJoin" type="button">Join</button></div>
@@ -814,6 +820,18 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="wa-team" id="waTeamB"><h4 id="waTeamBName">Team B</h4><ul id="waTeamBList"></ul></div>
       </div>
       <div id="waNameRow" hidden><label for="waTeamName">Name your team (optional, up to 20 characters)</label><div class="row"><input id="waTeamName" type="text" maxlength="20" autocomplete="off" placeholder="Team name" style="max-width:14rem"><button class="btn ghost" id="waTeamNameBtn" type="button">Set team name</button></div></div>
+      <div id="waPot" class="wg-pot" hidden>
+        <h4 class="wg-title">Wagers</h4>
+        <ul class="wg-seats" id="waPotSeats"></ul>
+        <p class="note" id="waPotTotal" hidden></p>
+        <div id="waPotEntry" hidden>
+          <p class="note">Your wager is final once confirmed: enter your own amount, tap Submit, then Confirm. 0 means no wager.</p>
+          <div class="row wg-entry"><label for="waPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="waPotAmt" type="number" inputmode="numeric" min="0" step="1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="waPotSubmit" type="button">Submit</button></div>
+        </div>
+        <div id="waPotConfirm" hidden><p class="wg-ask" id="waPotAsk"></p><div class="row"><button class="btn" id="waPotYes" type="button">Confirm</button><button class="btn ghost" id="waPotBack" type="button">Back</button></div></div>
+        <div id="waPotAgree" hidden><p class="note" id="waPotAgreeText"></p><div class="row"><button class="btn" id="waPotAgreeBtn" type="button">Agree to the pot</button></div></div>
+        <p class="note" id="waPotMsg" hidden></p>
+      </div>
       <div class="battle-count" id="waCount" hidden></div>
       <div id="waBoard" class="card wb-board" hidden aria-live="off"><div class="arc-head"><strong>Zabba Washer Arena live board</strong><button type="button" class="arc-mute" data-arc-mute hidden>Sound: on</button></div><div id="waBoardBody" class="arc"><div class="arc-fx"></div><div class="arc-main"></div></div></div>
       <div id="waMatch" hidden></div>
@@ -825,6 +843,18 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="stats duo">
         <div class="stat"><b id="wbP1">…</b><span id="wbP1s">Player 1</span></div>
         <div class="stat"><b id="wbP2">Waiting…</b><span id="wbP2s">Player 2</span></div>
+      </div>
+      <div id="wbPot" class="wg-pot" hidden>
+        <h4 class="wg-title">Wagers</h4>
+        <ul class="wg-seats" id="wbPotSeats"></ul>
+        <p class="note" id="wbPotTotal" hidden></p>
+        <div id="wbPotEntry" hidden>
+          <p class="note">Your wager is final once confirmed: enter your own amount, tap Submit, then Confirm. 0 means no wager.</p>
+          <div class="row wg-entry"><label for="wbPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="wbPotAmt" type="number" inputmode="numeric" min="0" step="1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="wbPotSubmit" type="button">Submit</button></div>
+        </div>
+        <div id="wbPotConfirm" hidden><p class="wg-ask" id="wbPotAsk"></p><div class="row"><button class="btn" id="wbPotYes" type="button">Confirm</button><button class="btn ghost" id="wbPotBack" type="button">Back</button></div></div>
+        <div id="wbPotAgree" hidden><p class="note" id="wbPotAgreeText"></p><div class="row"><button class="btn" id="wbPotAgreeBtn" type="button">Agree to the pot</button></div></div>
+        <p class="note" id="wbPotMsg" hidden></p>
       </div>
       <div class="battle-count" id="wbCount" hidden></div>
       <div id="wbBoard" class="card wb-board" hidden aria-live="off"><div class="arc-head"><strong>Zabba Washer Battle live board</strong><button type="button" class="arc-mute" data-arc-mute hidden>Sound: on</button></div><div id="wbBoardBody" class="arc"><div class="arc-fx"></div><div class="arc-main"></div></div></div>
@@ -1172,6 +1202,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/zaba-wager.js"></script>
   <script src="/reputation.js"></script>
   <script src="/washers-arena.js"></script>
+  <script src="/washers-pot.js"></script>
   <script src="/washers-battlers.js"></script>
   <script src="/washers-arcade.js"></script>
   <script src="/app-bridge.js" defer></script>
@@ -2516,7 +2547,8 @@ function mirrorBoard(u, total) {
   const e = ZT.boardEntry(u.uid, publicName(displayNameOf(u)), total);
   setDoc(doc(db, "zabBoard", u.uid), { uid: e.uid, name: e.name, total: e.total, updatedAt: serverTimestamp() }).catch(() => { ztMirrored = null; });
 }
-function paintZab(n) { const row = $("zabBalanceRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintZabSection(n); }
+let zabBalNow = null;
+function paintZab(n) { zabBalNow = n == null ? null : Number(n); const row = $("zabBalanceRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintZabSection(n); }
 function paintZabSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.innerHTML = on ? window.ZabCurrency.amountHtml(Number(n)) : "—"; if (o) o.hidden = on; if (g) { g.setAttribute("href", on ? "#zab" : "#play"); g.setAttribute("aria-label", on ? "ZAB balance" : "Sign in"); if (on) { const nm = ZT && ZT.badgeParts ? ZT.badgeParts(typeof auth !== "undefined" && auth.currentUser ? publicName(displayNameOf(auth.currentUser)) : "", n).name : ""; g.innerHTML = (nm ? '<span class="zt-name">' + escapeHtml(nm) + '</span> \u00b7 ' : "") + window.ZabCurrency.amountHtml(Number(n)); g.title = (nm ? nm + " \u00b7 " : "") + window.ZabCurrency.amountText(Number(n)); } else { g.textContent = "Sign in"; g.title = ""; } } }
 // Badge: signed in -> #zab (plain link); signed out -> #play sign-in box, scrolled into view with the Google button focused.
 function ztBadgeClick(ev) {
@@ -3054,7 +3086,7 @@ function wbPaint() {
   if (!WB) return;
   const r = wbRoom, me = currentUser && currentUser.uid;
   $("wbSignIn").hidden = !!currentUser; $("wbStart").hidden = !currentUser || !!wbCodeCur || !!waCodeCur; $("wbLobby").hidden = !wbCodeCur;
-  if (!wbCodeCur) return;
+  if (!wbCodeCur) { if (potWb) potWb.stop(); return; }
   $("wbRoomCode").textContent = wbCodeCur;
   if (r) wbWatchReps(r);
   const ps = r ? BR.orderedPlayers(r, wbFs.toMs) : [], pre = r && !BR.started(r) && r.status !== "abandoned";
@@ -3066,19 +3098,20 @@ function wbPaint() {
     if (p && dec.done) sub += dec.winner === p.uid ? " · WIN" : dec.winner ? "" : " · TIE";
     $("wbP" + (i + 1) + "s").textContent = sub; });
   const mine = r && me && r.players && r.players[me];
-  $("wbReady").hidden = !(pre && mine && ps.length === 2 && st !== "cancelled");
+  $("wbReady").hidden = !(pre && mine && ps.length === 2 && st !== "cancelled" && (!potWb || potWb.readyOk(r)));
   if (mine) $("wbReady").textContent = mine.ready ? "Not ready" : "I'm ready";
   $("wbForfeit").hidden = !(live && mine && !mine.result && !dec.done);
   $("wbToGame").hidden = !(live && mine && !mine.result && !dec.done);
   if (!r || r.status === "abandoned") wbStat("This room is closed. Make a new one.");
   else if (pre && st === "cancelled") wbStat("This room expired because nobody started a match. Make a new one.");
   else if (pre && ps.length < 2) wbStat("Waiting for a second player…");
-  else if (pre) wbStat(mine && mine.ready ? "Waiting for the other player to tap ready…" : "Tap I'm ready when you're set.");
+  else if (pre) wbStat((potWb && potWb.hint(r)) || (mine && mine.ready ? "Waiting for the other player to tap ready…" : "Tap I'm ready when you're set."));
   else if (dec.done) { wbStat(WB.resultText(r, me)); if (wbPlayingFor === wbCodeCur) wbStopGame(); wbSettleRep(); bsSettle("room", wbCodeCur, r.startAt); }
   else if (live) wbStat("Match on. Use the panel to report each pitch and confirm your opponent's.");
   if (pre && BR.bothReady(r) && st !== "cancelled") wbc.maybeStart(wbCodeCur).catch(() => {});
   wbBoardPaint(); wbMatchPaint();
   if (wgWb) wgWb.paint();
+  if (potWb) potWb.paint();
   if (r && (r.status === "countdown" || r.status === "live") && r.startAt && !dec.done) { if (!wbTick) wbTick = setInterval(wbTickFn, 100); wbTickFn(); }
   else { clearInterval(wbTick); wbTick = null; $("wbCount").hidden = true; }
   if (live && !dec.done && mine && !wbBeat) { wbBeat = setInterval(wbBeatFn, 5000); wbBeatFn(); }
@@ -3246,7 +3279,8 @@ function bsSettle(kind, code, startAt, tries) {
 /* ---- Zabba Washer Arena: 2v2 teams (washers-arena.js, washersArenas/{code}). One shared room, two teams of two. 1v1 is the plain room above. ---- */
 const AR = window.ZabbaArena;
 const waFs = mkBattleFs("washersArenas");
-const wac = AR ? AR.controller(waFs, { codeTaken: async (c) => { try { return !!(await wbFs.tx(c, (t) => t.get())); } catch (e) { return true; } } }) : null;
+let potWb = null, potWa = null; const potState = {}; // escrow doc per lobby ("wb" 1v1 room, "wa" 2v2 arena), set by mkPot
+const wac = AR ? AR.controller(waFs, { canStart: (a) => !window.ZabbaWasherPot || window.ZabbaWasherPot.canStart(a, potState.wa), codeTaken: async (c) => { try { return !!(await wbFs.tx(c, (t) => t.get())); } catch (e) { return true; } } }) : null;
 let waArena = null, waOff = null, waTick = null, waBeat = null, waPlayingFor = null, waLastSteps = -1, waLastBeat = 0, waSize = 2, waTeamPick = "a", waArcPrev = null, waArcHtml = "", waArcBannerKey = "", waMatchHtml = "", waNameSeen = "";
 const waPub = AR && WB ? WB.throttle(AR.PUBLISH_MS, () => Date.now()) : null;
 const waSrvNow = () => BR.serverNow(Date.now(), wac ? wac.offset : 0);
@@ -3297,9 +3331,9 @@ function waPaint() {
   $("waRoomCode").textContent = waCodeCur;
   const closed = !a || a.status === "abandoned";
   waSeatsPaint(closed ? null : a, me);
-  if (closed) { ["waReady", "waForfeit", "waToGame", "waNameRow"].forEach((id) => { $(id).hidden = true; }); $("waCount").hidden = true; wbStat("This arena is closed. Make a new one."); waBoardPaint(); waMatchPaint(); return; }
+  if (closed) { ["waReady", "waForfeit", "waToGame", "waNameRow"].forEach((id) => { $(id).hidden = true; }); $("waCount").hidden = true; wbStat("This arena is closed. Make a new one."); waBoardPaint(); waMatchPaint(); if (potWa) potWa.paint(); return; }
   const st = AR.matchState(a, waSrvNow(), waFs.toMs), pre = a.status === "waiting", livenow = a.status === "live", dec = AR.decide(a), mine = me && AR.seatOf(a, me);
-  $("waReady").hidden = !(pre && mine && AR.full(a) && st !== "cancelled");
+  $("waReady").hidden = !(pre && mine && AR.full(a) && st !== "cancelled" && (!potWa || potWa.readyOk(a)));
   if (mine) $("waReady").textContent = mine.ready ? "Not ready" : "I'm ready";
   const out = !!(mine && AR.seatOut(a, me));
   $("waForfeit").hidden = !(livenow && mine && !out && !dec.done); $("waToGame").hidden = $("waForfeit").hidden;
@@ -3307,11 +3341,11 @@ function waPaint() {
   if (!$("waNameRow").hidden && document.activeElement !== $("waTeamName")) { const cur = (a.teamNames && a.teamNames[mine.team]) || "", seen = a.code + ":" + cur; if (waNameSeen !== seen) { waNameSeen = seen; let last = ""; try { last = localStorage.getItem("zdWasherTeamName") || ""; } catch (e) {} $("waTeamName").value = cur || ""; $("waTeamName").placeholder = last ? "Team name (last used: " + last + ")" : "Team name"; } }
   if (pre && st === "cancelled") wbStat("This arena expired because nobody started a match. Make a new one.");
   else if (pre && !AR.full(a)) wbStat("Waiting for " + (a.size - AR.seatIds(a).length) + " more player" + (a.size - AR.seatIds(a).length === 1 ? "" : "s") + "…");
-  else if (pre) wbStat(mine && mine.ready ? "Waiting for everyone to tap ready…" : "Tap I'm ready when you're set.");
+  else if (pre) wbStat((potWa && potWa.hint(a)) || (mine && mine.ready ? "Waiting for everyone to tap ready…" : "Tap I'm ready when you're set."));
   else if (dec.done) { wbStat(AR.resultText(a, me)); if (waPlayingFor === waCodeCur) waStopGame(); bsSettle("arena", waCodeCur, a.startAt); }
   else if (livenow) wbStat(out ? "You are out of this match. Your team plays on." : "Match on. Use the panel to report each pitch and confirm the other team's.");
   if (pre && AR.allReady(a) && st !== "cancelled") wac.maybeStart(waCodeCur).catch(() => {});
-  waBoardPaint(); waMatchPaint();
+  waBoardPaint(); waMatchPaint(); if (potWa) potWa.paint();
   if ((a.status === "countdown" || a.status === "live") && a.startAt && !dec.done) { if (!waTick) waTick = setInterval(waTickFn, 100); waTickFn(); }
   else { clearInterval(waTick); waTick = null; $("waCount").hidden = true; }
   if (livenow && !dec.done && mine && !out && !waBeat) { waBeat = setInterval(waBeatFn, 5000); waBeatFn(); }
@@ -3357,7 +3391,7 @@ function waTickFn() {
   waBoardPaint();
 }
 function waEnter(code) { waCodeCur = code; waNameSeen = ""; try { localStorage.setItem("zdWasherArena", code); } catch (e) {} if (waOff) waOff(); waOff = wac.watch(code, (a) => { waArena = a; waPaint(); }); waPaint(); }
-function waExit() { try { localStorage.removeItem("zdWasherArena"); } catch (e) {} if (waOff) waOff(); waOff = null; waArena = null; waCodeCur = null; waPlayingFor = null; clearInterval(waTick); waTick = null; clearInterval(waBeat); waBeat = null; waMatchHtml = ""; waBoardPaint(); waMatchPaint(); wbPaint(); $("waLobby").hidden = true; }
+function waExit() { if (potWa) potWa.stop(); try { localStorage.removeItem("zdWasherArena"); } catch (e) {} if (waOff) waOff(); waOff = null; waArena = null; waCodeCur = null; waPlayingFor = null; clearInterval(waTick); waTick = null; clearInterval(waBeat); waBeat = null; waMatchHtml = ""; waBoardPaint(); waMatchPaint(); wbPaint(); $("waLobby").hidden = true; }
 async function waResume(u) { let code = null; try { code = localStorage.getItem("zdWasherArena"); } catch (e) {} if (!code || waCodeCur || !wac) return; try { if (await wac.resume(code, { uid: u.uid })) waEnter(code); else localStorage.removeItem("zdWasherArena"); } catch (e) {} }
 if (AR && WB) {
   $("waMatch").addEventListener("click", waMatchClick);
@@ -3380,8 +3414,8 @@ function mkWager(game, o) {
   const P = o.prefix; let off = null, curKey = null, w = null, lastSettle = 0, busy = false;
   // stake picker (create) + wager line / stake button (lobby), added once
   const start = $(P + "Start"), count = $(P + "Count");
-  if (start) start.insertAdjacentHTML("beforeend", '<label for="' + P + 'Stake">Wager ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg> (optional, minimum ' + WG.MIN_STAKE + (WG.MAX_STAKE ? ", maximum " + WG.MAX_STAKE : "") + ')</label><div class="row"><input id="' + P + 'Stake" type="number" inputmode="numeric" min="' + WG.MIN_STAKE + '" step="1" placeholder="No wager" style="max-width:9rem"></div><p class="note" style="margin:.2rem 0 0">Both players stake the same amount; the winner takes the pot (2x the wager). Ties, draws, unverified games and rooms that never start are refunded.</p>');
-  if (count) count.insertAdjacentHTML("beforebegin", '<p class="note" id="' + P + 'Wager" hidden style="text-align:center;font-weight:700"></p><div class="row" id="' + P + 'StakeRow" hidden style="justify-content:center"><button class="btn" id="' + P + 'StakeBtn" type="button">Lock in</button></div>');
+  if (start && !o.noUi) start.insertAdjacentHTML("beforeend", '<label for="' + P + 'Stake">Wager ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg> (optional, minimum ' + WG.MIN_STAKE + (WG.MAX_STAKE ? ", maximum " + WG.MAX_STAKE : "") + ')</label><div class="row"><input id="' + P + 'Stake" type="number" inputmode="numeric" min="' + WG.MIN_STAKE + '" step="1" placeholder="No wager" style="max-width:9rem"></div><p class="note" style="margin:.2rem 0 0">Both players stake the same amount; the winner takes the pot (2x the wager). Ties, draws, unverified games and rooms that never start are refunded.</p>');
+  if (count && !o.noUi) count.insertAdjacentHTML("beforebegin", '<p class="note" id="' + P + 'Wager" hidden style="text-align:center;font-weight:700"></p><div class="row" id="' + P + 'StakeRow" hidden style="justify-content:center"><button class="btn" id="' + P + 'StakeBtn" type="button">Lock in</button></div>');
   const keyOf = (r) => (r && r.stake ? WG.roomKey(game, o.code(), o.fs.toMs(r.createdAt)) : null);
   async function call(name, body) {
     const u = auth.currentUser; if (!u) throw new Error("Sign in to wager.");
@@ -3393,7 +3427,7 @@ function mkWager(game, o) {
     try { await call("wager-stake", { game, code: o.code() }); o.status("Locked in. Waiting for your opponent's stake…"); }
     catch (e) { o.status("Wager: " + (e.message || e)); } finally { busy = false; $(P + "StakeBtn").disabled = false; }
   }
-  $(P + "StakeBtn").onclick = stakeNow;
+  if ($(P + "StakeBtn")) $(P + "StakeBtn").onclick = stakeNow;
   function settle(force) {
     if (!curKey || !w || w.status !== "open" || (!force && Date.now() - lastSettle < 15000)) return;
     lastSettle = Date.now(); call("wager-settle", { key: curKey }).catch(() => {});
@@ -3435,14 +3469,76 @@ function mkWager(game, o) {
 wgPlank = mkWager("plank", { prefix: "battle", fs: battleFs, code: () => battleCode, room: () => battleRoom, repaint: () => paintBattle(), status: bStatus, decided: (r) => pbDec(r).done });
 wgTut = mkWager("tut", { prefix: "tb", fs: tbFs, code: () => tbCodeCur, room: () => tbRoom, repaint: () => tbPaint(), status: tbStat,
   decided: (r) => r.status === "done" || (r.status === "live" && TBm.endAt(r) != null && BR.serverNow(Date.now(), tb.offset) > TBm.endAt(r) + TBm.RULES.settleMs + WG.GRACE_MS) });
-wgWb = mkWager("washers", { prefix: "wb", fs: wbFs, code: () => wbCodeCur, room: () => wbRoom, repaint: () => wbPaint(), status: wbStat, decided: (r) => WB.decide(r).done });
+wgWb = mkWager("washers", { prefix: "wb", fs: wbFs, code: () => wbCodeCur, room: () => wbRoom, repaint: () => wbPaint(), status: wbStat, decided: (r) => WB.decide(r).done, noUi: true }); // washers: the per-player Zab pot (mkPot below) replaces the shared-stake UI
+// ---- Zab wagers in the washer battle (washers-pot.js): every player enters their OWN amount, taps Submit, then Confirm (final, written once to
+// their seat); when everyone has locked in, each taps Agree to the pot; the server forms one combined pot (wager-pot function). Every wager string is
+// shown through WP.set() so the label reads "Zab" and the ring comes right after it, never before it.
+const WP = window.ZabbaWasherPot || null;
+function mkPot(P, o) {
+  if (!WP || !$(P + "Pot")) return null;
+  const E = (n) => $(P + "Pot" + n);
+  let off = null, curKey = null, w = null, pend = null, busy = false, formTried = null, lastSettle = 0, note = "";
+  try { const last = localStorage.getItem("zdWasherWager"); if (last && /^\d+$/.test(last)) E("Amt").value = last; } catch (e) {}
+  async function call(name, body) {
+    const u = auth.currentUser; if (!u) throw new Error("Sign in to wager.");
+    const res = await fetch("/.netlify/functions/" + name, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await u.getIdToken()) }, body: JSON.stringify(body) });
+    const j = await res.json().catch(() => ({})); if (!res.ok) throw new Error(j.error || "Wager service unavailable."); return j;
+  }
+  const keyOf = (r) => (r && o.code() ? WP.potKey(o.kind, o.code(), o.fs.toMs(r.createdAt)) : null);
+  const say = (t) => { note = t || ""; paint(); };
+  function paint() {
+    const r = o.room(), me = currentUser && currentUser.uid, box = E(""), k = keyOf(r), seat = r && me ? WP.seatsOf(r)[me] : null;
+    if (k !== curKey) { if (off) off(); off = null; w = null; potState[P] = null; curKey = k; formTried = null; pend = null; note = "";
+      if (k) off = onSnapshot(doc(db, "wagers", k), (d) => { w = d.exists() ? d.data() : null; potState[P] = w; if (w) note = ""; o.repaint(); }, () => {}); }
+    if (r && w && w.status === "open" && seat && (r.status === "abandoned" || (BR.started(r) && o.decided(r))) && Date.now() - lastSettle > 15000) { lastSettle = Date.now(); call("wager-settle", { key: k }).catch(() => {}); }
+    if (!r || !seat || r.status === "abandoned") { box.hidden = true; return; }
+    box.hidden = false;
+    const m = WP.summary(r), pre = r.status === "waiting" && r.startAt == null, locked = WP.hasWager(seat);
+    const ul = E("Seats"); ul.textContent = "";
+    m.rows.forEach((x) => { const li = document.createElement("li"); if (x.uid === me) li.className = "wg-me";
+      li.append(document.createTextNode(o.nameOf(r, x.uid) + (x.uid === me ? " (you)" : "") + " · "));
+      const sp = document.createElement("span"); WP.set(sp, x.wager == null ? "deciding…" : x.wager === 0 ? "no wager" : "Zab " + x.wager); li.append(sp);
+      if (x.wager != null && m.needed && x.agreed === m.total) li.append(document.createTextNode(" · Agreed ✓"));
+      ul.append(li); });
+    const tl = E("Total"); tl.textContent = ""; tl.hidden = !m.rows.some((x) => x.wager != null);
+    if (!tl.hidden) { const h = document.createElement("span"); WP.set(h, "Pot: Zab " + m.total + (m.allSubmitted ? "" : " so far")); tl.append(h);
+      if (o.kind === "arena") ["a", "b"].forEach((t) => { tl.append(document.createTextNode(" · ")); const b = document.createElement("strong"); b.textContent = o.teamName(r, t); tl.append(b); const v = document.createElement("span"); WP.set(v, ": Zab " + m.sides[t]); tl.append(v); }); }
+    E("Entry").hidden = !(pre && !locked && pend == null); E("Confirm").hidden = !(pre && !locked && pend != null);
+    if (!E("Confirm").hidden) WP.set(E("Ask"), pend > 0 ? "Lock in Zab " + pend + "? Final once confirmed." : "Lock in no wager? Final once confirmed.");
+    const needAgree = pre && m.needed && seat.agreed !== m.total && !w; E("Agree").hidden = !needAgree;
+    if (needAgree) WP.set(E("AgreeText"), "Everyone has locked in. The pot is Zab " + m.total + ". The winner takes it all (2v2: the winning team splits it equally). Nothing can be changed after you agree.");
+    let msg = note;
+    if (!msg) msg = w && w.pot ? WP.resultText(w, me) : pre && locked && !m.allSubmitted ? "Your wager is locked. Waiting for everyone to lock in…"
+      : pre && m.allSubmitted && !m.needed ? "Nobody wagered. Tap I'm ready when you're set." : pre && m.needed && seat.agreed === m.total && !w ? "You agreed. Waiting for everyone to agree to the pot…" : "";
+    WP.set(E("Msg"), msg); E("Msg").hidden = !msg;
+    if (pre && m.allAgreed && !w && formTried !== k) { formTried = k; call("wager-pot", { kind: o.kind, code: o.code() }).catch((e) => { note = e.message || "Couldn't form the pot."; setTimeout(() => { formTried = null; o.repaint(); }, 8000); o.repaint(); }); }
+  }
+  E("Submit").onclick = () => { const raw = E("Amt").value.trim(), n = raw === "" ? 0 : Number(raw);
+    if (!WP.validWager(n)) return say(WP.wagerError(n) || "Enter a whole number of Zab, or 0 for no wager.");
+    if (zabBalNow != null && n > zabBalNow) return say("Not enough Zab: you have " + zabBalNow + ", the wager is " + n + ".");
+    pend = n; say(""); };
+  E("Back").onclick = () => { pend = null; say(""); };
+  E("Yes").onclick = async () => { if (busy || pend == null || !currentUser) return; busy = true; const n = pend;
+    try { await WP.submit(o.fs, o.code(), currentUser.uid, n, zabBalNow); try { localStorage.setItem("zdWasherWager", String(n)); } catch (e) {} pend = null; say(n > 0 ? "Wager locked: Zab " + n + "." : "Locked in: no wager."); }
+    catch (e) { pend = null; say(e.message || "Couldn't lock in your wager."); } finally { busy = false; } };
+  E("AgreeBtn").onclick = async () => { if (busy || !currentUser) return; busy = true;
+    try { await WP.agree(o.fs, o.code(), currentUser.uid); say(""); } catch (e) { say(e.message || "Couldn't agree to the pot."); } finally { busy = false; } };
+  function hint(r) { const me = currentUser && currentUser.uid, seat = r && me && WP.seatsOf(r)[me], m = WP.summary(r); if (!seat || !m.full || r.status !== "waiting") return "";
+    if (!WP.hasWager(seat)) return "Lock in your wager first (0 for no wager)."; if (!m.allSubmitted) return "Waiting for everyone to lock in their wager…";
+    if (m.needed) return seat.agreed === m.total ? "Waiting for everyone to agree to the pot…" : "Everyone has locked in. Tap Agree to the pot."; return ""; }
+  const readyOk = (r) => { const m = WP.summary(r); return m.allSubmitted && !m.needed; };
+  function stop() { if (off) off(); off = null; w = null; potState[P] = null; curKey = null; pend = null; note = ""; E("").hidden = true; }
+  return { paint, stop, hint, readyOk };
+}
+potWb = mkPot("wb", { kind: "room", fs: wbFs, code: () => wbCodeCur, room: () => wbRoom, repaint: () => wbPaint(), nameOf: (r, u) => WB.seatName(r.players[u]), decided: (r) => WB.decide(r).done });
+potWa = AR ? mkPot("wa", { kind: "arena", fs: waFs, code: () => waCodeCur, room: () => waArena, repaint: () => waPaint(), nameOf: (a, u) => AR.nameOf(a, u), teamName: (a, t) => AR.teamName(a, t), decided: (a) => AR.decide(a).done }) : null;
+if (WP) wagerOk.washers = (r) => WP.canStart(r, potState.wb); // the 1v1 countdown waits for the pot when anyone wagered
 // Create with an optional bet, then stake it right away; join shows the bet first, then stakes.
 /* 1v1 / 2v2 choice (2v2: no wager yet) */
 function waSizeUi() {
   const four = waSize === 4;
   [["wbSize2", !four], ["wbSize4", four], ["wbTeamA", waTeamPick === "a"], ["wbTeamB", waTeamPick === "b"]].forEach(([id, on]) => { const b = $(id); if (b) { b.setAttribute("aria-pressed", on ? "true" : "false"); b.className = on ? "btn" : "btn ghost"; } });
   $("wbTeamRow").hidden = !four;
-  const st = $("wbStake"); if (st) { const row = st.closest(".row"), lab = row && row.previousElementSibling, note = row && row.nextElementSibling; [lab, row, note].forEach((el) => { if (el) el.hidden = four; }); }
 }
 if ($("wbSize2")) { $("wbSize2").onclick = () => { waSize = 2; waSizeUi(); }; $("wbSize4").onclick = () => { if (wac) { waSize = 4; waSizeUi(); } }; $("wbTeamA").onclick = () => { waTeamPick = "a"; waSizeUi(); }; $("wbTeamB").onclick = () => { waTeamPick = "b"; waSizeUi(); }; waSizeUi(); }
 async function wagerCreate(wg, ctl, u, enter, stat) { const ex = wg ? wg.extra() : {}; if (ex === null) return; const code = await ctl.createRoom(u, ex); enter(code); if (wg && ex.stake) await wg.stakeNow(); }

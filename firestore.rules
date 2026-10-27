@@ -332,6 +332,21 @@ service cloud.firestore {
       function wagerPath() { return /databases/$(database)/documents/wagers/$('washers_' + code + '_' + string(d().createdAt.toMillis())); }
       function wagerReady() { return !('stake' in d()) || (exists(wagerPath()) && get(wagerPath()).data.status == 'open'
         && get(wagerPath()).data.players.keys().hasAll(d().players.keys())); }
+      // Per-player Zab wagers forming ONE pot (washers-pot.js). Each seat may carry wager (int >= 0, 0 = no wager) and agreed (the pot total it
+      // agreed to). wager is written ONCE, by its own seat, while waiting: any later write (increase, decrease, delete) is denied. agreed needs every
+      // seat locked in and equals the current pot total. The pot (wagers/{key}, server only) must exist before the countdown when anyone wagered; once
+      // it has formed, nobody can leave or un-ready. A seat that leaves takes its locked amount with it (nothing was escrowed yet).
+      function wgAt(i) { return i < d().players.size() ? d().players[d().players.keys()[i]].get('wager', 0) : 0; }
+      function potTotal() { return wgAt(0) + wgAt(1); }
+      function allIn() { return d().players.size() == 2 && 'wager' in d().players[d().players.keys()[0]] && 'wager' in d().players[d().players.keys()[1]]; }
+      function potFormed() { return exists(wagerPath()) && get(wagerPath()).data.status == 'open' && get(wagerPath()).data.get('pot', false) == true; }
+      function potReady() { return potTotal() == 0 || (potFormed() && get(wagerPath()).data.players.keys().hasAll(d().players.keys())); }
+      function potSeatOk(o, p) {
+        return (!('wager' in p.diff(o).affectedKeys()) || (!('wager' in o) && d().status == 'waiting' && d().startAt == null
+            && p.wager is int && p.wager >= 0 && p.wager <= 1000000000))
+          && (!('agreed' in p.diff(o).affectedKeys()) || (d().status == 'waiting' && d().startAt == null && allIn() && p.agreed is int
+            && p.agreed == potTotal() && potTotal() > 0 && (!('agreed' in o) || o.agreed != p.agreed)))
+          && (!('ready' in p.diff(o).affectedKeys()) || !potFormed()); }
       // Reports (rep). packOk: a pack of exactly 3 washers, each 0 out / 2 box-bound / 3 shoot / 5 bank (Art. 5.1, 6).
       function packOk(a) { return a is list && a.size() == 3 && a[0] in [0,2,3,5] && a[1] in [0,2,3,5] && a[2] in [0,2,3,5]; }
       function repOk(e) {
@@ -373,14 +388,15 @@ service cloud.firestore {
         || (isPlayer() && changed().hasOnly(['players','status']) && seatChanges().hasOnly([me()])
           && (!('status' in changed()) || (!started() && !(me() in n().players)
               && n().status == (n().players.size() == 0 ? 'abandoned' : 'waiting')))
-          && (!(me() in n().players) ? !started()
-              : n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt','opener','steps','result','rep','claimGone'])
-                && seatOk(d().players[me()], n().players[me()])
+          && (!(me() in n().players) ? (!started() && !potFormed())
+              : (n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','seenAt','leftAt','opener','steps','result','rep','claimGone'])
+                  || n().players[me()].diff(d().players[me()]).affectedKeys().hasOnly(['ready','wager','agreed']))
+                && seatOk(d().players[me()], n().players[me()]) && potSeatOk(d().players[me()], n().players[me()])
                 && (!started() || !('ready' in n().players[me()].diff(d().players[me()]).affectedKeys()))))
         // either player: both ready -> countdown with startAt = now..now+15s (only once)
         || (isPlayer() && d().status == 'waiting' && d().startAt == null && d().players.size() == 2
           && d().players[d().players.keys()[0]].ready == true && d().players[d().players.keys()[1]].ready == true
-          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int && wagerReady()
+          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int && wagerReady() && potReady()
           && n().startAt > request.time.toMillis() && n().startAt < request.time.toMillis() + 15000)
         // either player: countdown -> live once startAt has (nearly) passed
         || (isPlayer() && d().status == 'countdown' && changed().hasOnly(['status']) && n().status == 'live'
@@ -428,6 +444,21 @@ service cloud.firestore {
       function allReady() { return d().seats.size() == d().size
         && d().seats[d().seats.keys()[0]].ready == true && d().seats[d().seats.keys()[1]].ready == true
         && (d().size == 2 || (d().seats[d().seats.keys()[2]].ready == true && d().seats[d().seats.keys()[3]].ready == true)); }
+      // Per-player Zab wagers forming ONE pot (washers-pot.js), same rules as the 1v1 room: wager is written once by its own seat (any later write
+      // denied), agreed = the pot total it agreed to, the pot (wagers/{key}, server only) must exist before the countdown when anyone wagered, and
+      // once it has formed nobody can leave or un-ready. Leaving before that takes the seat's locked amount with it.
+      function wagerPath() { return /databases/$(database)/documents/wagers/$('arena_' + code + '_' + string(d().createdAt.toMillis())); }
+      function wgAt(i) { return i < d().seats.size() ? d().seats[d().seats.keys()[i]].get('wager', 0) : 0; }
+      function potTotal() { return wgAt(0) + wgAt(1) + wgAt(2) + wgAt(3); }
+      function hasW(i) { return i >= d().seats.size() || 'wager' in d().seats[d().seats.keys()[i]]; }
+      function allIn() { return d().seats.size() == d().size && hasW(0) && hasW(1) && hasW(2) && hasW(3); }
+      function potFormed() { return exists(wagerPath()) && get(wagerPath()).data.status == 'open' && get(wagerPath()).data.get('pot', false) == true; }
+      function potReady() { return potTotal() == 0 || (potFormed() && get(wagerPath()).data.players.keys().hasAll(d().seats.keys())); }
+      function potSeatOk(o, p) {
+        return (!('wager' in p.diff(o).affectedKeys()) || (!('wager' in o) && d().startAt == null && p.wager is int && p.wager >= 0 && p.wager <= 1000000000))
+          && (!('agreed' in p.diff(o).affectedKeys()) || (d().startAt == null && allIn() && p.agreed is int
+            && p.agreed == potTotal() && potTotal() > 0 && (!('agreed' in o) || o.agreed != p.agreed)))
+          && (!('ready' in p.diff(o).affectedKeys()) || !potFormed()); }
       // reports (rep). packOk: a pack of exactly 3 washers, each 0 out / 2 box-bound / 3 shoot / 5 bank.
       function packOk(a) { return a is list && a.size() == 3 && a[0] in [0,2,3,5] && a[1] in [0,2,3,5] && a[2] in [0,2,3,5]; }
       function repOk(e) {
@@ -472,11 +503,11 @@ service cloud.firestore {
           && changed().hasOnly(['seats','slots']) && seatChanges().hasOnly([me()]) && freshSeat(n().seats[me()], d().size) && claim())
         // a seated player, before start: tap ready / not ready, refresh the own saved name
         || (isPlayer() && d().status == 'waiting' && changed().hasOnly(['seats']) && seatChanges().hasOnly([me()]) && me() in n().seats
-          && n().seats[me()].diff(d().seats[me()]).affectedKeys().hasOnly(['ready','pubName'])
-          && n().seats[me()].ready is bool && nameOk(n().seats[me()]))
+          && n().seats[me()].diff(d().seats[me()]).affectedKeys().hasOnly(['ready','pubName','wager','agreed'])
+          && n().seats[me()].ready is bool && nameOk(n().seats[me()]) && potSeatOk(d().seats[me()], n().seats[me()]))
         // a seated player, before start: free the own seat and its slot; the creator leaving (or the last player) cancels the arena
         || (isPlayer() && d().status == 'waiting' && changed().hasOnly(['seats','slots','status']) && seatChanges().hasOnly([me()])
-          && !(me() in n().seats)
+          && !(me() in n().seats) && !potFormed()
           && n().slots.diff(d().slots).affectedKeys().hasOnly([string(d().seats[me()].slot)])
           && n().slots.diff(d().slots).removedKeys().hasOnly([string(d().seats[me()].slot)])
           && n().status == ((me() == d().createdBy || n().seats.size() == 0) ? 'abandoned' : 'waiting'))
@@ -489,7 +520,7 @@ service cloud.firestore {
           && !('ready' in n().seats[me()].diff(d().seats[me()]).affectedKeys()) && seatOk(d().seats[me()], n().seats[me()]))
         // any seated player: every seat filled and ready -> countdown with startAt = now..now+15s (only once)
         || (isPlayer() && d().status == 'waiting' && d().startAt == null && allReady()
-          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int
+          && changed().hasOnly(['status','startAt']) && n().status == 'countdown' && n().startAt is int && potReady()
           && n().startAt > request.time.toMillis() && n().startAt < request.time.toMillis() + 15000)
         // any seated player: countdown -> live once startAt has (nearly) passed
         || (isPlayer() && d().status == 'countdown' && changed().hasOnly(['status']) && n().status == 'live'

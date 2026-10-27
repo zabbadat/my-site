@@ -8,7 +8,7 @@ module.exports = function mockFs() {
   const emit = (c) => setTimeout(() => (S.subs[c] || []).slice().forEach((f) => f(clone(S.docs[c]))));
   let lock = Promise.resolve();
   S.fs = {
-    tx: (c, fn) => (lock = lock.then(async () => { await new Promise((r) => setTimeout(r, 1)); let next; const out = fn({ get: () => clone(S.docs[c]), set: (d) => (next = strip(deep(d))), update: (p) => (next = applyPatch(next || S.docs[c], p)) }); if (next) { S.docs[c] = strip(next); emit(c); } return out; }).catch((e) => { throw e; })),
+    tx: (c, fn) => { const run = lock.then(async () => { await new Promise((r) => setTimeout(r, 1)); let next; const out = fn({ get: () => clone(S.docs[c]), set: (d) => (next = strip(deep(d))), update: (p) => (next = applyPatch(next || S.docs[c], p)) }); if (next) { S.docs[c] = strip(next); emit(c); } return out; }); lock = run.catch(() => {}); return run; }, // a throwing transaction must not poison the queue
     update: async (c, p) => { S.docs[c] = applyPatch(S.docs[c], p); emit(c); },
     watch: (c, cb) => { (S.subs[c] = S.subs[c] || []).push(cb); setTimeout(() => cb(clone(S.docs[c]))); return () => { S.subs[c] = S.subs[c].filter((f) => f !== cb); }; },
     ts: () => SERVER, del: () => DEL, toMs: (v) => (typeof v === "number" ? v : null),

@@ -298,6 +298,7 @@
     // Idempotent: whoever sees every seat filled and ready first writes startAt; later callers no-op.
     async function maybeStart(code) {
       return fs.tx(code, (t) => { const a = t.get(); if (!a || started(a) || a.startAt != null || a.status !== "waiting" || !allReady(a)) return false;
+        if (opts.canStart && !opts.canStart(a)) return false; // wagers: the pot must be formed (escrowed) before the countdown
         t.update({ status: "countdown", startAt: Math.round(BR.serverNow(now(), offset) + LEAD_MS) }); return true; });
     }
     async function setReady(code, u, ready) {

@@ -14,7 +14,8 @@
   /* static require()s (not a variable) so the Netlify function bundler follows and ships these files */
   const NODE = typeof module !== "undefined" && !!module.exports;
   const WB = (NODE ? require("./washers-battle.js") : root && root.ZabbaWasherBattle), TB = (NODE ? require("./tut-battle.js") : root && root.ZabbaTutBattle),
-    PB = (NODE ? require("./plank-battle.js") : root && root.ZabbaPlankBattle), BR = (NODE ? require("./battle-rooms.js") : root && root.ZabbaBattles);
+    PB = (NODE ? require("./plank-battle.js") : root && root.ZabbaPlankBattle), BR = (NODE ? require("./battle-rooms.js") : root && root.ZabbaBattles),
+    POT = (NODE ? require("./washers-pot.js") : root && root.ZabbaWasherPot); // per-player washers pot (washers-pot.js): wagers with pot:true settle through POT.plan
   // ---- config (user decision pending: MAX_STAKE null = no upper limit) ----
   const MIN_STAKE = 1;
   const MAX_STAKE = null;
@@ -131,11 +132,11 @@
     return fs.tx((t) => t.get(["wagers", key]).then((w) => {
       if (!w) throw err(404, "No wager.");
       if (w.status !== "open") return { ok: true, already: true, status: w.status, winner: w.winner || null };
-      return t.get([COL[w.game], w.code]).then((room) => {
-        const p = plan(w, room, nowMs, fs.toMs);
+      return t.get([w.pot ? POT.COL[w.kind] : COL[w.game], w.code]).then((room) => {
+        const p = w.pot ? POT.plan(w, room, nowMs, fs.toMs) : plan(w, room, nowMs, fs.toMs);
         if (p.action === "pending") return { ok: true, pending: true };
         const credits = [];
-        if (p.action === "payout") credits.push({ uid: p.winner, type: "payout", amount: p.amount });
+        if (p.action === "payout") (p.payouts || [{ uid: p.winner, amount: p.amount }]).forEach((x) => credits.push({ uid: x.uid, type: "payout", amount: x.amount }));
         (p.refunds || []).forEach((r) => credits.push({ uid: r.uid, type: "refund", amount: r.amount }));
         const reads = credits.map((c) => Promise.all([t.get(["users", c.uid]), t.get(["users", c.uid, "zabLedger", c.type + "-" + key])]));
         return Promise.all(reads).then((got) => {
@@ -144,7 +145,8 @@
             if (u) t.update(["users", c.uid], { zabBalance: bal, lastTxId: id, updatedAt: fs.ts() });
             else t.set(["users", c.uid], { uid: c.uid, zabBalance: bal, lastTxId: id, createdAt: fs.ts(), updatedAt: fs.ts() });
             t.set(["users", c.uid, "zabLedger", id], Object.assign(ledger(c.uid, c.type, c.amount, w, { reason: p.reason }), { createdAt: fs.ts() })); });
-          t.update(["wagers", key], { status: p.action === "payout" ? "paid" : "refunded", winner: p.winner || null, reason: p.reason, flag: p.flag || null, settledAt: fs.ts() });
+          t.update(["wagers", key], { status: p.action === "payout" ? "paid" : "refunded", winner: p.winner || null, reason: p.reason, flag: p.flag || null, settledAt: fs.ts(),
+            ...(w.pot ? { winners: p.winners || null, paid: p.action === "payout" ? Object.fromEntries(p.payouts.map((x) => [x.uid, x.amount])) : null } : null) });
           return { ok: true, status: p.action === "payout" ? "paid" : "refunded", winner: p.winner || null, reason: p.reason, flag: p.flag || null, credits };
         });
       });
