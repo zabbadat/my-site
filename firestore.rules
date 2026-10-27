@@ -439,7 +439,7 @@ service cloud.firestore {
       function reusable() { return d().status == 'abandoned' || expired()
         || (d().status == 'live' && d().createdAt < request.time - duration.value(6, 'h')); }
       // claiming a seat number: exactly one NEW slot, held by me
-      function claim() { return n().slots.diff(d().slots).affectedKeys().size() == 1
+      function claim() { return n().slots.diff(d().slots).affectedKeys().size() == 1 && n().slots.diff(d().slots).addedKeys().size() == 1
         && n().slots.diff(d().slots).addedKeys().hasOnly([string(n().seats[me()].slot)]) && n().slots[string(n().seats[me()].slot)] == me(); }
       function allReady() { return d().seats.size() == d().size
         && d().seats[d().seats.keys()[0]].ready == true && d().seats[d().seats.keys()[1]].ready == true
