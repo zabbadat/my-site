@@ -994,7 +994,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="steps">
     <h2>Step Equity</h2>
-    <p class="lead">Step Equity: post to the daily board. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk: steps count while this page stays open with the screen on. Same login as washers.</p>
+    <p class="lead">Step Equity: stopping posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk: steps count while this page stays open with the screen on. Same login as washers.</p>
     <div class="stats duo">
       <div class="stat"><b id="dailyCount">0</b><span>Total steps today</span></div>
       <div class="stat"><b id="walkClock">00:00</b><span>Session time</span></div>
@@ -1003,7 +1003,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="row">
       <button class="btn" id="dailyWalkBtn" type="button">Start live walk</button>
       <button class="btn ghost" id="dailyRefreshBtn" type="button" hidden>Refresh from phone</button>
-      <button class="btn ghost" id="dailyPostBtn" type="button">Post to board</button>
+      <button class="btn danger" id="dailyResetBtn" type="button">Reset</button>
     </div>
     <p class="note" id="dailyStatus" aria-live="polite">Signed-in totals post to the daily board. Unsigned stays on this phone.</p>
     <h3 style="margin-top:1.6rem">Live walk sessions</h3>
@@ -2336,7 +2336,7 @@ renderPlankDays();
 paintPlankRows(localPlanks());
 // ---- Daily steps (shared module daily-steps.js; native plugin in the app, live walk on web) ----
 let saveRemoteDaily = async () => { throw new Error("Daily board is not connected"); };
-let dailyPosted = 0, dailyLiveTimer = null; // live walk saves within ~3 s of a step so other devices update in real time
+let dailyPosted = 0, dailyLiveTimer = null, dailyRetryTimer = null, dailyRetries = 0; // live walk saves within ~3 s of a step so other devices update in real time
 const DS = window.ZabbadatDaily;
 const daily = DS ? DS.createController(window, { onChange: (s) => {
   $("dailyCount").textContent = s.steps.toLocaleString();
@@ -2355,8 +2355,14 @@ async function postDaily(quiet) {
   if (!(s.steps > 0)) { if (!quiet) $("dailyStatus").textContent = "No steps yet today."; return; }
   if (!currentUser) { if (!quiet) $("dailyStatus").textContent = s.steps.toLocaleString() + " steps saved on this phone. Sign in to post to the daily board."; return; }
   if (s.steps <= dailyPosted && quiet) return;
-  try { await saveRemoteDaily(s); dailyPosted = s.steps; $("dailyStatus").textContent = "Posted " + s.steps.toLocaleString() + " steps to today's board."; }
-  catch (e) { $("dailyStatus").textContent = "Saved on this phone (board offline)."; }
+  try { await saveRemoteDaily(s); dailyPosted = s.steps; dailyRetries = 0; $("dailyStatus").textContent = "Posted " + s.steps.toLocaleString() + " steps to today's board."; }
+  catch (e) {
+    // Post failed (offline): the steps stay on this phone and the same idempotent post is retried a few times on its own (status text only, no button).
+    if (dailyRetries < 5) {
+      $("dailyStatus").textContent = "Saved on this phone. Board offline: retrying the post automatically.";
+      if (!dailyRetryTimer) { dailyRetries += 1; dailyRetryTimer = setTimeout(() => { dailyRetryTimer = null; postDaily(true); }, 30000); }
+    } else $("dailyStatus").textContent = "Saved on this phone (board offline). It posts the next time you walk or open the app.";
+  }
 }
 function paintDailyRows(rows) {
   if (!DS) return;
@@ -2367,12 +2373,11 @@ function paintDailyRows(rows) {
 }
 const dailyFg = daily ? DS.createForegroundRefresh(daily, { afterRefresh: () => postDaily(true) }) : null;
 if (daily) {
-  if (daily.source.kind === "native") { $("dailyWalkBtn").hidden = true; $("dailyRefreshBtn").hidden = false; dailyFg.run(); }
+  if (daily.source.kind === "native") { $("dailyWalkBtn").hidden = true; $("dailyResetBtn").hidden = true; $("dailyRefreshBtn").hidden = false; dailyFg.run(); } // phone counter owns the all-day total: no session to reset
   $("dailyRefreshBtn").onclick = () => { if (walkLockOn) { $("dailyStatus").textContent = "Hold to stop first."; return; } daily.refreshNative().then(() => postDaily(true)); };
   $("dailyWalkBtn").onclick = async () => {
     if (daily.state().walking) { daily.stopWalk(); postDaily(true); } else { if (!requireSignIn("walk", () => $("dailyWalkBtn").onclick(), { practice: true })) return; await daily.startWalk(); }
   };
-  $("dailyPostBtn").onclick = () => { if (walkLockOn) { $("dailyStatus").textContent = "Hold to stop first."; return; } postDaily(false); };
   setInterval(() => { if (daily.state().walking) postDaily(true); }, 120000);
   // Foreground refresh (daily-steps.js): visible / focus / pageshow / Capacitor App resume re-read the phone total and post it via postDaily (native source only).
   DS.bindForegroundEvents(window, daily, dailyFg.run);
@@ -2455,6 +2460,15 @@ function setWalkView(v) { walkView = v; $("walkAllBtn").setAttribute("aria-press
 if (WS && daily) {
   $("walkAllBtn").onclick = () => setWalkView("all");
   $("walkTodayBtn").onclick = () => setWalkView("today");
+  // Reset: restart the SESSION readout from zero. It never touches today's total (daily steps, the posted board total and mergeNative are unchanged:
+  // totals only go up). Blocked while a walk runs (pocket/walk lock: hold to stop first) and while another device's live walk is mirrored here.
+  $("dailyResetBtn").onclick = () => {
+    if (walkLockOn || walkSession || daily.state().walking) { $("dailyStatus").textContent = "Hold to stop first."; return; }
+    if (liveShown) { $("walkStatus").textContent = "Live on another device. Stop it there to reset."; return; }
+    $("walkClock").textContent = "00:00"; $("walkSteps").textContent = "0";
+    $("walkStatus").textContent = "Session reset to 0. Today's total (" + daily.state().steps.toLocaleString() + " steps) is unchanged.";
+    postDaily(true); // any steps not yet on the board still post; never lowers the board total
+  };
   const dailyClick = $("dailyWalkBtn").onclick;
   const toggleWalk = async () => {
     const was = daily.state().walking;
