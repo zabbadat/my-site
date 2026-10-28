@@ -300,6 +300,8 @@
     .btn.ghost { background: transparent; color: var(--text); border: 1px solid rgba(239,244,241,.22); }
     .btn.danger { background: transparent; color: var(--warn); border: 1px solid rgba(226,179,106,.4); }
     section { padding: 4.4rem 8%; }
+    /* anchor jumps (#battles etc.) land below the fixed header instead of under it */
+    section[id] { scroll-margin-top: 4.5rem; }
     h2 { font-size: clamp(2rem, 4vw, 2.7rem); margin-bottom: .7rem; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.15rem; }
     #approach .grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
