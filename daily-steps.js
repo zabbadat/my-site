@@ -110,9 +110,45 @@
     return { state: function () { return st; }, source: src, refreshNative: refreshNative, startWalk: startWalk, stopWalk: stopWalk, addManual: addManual, syncRemote: syncRemote, rollDay: rollDay };
   }
 
+  // Foreground refresh: when the app/page comes back, re-read the phone's step total (native source only) and let the caller post it.
+  // Debounced (default 1 s), never concurrent, errors swallowed. rollDay first so a day change is handled. Totals only ever rise (mergeNative).
+  function createForegroundRefresh(ctl, hooks) {
+    hooks = hooks || {};
+    var now = hooks.now || Date.now, gap = hooks.minGapMs == null ? 1000 : hooks.minGapMs, last = -Infinity, busy = false;
+    async function run() {
+      if (!ctl || !ctl.source || ctl.source.kind !== "native" || busy) return false;
+      var t = now();
+      if (t - last < gap) return false;
+      busy = true; last = t;
+      try {
+        ctl.rollDay();
+        await ctl.refreshNative();
+        if (hooks.afterRefresh) await hooks.afterRefresh(ctl.state());
+        return true;
+      } catch (e) { return false; }
+      finally { busy = false; }
+    }
+    return { run: run };
+  }
+  // Wire the foreground events to run(). Does nothing unless the native step plugin is the source (plain browser: no new listeners).
+  function bindForegroundEvents(win, ctl, run) {
+    if (!win || !ctl || !ctl.source || ctl.source.kind !== "native") return false;
+    var go = function () { try { run(); } catch (e) {} };
+    var doc = win.document;
+    if (doc && doc.addEventListener) doc.addEventListener("visibilitychange", function () { if (!doc.hidden) go(); });
+    if (win.addEventListener) { win.addEventListener("focus", go); win.addEventListener("pageshow", go); }
+    var App = win.Capacitor && win.Capacitor.Plugins && win.Capacitor.Plugins.App;
+    if (App && typeof App.addListener === "function") {
+      try { Promise.resolve(App.addListener("appStateChange", function (st) { if (!st || st.isActive !== false) go(); })).catch(function () {}); } catch (e) {}
+      try { Promise.resolve(App.addListener("resume", go)).catch(function () {}); } catch (e) {}
+    }
+    return true;
+  }
+
   var api = { MAX_STEPS: MAX_STEPS, localDateKey: localDateKey, docId: docId, clampSteps: clampSteps, addWeb: addWeb,
               mergeNative: mergeNative, buildRecord: buildRecord, validateRecord: validateRecord, rankDaily: rankDaily,
-              pickSource: pickSource, readLocal: readLocal, writeLocal: writeLocal, createController: createController };
+              pickSource: pickSource, readLocal: readLocal, writeLocal: writeLocal, createController: createController,
+              createForegroundRefresh: createForegroundRefresh, bindForegroundEvents: bindForegroundEvents };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatDaily = api;
 })(this);

@@ -2350,15 +2350,17 @@ function paintDailyRows(rows) {
     ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.steps).toLocaleString()}</td><td>${r.source === "native" ? "Phone" : "Walk"}</td></tr>`).join("")
     : '<tr><td colspan="4">No steps posted today yet.</td></tr>';
 }
+const dailyFg = daily ? DS.createForegroundRefresh(daily, { afterRefresh: () => postDaily(true) }) : null;
 if (daily) {
-  if (daily.source.kind === "native") { $("dailyWalkBtn").hidden = true; $("dailyRefreshBtn").hidden = false; daily.refreshNative().then(() => postDaily(true)); }
+  if (daily.source.kind === "native") { $("dailyWalkBtn").hidden = true; $("dailyRefreshBtn").hidden = false; dailyFg.run(); }
   $("dailyRefreshBtn").onclick = () => { if (walkLockOn) { $("dailyStatus").textContent = "Hold to stop first."; return; } daily.refreshNative().then(() => postDaily(true)); };
   $("dailyWalkBtn").onclick = async () => {
     if (daily.state().walking) { daily.stopWalk(); postDaily(true); } else { if (!requireSignIn("walk", () => $("dailyWalkBtn").onclick(), { practice: true })) return; await daily.startWalk(); }
   };
   $("dailyPostBtn").onclick = () => { if (walkLockOn) { $("dailyStatus").textContent = "Hold to stop first."; return; } postDaily(false); };
   setInterval(() => { if (daily.state().walking) postDaily(true); }, 120000);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && daily.source.kind === "native") daily.refreshNative().then(() => postDaily(true)); });
+  // Foreground refresh (daily-steps.js): visible / focus / pageshow / Capacitor App resume re-read the phone total and post it via postDaily (native source only).
+  DS.bindForegroundEvents(window, daily, dailyFg.run);
 }
 // ---- Live walk sessions (walk-session.js): session clock + walkSessions board. Wraps the daily walk button; daily steps untouched. ----
 const WS = window.ZabbadatWalk;
