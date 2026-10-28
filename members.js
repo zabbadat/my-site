@@ -58,6 +58,9 @@
     catch (e) { if (st) st.textContent = e.message; if (btn) btn.disabled = false; }
   }
   async function probe() {
+    /* The Stripe functions are parked (netlify/functions-pending), so the GET probe would 404 on every page load.
+       Only probe once membership is switched on: set window.ZABBA_MEMBERSHIP_LIVE = true after the functions move to netlify/functions. */
+    if (root.ZABBA_MEMBERSHIP_LIVE !== true) { state.configured = false; apply(); return; }
     try { var r = await fetch("/.netlify/functions/create-checkout-session", { method: "GET" }); var j = r.ok ? await r.json() : {}; state.configured = !!j.configured; }
     catch (e) { state.configured = null; }
     apply();
