@@ -1741,6 +1741,18 @@ function finishChallenge() {
   showChallengeResult(r, "Three-minute challenge done");
   finishPushSet();
 }
+// "Stop camera" while a set / session / challenge clock is running and has >= 1 rep: end it and post once through finishPushSet (same path as
+// Finish / End session / a TUT failure). finishPushSet's finished guard makes a second call (or a manual tap) a no-op. A paused Sets set,
+// 0 reps, or nothing running: unchanged (nothing posted). Signed out: finishPushSet keeps it on the phone and posts nothing.
+function endPushOnCameraStop() {
+  if (pushState.finished || !pushState.running) return false;
+  let r = null;
+  if (pushMode === "challenge" && pushChallenge) { pushChallenge.update(performance.now(), {}); r = pushChallenge.result(); }
+  if (!(window.ZabbadatSession.postOnCameraStop && window.ZabbadatSession.postOnCameraStop(pushMode, r ? r.reps : pushState.reps, pushState))) return false;
+  if (r) { pushState.tut = r.tutMs; pushState.reps = r.reps; showChallengeResult(r, "Three-minute challenge stopped early"); }
+  finishPushSet("Camera stopped");
+  return true;
+}
 // Hero CTAs: jump to the counter and preselect a mode (never mid-session; the camera still loads only from the counter).
 function heroGo(mode, e) {
   if (e) e.preventDefault();
@@ -2104,6 +2116,7 @@ async function openCam() {
   }
 }
 function stopCam() {
+  if (typeof endPushOnCameraStop === "function") endPushOnCameraStop();
   cancelPushStart("Start cancelled.");
   poseLoopOn = false;
   camOn = false;

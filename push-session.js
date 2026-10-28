@@ -10,6 +10,10 @@
   // TUT modes (One long set, 3:00 challenge): a camera-detected failure (knees / stood up / out of frame) ends the set and
   // POSTS the time under tension and reps so far (once, same path as End session) when there is at least 1 rep; with 0 reps nothing is posted.
   function postOnFailure(mode, reps) { return (mode === "long" || mode === "challenge") && Number(reps) >= 1; }
+  // Stopping the camera while a set / session / 3:00 challenge CLOCK IS RUNNING with at least 1 rep ends it and posts through the same
+  // path as the manual Finish / End session (finishPushSet, once). A paused Sets set (user chose Pause, may resume), a finished set,
+  // a set with 0 reps, or no running clock: nothing happens (same as before).
+  function postOnCameraStop(mode, reps, ps) { return !!ps && !!ps.running && !ps.finished && Number(reps) >= 1 && (mode === "sets" || mode === "long" || mode === "challenge"); }
   // A finished set / ended session counts toward Total sets only if it had reps.
   function setsToAdd(reps) { return Number(reps) > 0 ? 1 : 0; }
   function canSwitchMode(ps) { return !ps.running && !(ps.elapsed > 0 || ps.reps > 0) || !!ps.finished; }
@@ -134,7 +138,7 @@
       .sort(function (a, b) { return Number(b.ms) - Number(a.ms); }).slice(0, n || 50);
   }
 
-  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD };
+  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);
