@@ -5,6 +5,7 @@ const ok = (c, m) => { if (c) { pass++; console.log("PASS " + m); } else { fail+
 ok(html.includes("<h2>Play pitch and post solo Zabba washers</h2>"), "solo section title reads 'Play pitch and post solo Zabba washers'");
 const iP = html.indexOf('id="pvpWasherEntry"'), iB = html.indexOf('<section id="board">'), iPl = html.indexOf('<section id="play">');
 ok(iP > iPl && iP < iB, "PvP entry sits inside the play section, above the Live board");
-ok(/<h3>Zabba washers Battles PvP<\/h3>/.test(html) && /id="pvpWasherEntryBtn" href="#washerbattle"/.test(html), "PvP entry labelled and linked to #washerbattle");
+ok(/<h3>Zabba Washer Battle PvP<\/h3>/.test(html) && /id="pvpWasherEntryBtn" href="#washerbattle">Challenge a friend<\/a>/.test(html), "PvP entry labelled and linked to #washerbattle");
+ok(!/washers Battles PvP/.test(html) && (html.match(/Zabba Washer Battle PvP/g) || []).length === 1, "old odd label gone; the PvP label appears once (button has its own text)");
 console.log(pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);
