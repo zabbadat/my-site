@@ -55,7 +55,7 @@ let k = 0; const key = () => "testkey" + String(++k).padStart(4, "0");
   check("feed: ISO UTC timestamp, whole numbers", /Z$/.test(out.generatedAt) && out.holders.every((h) => Number.isInteger(h.total) && h.total >= 0));
   // ---- page ----
   const html = fsx.readFileSync(__dirname + "/../bank.html", "utf8");
-  check("/bank: send form + confirm dialog + history", /id="sendForm"/.test(html) && /<dialog id="sendConfirm"/.test(html) && /zab-send/.test(html) && /id="bankHistory"/.test(html) && /zabLedger/.test(html));
+  check("/bank: send form + confirm dialog + history", /id="sendForm"/.test(html) && /<dialog id="sendModal"/.test(html) && /zab-send/.test(html) && /id="bankHistory"/.test(html) && /zabLedger/.test(html));
   check("/bank: amounts use ring helper, no 'bet' wording, no location text", /amountHtml/.test(html) && !/\bbets?\b/i.test(html.replace(/<script[\s\S]*?<\/script>/g, "")) && !/jersey/i.test(html));
   check("zab-send function verifies sign-in", /uidFrom\(event\)/.test(fsx.readFileSync(__dirname + "/../netlify/functions/zab-send.js", "utf8")));
   const fail = R.filter((x) => !x).length; console.log(`${R.length - fail}/${R.length} passed`); process.exit(fail ? 1 : 0);

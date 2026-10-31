@@ -63,6 +63,11 @@
     .zt-h-note { margin: .3rem 0; color: #444; }
     .zt-bal-row { display: inline-flex; flex-direction: column; align-items: flex-end; gap: .3rem; } /* Send Zab tab sits directly under the ring */
     .zt-send-tab { display: inline-flex; align-items: center; gap: .3em; padding: .3rem .75rem; border-radius: 999px; background: #1f4d3c; color: #fff !important; text-decoration: none !important; font-weight: 700; font-family: system-ui, sans-serif; font-size: .9rem; }
+    .sugg-wrap { position: relative; flex: 1 1 12rem; display: flex; } .sugg-wrap input { flex: 1; }
+    .sugg { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; list-style: none; margin: .2rem 0 0; padding: .2rem; background: #fff; border: 1px solid #bbb; border-radius: 8px; max-height: 14rem; overflow: auto; }
+    .sugg li { padding: .5rem .6rem; border-radius: 6px; cursor: pointer; } .sugg li[aria-selected="true"], .sugg li:hover { background: #eef3f1; }
+    #bankBody li[data-pick] { cursor: pointer; } #bankBody li[data-pick]:hover, #bankBody li[data-pick]:focus-visible { outline: 2px solid #2f6b55; }
+    #sendModal { border: 1px solid #ccc; border-radius: 14px; max-width: 22rem; font-family: system-ui, sans-serif; } #sendModal h2 { margin-top: 0; }
     .mine { font-family: system-ui, sans-serif; font-size: 1.1rem; }
     .lookup { display: flex; gap: .5rem; flex-wrap: wrap; font-family: system-ui, sans-serif; margin-bottom: .6rem; }
     .lookup input { flex: 1 1 12rem; padding: .55rem .7rem; border: 1px solid #bbb; border-radius: 8px; font-size: 1rem; }
@@ -95,14 +100,20 @@
   <p class="fine">Send some of your ZAB to another player on the board. Pick them by name (names only, never emails). Whole numbers, up to 1,000 ZAB a send.</p>
   <form class="lookup" id="sendForm" autocomplete="off">
     <label for="sendTo" class="fine" style="flex-basis:100%">Player name</label>
-    <input id="sendTo" list="sendNames" placeholder="Player name" required>
-    <datalist id="sendNames"></datalist>
-    <label for="sendAmt" class="fine" style="flex-basis:100%">Amount (ZAB)</label>
-    <input id="sendAmt" type="number" min="1" max="1000" step="1" inputmode="numeric" placeholder="ZAB" required>
-    <button type="submit" class="btn" id="sendBtn">Send ZAB</button>
+    <div class="sugg-wrap"><input id="sendTo" placeholder="Player name" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sendSugg" required>
+    <ul id="sendSugg" class="sugg" role="listbox" aria-label="Matching players" hidden></ul></div>
+    <button type="submit" class="btn" id="sendPick">Next</button>
   </form>
+  <p class="fine">Or tap a name in the rankings below.</p>
   <p class="fine" id="sendMsg" aria-live="polite"></p>
-  <dialog id="sendConfirm"><form method="dialog"><p id="sendConfirmText"></p><p class="btns"><button value="cancel" class="btn ghost">Cancel</button><button value="ok" class="btn" id="sendOk">Send</button></p></form></dialog>
+  <dialog id="sendModal" aria-labelledby="sendModalTitle"><form method="dialog" id="sendModalForm">
+    <h2 id="sendModalTitle">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></h2>
+    <p>To <strong id="sendModalName"></strong></p>
+    <label for="sendAmt" class="fine">Amount (whole ZAB, 1 to 1,000)</label><br>
+    <input id="sendAmt" type="number" min="1" max="1000" step="1" inputmode="numeric" placeholder="ZAB">
+    <p class="fine" id="sendModalMsg" aria-live="polite">Sends can't be undone.</p>
+    <p class="btns"><button value="cancel" class="btn ghost" id="sendCancel" formnovalidate>Cancel</button><button value="ok" class="btn" id="sendBtn">Send</button></p>
+  </form></dialog>
   </section>
   <h2>Your history</h2>
   <table class="fine" id="bankHistory"><thead><tr><th>What</th><th>ZAB</th><th>Detail</th><th>When</th></tr></thead><tbody id="bankHistBody"><tr><td colspan="4">Sign in to see your history.</td></tr></tbody></table>
@@ -120,51 +131,82 @@
   <script src="/zab-balance.js"></script>
   <script type="module">
     const ZT = window.ZabBalance, ZC = window.ZabCurrency, $ = (id) => document.getElementById(id);
-    let state = "signedout", docs = [], me = null, rows = [];
+    let state = "signedout", docs = [], me = null, rows = [], signedIn = false;
     function render() {
       rows = state === "ok" ? ZT.holdersView(docs, me, 1000) : [];
       const q = $("bankFind").value.trim().toLowerCase();
       const shown = q ? rows.filter((r) => r.name.toLowerCase().includes(q)) : rows;
       $("bankBody").innerHTML = ZT.holdersHtml(state === "ok" && !rows.length ? "empty" : state, shown.length || !q ? shown : [], undefined);
       if (q && state === "ok" && !shown.length) $("bankBody").innerHTML = '<p class="zt-h-note">No player named \u201c' + ZC.esc(q) + '\u201d on the board.</p>';
+      markPickable(shown.length || !q ? shown : []);
       $("bankFindResult").innerHTML = q && shown.length === 1 ? ZC.esc(shown[0].name) + " \u00b7 rank " + shown[0].rank + " \u00b7 " + ZC.amountHtml(shown[0].total) : (q && shown.length > 1 ? shown.length + " matches" : "");
     }
     function setMine(n) { mine = n; $("bankMine").innerHTML = n == null ? "Sign in to see your balance." : "Your ZAB bag: " + ZC.amountHtml(n); }
     $("bankFind").addEventListener("input", render);
     // ---- Send ZAB (server: /.netlify/functions/zab-send). Recipient chosen from board names; uid sent, never an email.
     let getCred = null, mine = null;
-    function paintNames() { $("sendNames").innerHTML = rows.filter((r) => !r.me).map((r) => '<option value="' + ZC.esc(r.name) + '">').join(""); }
-    function pickTarget(name) { const m = rows.filter((r) => !r.me && r.name.toLowerCase() === String(name).trim().toLowerCase()); return m.length === 1 ? m[0] : null; }
-    function newKey() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
-    $("sendForm").addEventListener("submit", (ev) => {
-      ev.preventDefault();
-      const t = pickTarget($("sendTo").value), amt = Number($("sendAmt").value), msg = $("sendMsg");
-      if (!t) { msg.textContent = "Pick one player from the board by their exact name."; return; }
-      if (!Number.isInteger(amt) || amt < 1 || amt > 1000) { msg.textContent = "Enter a whole number from 1 to 1,000."; return; }
-      if (mine != null && amt > mine) { ZC.set(msg, "Not enough ZAB. You have " + mine.toLocaleString("en-US") + " ZAB."); return; }
-      const key = newKey();
-      $("sendConfirmText").innerHTML = "Send " + ZC.amountHtml(amt) + " to " + ZC.esc(t.name) + "? This can't be undone.";
-      const dlg = $("sendConfirm");
-      dlg.onclose = async () => {
-        if (dlg.returnValue !== "ok" || !getCred) return;
-        $("sendBtn").disabled = true; msg.textContent = "Sending\u2026";
-        try {
-          const r = await fetch("/.netlify/functions/zab-send", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await getCred()) }, body: JSON.stringify({ to: t.uid, amount: amt, key }) });
-          const j = await r.json().catch(() => ({}));
-          if (r.ok && j.ok) { msg.innerHTML = "Sent " + ZC.amountHtml(amt) + " to " + ZC.esc(t.name) + "."; $("sendAmt").value = ""; }
-          else ZC.set(msg, j.error || "Send failed. Try again.");
-        } catch (e) { msg.textContent = "Send failed. Try again."; }
-        $("sendBtn").disabled = false;
-      };
-      if (dlg.showModal) { dlg.returnValue = ""; dlg.showModal(); } else if (confirm($("sendConfirmText").textContent)) { dlg.returnValue = "ok"; dlg.onclose(); }
+    // Pick a recipient (suggestions or a ranking name) -> small "Send ZAB" modal: name + amount, Send / Cancel (the one confirm).
+    let sugg = [], active = -1, target = null;
+    const others = () => rows.filter((r) => !r.me);
+    function pickTarget(name) { const m = others().filter((r) => r.name.toLowerCase() === String(name).trim().toLowerCase()); return m.length === 1 ? m[0] : null; }
+    function paintSugg() {
+      const q = $("sendTo").value.trim().toLowerCase(), ul = $("sendSugg");
+      sugg = q ? others().filter((r) => r.name.toLowerCase().includes(q)).slice(0, 8) : [];
+      if (active >= sugg.length) active = sugg.length - 1;
+      ul.innerHTML = sugg.map((r, i) => '<li role="option" id="sugg' + i + '" data-i="' + i + '" aria-selected="' + (i === active) + '">' + ZC.esc(r.name) + "</li>").join("");
+      ul.hidden = !sugg.length; $("sendTo").setAttribute("aria-expanded", String(!!sugg.length));
+      if (active >= 0) $("sendTo").setAttribute("aria-activedescendant", "sugg" + active); else $("sendTo").removeAttribute("aria-activedescendant");
+    }
+    function closeSugg() { sugg = []; active = -1; paintSugg(); }
+    function paintNames() { if (document.activeElement === $("sendTo")) paintSugg(); }
+    $("sendTo").addEventListener("input", () => { active = -1; paintSugg(); });
+    $("sendTo").addEventListener("keydown", (ev) => {
+      if (ev.key === "ArrowDown" && sugg.length) { ev.preventDefault(); active = (active + 1) % sugg.length; paintSugg(); }
+      else if (ev.key === "ArrowUp" && sugg.length) { ev.preventDefault(); active = (active - 1 + sugg.length) % sugg.length; paintSugg(); }
+      else if (ev.key === "Enter" && active >= 0) { ev.preventDefault(); const r = sugg[active]; closeSugg(); openModal(r); }
+      else if (ev.key === "Escape") closeSugg();
     });
-    let signedIn = false;
-    function openSend() { if (!signedIn) { $("bankSendSignIn").hidden = false; $("bankSendSignIn").scrollIntoView({ block: "center" }); return; }
+    $("sendTo").addEventListener("blur", () => setTimeout(closeSugg, 150));
+    $("sendSugg").addEventListener("mousedown", (ev) => ev.preventDefault());
+    $("sendSugg").addEventListener("click", (ev) => { const li = ev.target.closest("li[data-i]"); if (!li) return; const r = sugg[Number(li.dataset.i)]; closeSugg(); openModal(r); });
+    $("sendForm").addEventListener("submit", (ev) => { ev.preventDefault(); const t = pickTarget($("sendTo").value);
+      if (!t) { $("sendMsg").textContent = "Pick one player from the suggestions or the rankings."; return; } closeSugg(); openModal(t); });
+    // Ranking names open the modal too (never your own row).
+    function markPickable(shown) { $("bankBody").querySelectorAll("li.zt-h").forEach((li, i) => { const r = shown[i]; if (!r || r.me || !signedIn) return;
+      li.dataset.pick = r.uid; li.tabIndex = 0; li.setAttribute("role", "button"); li.setAttribute("aria-label", "Send ZAB to " + r.name); }); }
+    function rowFor(el) { const li = el.closest("li[data-pick]"); return li ? others().find((r) => r.uid === li.dataset.pick) || null : null; }
+    $("bankBody").addEventListener("click", (ev) => { const r = rowFor(ev.target); if (r) openModal(r); });
+    $("bankBody").addEventListener("keydown", (ev) => { if (ev.key !== "Enter" && ev.key !== " ") return; const r = rowFor(ev.target); if (r) { ev.preventDefault(); openModal(r); } });
+    function newKey() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+    function openModal(r) {
+      if (!r || r.me) return;
+      if (!signedIn) { openSend(); return; }
+      target = r; $("sendModalName").textContent = r.name; $("sendAmt").value = ""; $("sendModalMsg").textContent = "Sends can't be undone."; $("sendBtn").disabled = false;
+      const dlg = $("sendModal"); if (dlg.showModal) { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute("open", "");
+      $("sendAmt").focus();
+    }
+    $("sendModalForm").addEventListener("submit", async (ev) => {
+      const sub = ev.submitter && ev.submitter.value; if (sub !== "ok") return;
+      ev.preventDefault();
+      const amt = Number($("sendAmt").value), m = $("sendModalMsg"), t = target;
+      if (!t) return;
+      if (!Number.isInteger(amt) || amt < 1 || amt > 1000) { m.textContent = "Enter a whole number from 1 to 1,000."; return; }
+      if (mine != null && amt > mine) { ZC.set(m, "Not enough ZAB. You have " + mine.toLocaleString("en-US") + " ZAB."); return; }
+      if (!getCred) { m.textContent = "Sign in to send Zab."; return; }
+      $("sendBtn").disabled = true; m.textContent = "Sending\u2026";
+      try {
+        const r = await fetch("/.netlify/functions/zab-send", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await getCred()) }, body: JSON.stringify({ to: t.uid, amount: amt, key: newKey() }) });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j.ok) { $("sendModal").close(); $("sendMsg").innerHTML = "Sent " + ZC.amountHtml(amt) + " to " + ZC.esc(t.name) + "."; $("sendTo").value = ""; }
+        else { ZC.set(m, j.error || "Send failed. Try again."); $("sendBtn").disabled = false; }
+      } catch (e) { m.textContent = "Send failed. Try again."; $("sendBtn").disabled = false; }
+    });
+        function openSend() { if (!signedIn) { $("bankSendSignIn").hidden = false; $("bankSendSignIn").scrollIntoView({ block: "center" }); return; }
       $("bankSend").hidden = false; $("bankSend").scrollIntoView({ block: "start" }); $("sendTo").focus({ preventScroll: true }); }
     $("bankSendTab").addEventListener("click", (ev) => { ev.preventDefault(); history.replaceState(null, "", "#bankSend"); openSend(); });
     function paintHistory(list) { $("bankHistBody").innerHTML = list == null ? '<tr><td colspan="4">Sign in to see your history.</td></tr>' : ZT.txRowsHtml(list, ZC.esc); }
     // Local test hook only: renders given rows in the page, never writes anywhere.
-    window.ZabBank = { show(s, d, uid, mine) { state = s; docs = d || []; me = uid || null; setMine(mine); $("bankSignIn").style.display = s === "signedout" ? "" : "none"; render(); paintNames(); $("bankSend").hidden = s === "signedout"; const was = signedIn; signedIn = s !== "signedout"; if (signedIn) $("bankSendSignIn").hidden = true; if (signedIn && !was && location.hash === "#bankSend") openSend(); }, history: (l) => paintHistory(l), target: pickTarget };
+    window.ZabBank = { show(s, d, uid, mine) { state = s; docs = d || []; me = uid || null; setMine(mine); $("bankSignIn").style.display = s === "signedout" ? "" : "none"; const was = signedIn; signedIn = s !== "signedout"; render(); paintNames(); $("bankSend").hidden = s === "signedout"; if (signedIn) $("bankSendSignIn").hidden = true; if (signedIn && !was && location.hash === "#bankSend") openSend(); }, history: (l) => paintHistory(l), target: pickTarget, pick: (name) => openModal(pickTarget(name)) };
     const firebaseConfig = {
       apiKey: "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4",
       authDomain: "zabbadat-5f132.firebaseapp.com",
