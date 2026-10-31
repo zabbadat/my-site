@@ -734,7 +734,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <label class="note" id="pushTargetWrap" for="pushTarget" style="display:inline-flex;align-items:center;gap:.4rem;margin:0">Target reps <input id="pushTarget" type="number" inputmode="numeric" min="1" max="500" step="1" value="20" style="width:4.5rem"></label>
       <button class="btn" id="pushStartBtn" type="button">Start set</button>
       <button class="btn ghost" id="pushPauseBtn" type="button">Pause</button>
-      <button class="btn danger" id="pushResetBtn" type="button">Reset</button>
       <button class="btn" id="pushFinishBtn" type="button">Finish set</button>
       <button class="btn" id="pushEndBtn" type="button" hidden>End session</button>
       <button class="btn ghost" id="pushTotalResetBtn" type="button">Reset total</button>
@@ -1699,7 +1698,7 @@ if ($("modeChallengeBtn")) $("modeChallengeBtn").onclick = () => setPushMode("ch
 // Exception: One long set at 60 s or more with at least 1 rep posts instead (finishPushSet, same as End session).
 // A camera-detected failure in a TUT mode (One long set / 3:00 challenge) ends the set at once. With at least 1 rep it POSTS the time under
 // tension and reps so far through finishPushSet (same fields and path as End session, once). With 0 reps there is nothing to post: the set is
-// discarded (clock stops, nothing saved, no board row, no ZAB, no remote write). Regular Sets are not TUT and never get here. Reset starts a fresh set.
+// discarded (clock stops, nothing saved, no board row, no ZAB, no remote write). Regular Sets are not TUT and never get here. Start begins a fresh set.
 function voidTutSet(reason) {
   if (pushState.finished || !pushState.running || (pushMode !== "long" && pushMode !== "challenge")) return;
   const lasted = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
@@ -1716,14 +1715,33 @@ function voidTutSet(reason) {
   clearInterval(pushState.tick);
   if (pushWake) pushWake.stop().catch(() => {});
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.end();
-  Object.assign(pushState, { reps: 0, tut: 0, elapsed: 0, startedAt: 0 });
-  if (pushChallenge) pushChallenge.reset();
-  if ($("challengeResult")) $("challengeResult").hidden = true;
-  if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
-  $("pushStatus").textContent = "Set ended: " + why + ". It lasted " + formatTime(lasted) + " with no reps counted, so nothing was saved. Tap Reset to try again.";
+  freshPushSet(); // back to zero: reps, TUT time, clock, counter, TUT voice, fail watch, posture guard, challenge; Start begins the next set
+  $("pushStatus").textContent = "Set failed: 0 reps, " + formatTime(lasted) + " (" + why + "). Nothing saved. Ready for the next set.";
   $("camNote").textContent = "Set ended";
   const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.SET_DONE_LINE); // short end line; may interrupt other speech
   renderPush();
+}
+// Prompts from the last set never carry into the next one: queued speech, spoken-rep / 15 s time milestones, camera note, form flag, result box.
+function clearPushPrompts() {
+  if (typeof cancelGetSet === "function") { try { cancelGetSet(); } catch (e) {} } // stops queued speech and any pending countdown step
+  if (typeof repVoice !== "undefined" && repVoice) repVoice.reset();
+  if (typeof tutTimeVoice !== "undefined" && tutTimeVoice && tutTimeVoice.reset) tutTimeVoice.reset();
+  if ($("camNote")) $("camNote").textContent = "";
+  if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
+  if ($("pushViol")) $("pushViol").textContent = "0";
+  if ($("challengeResult")) $("challengeResult").hidden = true;
+}
+// Full per-set wipe (same as Reset, minus the status text): set numbers, TUT voice, fail watch, counter, posture guard, challenge.
+function freshPushSet() {
+  clearInterval(pushState.tick);
+  Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 });
+  clearPushPrompts();
+  if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(null);
+  if (typeof resetPoseBaseline === "function") resetPoseBaseline();
+  if (typeof postureGuard !== "undefined" && postureGuard) postureGuard.reset();
+  if (typeof pushChallenge !== "undefined" && pushChallenge) pushChallenge.reset();
+  if ($("challengeResult")) $("challengeResult").hidden = true;
+  if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
 }
 function showChallengeResult(r, title) {
   const box = $("challengeResult");
@@ -1758,7 +1776,7 @@ function heroGo(mode, e) {
   if (e) e.preventDefault();
   if (pushMode !== mode) {
     if (window.ZabbadatSession.canSwitchMode(pushState)) setPushMode(mode);
-    else $("pushStatus").textContent = "A session is running. End or reset it to switch modes.";
+    else $("pushStatus").textContent = "A session is running. Finish or end it to switch modes.";
   }
   $("push").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1842,20 +1860,32 @@ function finishPushSet(endedBy) {
     } catch {}
     if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
   }
-  renderPush();
   paintPushRows(local);
   const viol = (pushMode === "long" || pushMode === "challenge") && postureGuard ? " Rule breaks: " + postureGuard.state().count + "." : "";
+  const doneTut = pushState.tut;
+  // Finished and saved: clear the big rep number and the clock, and wipe the counter, so the next set starts clean. The result stays in the status line.
+  Object.assign(pushState, { reps: 0, tut: 0, elapsed: 0, startedAt: 0 });
+  if (typeof resetPoseBaseline === "function") resetPoseBaseline();
+  const failedTut = !!endedBy && endedBy !== "Camera stopped" && (pushMode === "long" || pushMode === "challenge");
+  if (failedTut) { // a TUT failure posts once (below), then everything is back to zero, ready for Start
+    if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(null);
+    if (postureGuard) postureGuard.reset();
+    if (typeof pushChallenge !== "undefined" && pushChallenge) pushChallenge.reset();
+  }
+  renderPush();
   const why = endedBy ? " Ended: " + endedBy + "." : "";
   const what = pushMode === "long" ? "Session" : pushMode === "challenge" ? "Challenge" : "Set";
+  const head = failedTut ? "Set failed: " + record.reps + " reps, " + formatTime(ms) + ". Ready for the next set." : what + " done: " + record.reps + " reps, " + formatTime(ms) + ".";
   if (!currentUser) {
-    $("pushStatus").textContent = what + " saved on this device. Sign in to post." + why + viol;
+    $("pushStatus").textContent = head + " Saved on this device. Sign in to post." + why + viol;
     return;
   }
+  $("pushStatus").textContent = head + " Posting…" + why + viol;
   const tokSet = ZT ? ZT.newSetId() : "";
-  const tokP = Promise.all([awardZab("pushups", record.reps, tokSet), pushMode === "long" && ZT ? awardZab("tut", ZT.qtyFrom("tut", window.ZabbadatSession.tutToAdd(pushMode, ms, pushState.tut)), tokSet) : null])
+  const tokP = Promise.all([awardZab("pushups", record.reps, tokSet), pushMode === "long" && ZT ? awardZab("tut", ZT.qtyFrom("tut", window.ZabbadatSession.tutToAdd(pushMode, ms, doneTut)), tokSet) : null])
     .then((a) => ({ credited: a.reduce((n, x) => n + ((x && x.credited) || 0), 0) }), () => null);
   saveRemotePush(record)
-    .then(() => tokP).then((tk) => { $("pushStatus").textContent = name + " posted " + record.reps + " reps in " + formatTime(ms) + "." + why + viol + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
+    .then(() => tokP).then((tk) => { $("pushStatus").textContent = (failedTut ? head + " " + name + " posted it." : name + " posted " + record.reps + " reps in " + formatTime(ms) + ".") + why + viol + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
 // One Start button: gate -> wake + speech unlock + spoken placement line (in the tap) -> camera -> pose -> spoken
@@ -1905,7 +1935,10 @@ function cancelPushStart(msg) {
   if (msg) $("pushStatus").textContent = msg;
 }
 async function startPush() {
-  if (pushState.finished || pushState.running || pushStarting) return;
+  if (pushState.running || pushStarting) return;
+  if (pushState.finished) freshPushSet(); // a finished set never blocks Start: begin a clean set, no Reset tap
+  else if (typeof clearPushPrompts === "function") clearPushPrompts(); // before this tap's own coaching line is spoken
+
   if (!requireSignIn("pushups", () => startPush(), { practice: true })) return;
   if (pushWake) pushWake.start().catch(() => {}); // inside the tap, before any await or timer
   unlockGetSet(); // iOS: silent utterance inside the tap so the coaching lines and countdown can speak
@@ -1938,6 +1971,12 @@ function beginPushClock() {
   if (typeof repVoice !== "undefined" && repVoice) repVoice.reset();
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.reset();
   if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(performance.now());
+  // Go: wipe the counter and the set numbers here, so movement during the countdown never carries into the set.
+  resetPoseBaseline();
+  Object.assign(pushState, { reps: 0, tut: 0, elapsed: 0 });
+  if ((pushMode === "long" || pushMode === "challenge") && postureGuard) postureGuard.reset();
+  if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
+  if ($("pushViol")) $("pushViol").textContent = "0";
   pushState.running = true;
   pushState.startedAt = Date.now();
   if (pushMode === "challenge" && pushChallenge) {
@@ -1959,19 +1998,6 @@ if ($("pushPauseBtn")) $("pushPauseBtn").onclick = () => {
   clearInterval(pushState.tick);
   if (pushWake) pushWake.stop().catch(() => {});
   $("pushStatus").textContent = "Paused.";
-  renderPush();
-};
-if ($("pushResetBtn")) $("pushResetBtn").onclick = () => {
-  sessionTouch();
-  clearInterval(pushState.tick);
-  if (pushWake) pushWake.stop().catch(() => {});
-  Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 });
-  if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.reset();
-  if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(null);
-  resetPoseBaseline();
-  if (postureGuard) postureGuard.reset();
-  if (pushMode === "challenge" && pushChallenge) { pushChallenge.reset(); if ($("challengeResult")) $("challengeResult").hidden = true; }
-  $("pushStatus").textContent = "Reset.";
   renderPush();
 };
 if ($("pushFinishBtn")) $("pushFinishBtn").onclick = () => { if (pushMode === "sets") finishPushSet(); };

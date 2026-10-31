@@ -51,7 +51,7 @@ function page(mode, extra) {
   const els = {}; const el = (id) => els[id] || (els[id] = { hidden: false, textContent: "" });
   const pushState = Object.assign({ reps: 12, tut: 41000, elapsed: 0, startedAt: 1000, running: true, finished: false, tick: 7 }, extra || {});
   const ctx = vm.createContext(Object.assign({ pushState, pushMode: mode, pushWake: { stop: () => ({ catch() {} }) }, pushChallenge: { reset: () => log.push("challengeReset"), update() {}, result: () => ({ reps: 0, tutMs: 0, score: 0 }) }, performance: { now: () => 0 },
-    tutTimeVoice: { end: () => log.push("tutVoice.end") }, clearInterval: () => log.push("clearInterval"), Date: { now: () => 31000 }, $: el,
+    tutTimeVoice: { end: () => log.push("tutVoice.end"), reset: () => log.push("tutVoice.reset") }, clearInterval: () => log.push("clearInterval"), Date: { now: () => 31000 }, $: el,
     formatTime: (ms) => Math.round(ms / 1000) + "s", renderPush: () => log.push("renderPush"),
     window: { ZabbadatSession: { FAIL_TEXT: SS.FAIL_TEXT, postOnFailure: SS.postOnFailure }, ZabbadatGetSet: { interruptSpeak: (w) => log.push("say:" + w), SET_DONE_LINE: G.SET_DONE_LINE } },
     localStorage: { setItem: (k) => store.push(k), removeItem: (k) => store.push(k) },
@@ -61,11 +61,11 @@ function page(mode, extra) {
 }
 for (const mode of ["long", "challenge"]) {
   const p = page(mode, { reps: 0 }); p.void("knees");
-  check(`${mode}: clock stops at once (not running, finished, interval cleared)`, p.pushState.running === false && p.pushState.finished === true && p.log.includes("clearInterval"));
+  check(`${mode}: clock stops at once and the set auto-resets (not running, not finished, interval cleared)`, p.pushState.running === false && p.pushState.finished === false && p.log.includes("clearInterval"));
   check(`${mode}: 0 reps: nothing to post: reps 0, TUT 0, clock 0, nothing saved locally`, p.pushState.reps === 0 && p.pushState.tut === 0 && p.pushState.elapsed === 0 && p.store.length === 0);
   check(`${mode}: 0 reps: nothing posted to boards / ZAB / Firestore (no finishPushSet, saveRemotePush, awardZab)`, !p.log.some((x) => /finishPushSet|saveRemotePush|awardZab|paintPushRows/.test(x)));
   check(`${mode}: speaks the short end line "Set complete." and silences the 15 s count`, p.log.includes("say:Set complete.") && p.log.includes("tutVoice.end"));
-  check(`${mode}: result text says the set ended, the reason, and that nothing was saved (no reps)`, /^Set ended: Knees down\. It lasted 30s with no reps counted, so nothing was saved\./.test(p.els.pushStatus.textContent) && p.els.camNote.textContent === "Set ended");
+  check(`${mode}: result text says the set ended, the reason, and that nothing was saved (no reps)`, /^Set failed: 0 reps, 30s \(Knees down\)\. Nothing saved\. Ready for the next set\./.test(p.els.pushStatus.textContent) && p.els.camNote.textContent === "Set ended");
 }
 { const p = page("sets"); p.void("knees"); check("regular Sets: voidTutSet does nothing (no stop, no void, no speech)", p.pushState.running === true && p.pushState.reps === 12 && p.log.length === 0); }
 { const p = page("long", { reps: 0 }); p.void("knees"); p.log.length = 0; p.void("standing"); check("a second failure after the set ended does nothing", p.log.length === 0); }
@@ -75,14 +75,14 @@ check("the end-of-set line is exactly 'Set complete.'", G.SET_DONE_LINE === "Set
 const pt = html.slice(html.indexOf("async function poseTick()"), html.indexOf("async function openCam()"));
 check("failure check lives only inside the long/challenge block of poseTick (not Sets)", /if \(\(pushMode === "long" \|\| pushMode === "challenge"\) && postureGuard && pushState\.running && !pushState\.finished\) \{[\s\S]*failWatch\.update\([\s\S]*voidTutSet\(failed\)/.test(pt) && pt.split("failWatch.update(").length === 2);
 check("voidTutSet only acts in long/challenge; its only save/post route is finishPushSet (no direct saveRemotePush / awardZab / localStorage)", /\(pushMode !== "long" && pushMode !== "challenge"\)\) return;/.test(fnSrc) && !/saveRemotePush|awardZab|localStorage|paintPushRows/.test(fnSrc) && fnSrc.split("finishPushSet(").length === 2);
-check("failWatch resets on each clock start and on Reset", /failWatch\.reset\(performance\.now\(\)\);\n  pushState\.running = true;/.test(html) && /failWatch\.reset\(null\);\n  resetPoseBaseline\(\);/.test(html));
+check("failWatch resets on each clock start and on every fresh set", /failWatch\.reset\(performance\.now\(\)\);[\s\S]{0,600}pushState\.running = true;/.test(html) && /clearPushPrompts\(\);\n  if \(typeof failWatch !== "undefined" && failWatch\) failWatch\.reset\(null\);/.test(html));
 check("the old 'clock keeps running' wording is gone from TUT copy (index.html, tut.html)", !/clock keeps running/i.test(html) && !/clock keeps running/i.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
 check("TUT copy says the set ends and the time and reps so far still post (no 'voids it' left)", /ends the set, and the time under tension and reps so far still post/.test(html) && /ends the set, and your time under tension and reps so far still post/.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")) && !/voids it|is voided|nothing is saved or posted/.test(html + fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
 
 // ---- regular Sets: no timed voice, no failure. Sets-mode code path speaks only rep numbers and the start coaching.
 check("regular Sets get NO 15 s count: the one tutTimeVoice.tick call is gated on long/challenge only", html.split("tutTimeVoice.tick(").length === 2 && /\(pushMode === "long" \|\| pushMode === "challenge"\) && pushState\.running && !pushState\.finished\) tutTimeVoice\.tick\(now\)/.test(html));
 check("regular Sets: nothing else speaks on a timer (5 interruptSpeak call sites: rules line, TUT end, TUT 0-rep end, TUT Battle loss, plank failure end; only sayRep and the shared coaching lines call speech in the push-up code)", (html.match(/interruptSpeak\(/g) || []).length === 5 && !/pushMode === "sets"[^\n]*(interruptSpeak|tick\()/.test(html));
-{ const sets = html.slice(html.indexOf('if ($("pushPauseBtn")) $("pushPauseBtn").onclick'), html.indexOf('if ($("pushResetBtn"))'));
+{ const sets = html.slice(html.indexOf('if ($("pushPauseBtn")) $("pushPauseBtn").onclick'), html.indexOf('if ($("pushFinishBtn"))'));
   check("Sets pause/resume path has no voice or failure code", !/tutTimeVoice|failWatch|voidTutSet|interruptSpeak/.test(sets)); }
 
 // ---- 3:00 challenge voice: marks 15..165 s, never a '3 minutes' (renderPush returns into finishChallenge at 180 s first)

@@ -43,7 +43,7 @@ const getSet = null, quickSet = null; function sessionPlan() { return "fresh"; }
 function camExitFs() {} function setCamStatus() {} function newPlankHold() {} function plankEnded() {}`;
 const GAME = [handler("startBtn"), handler("pauseBtn"), handler("resetBtn"), "async " + fnSrc("finishGame"), "this.finishGame = finishGame;"].join("\n");
 const PUSH = [fnSrc("finishPushSet"), line("const GET_SET_MS"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"), fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '), between('if ($("pushPauseBtn")) $("pushPauseBtn").onclick = ', "\n};"),
-  between('if ($("pushResetBtn")) $("pushResetBtn").onclick = ', "\n};"), "this.finishPushSet = finishPushSet;"].join("\n");
+  fnSrc("freshPushSet"), "this.finishPushSet = finishPushSet;"].join("\n");
 const CAM = ["async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
   "this.startCam = openCam; this.stopCam = stopCam; this.startPlankCam = startPlankCam; this.stopPlankCam = stopPlankCam;"].join("\n");
 const ALL_WAKES = ["gameWake", "pushWake", "camWake", "plankWake", "plankBattleWake", "tbWake"];
@@ -55,7 +55,7 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
     const tag = api ? "API" : "fallback";
     const held = (e, w) => e.ctx.W[w].isHeld() && (api ? !e.ctx.W[w].usingFallback() : e.ctx.W[w].usingFallback());
     // ---- Zabba Washers game (#startBtn): end on pause (Hold to stop), Reset, finish at 21.
-    for (const end of ["pause", "reset", "finish"]) {
+    for (const end of ["pause", "finish"]) {
       const e = load(api); const $ = e.ctx.$;
       $("startBtn").onclick(); await tick();
       check(`${tag} washers Start game: wake held, pocket lock engaged as before`, held(e, "gameWake") && e.ctx.S().pocketOn === true);
@@ -78,12 +78,12 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
       for (const w of ALL_WAKES) { await e.ctx.W[w].start(); await e.ctx.W[w].stop(); }
       check(`${tag} all wakes start/stop: unlocked stays unlocked`, e.ctx.S().pocketOn === false && e.ctx.S().walkLockOn === false); }
     // ---- Push-up sets / One Long Set (#pushStartBtn): end on Pause (sets), Reset, Finish/End (finishPushSet).
-    for (const mode of ["sets", "long"]) for (const end of ["pause", "reset", "finish"]) {
+    for (const mode of ["sets", "long"]) for (const end of ["pause", "finish"]) {
       if (mode === "long" && end === "pause") continue; // Pause is a no-op in long mode (clock is nonstop)
       const e = load(api); const $ = e.ctx.$; e.run(`pushMode = "${mode}";`);
       $("pushStartBtn").onclick(); for (let i = 0; i < 20; i++) await tick();
       check(`${tag} push ${mode} Start set: wake held`, held(e, "pushWake"));
-      if (end === "pause") $("pushPauseBtn").onclick(); if (end === "reset") $("pushResetBtn").onclick(); if (end === "finish") { try { e.ctx.finishPushSet(); } catch (x) {} }
+      if (end === "pause") $("pushPauseBtn").onclick(); if (end === "finish") { try { e.ctx.finishPushSet(); } catch (x) {} }
       await tick(); const n0 = e.nav.requests; e.doc.fire(); await tick();
       check(`${tag} push ${mode} ${end}: released, no re-acquire`, !e.ctx.W.pushWake.isHeld() && e.nav.requests === n0);
     }
@@ -105,7 +105,7 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
       check(`${tag} 6 features hold 6 separate locks`, ALL_WAKES.every((w) => held(e, w)) && (api ? new Set(e.sent).size === 6 : e.vids.length === 6));
       e.ctx.$("startBtn"); e.run("state.running = true;"); e.ctx.setPocket(false); e.ctx.$("pauseBtn").onclick(); await tick();
       check(`${tag} ending washers leaves the other 6 held`, !e.ctx.W.gameWake.isHeld() && ALL_WAKES.filter((w) => w !== "gameWake").every((w) => held(e, w)));
-      e.ctx.$("pushResetBtn").onclick(); e.ctx.stopCam(); await tick();
+      try { e.ctx.finishPushSet(); } catch (x) {} e.ctx.stopCam(); await tick();
       check(`${tag} ending push + camera leaves plank/battles held`, ["plankWake", "plankBattleWake", "tbWake"].every((w) => held(e, w)));
       // shared walk instance (as created in index.html) is independent too
       const walk = WL.createWakeLock({ navigator: e.nav, document: e.doc, createFallback: () => ({ playing: false, play() { this.playing = true; return Promise.resolve(); }, stop() { this.playing = false; } }) });

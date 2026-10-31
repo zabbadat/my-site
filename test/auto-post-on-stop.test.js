@@ -41,7 +41,7 @@ const tick = () => new Promise((r) => setTimeout(r, 5));
     check(`${mode}: stopping again and tapping Finish / End session afterwards never posts or awards twice`, p.posts().length === 1 && p.awards().length === aw);
   }
   let p = page("challenge", { ms: 95000, chReps: 9 }); p.stop(); await tick();
-  check("challenge: reps and time under tension come from the challenge clock; card says 'stopped early'; nothing credited past now", p.posts()[0] === "post:9:95000" && p.log.includes("chUpdate") && /stopped early/.test(p.els.challengeResult.innerHTML) && /Reps: 9/.test(p.els.challengeResult.innerHTML) && p.pushState.tut === 33000);
+  check("challenge: reps and time under tension come from the challenge clock; card says 'stopped early'; nothing credited past now", p.posts()[0] === "post:9:95000" && p.log.includes("chUpdate") && /stopped early/.test(p.els.challengeResult.innerHTML) && /Reps: 9/.test(p.els.challengeResult.innerHTML) && /Time under tension: 0:33|33/.test(p.els.challengeResult.innerHTML) && p.pushState.tut === 0); // set cleared after posting (fix/push-set-reset)
   // manual first, then stop: one post
   p = page("sets", { ms: 40000 }); p.end(); p.stop(); await tick();
   check("manual Finish first, then Stop camera: still exactly one post", p.posts().length === 1);
@@ -51,7 +51,7 @@ const tick = () => new Promise((r) => setTimeout(r, 5));
   p = page("sets", { running: false, elapsed: 30000, reps: 8 }); const d1 = p.stop(); await tick();
   check("paused Sets set (Pause, may resume): Stop camera does not end or post it; Finish still works", d1 === false && p.posts().length === 0 && p.pushState.finished === false && (p.end(), p.posts().length === 1));
   p = page("sets", { ms: 40000, signedIn: false }); p.stop(); await tick();
-  check("signed out: Stop camera keeps it on this phone, posts nothing, awards nothing", p.posts().length === 0 && p.awards().length === 0 && p.log.includes("local:zabbadat-push-total-u1-d") && /saved on this device\. Sign in to post\./.test(p.els.pushStatus.textContent));
+  check("signed out: Stop camera keeps it on this phone, posts nothing, awards nothing", p.posts().length === 0 && p.awards().length === 0 && p.log.includes("local:zabbadat-push-total-u1-d") && /saved on this device\. Sign in to post\./i.test(p.els.pushStatus.textContent));
   // wiring
   check("wiring: stopCam calls endPushOnCameraStop first; manual Finish / End session buttons still wired", /function stopCam\(\) \{\s*if \(typeof endPushOnCameraStop === "function"\) endPushOnCameraStop\(\);/.test(html) && /pushFinishBtn"\)\.onclick = \(\) => \{ if \(pushMode === "sets"\) finishPushSet\(\); \}/.test(html) && /pushEndBtn"\)\.onclick = \(\) => \{ if \(pushMode === "long"\) finishPushSet\(\); \}/.test(html));
   check("wiring: push-up counter stays camera-only (no devicemotion / step counting in the push code path)", !/endPushOnCameraStop[\s\S]{0,900}devicemotion/.test(html));
