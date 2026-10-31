@@ -317,6 +317,10 @@
     .ok { color: var(--accent); }
     .bad { color: var(--warn); }
     .washers { background: var(--bg-2); }
+    .zt-bal-row { display: inline-flex; flex-direction: column; align-items: flex-end; gap: .3rem; } /* Send Zab tab sits directly under the ring */
+    .stat .zt-bal-row { color: inherit; font-size: inherit; letter-spacing: normal; text-transform: none; }
+    .stat .zt-send-tab span { color: inherit; font-size: inherit; letter-spacing: .06em; text-transform: none; }
+    .zt-send-tab { display: inline-flex; align-items: center; gap: .3em; padding: .3rem .75rem; border-radius: 999px; background: #1f4d3c; color: #fff !important; text-decoration: none !important; font-weight: 700; font-family: system-ui, sans-serif; font-size: .9rem; }
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; margin: 1.4rem 0 1.2rem; }
     .stat {
       background: var(--card); border-radius: 14px; padding: 1rem; text-align: center;
@@ -774,7 +778,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="zab">
     <h2><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></h2>
     <p class="lead">Earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> for the work you log.</p>
-    <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">ZAB bag</span><b id="ztBalance">—</b><span>Your balance</span></div></div>
+    <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">ZAB bag</span><span class="zt-bal-row"><b id="ztBalance">—</b><a class="zt-send-tab" id="ztSendTab" href="#play" aria-label="Send Zab">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a></span><span>Your balance</span></div></div>
     <p class="note" id="ztTop" hidden></p>
     <div class="zt-board" id="ztHolders">
       <h3 class="zt-board-title">The Bank of Zabba — top <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> holders</h3>
@@ -2621,7 +2625,7 @@ function mirrorBoard(u, total) {
 }
 let zabBalNow = null;
 function paintZab(n) { zabBalNow = n == null ? null : Number(n); const row = $("zabBalanceRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintZabSection(n); }
-function paintZabSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.innerHTML = on ? window.ZabCurrency.amountHtml(Number(n)) : "—"; if (o) o.hidden = on; if (g) { g.setAttribute("href", on ? "#zab" : "#play"); g.setAttribute("aria-label", on ? "ZAB balance" : "Sign in"); if (on) { const nm = ZT && ZT.badgeParts ? ZT.badgeParts(typeof auth !== "undefined" && auth.currentUser ? publicName(displayNameOf(auth.currentUser)) : "", n).name : ""; g.innerHTML = (nm ? '<span class="zt-name">' + escapeHtml(nm) + '</span> \u00b7 ' : "") + window.ZabCurrency.amountHtml(Number(n)); g.title = (nm ? nm + " \u00b7 " : "") + window.ZabCurrency.amountText(Number(n)); } else { g.textContent = "Sign in"; g.title = ""; } } }
+function paintZabSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.innerHTML = on ? window.ZabCurrency.amountHtml(Number(n)) : "—"; if (o) o.hidden = on; const st = $("ztSendTab"); if (st) st.setAttribute("href", on ? "/bank#bankSend" : "#play"); if (g) { g.setAttribute("href", on ? "#zab" : "#play"); g.setAttribute("aria-label", on ? "ZAB balance" : "Sign in"); if (on) { const nm = ZT && ZT.badgeParts ? ZT.badgeParts(typeof auth !== "undefined" && auth.currentUser ? publicName(displayNameOf(auth.currentUser)) : "", n).name : ""; g.innerHTML = (nm ? '<span class="zt-name">' + escapeHtml(nm) + '</span> \u00b7 ' : "") + window.ZabCurrency.amountHtml(Number(n)); g.title = (nm ? nm + " \u00b7 " : "") + window.ZabCurrency.amountText(Number(n)); } else { g.textContent = "Sign in"; g.title = ""; } } }
 // Badge: signed in -> #zab (plain link); signed out -> #play sign-in box, scrolled into view with the Google button focused.
 function ztBadgeClick(ev) {
   if (typeof auth !== "undefined" && auth.currentUser) return;

@@ -61,6 +61,8 @@
     .zt-me { outline: 2px solid #2f6b55; }
     .zt-h-you { font-style: normal; font-size: .7rem; font-weight: 800; text-transform: uppercase; margin-left: .3rem; padding: .05rem .4rem; border-radius: 999px; background: #1f4d3c; color: #fff; }
     .zt-h-note { margin: .3rem 0; color: #444; }
+    .zt-bal-row { display: inline-flex; flex-direction: column; align-items: flex-end; gap: .3rem; } /* Send Zab tab sits directly under the ring */
+    .zt-send-tab { display: inline-flex; align-items: center; gap: .3em; padding: .3rem .75rem; border-radius: 999px; background: #1f4d3c; color: #fff !important; text-decoration: none !important; font-weight: 700; font-family: system-ui, sans-serif; font-size: .9rem; }
     .mine { font-family: system-ui, sans-serif; font-size: 1.1rem; }
     .lookup { display: flex; gap: .5rem; flex-wrap: wrap; font-family: system-ui, sans-serif; margin-bottom: .6rem; }
     .lookup input { flex: 1 1 12rem; padding: .55rem .7rem; border: 1px solid #bbb; border-radius: 8px; font-size: 1rem; }
@@ -86,7 +88,8 @@
   <p class="sub">Every ZAB holder, ranked by balance.</p>
   <p class="notice" id="zabNote"><strong>ZAB is an in-game label for Zabbadat games. It has no real-world value and is not tied to any real balance, wallet, product or offer.</strong></p>
   <h2>Your balance</h2>
-  <p class="mine" id="bankMine">Sign in to see your balance.</p>
+  <p class="mine"><span class="zt-bal-row"><span id="bankMine">Sign in to see your balance.</span><a class="zt-send-tab" id="bankSendTab" href="#bankSend" aria-label="Send Zab">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a></span></p>
+  <p class="fine" id="bankSendSignIn" hidden>Sign in to send Zab. <a href="/#play">Go to sign-in</a></p>
   <section id="bankSend" hidden>
   <h2>Send ZAB</h2>
   <p class="fine">Send some of your ZAB to another player on the board. Pick them by name (names only, never emails). Whole numbers, up to 1,000 ZAB a send.</p>
@@ -155,9 +158,13 @@
       };
       if (dlg.showModal) { dlg.returnValue = ""; dlg.showModal(); } else if (confirm($("sendConfirmText").textContent)) { dlg.returnValue = "ok"; dlg.onclose(); }
     });
+    let signedIn = false;
+    function openSend() { if (!signedIn) { $("bankSendSignIn").hidden = false; $("bankSendSignIn").scrollIntoView({ block: "center" }); return; }
+      $("bankSend").hidden = false; $("bankSend").scrollIntoView({ block: "start" }); $("sendTo").focus({ preventScroll: true }); }
+    $("bankSendTab").addEventListener("click", (ev) => { ev.preventDefault(); history.replaceState(null, "", "#bankSend"); openSend(); });
     function paintHistory(list) { $("bankHistBody").innerHTML = list == null ? '<tr><td colspan="4">Sign in to see your history.</td></tr>' : ZT.txRowsHtml(list, ZC.esc); }
     // Local test hook only: renders given rows in the page, never writes anywhere.
-    window.ZabBank = { show(s, d, uid, mine) { state = s; docs = d || []; me = uid || null; setMine(mine); $("bankSignIn").style.display = s === "signedout" ? "" : "none"; render(); paintNames(); $("bankSend").hidden = s === "signedout"; }, history: (l) => paintHistory(l), target: pickTarget };
+    window.ZabBank = { show(s, d, uid, mine) { state = s; docs = d || []; me = uid || null; setMine(mine); $("bankSignIn").style.display = s === "signedout" ? "" : "none"; render(); paintNames(); $("bankSend").hidden = s === "signedout"; const was = signedIn; signedIn = s !== "signedout"; if (signedIn) $("bankSendSignIn").hidden = true; if (signedIn && !was && location.hash === "#bankSend") openSend(); }, history: (l) => paintHistory(l), target: pickTarget };
     const firebaseConfig = {
       apiKey: "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4",
       authDomain: "zabbadat-5f132.firebaseapp.com",
