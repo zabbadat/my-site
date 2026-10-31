@@ -62,9 +62,10 @@ check("framing: joint cut off at the frame edge -> whole body message", G(body(5
 check("framing: seen from the front (both shoulders apart) -> 'Turn so the camera sees your side'", (() => {
   const k = body(450, 0, { x0: 90 }).concat(K({ right_shoulder: [250, 244], right_hip: [420, 262] })); const g = G(k); return !g.ok && g.issue === "turn" && g.msg === "Turn so the camera sees your side"; })());
 check("framing: side-on with the far shoulder hidden behind the near one is fine", (() => { const k = body(450, 0, { x0: 90 }).concat(K({ right_shoulder: [95, 244], right_hip: [292, 252] })); return G(k).ok; })());
-check("framing: portrait frame, small body -> 'Prop the phone sideways'", (() => { const g = P.frameGuide(body(300, 0, { x0: 90 }), { w: 480, h: 640 }); return !g.ok && g.issue === "sideways" && g.msg === "Prop the phone sideways"; })());
-check("framing: body running up the frame (phone turned) -> 'Prop the phone sideways'", (() => {
-  const k = K({ left_shoulder: [240, 60], left_hip: [245, 200], left_knee: [250, 300], left_ankle: [255, 400] }); return P.frameGuide(k, { w: 480, h: 640 }).issue === "sideways"; })());
+check("framing: portrait frame (phone upright), body across the width -> ok (portrait plank supported)", (() => { const g = P.frameGuide(body(300, 0, { x0: 90 }), { w: 480, h: 640 }); return g.ok && g.portrait === true; })());
+check("framing: portrait frame, tiny body -> 'Move a little closer'", (() => { const g = P.frameGuide(body(120, 0, { x0: 90 }), { w: 480, h: 640 }); return !g.ok && g.issue === "closer"; })());
+check("framing: body running up a portrait frame -> 'Get level, head to heels'", (() => {
+  const k = K({ left_shoulder: [240, 60], left_hip: [245, 200], left_knee: [250, 300], left_ankle: [255, 400] }); return P.frameGuide(k, { w: 480, h: 640 }).issue === "level"; })());
 check("framing: landscape, tilted body -> level; far away -> closer", (() => {
   const tilt = K({ left_shoulder: [100, 60], left_hip: [250, 200], left_knee: [330, 280], left_ankle: [400, 360] });
   return P.frameGuide(tilt, D).issue === "level" && P.frameGuide(body(120, 0, { x0: 200 }), D).issue === "closer"; })());
@@ -73,7 +74,7 @@ check("framing: the message set is short spoken-style text", Object.values(P.MSG
 r = run(seq(0, 5000, (t) => body(450, 0, { x0: 90, j: Math.sin(t / 37) * 1.5 }).filter((p) => p.name !== "left_knee")), {}, D);
 check("ready: good form but knee out of frame -> clock never starts, message shown", r.phase === "ready" && r.countdownMs == null && r.framing.issue === "whole" && r.framing.msg === P.MSG.whole);
 r = run(seq(0, 5000, (t) => body(300, 0, { x0: 90, j: Math.sin(t / 37) * 1.5 })), {}, { w: 480, h: 640 });
-check("ready: portrait phone, small body -> blocked with 'Prop the phone sideways'", r.phase === "ready" && r.framing.msg === P.MSG.sideways);
+check("ready: portrait phone, body across the frame -> clock starts", r.phase === "holding" && r.framing.ok);
 r = run(seq(0, 5000, jit(450)), {}, D);
 check("ready: good framing + form starts the clock after 1.5 s, framing ok", r.phase === "holding" && r.framing.ok);
 { const h = P.createPlankHold(), f = seq(0, 400, jit(450)); let last; for (const [t, k] of f) last = h.update(k, t, D);
@@ -86,7 +87,7 @@ const tooBig = (t) => body(450, 0, { x0: 4, j: Math.sin(t / 37) * 1.5 }); // tou
 const PORT = { w: 480, h: 640 };
 { const small = (t) => body(300, 0, { x0: 90, j: Math.sin(t / 37) * 1.5 + Math.cos(t / 91) });
   const h = P.createPlankHold(); let rr; for (const [t, k] of seq(0, 2000, base)) h.update(k, t, D); for (const [t, k] of seq(2000, 30000, small)) rr = h.update(k, t, PORT);
-  check(`framing never ends a hold: phone turned to portrait mid-hold for 28 s -> still holding (message: ${rr.framing.msg})`, rr.phase === "holding" && rr.ms > 27000 && rr.framing.msg === P.MSG.sideways); }
+  check(`framing never ends a hold: phone turned to portrait mid-hold for 28 s -> still holding (message: ${rr.framing.msg})`, rr.phase === "holding" && rr.ms > 27000 && rr.framing.ok); }
 for (const [n, f, d] of [["knee out of frame", noKnee, D], ["turned to face the camera", front, D], ["cut off at the edge", tooBig, D]]) {
   r = run(seq(0, 2000, base).concat(seq(2000, 30000, f)), {}, d);
   check(`framing never ends a hold: ${n} for 28 s -> still holding (message shown: ${!!r.framing.msg})`, r.phase === "holding" && !r.ended && r.ms > 27000 && !!r.framing.msg);

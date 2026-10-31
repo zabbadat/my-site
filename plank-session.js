@@ -32,7 +32,10 @@
     frameScore: 0.35,   // framing guide: every one of shoulder, hip, knee, ankle needs at least this confidence
     edgeFrac: 0.02,     // framing: a joint this close to the frame edge (fraction of the frame) counts as cut off
     minSpan: 0.35,      // framing: shoulder-to-ankle span must be at least this fraction of the frame width (landscape)
-    minSpanPortrait: 0.7, // ...in a portrait frame the body is small: this much or "prop the phone sideways"
+    minSpanPortrait: 0.35, // portrait (phone upright): same share of the frame WIDTH (the short side) as landscape
+    portraitMinScore: 0.25, // portrait: the body is smaller in a tall frame, so keypoints are accepted a little lower
+    portraitFrameScore: 0.25, // portrait framing guide confidence (landscape keeps frameScore)
+    kneeFrac: 0.75,     // shoulder->knee is about this share of shoulder->ankle (used when ankles are out of a portrait frame)
     sideSep: 0.3,       // framing: left/right shoulder or hip farther apart than this x body length = seen from the front
     maxTilt: 35,        // framing: shoulder-ankle line steeper than this many degrees from horizontal = not level
     frameShowMs: 500,   // framing message shows after the issue lasts this long ...
@@ -79,43 +82,58 @@
   }
   // Use the side facing the camera (higher confidence).
   // opts.keep = true when the previous frame was already "ok": the looser sagKeep / pikeKeep limits apply.
+  // opts.kneeFallback = true (portrait frames): with the ankle out of frame, judge the shoulder-hip-knee line instead;
+  // the hip offset is rescaled to full body length (shoulder-knee / kneeFrac) so the same sag/pike limits apply.
   function classifyPlank(kps, opts) {
     var o = merge(opts);
     var side = pickSide(kps);
     var sh = pt(kps, side + "_shoulder", o.minScore), hip = pt(kps, side + "_hip", o.minScore),
         an = pt(kps, side + "_ankle", o.minScore), kn = pt(kps, side + "_knee", o.minScore);
+    if (sh && hip && !an && kn && o.kneeFallback) {
+      var kr = Math.abs(kn.x - sh.x), kz = Math.abs(kn.y - sh.y);
+      if (kz > o.flat * kr) return { frame: "standing", side: side, end: "knee" };
+      var d0 = hipOffset(sh, hip, kn);
+      return classifyDev(d0 == null ? null : d0 * o.kneeFrac, null, side, o, "knee");
+    }
     if (!sh || !hip || !an) return { frame: "missing" };
     var run = Math.abs(an.x - sh.x), rise = Math.abs(an.y - sh.y);
     if (rise > o.flat * run) return { frame: "standing", side: side };
     var knee = kn ? angle(hip, kn, an) : null, dev = hipOffset(sh, hip, an);
-    if (knee != null && knee < o.kneeAngle) return { frame: "knees", dev: dev, knee: knee, side: side };
+    return classifyDev(dev, knee, side, o, "ankle");
+  }
+  function classifyDev(dev, knee, side, o, endJ) {
+    if (knee != null && knee < o.kneeAngle) return { frame: "knees", dev: dev, knee: knee, side: side, end: endJ };
     var sagAt = o.keep ? o.sagKeep : o.sagStart, pikeAt = o.keep ? o.pikeKeep : o.pikeStart;
-    if (dev != null && dev > sagAt) return { frame: "sag", dev: dev, knee: knee, side: side };
-    if (dev != null && -dev > pikeAt) return { frame: "pike", dev: dev, knee: knee, side: side };
-    return { frame: "ok", dev: dev, knee: knee, side: side };
+    if (dev != null && dev > sagAt) return { frame: "sag", dev: dev, knee: knee, side: side, end: endJ };
+    if (dev != null && -dev > pikeAt) return { frame: "pike", dev: dev, knee: knee, side: side, end: endJ };
+    return { frame: "ok", dev: dev, knee: knee, side: side, end: endJ };
   }
 
   // Live framing guide (side view). dims = { w, h } of the video frame (optional). Returns
   // { ok, issue, msg, span } with issue one of whole | turn | sideways | level | closer | null. Pure; never judges form.
   function frameGuide(kps, dims, opts) {
-    var o = merge(opts), side = pickSide(kps), n = o.frameScore, J = {};
+    var o = merge(opts), side = pickSide(kps), J = {};
+    var W = dims && dims.w > 0 ? dims.w : 0, H = dims && dims.h > 0 ? dims.h : 0, portrait = H > W && W > 0;
+    var n = portrait ? o.portraitFrameScore : o.frameScore;
     ["shoulder", "hip", "knee", "ankle"].forEach(function (j) { J[j] = pt(kps, side + "_" + j, n); });
-    var W = dims && dims.w > 0 ? dims.w : 0, H = dims && dims.h > 0 ? dims.h : 0;
-    if (!J.shoulder || !J.hip || !J.knee || !J.ankle) return { ok: false, issue: "whole", msg: MSG.whole, span: null };
-    if (W && H) {
-      var ex = o.edgeFrac * W, ey = o.edgeFrac * H;
-      for (var k in J) if (J[k].x < ex || J[k].x > W - ex || J[k].y < ey || J[k].y > H - ey) return { ok: false, issue: "whole", msg: MSG.whole, span: null };
-    }
-    var L = Math.hypot(J.ankle.x - J.shoulder.x, J.ankle.y - J.shoulder.y);
+    var ex = o.edgeFrac * W, ey = o.edgeFrac * H;
+    function cut(p) { return W && H && (p.x < ex || p.x > W - ex || p.y < ey || p.y > H - ey); }
+    // Portrait (phone upright): ankles out of frame are allowed; the shoulder-hip-knee line stands in (scaled by kneeFrac).
+    var fb = portrait && J.shoulder && J.hip && J.knee && (!J.ankle || cut(J.ankle));
+    if (fb) delete J.ankle;
+    if (!J.shoulder || !J.hip || !J.knee || (!fb && !J.ankle)) return { ok: false, issue: "whole", msg: MSG.whole, span: null };
+    for (var k in J) if (cut(J[k])) return { ok: false, issue: "whole", msg: MSG.whole, span: null };
+    var end = fb ? J.knee : J.ankle, sc = fb ? 1 / o.kneeFrac : 1;
+    var L = Math.hypot(end.x - J.shoulder.x, end.y - J.shoulder.y) * sc;
     var other = side === "left" ? "right" : "left", sep = 0;
     ["shoulder", "hip"].forEach(function (j) { var q = pt(kps, other + "_" + j, n); if (q && L > 0) sep = Math.max(sep, Math.abs(q.x - J[j].x) / L); });
     if (sep > o.sideSep) return { ok: false, issue: "turn", msg: MSG.turn, span: null };
-    var run = Math.abs(J.ankle.x - J.shoulder.x), rise = Math.abs(J.ankle.y - J.shoulder.y);
-    var tilt = Math.atan2(rise, run) * 180 / Math.PI, span = W ? run / W : null, portrait = H > W && W > 0;
-    if (tilt > o.maxTilt) return portrait || !W ? { ok: false, issue: "sideways", msg: MSG.sideways, span: span } : { ok: false, issue: "level", msg: MSG.level, span: span };
-    if (span != null && span < (portrait ? o.minSpanPortrait : o.minSpan))
-      return portrait ? { ok: false, issue: "sideways", msg: MSG.sideways, span: span } : { ok: false, issue: "closer", msg: MSG.closer, span: span };
-    return { ok: true, issue: null, msg: "", span: span };
+    var run = Math.abs(end.x - J.shoulder.x) * sc, rise = Math.abs(end.y - J.shoulder.y) * sc;
+    // Tilt and span are measured on the body line itself, so a tall (portrait) frame is judged the same way as a wide one.
+    var tilt = Math.atan2(rise, run) * 180 / Math.PI, span = W ? run / W : null;
+    if (tilt > o.maxTilt) return { ok: false, issue: "level", msg: MSG.level, span: span, portrait: portrait };
+    if (span != null && span < (portrait ? o.minSpanPortrait : o.minSpan)) return { ok: false, issue: "closer", msg: MSG.closer, span: span, portrait: portrait };
+    return { ok: true, issue: null, msg: "", span: span, portrait: portrait, fallback: !!fb };
   }
 
   // One Euro filter (push-counter.js) on every confident keypoint, in body-length units so the same settings work at
@@ -124,13 +142,23 @@
     try { if (typeof module !== "undefined" && module.exports && typeof require === "function") return require("./push-counter.js").oneEuro; } catch (e) {}
     return root.ZabbadatPush && root.ZabbadatPush.oneEuro ? root.ZabbadatPush.oneEuro : null;
   }
+  // Body length (shoulder->ankle); without ankles, shoulder->knee / kneeFrac.
+  function lenOf(kps, o) {
+    var best = 0, kb = 0;
+    ["left", "right"].forEach(function (s) {
+      var a = pt(kps, s + "_shoulder", o.minScore), b = pt(kps, s + "_ankle", o.minScore), k = pt(kps, s + "_knee", o.minScore);
+      if (a && b) best = Math.max(best, Math.hypot(a.x - b.x, a.y - b.y));
+      if (a && k) kb = Math.max(kb, Math.hypot(a.x - k.x, a.y - k.y) / o.kneeFrac);
+    });
+    return best || kb;
+  }
   function createPlankFilter(opts) {
     var o = merge(opts), mk = o.filter === false ? null : euroFactory(), st = {}, L = null;
     function reset() { st = {}; L = null; }
     function filter(kps, t) {
       if (!mk) return (kps || []).slice();
       var raw = 0;
-      ["left", "right"].forEach(function (sd) { var a = pt(kps, sd + "_shoulder", o.minScore), b = pt(kps, sd + "_ankle", o.minScore); if (a && b) raw = Math.max(raw, Math.hypot(a.x - b.x, a.y - b.y)); });
+      raw = lenOf(kps, o);
       if (raw > 0) L = L == null ? raw : L + 0.05 * (raw - L);
       if (!(L > 0)) return (kps || []).slice();
       return (kps || []).map(function (p) {
@@ -200,8 +228,7 @@
     reset();
     function end(t, reason, creditT) { h.phase = "ended"; h.reason = reason; h.ms = Math.max(0, Math.round((creditT != null ? creditT : t) - h.startT)); }
     function bodyLen(kps) {
-      var best = 0; ["left", "right"].forEach(function (s) { var a = pt(kps, s + "_shoulder", o.minScore), b = pt(kps, s + "_ankle", o.minScore); if (a && b) best = Math.max(best, Math.hypot(a.x - b.x, a.y - b.y)); });
-      return best;
+      return lenOf(kps, o);
     }
     // Debounced framing message: shows after frameShowMs of the same issue, clears after frameClearMs of none.
     function framing(g, t) {
@@ -222,8 +249,8 @@
       return true;
     }
     function update(kps, t, dims) {
-      var raw = kps || [], fk = pf.filter(raw, t);
-      var c = classifyPlank(fk, { keep: h.wasOk, sagStart: o.sagStart, sagKeep: o.sagKeep, pikeStart: o.pikeStart, pikeKeep: o.pikeKeep, minScore: o.minScore, kneeAngle: o.kneeAngle, flat: o.flat }), f = c.frame;
+      var raw = kps || [], fk = pf.filter(raw, t), por = !!(dims && dims.h > dims.w && dims.w > 0);
+      var c = classifyPlank(fk, { keep: h.wasOk, sagStart: o.sagStart, sagKeep: o.sagKeep, pikeStart: o.pikeStart, pikeKeep: o.pikeKeep, minScore: por ? Math.min(o.minScore, o.portraitMinScore) : o.minScore, kneeAngle: o.kneeAngle, flat: o.flat, kneeFallback: por, kneeFrac: o.kneeFrac }), f = c.frame;
       if (f !== "missing") h.wasOk = f === "ok";
       var g = frameGuide(fk, dims, o);
       framing(g, t);
