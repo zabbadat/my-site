@@ -113,6 +113,11 @@
       var g = WAGER_GAME[t.game] || "Battle", w = WAGER_TYPE[t.type] || "Battle wager";
       return { source: w, amount: (amt < 0 ? "−" : "+") + Math.abs(amt), qty: g + (t.code ? " " + t.code : ""), when: when };
     }
+    // Player-to-player sends (server-written by netlify/functions/zab-send): names only, never emails.
+    if (t.source === "transfer") {
+      var who = holderName({ name: t.type === "send" ? t.toName : t.fromName, uid: t.type === "send" ? t.to : t.from });
+      return { source: t.type === "send" ? "Sent" : "Received", amount: (amt < 0 ? "−" : "+") + Math.abs(amt), qty: (t.type === "send" ? "to " : "from ") + who, when: when };
+    }
     return { source: src, amount: (amt < 0 ? "−" + Math.abs(amt) : "+" + amt), qty: UNIT[t.source] ? UNIT[t.source](q) : q + " " + (t.units || ""), when: when };
   }
   function txRowsHtml(list, esc) {

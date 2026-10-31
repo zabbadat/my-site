@@ -13,19 +13,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Zab Bank: ZAB Rankings and Balances | Zabbadat</title>
   <link rel="canonical" href="https://www.zabbadat.com/bank">
-  <meta name="description" content="The Zab Bank: full ZAB rankings, a name lookup and your own balance. ZAB is an in-game token with no real-world value.">
+  <meta name="description" content="The Zab Bank: full ZAB rankings, a name lookup, your balance, history and sends. ZAB is an in-game label with no real-world value.">
   <meta name="theme-color" content="#0e1412">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Zabbadat™">
   <meta property="og:title" content="Zab Bank: ZAB Rankings and Balances | Zabbadat">
-  <meta property="og:description" content="The Zab Bank: full ZAB rankings, a name lookup and your own balance. ZAB is an in-game token with no real-world value.">
+  <meta property="og:description" content="The Zab Bank: full ZAB rankings, a name lookup, your balance, history and sends. ZAB is an in-game label with no real-world value.">
   <meta property="og:url" content="https://www.zabbadat.com/bank">
   <meta property="og:image" content="https://www.zabbadat.com/og-zd-v2.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Zab Bank: ZAB Rankings and Balances | Zabbadat">
-  <meta name="twitter:description" content="The Zab Bank: full ZAB rankings, a name lookup and your own balance. ZAB is an in-game token with no real-world value.">
+  <meta name="twitter:description" content="The Zab Bank: full ZAB rankings, a name lookup, your balance, history and sends. ZAB is an in-game label with no real-world value.">
   <meta name="twitter:image" content="https://www.zabbadat.com/og-zd-v2.png">
   <link rel="icon" href="/favicon.ico">
     <style>
@@ -84,9 +84,25 @@
   <main>
   <h1>Zab Bank</h1>
   <p class="sub">Every ZAB holder, ranked by balance.</p>
-  <p class="notice" id="zabNote"><strong>ZAB is an in-game token for Zabbadat games. It has no real-world value and is not tied to any real balance, wallet, product or offer.</strong></p>
+  <p class="notice" id="zabNote"><strong>ZAB is an in-game label for Zabbadat games. It has no real-world value and is not tied to any real balance, wallet, product or offer.</strong></p>
   <h2>Your balance</h2>
   <p class="mine" id="bankMine">Sign in to see your balance.</p>
+  <section id="bankSend" hidden>
+  <h2>Send ZAB</h2>
+  <p class="fine">Send some of your ZAB to another player on the board. Pick them by name (names only, never emails). Whole numbers, up to 1,000 ZAB a send.</p>
+  <form class="lookup" id="sendForm" autocomplete="off">
+    <label for="sendTo" class="fine" style="flex-basis:100%">Player name</label>
+    <input id="sendTo" list="sendNames" placeholder="Player name" required>
+    <datalist id="sendNames"></datalist>
+    <label for="sendAmt" class="fine" style="flex-basis:100%">Amount (ZAB)</label>
+    <input id="sendAmt" type="number" min="1" max="1000" step="1" inputmode="numeric" placeholder="ZAB" required>
+    <button type="submit" class="btn" id="sendBtn">Send ZAB</button>
+  </form>
+  <p class="fine" id="sendMsg" aria-live="polite"></p>
+  <dialog id="sendConfirm"><form method="dialog"><p id="sendConfirmText"></p><p class="btns"><button value="cancel" class="btn ghost">Cancel</button><button value="ok" class="btn" id="sendOk">Send</button></p></form></dialog>
+  </section>
+  <h2>Your history</h2>
+  <table class="fine" id="bankHistory"><thead><tr><th>What</th><th>ZAB</th><th>Detail</th><th>When</th></tr></thead><tbody id="bankHistBody"><tr><td colspan="4">Sign in to see your history.</td></tr></tbody></table>
   <h2>Rankings</h2>
   <div class="lookup" role="search">
     <label for="bankFind" class="fine" style="flex-basis:100%">Look up a player by name</label>
@@ -110,10 +126,38 @@
       if (q && state === "ok" && !shown.length) $("bankBody").innerHTML = '<p class="zt-h-note">No player named \u201c' + ZC.esc(q) + '\u201d on the board.</p>';
       $("bankFindResult").innerHTML = q && shown.length === 1 ? ZC.esc(shown[0].name) + " \u00b7 rank " + shown[0].rank + " \u00b7 " + ZC.amountHtml(shown[0].total) : (q && shown.length > 1 ? shown.length + " matches" : "");
     }
-    function setMine(n) { $("bankMine").innerHTML = n == null ? "Sign in to see your balance." : "Your ZAB bag: " + ZC.amountHtml(n); }
+    function setMine(n) { mine = n; $("bankMine").innerHTML = n == null ? "Sign in to see your balance." : "Your ZAB bag: " + ZC.amountHtml(n); }
     $("bankFind").addEventListener("input", render);
+    // ---- Send ZAB (server: /.netlify/functions/zab-send). Recipient chosen from board names; uid sent, never an email.
+    let getCred = null, mine = null;
+    function paintNames() { $("sendNames").innerHTML = rows.filter((r) => !r.me).map((r) => '<option value="' + ZC.esc(r.name) + '">').join(""); }
+    function pickTarget(name) { const m = rows.filter((r) => !r.me && r.name.toLowerCase() === String(name).trim().toLowerCase()); return m.length === 1 ? m[0] : null; }
+    function newKey() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+    $("sendForm").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const t = pickTarget($("sendTo").value), amt = Number($("sendAmt").value), msg = $("sendMsg");
+      if (!t) { msg.textContent = "Pick one player from the board by their exact name."; return; }
+      if (!Number.isInteger(amt) || amt < 1 || amt > 1000) { msg.textContent = "Enter a whole number from 1 to 1,000."; return; }
+      if (mine != null && amt > mine) { ZC.set(msg, "Not enough ZAB. You have " + mine.toLocaleString("en-US") + " ZAB."); return; }
+      const key = newKey();
+      $("sendConfirmText").innerHTML = "Send " + ZC.amountHtml(amt) + " to " + ZC.esc(t.name) + "? This can't be undone.";
+      const dlg = $("sendConfirm");
+      dlg.onclose = async () => {
+        if (dlg.returnValue !== "ok" || !getCred) return;
+        $("sendBtn").disabled = true; msg.textContent = "Sending\u2026";
+        try {
+          const r = await fetch("/.netlify/functions/zab-send", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await getCred()) }, body: JSON.stringify({ to: t.uid, amount: amt, key }) });
+          const j = await r.json().catch(() => ({}));
+          if (r.ok && j.ok) { msg.innerHTML = "Sent " + ZC.amountHtml(amt) + " to " + ZC.esc(t.name) + "."; $("sendAmt").value = ""; }
+          else ZC.set(msg, j.error || "Send failed. Try again.");
+        } catch (e) { msg.textContent = "Send failed. Try again."; }
+        $("sendBtn").disabled = false;
+      };
+      if (dlg.showModal) { dlg.returnValue = ""; dlg.showModal(); } else if (confirm($("sendConfirmText").textContent)) { dlg.returnValue = "ok"; dlg.onclose(); }
+    });
+    function paintHistory(list) { $("bankHistBody").innerHTML = list == null ? '<tr><td colspan="4">Sign in to see your history.</td></tr>' : ZT.txRowsHtml(list, ZC.esc); }
     // Local test hook only: renders given rows in the page, never writes anywhere.
-    window.ZabBank = { show(s, d, uid, mine) { state = s; docs = d || []; me = uid || null; setMine(mine); $("bankSignIn").style.display = s === "signedout" ? "" : "none"; render(); } };
+    window.ZabBank = { show(s, d, uid, mine) { state = s; docs = d || []; me = uid || null; setMine(mine); $("bankSignIn").style.display = s === "signedout" ? "" : "none"; render(); paintNames(); $("bankSend").hidden = s === "signedout"; }, history: (l) => paintHistory(l), target: pickTarget };
     const firebaseConfig = {
       apiKey: "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4",
       authDomain: "zabbadat-5f132.firebaseapp.com",
@@ -131,11 +175,13 @@
       let offs = [];
       onAuthStateChanged(auth, (u) => {
         offs.forEach((f) => f()); offs = [];
-        if (!u) { window.ZabBank.show("signedout"); return; }
+        if (!u) { getCred = null; window.ZabBank.show("signedout"); paintHistory(null); return; }
+        getCred = () => u.getIdToken();
         window.ZabBank.show("loading", [], u.uid, null);
         offs.push(onSnapshot(query(collection(db, "zabBoard"), orderBy("total", "desc"), limit(500)),
           (snap) => window.ZabBank.show(snap.empty ? "empty" : "ok", snap.docs.map((d) => Object.assign({ id: d.id }, d.data())), u.uid, $("bankMine").dataset.n == null ? null : Number($("bankMine").dataset.n)),
           () => window.ZabBank.show("error", [], u.uid, null)));
+        offs.push(onSnapshot(query(collection(db, "users", u.uid, "zabLedger"), orderBy("createdAt", "desc"), limit(50)), (snap) => paintHistory(snap.docs.map((d) => d.data())), () => paintHistory([])));
         offs.push(onSnapshot(doc(db, "users", u.uid), (d) => { const n = ZT.profileFrom(d.exists() ? d.data() : null, u.uid).zabBalance; $("bankMine").dataset.n = n; setMine(n); }, () => {}));
       });
     } catch (e) { window.ZabBank.show("error"); }

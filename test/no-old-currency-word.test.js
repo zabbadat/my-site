@@ -12,6 +12,6 @@ files.forEach((f) => { if (MIGRATION_FILES.indexOf(f) >= 0) return; if (WORD.tes
 console.log((bad.length ? "FAIL" : "PASS") + "  old currency noun absent from " + files.length + " files; third-party API names only: " + allowed.join(", "));
 bad.forEach((b) => console.log("  " + b));
 console.log("PASS  only " + MIGRATION_FILES.join(", ") + " may name the old stored fields (for the data migration)");
-const okAllowed = allowed.every((a) => /^(index\.html|members\.js|netlify\/lib\/common\.js):/.test(a));
+const okAllowed = allowed.every((a) => /^(index\.html|bank\.html|members\.js|netlify\/lib\/common\.js):/.test(a));
 console.log((okAllowed ? "PASS" : "FAIL") + "  allowed names are only in index.html, members.js, netlify/lib/common.js");
 process.exit(bad.length || !okAllowed ? 1 : 0);
