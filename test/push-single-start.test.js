@@ -36,7 +36,7 @@ const pushChallenge = { start() { log.push("challenge:start"); }, reset() {} };
 let camOn = false, poseLoopOn = false, camStream = null, pushCounter = { ph: "calibrate", state() { return { phase: this.ph }; }, reset() {} };
 let plankLoop = false, plankHold = null, plankSaved = false, plankStream = null, plankSessionStartedAt = 0;
 async function loadCamLibs() {} async function ensurePose() { log.push("pose"); }
-function poseTick() {} function renderPush() {} function resetPoseBaseline() {} function camExitFs() {} function setCamStatus() {}
+function poseTick() {} function syncPushStartBtn() {} let poseLoopId = 0, plankLoopId = 0; function renderPush() {} function resetPoseBaseline() {} function camExitFs() {} function setCamStatus() {}
 function newPlankHold() { log.push("plankHold"); } function plankTick() {} function plankEnded() {}`;
   const SRC = [STUBS, line("const GET_SET_MS"), line("const getSet = "), line("const quickSet = "), line("const sessionTrack = "), line("function sessionPlan"), line("function sessionCommit"), line("function sessionTouch"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
     fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '),
@@ -79,7 +79,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     await e.advance(20);
     const times = SAID(e).map((x) => x.w + "@" + x.at).join(",");
     check(`${mode}: timeline`, times === [C[mode].place + "@0", C[mode].criteria + "@1000", "Ready@3000", "get set@5000", "three@7000", "two@8000", "one@9000", "Go@10000"].join(","));
-    check(`${mode}: clock starts at Go`, e.run("pushState.running") === true && e.$("pushStatus").textContent === STATUS[mode] && e.$("pushStartBtn").disabled === false);
+    check(`${mode}: clock starts at Go`, e.run("pushState.running") === true && e.$("pushStatus").textContent === STATUS[mode] && e.$("pushStartBtn").disabled === true); // stays disabled while the set runs (pose-loop guard); syncPushStartBtn re-enables at the end
     if (mode === "challenge") check("challenge: 3:00 challenge clock started", e.log.includes("challenge:start"));
   }
   { const e = env({ noEnd: true }); e.$("pushStartBtn").onclick(); await e.advance(9990);

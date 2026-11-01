@@ -72,7 +72,7 @@ for (const mode of ["long", "challenge"]) {
 check("the end-of-set line is exactly 'Set complete.'", G.SET_DONE_LINE === "Set complete." && G.TUT_FAIL_LINE === "Set complete.");
 
 // ---- page wiring pins
-const pt = html.slice(html.indexOf("async function poseTick()"), html.indexOf("async function openCam()"));
+const pt = html.slice(html.indexOf("async function poseTick(id = poseLoopId)"), html.indexOf("async function openCam()"));
 check("failure check lives only inside the long/challenge block of poseTick (not Sets)", /if \(\(pushMode === "long" \|\| pushMode === "challenge"\) && postureGuard && pushState\.running && !pushState\.finished\) \{[\s\S]*failWatch\.update\([\s\S]*voidTutSet\(failed\)/.test(pt) && pt.split("failWatch.update(").length === 2);
 check("voidTutSet only acts in long/challenge; its only save/post route is finishPushSet (no direct saveRemotePush / awardZab / localStorage)", /\(pushMode !== "long" && pushMode !== "challenge"\)\) return;/.test(fnSrc) && !/saveRemotePush|awardZab|localStorage|paintPushRows/.test(fnSrc) && fnSrc.split("finishPushSet(").length === 2);
 check("failWatch resets on each clock start and on every fresh set", /failWatch\.reset\(performance\.now\(\)\);[\s\S]{0,600}pushState\.running = true;/.test(html) && /clearPushPrompts\(\);\n  if \(typeof failWatch !== "undefined" && failWatch\) failWatch\.reset\(null\);/.test(html));

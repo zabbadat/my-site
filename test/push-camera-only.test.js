@@ -15,6 +15,6 @@ check("TUT battle: same, stamped before inference", /tFrame = performance\.now\(
 check("posture guards get the counter's topSize (shoulder width), not the signal level", /postureGuard\.update\([^\n]*st\.topSize/.test(html) && /tbJudge\.update\([^\n]*st\.topSize/.test(html));
 const srcs = ["push-counter.js", "push-session.js", "push-challenge.js"].map(read).join("\n");
 check("camera only: no motion / orientation / proximity sensor use in the push-up counter, session or challenge code", !/devicemotion|deviceorientation|accelerometer|gyroscope|Sensor\b|proximity/i.test(srcs));
-const poseFn = between("async function poseTick()", "async function openCam()");
+const poseFn = between("async function poseTick(id = poseLoopId)", "async function openCam()");
 check("camera only: the pose loop uses no motion sensor", !/devicemotion|deviceorientation|accelerometer|gyroscope|Sensor\b|proximity/i.test(poseFn));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

@@ -28,7 +28,7 @@ const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: nul
 let pushMode = ${JSON.stringify(mode)}; let challengeFlags = { standing: 0, knees: 0 };
 const pushChallenge = window.ZabbadatChallenge.createChallenge({ durationMs: 180000, topCapMs: 10000 });
 const postureGuard = window.ZabbadatSession.createPostureGuard();
-let camStream = null, camOn = false, poseDetector = null, poseLoopOn = false, pushCounter = null;
+let camStream = null, camOn = false, poseDetector = null, poseLoopOn = false, poseLoopId = 0, pushCounter = null; function syncPushStartBtn() {}
 async function loadCamLibs() { if (!pushCounter) pushCounter = window.ZabbadatPush.createCounter(${JSON.stringify(opts)}); }
 async function ensurePose() { return poseDetector || (poseDetector = { estimatePoses: async () => [{ keypoints: frame(performance.now()) }] }); }
 function renderPush() {} function finishChallenge() { log.push("finishChallenge"); } let lastCamStatus = "";
