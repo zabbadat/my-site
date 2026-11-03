@@ -205,8 +205,7 @@
       $("bankSend").hidden = false; $("bankSend").scrollIntoView({ block: "start" }); $("sendTo").focus({ preventScroll: true }); }
     $("bankSendTab").addEventListener("click", (ev) => { ev.preventDefault(); history.replaceState(null, "", "#bankSend"); openSend(); });
     function paintHistory(list) { $("bankHistBody").innerHTML = list == null ? '<tr><td colspan="4">Sign in to see your history.</td></tr>' : ZT.txRowsHtml(list, ZC.esc); }
-    // Local test hook only: renders given rows in the page, never writes anywhere.
-    window.ZabBank = { show(s, d, uid, mine) { state = s; docs = d || []; me = uid || null; setMine(mine); $("bankSignIn").style.display = s === "signedout" ? "" : "none"; const was = signedIn; signedIn = s !== "signedout"; render(); paintNames(); $("bankSend").hidden = s === "signedout"; if (signedIn) $("bankSendSignIn").hidden = true; if (signedIn && !was && location.hash === "#bankSend") openSend(); }, history: (l) => paintHistory(l), target: pickTarget, pick: (name) => openModal(pickTarget(name)) };
+    function show(s, d, uid, mine) { state = s; docs = d || []; me = uid || null; setMine(mine); $("bankSignIn").style.display = s === "signedout" ? "" : "none"; const was = signedIn; signedIn = s !== "signedout"; render(); paintNames(); $("bankSend").hidden = s === "signedout"; if (signedIn) $("bankSendSignIn").hidden = true; if (signedIn && !was && location.hash === "#bankSend") openSend(); }
     const firebaseConfig = {
       apiKey: "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4",
       authDomain: "zabbadat-5f132.firebaseapp.com",
@@ -224,16 +223,16 @@
       let offs = [];
       onAuthStateChanged(auth, (u) => {
         offs.forEach((f) => f()); offs = [];
-        if (!u) { getCred = null; window.ZabBank.show("signedout"); paintHistory(null); return; }
+        if (!u) { getCred = null; show("signedout"); paintHistory(null); return; }
         getCred = () => u.getIdToken();
-        window.ZabBank.show("loading", [], u.uid, null);
+        show("loading", [], u.uid, null);
         offs.push(onSnapshot(query(collection(db, "zabBoard"), orderBy("total", "desc"), limit(500)),
-          (snap) => window.ZabBank.show(snap.empty ? "empty" : "ok", snap.docs.map((d) => Object.assign({ id: d.id }, d.data())), u.uid, $("bankMine").dataset.n == null ? null : Number($("bankMine").dataset.n)),
-          () => window.ZabBank.show("error", [], u.uid, null)));
+          (snap) => show(snap.empty ? "empty" : "ok", snap.docs.map((d) => Object.assign({ id: d.id }, d.data())), u.uid, $("bankMine").dataset.n == null ? null : Number($("bankMine").dataset.n)),
+          () => show("error", [], u.uid, null)));
         offs.push(onSnapshot(query(collection(db, "users", u.uid, "zabLedger"), orderBy("createdAt", "desc"), limit(50)), (snap) => paintHistory(snap.docs.map((d) => d.data())), () => paintHistory([])));
         offs.push(onSnapshot(doc(db, "users", u.uid), (d) => { const n = ZT.profileFrom(d.exists() ? d.data() : null, u.uid).zabBalance; $("bankMine").dataset.n = n; setMine(n); }, () => {}));
       });
-    } catch (e) { window.ZabBank.show("error"); }
+    } catch (e) { show("error"); }
   </script>
   <footer>
     <p>© 2026 Zabbadat<sup style="font-size:0.5em">™</sup> · www.zabbadat.com · also searched as Zabadat</p>
