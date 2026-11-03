@@ -110,7 +110,7 @@
     <h2 id="sendModalTitle">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></h2>
     <p>To <strong id="sendModalName"></strong></p>
     <label for="sendAmt" class="fine">Amount (whole ZAB, 1 to 1,000)</label><br>
-    <input id="sendAmt" type="number" min="1" max="1000" step="1" inputmode="numeric" placeholder="ZAB">
+    <input id="sendAmt" type="number" min="0.1" max="1000" step="0.1" inputmode="decimal" placeholder="ZAB">
     <p class="fine" id="sendModalMsg" aria-live="polite">Sends can't be undone.</p>
     <p class="btns"><button value="cancel" class="btn ghost" id="sendCancel" formnovalidate>Cancel</button><button value="ok" class="btn" id="sendBtn">Send</button></p>
   </form></dialog>
@@ -188,10 +188,10 @@
     $("sendModalForm").addEventListener("submit", async (ev) => {
       const sub = ev.submitter && ev.submitter.value; if (sub !== "ok") return;
       ev.preventDefault();
-      const amt = Number($("sendAmt").value), m = $("sendModalMsg"), t = target;
+      const amt = ZC.roundZab(Number($("sendAmt").value)), m = $("sendModalMsg"), t = target;
       if (!t) return;
-      if (!Number.isInteger(amt) || amt < 1 || amt > 1000) { m.textContent = "Enter a whole number from 1 to 1,000."; return; }
-      if (mine != null && amt > mine) { ZC.set(m, "Not enough ZAB. You have " + mine.toLocaleString("en-US") + " ZAB."); return; }
+      if (!ZC.isZab(Number($("sendAmt").value)) || amt < 0.1 || amt > 1000) { m.textContent = "Enter an amount from 0.1 to 1,000 (steps of 0.1)."; return; }
+      if (mine != null && amt > mine) { ZC.set(m, "Not enough ZAB. You have " + ZC.fmtZab(mine) + " ZAB."); return; }
       if (!getCred) { m.textContent = "Sign in to send Zab."; return; }
       $("sendBtn").disabled = true; m.textContent = "Sending\u2026";
       try {

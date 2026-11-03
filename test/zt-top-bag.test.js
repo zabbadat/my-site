@@ -5,7 +5,7 @@ let pass = 0, fail = 0; const check = (n, ok) => { ok ? pass++ : fail++; console
 check("line text", ZT.topLine({ name: "Zab", total: 12 }) === "Bank of Zabba \u2013 Top ZAB: Zab \u00b7 12 ZAB" && ZT.topLine({ name: "Zab", total: 1 }) === "Bank of Zabba \u2013 Top ZAB: Zab \u00b7 1 ZAB" && ZT.topLine({ name: "Zab", total: 1500 }) === "Bank of Zabba \u2013 Top ZAB: Zab \u00b7 1,500 ZAB");
 check("hidden when empty / zero / missing", ZT.topLine(null) === null && ZT.topLine({ name: "Zab", total: 0 }) === null && ZT.topLine({}) === null);
 check("never an email (entry and line)", ZT.boardEntry("u1", "zab@example.com", 3).name === "Player" && !/@/.test(ZT.topLine({ name: "a@b.co", total: 3 })));
-check("entry shape uid/name/total only", JSON.stringify(ZT.boardEntry("u1", "Zab", 7.9)) === '{"uid":"u1","name":"Zab","total":7}');
+check("entry shape uid/name/total only", JSON.stringify(ZT.boardEntry("u1", "Zab", 7.9)) === '{"uid":"u1","name":"Zab","total":7.9}');
 const fn = (name) => { const i = html.indexOf("function " + name + "("); const e = html.indexOf("\n", i); const l = html.slice(i, e); return /\}\s*$/.test(l) && l.split("{").length === l.split("}").length ? l : html.slice(i, html.indexOf("\n}", i) + 2); };
 { const el = { textContent: "x", hidden: false }; const ctx = { $: () => el, ZT, window: { ZabCurrency: ZC }, document: {} }; vm.createContext(ctx); vm.runInContext(fn("paintTopBag"), ctx);
   ctx.paintTopBag({ name: "Zab", total: 4 }); const shown = !el.hidden && /^Bank of Zabba \u2013 Top <span class="zab">ZAB<svg[\s\S]*<\/svg><\/span>: Zab \u00b7 4 <span class="zab">ZAB/.test(el.innerHTML) && /zab-ring/.test(el.innerHTML || "");
@@ -21,7 +21,7 @@ const fn = (name) => { const i = html.indexOf("function " + name + "("); const e
     check("#ztTop present, hidden by default, near the balance", /<b id="ztBalance">[^\n]*\n\s*<p class="note" id="ztTop" hidden><\/p>/.test(html));
     const m = rules.slice(rules.indexOf("match /zabBoard/{uid}"));
     check("draft rules: signed-in read only; owner write; keys uid/name/total/updatedAt; total == own zabBalance; no '@' in name; no delete",
-      /allow read: if request\.auth != null;/.test(m) && /request\.auth\.uid == uid/.test(m) && /hasOnly\(\['uid','name','total','updatedAt'\]\)/.test(m) && /b\(\)\.total == get\(\/databases\/\$\(database\)\/documents\/users\/\$\(uid\)\)\.data\.zabBalance/.test(m) && /!b\(\)\.name\.matches\('\.\*@\.\*'\)/.test(m) && /allow delete: if false;/.test(m));
+      /allow read: if request\.auth != null;/.test(m) && /request\.auth\.uid == uid/.test(m) && /hasOnly\(\['uid','name','total','updatedAt'\]\)/.test(m) && /tenths\(b\(\)\.total\) == tenths\(get\(\/databases\/\$\(database\)\/documents\/users\/\$\(uid\)\)\.data\.zabBalance\)/.test(m) && /!b\(\)\.name\.matches\('\.\*@\.\*'\)/.test(m) && /allow delete: if false;/.test(m));
     check("users/{uid} stays owner-only read", /match \/users\/\{uid\} \{[\s\S]*?allow read: if request\.auth != null && request\.auth\.uid == uid;/.test(rules));
     console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }, 20);
 }

@@ -1262,7 +1262,7 @@ const failWatch = window.ZabbadatSession && window.ZabbadatSession.createFailure
 let lastViolFlag = 0;
 // 30-second top-hold bonus (all push-up modes), once per set. Fractional ZAB is NOT live yet: balances and ledger amounts are whole
 // numbers (firestore.rules "is int", zab-balance validEarn). HOLD_ZAB_LIVE stays false until a fractional-ZAB migration ships.
-const HOLD_ZAB_LIVE = true; // two half-bonuses = 1 ZAB (zab-balance.js bankHalf + "hold" earn); whole-number ledger unchanged
+const HOLD_ZAB_LIVE = true; // each 30-second top hold credits 0.5 ZAB ("hold" earn; ZAB amounts are tenths)
 const holdReward = window.ZabbadatSession && window.ZabbadatSession.createHoldReward ? window.ZabbadatSession.createHoldReward() : null;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
@@ -2127,12 +2127,11 @@ async function poseTick(id = poseLoopId) {
       const h = holdReward.update(window.ZabbadatChallenge && window.ZabbadatChallenge.atTopFrom(pushCounter.state()), performance.now(), hg);
       if ($("pushHoldTimer")) { $("pushHoldTimer").hidden = !(h.holdMs >= 1000 && !h.done); $("pushHoldTimer").textContent = "Top hold " + Math.floor(h.holdMs / 1000) + "s / 30s"; }
       if (h.awarded) {
-        const live = typeof HOLD_ZAB_LIVE !== "undefined" && HOLD_ZAB_LIVE && typeof ZT !== "undefined" && ZT && ZT.bankHalf && typeof currentUser !== "undefined" && currentUser;
-        const hb = live ? ZT.bankHalf(localStorage, currentUser.uid) : null;
-        const line = "30-second hold!" + (hb && hb.pair ? " +1 ZAB" : hb && hb.banked ? " +½ banked" : "");
+        const live = typeof HOLD_ZAB_LIVE !== "undefined" && HOLD_ZAB_LIVE && typeof ZT !== "undefined" && ZT && typeof currentUser !== "undefined" && currentUser;
+        const line = "30-second hold!" + (live ? " +0.5 ZAB" : "");
         $("camNote").textContent = line; if (typeof zabRing === "function") zabRing($("camNote"));
-        const GSh = window.ZabbadatGetSet; if (GSh && GSh.interruptSpeak) GSh.interruptSpeak(hb && hb.pair ? "30-second hold! Plus one ZAB." : hb && hb.banked ? "30-second hold! Half banked." : "30-second hold!");
-        if (hb && hb.pair) awardZab("hold", 2, ZT.newSetId()).catch(() => {});
+        const GSh = window.ZabbadatGetSet; if (GSh && GSh.interruptSpeak) GSh.interruptSpeak(live ? "30-second hold! Plus half a ZAB." : "30-second hold!");
+        if (live) awardZab("hold", 1, ZT.newSetId()).catch(() => {});
       }
     }
     // Regular Sets: the set runs through any number of reps and any length of top hold; only knees down (legs in view, ~1 s) or
@@ -2679,7 +2678,7 @@ function mirrorBoard(u, total) {
   setDoc(doc(db, "zabBoard", u.uid), { uid: e.uid, name: e.name, total: e.total, updatedAt: serverTimestamp() }).catch(() => { ztMirrored = null; });
 }
 let zabBalNow = null;
-function paintZab(n) { zabBalNow = n == null ? null : Number(n); const row = $("zabBalanceRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = Number(n).toLocaleString(); } paintZabSection(n); }
+function paintZab(n) { zabBalNow = n == null ? null : Number(n); const row = $("zabBalanceRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = window.ZabCurrency.fmtZab(Number(n)); } paintZabSection(n); }
 function paintZabSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; if (b) b.innerHTML = on ? window.ZabCurrency.amountHtml(Number(n)) : "—"; if (o) o.hidden = on; const st = $("ztSendTab"); if (st) st.setAttribute("href", on ? "/bank#bankSend" : "#play"); if (g) { g.setAttribute("href", on ? "#zab" : "#play"); g.setAttribute("aria-label", on ? "ZAB balance" : "Sign in"); if (on) { const nm = ZT && ZT.badgeParts ? ZT.badgeParts(typeof auth !== "undefined" && auth.currentUser ? publicName(displayNameOf(auth.currentUser)) : "", n).name : ""; g.innerHTML = (nm ? '<span class="zt-name">' + escapeHtml(nm) + '</span> \u00b7 ' : "") + window.ZabCurrency.amountHtml(Number(n)); g.title = (nm ? nm + " \u00b7 " : "") + window.ZabCurrency.amountText(Number(n)); } else { g.textContent = "Sign in"; g.title = ""; } } }
 // Badge: signed in -> #zab (plain link); signed out -> #play sign-in box, scrolled into view with the Google button focused.
 function ztBadgeClick(ev) {

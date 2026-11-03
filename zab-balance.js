@@ -20,19 +20,10 @@
     walk: { units: "minutes", per: 10, max: 240 },
     tut: { units: "seconds", per: 60, max: 7200 },
     washers: { units: "wins", per: 1, max: 1 },
-    // 30-second top hold (push-ups): two half-bonuses = 1 ZAB. One ledger entry per completed pair (qty 2 halves, amount 1).
-    hold: { units: "halves", per: 2, max: 2 }
+    // 30-second top hold (push-ups): each hold credits 0.5 ZAB (qty 1 hold, amount 0.5).
+    hold: { units: "holds", per: 1, max: 1, zab: 0.5 }
   };
-  var PENDING_KEY = "zdZabPending", HALF_KEY = "zdHoldHalf-";
-  // Hold halves per user (this device): bankHalf(store, uid) -> { banked: true } on the 1st half, { pair: true } on the 2nd
-  // (the caller then credits buildEarn(uid, "hold", 2, setId)); the count resets to 0 after a pair.
-  function bankHalf(store, uid) {
-    if (!store || !uid) return { banked: false, pair: false };
-    var k = HALF_KEY + String(uid).replace(/[^A-Za-z0-9_-]/g, ""), n = 0;
-    try { n = Number(store.getItem(k)) === 1 ? 1 : 0; } catch (e) {}
-    if (n === 0) { try { store.setItem(k, "1"); } catch (e) {} return { banked: true, pair: false }; }
-    try { store.setItem(k, "0"); } catch (e) {} return { banked: false, pair: true };
-  }
+  var PENDING_KEY = "zdZabPending";
   // qty from raw measurements: reps as-is; ms -> whole seconds / minutes.
   function qtyFrom(source, raw) {
     var n = Number(raw) || 0;
@@ -40,13 +31,13 @@
     if (source === "walk") return Math.max(0, Math.floor(n / 60000));
     if (source === "plank" || source === "tut") return Math.max(0, Math.floor(n / 1000));
     if (source === "washers") return n > 0 ? 1 : 0;
-    if (source === "hold") return n >= 2 ? 2 : 0;
+    if (source === "hold") return n >= 1 ? 1 : 0;
     return 0;
   }
   function zabFor(source, qty) {
     var r = RATES[source]; if (!r) return 0;
     var q = Math.min(Math.max(0, Math.floor(Number(qty) || 0)), r.max);
-    return Math.floor(q / r.per);
+    return ZC.roundZab(Math.floor(q / r.per) * (r.zab || 1));
   }
   function cleanId(s) { return String(s || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 60); }
   function txId(source, setId) { return source + "-" + cleanId(setId); }
@@ -55,7 +46,7 @@
   function buildEarn(uid, source, qty, setId) {
     var r = RATES[source]; if (!r || !uid || !cleanId(setId)) return null;
     var q = Math.min(Math.max(0, Math.floor(Number(qty) || 0)), r.max), amount = zabFor(source, q);
-    if (amount < 1) return null;
+    if (!(amount >= 0.1)) return null;
     return { id: txId(source, setId), tx: { uid: uid, type: "earn", source: source, amount: amount, units: r.units, qty: q, setId: cleanId(setId) } };
   }
   // Zabba Washers: 1 ZAB for a won game, once per gameId; null on loss / no user / no id.
@@ -63,9 +54,9 @@
   function validEarn(t) {
     var r = t && RATES[t.source];
     return !!(r && t.type === "earn" && t.units === r.units && Number.isInteger(t.qty) && t.qty >= 0 && t.qty <= r.max
-      && Number.isInteger(t.amount) && t.amount >= 1 && t.amount * r.per <= t.qty);
+      && ZC.isZab(t.amount) && t.amount >= 0.1 && ZC.roundZab(t.amount) <= zabFor(t.source, t.qty));
   }
-  function profileFrom(d, uid) { return { uid: uid, zabBalance: d && Number.isInteger(d.zabBalance) && d.zabBalance >= 0 ? d.zabBalance : 0, exists: !!d }; }
+  function profileFrom(d, uid) { return { uid: uid, zabBalance: d && ZC.isZab(d.zabBalance) ? ZC.roundZab(d.zabBalance) : 0, exists: !!d }; }
   /* fs adapter: { tx(fn) -> Promise; fn(t) with t.get(path) -> data|null, t.set(path, data), t.update(path, patch); ts() }
    * paths are arrays like ["users", uid] / ["users", uid, "zabLedger", id]. */
   function ensureProfile(fs, uid) {
@@ -83,7 +74,7 @@
     return fs.tx(function (t) {
       return Promise.all([t.get(uRef), t.get(tRef)]).then(function (got) {
         if (got[1]) return { credited: 0, skipped: "duplicate", balance: profileFrom(got[0], uid).zabBalance };
-        var bal = profileFrom(got[0], uid).zabBalance + earn.tx.amount;
+        var bal = ZC.roundZab(profileFrom(got[0], uid).zabBalance + earn.tx.amount);
         var rec = Object.assign({}, earn.tx, { createdAt: fs.ts() });
         if (got[0]) t.update(uRef, { zabBalance: bal, lastTxId: earn.id, updatedAt: fs.ts() });
         else t.set(uRef, { uid: uid, zabBalance: bal, lastTxId: earn.id, createdAt: fs.ts(), updatedAt: fs.ts() });
@@ -111,7 +102,7 @@
   function mins(m) { m = Math.floor(m); return m + " minute" + (m === 1 ? "" : "s"); }
   var UNIT = { pushups: function (n) { return n + " push-up" + (n === 1 ? "" : "s"); }, plank: function (n) { return mins(n / 60); },
     tut: function (n) { return mins(n / 60); }, walk: function (n) { return mins(n); },
-    washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; }, hold: function (n) { return n + " top hold" + (n === 1 ? "" : "s"); } };
+    washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; }, hold: function (n) { return n + " 30-second hold" + (n === 1 ? "" : "s"); } };
   var OF = { pushups: "", plank: " of plank", tut: " of TUT", walk: " of walking", hold: "" };
   // Display lines built from RATES so the page always matches the earn math.
   function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { return UNIT[k](RATES[k].per) + OF[k] + " = 1 ZAB"; }).concat(["Won Zabba Washers game = 1 ZAB"]); }
@@ -123,14 +114,14 @@
     // Battle bets (server-written): stake is negative, win / refund positive.
     if (t.source === "wager") {
       var g = WAGER_GAME[t.game] || "Battle", w = WAGER_TYPE[t.type] || "Battle wager";
-      return { source: w, amount: (amt < 0 ? "−" : "+") + Math.abs(amt), qty: g + (t.code ? " " + t.code : ""), when: when };
+      return { source: w, amount: (amt < 0 ? "−" : "+") + ZC.fmtZab(Math.abs(amt)), qty: g + (t.code ? " " + t.code : ""), when: when };
     }
     // Player-to-player sends (server-written by netlify/functions/zab-send): names only, never emails.
     if (t.source === "transfer") {
       var who = holderName({ name: t.type === "send" ? t.toName : t.fromName, uid: t.type === "send" ? t.to : t.from });
-      return { source: t.type === "send" ? "Sent" : "Received", amount: (amt < 0 ? "−" : "+") + Math.abs(amt), qty: (t.type === "send" ? "to " : "from ") + who, when: when };
+      return { source: t.type === "send" ? "Sent" : "Received", amount: (amt < 0 ? "−" : "+") + ZC.fmtZab(Math.abs(amt)), qty: (t.type === "send" ? "to " : "from ") + who, when: when };
     }
-    return { source: src, amount: (amt < 0 ? "−" + Math.abs(amt) : "+" + amt), qty: UNIT[t.source] ? UNIT[t.source](q) : q + " " + (t.units || ""), when: when };
+    return { source: src, amount: (amt < 0 ? "−" + ZC.fmtZab(Math.abs(amt)) : "+" + ZC.fmtZab(amt)), qty: UNIT[t.source] ? UNIT[t.source](q) : q + " " + (t.units || ""), when: when };
   }
   function txRowsHtml(list, esc) {
     if (!list || !list.length) return '<tr><td colspan="4">No ZAB earned yet. Finish a set, plank or walk to earn your first.</td></tr>';
@@ -142,20 +133,20 @@
     var n = String(name || "").trim();
     if (!n || /\S+@\S+\.\S+/.test(n)) n = "Player";
     if (n.length > maxName) n = n.slice(0, maxName - 1).trim() + "\u2026";
-    return { name: n, amount: Math.max(0, Math.floor(Number(balance) || 0)).toLocaleString("en-US") };
+    return { name: n, amount: ZC.fmtZab(Math.max(0, Number(balance) || 0)) };
   }
   // Public "Top ZAB" mirror: zabBoard/{uid} = { uid, name, total, updatedAt } (name = leaderboard publicName,
   // never an email; total = the owner's users/{uid}.zabBalance, enforced by rules). Written best-effort, outside the
   // award transaction, so earning never depends on it.
   function boardEntry(uid, name, total) {
     var n = badgeParts(name, total, 40).name;
-    return { uid: String(uid), name: n, total: Math.max(0, Math.floor(Number(total) || 0)) };
+    return { uid: String(uid), name: n, total: ZC.roundZab(Math.max(0, Number(total) || 0)) };
   }
   // "Bank of Zabba \u2013 Top ZAB: Zab \u00b7 12 ZAB" (the ring is added by ZabCurrency) or null (hide) when there is no usable entry.
   function topLine(entry) {
     if (!entry || !(Number(entry.total) > 0)) return null;
-    var p = badgeParts(entry.name, entry.total, 24), t = Math.floor(Number(entry.total));
-    return "Bank of Zabba \u2013 Top ZAB: " + p.name + " \u00b7 " + t.toLocaleString("en-US") + " ZAB";
+    var p = badgeParts(entry.name, entry.total, 24), t = Number(entry.total);
+    return "Bank of Zabba \u2013 Top ZAB: " + p.name + " \u00b7 " + ZC.fmtZab(t) + " ZAB";
   }
   // ---- "ZAB Holders" scoreboard (top 10 from the zabBoard mirror: { uid, name, total, updatedAt }; the name was
   // written as a leaderboard name, never an email, and the rules forbid '@'). Pure view logic, no DOM.
@@ -176,7 +167,7 @@
   function holdersView(entries, me, max) {
     max = max || 10;
     var rows = (entries || []).filter(function (e) { return e && Number(e.total) > 0; }).map(function (e) {
-      return { uid: String(e.uid || e.id || ""), name: holderName(e), total: Math.floor(Number(e.total)) };
+      return { uid: String(e.uid || e.id || ""), name: holderName(e), total: ZC.roundZab(Number(e.total)) };
     });
     rows.sort(function (a, b) {
       return b.total - a.total || (a.name.toLowerCase() < b.name.toLowerCase() ? -1 : a.name.toLowerCase() > b.name.toLowerCase() ? 1 : 0) || (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0);
@@ -196,7 +187,7 @@
         '<span class="zt-h-bal">' + esc(r.total.toLocaleString("en-US")) + (ZC ? " " + ZC.html("ZAB") : " ZAB") + "</span></li>";
     }).join("") + "</ol>";
   }
-  var api = { bankHalf: bankHalf, holderName: holderName, holdersView: holdersView, holdersHtml: holdersHtml, boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
+  var api = { holderName: holderName, holdersView: holdersView, holdersHtml: holdersHtml, boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
     profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabBalance = api;
 })(typeof window !== "undefined" ? window : this);

@@ -26,7 +26,7 @@ let k = 0; const key = () => "testkey" + String(++k).padStart(4, "0");
   let e = await caught(X.send(fs, "alice", { to: "bob", amount: 31, key: "kfixed0001" }, T)); check("same key, different send: 409", e && e.status === 409 && bal("alice") === 70);
   e = await caught(X.send(fs, "alice", { to: "bob", amount: 71, key: key() }, T)); check("no overdraft (402), nothing moved", e && e.status === 402 && bal("alice") === 70 && bal("bob") === 35);
   e = await caught(X.send(fs, "alice", { to: "alice", amount: 1, key: key() }, T)); check("no self-send", e && e.status === 400);
-  for (const a of [0, -5, 1.5, "3", null]) { e = await caught(X.send(fs, "alice", { to: "bob", amount: a, key: key() }, T)); if (!(e && e.status === 400)) check("bad amount " + a, false); }
+  for (const a of [0, -5, 0.05, 1e-9, 0.0001, -0, NaN, Infinity, "3", null]) { e = await caught(X.send(fs, "alice", { to: "bob", amount: a, key: key() }, T)); if (!(e && e.status === 400)) check("bad amount " + a, false); }
   check("amount must be positive whole number", true);
   e = await caught(X.send(fs, "alice", { to: "bob", amount: X.MAX_SEND + 1, key: key() }, T)); check("size cap per send", e && e.status === 400);
   e = await caught(X.send(fs, null, { to: "bob", amount: 1, key: key() }, T)); check("signed out: 401", e && e.status === 401);

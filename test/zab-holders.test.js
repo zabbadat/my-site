@@ -16,7 +16,7 @@ const text = (h) => h.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, "|
   const v = Z.holdersView(many); check("top 10 only", v.length === 10 && v[0].total === 100 && v[9].total === 91);
   check("top three highlighted (and only them)", v.filter((r) => r.top).length === 3 && v[2].top && !v[3].top); }
 { const v = Z.holdersView([E("a", "A", 9), E("b", "B", 9), E("c", "C", 9), E("d", "D", 9)]); check("a tie for 1st highlights everyone tied at ranks 1-3", v.every((r) => r.rank === 1 && r.top)); }
-check("balances are whole numbers", Z.holdersView([E("a", "A", 7.9)])[0].total === 7);
+check("balances are tenths (float noise rounded)", Z.holdersView([E("a", "A", 7.9)])[0].total === 7.9 && Z.holdersView([E("a", "A", 0.1 + 0.2)])[0].total === 0.3);
 
 // ---- names: never an email, safe fallback, long names
 { const bad = ["zab@example.com", "a@b.co", "  ", "", null, undefined, "Zab Smith <z@x.org>", "john.smith.gmail.com"];

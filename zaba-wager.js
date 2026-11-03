@@ -26,6 +26,8 @@
   const MAX_GAME_MS = 4 * 3600000;     // nobody finished after this -> both disconnected -> refund
   const MIN_WASHERS_MS = 60000;        // legacy constant (unused)
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
+  const ZC = NODE ? require("./zab-currency.js") : root && root.ZabCurrency;
+  const balOf = (u) => (u && ZC.isZab(u.zabBalance) ? ZC.roundZab(u.zabBalance) : 0); // balances are tenths; stakes stay whole ZAB
   function validStake(n) { return isInt(n) && n >= MIN_STAKE && (MAX_STAKE == null || n <= MAX_STAKE); }
   function stakeError(n) {
     if (!isInt(n) || n < MIN_STAKE) return "Minimum wager is " + MIN_STAKE + " ZAB.";
@@ -116,14 +118,14 @@
         if (prior || (w && w.players && w.players[uid])) return { ok: true, already: true, key, stake: room.stake };
         if (w && w.status !== "open") throw err(409, "This wager is already settled.");
         if (w && stakers(w).length >= 2) throw err(409, "Both stakes are already in.");
-        const bal = u && isInt(u.zabBalance) ? u.zabBalance : 0;
-        if (bal < room.stake) throw err(402, "Not enough ZAB: you have " + bal + ", the wager is " + room.stake + ".");
+        const bal = balOf(u);
+        if (bal < room.stake) throw err(402, "Not enough ZAB: you have " + ZC.fmtZab(bal) + ", the wager is " + room.stake + ".");
         const seat = { amount: room.stake, at: fs.ts() };
         if (w) t.update(wRef, { ["players." + uid]: seat });
         else t.set(wRef, { key, game, code, roomCreatedAt: createdMs, stake: room.stake, players: { [uid]: seat }, status: "open", createdAt: fs.ts() });
-        t.update(uRef, { zabBalance: bal - room.stake, lastTxId: txId, updatedAt: fs.ts() });
+        t.update(uRef, { zabBalance: ZC.roundZab(bal - room.stake), lastTxId: txId, updatedAt: fs.ts() });
         t.set(tRef, Object.assign(ledger(uid, "stake", -room.stake, { game, key, code }), { createdAt: fs.ts() }));
-        return { ok: true, key, stake: room.stake, balance: bal - room.stake };
+        return { ok: true, key, stake: room.stake, balance: ZC.roundZab(bal - room.stake) };
       });
     }));
   }
@@ -141,7 +143,7 @@
         const reads = credits.map((c) => Promise.all([t.get(["users", c.uid]), t.get(["users", c.uid, "zabLedger", c.type + "-" + key])]));
         return Promise.all(reads).then((got) => {
           credits.forEach((c, i) => { const [u, prior] = got[i]; if (prior) return;
-            const id = c.type + "-" + key, bal = (u && isInt(u.zabBalance) ? u.zabBalance : 0) + c.amount;
+            const id = c.type + "-" + key, bal = ZC.roundZab(balOf(u) + c.amount);
             if (u) t.update(["users", c.uid], { zabBalance: bal, lastTxId: id, updatedAt: fs.ts() });
             else t.set(["users", c.uid], { uid: c.uid, zabBalance: bal, lastTxId: id, createdAt: fs.ts(), updatedAt: fs.ts() });
             t.set(["users", c.uid, "zabLedger", id], Object.assign(ledger(c.uid, c.type, c.amount, w, { reason: p.reason }), { createdAt: fs.ts() })); });
