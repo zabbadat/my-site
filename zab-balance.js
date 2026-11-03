@@ -1,6 +1,6 @@
 /* ZAB: balance + transaction log. Earning is server-checked (zab-earn.js); browsers call claimEarn, never award.
  * Data model (Firestore):
- *   users/{uid}                 { uid, zabBalance:int, lastTxId, createdAt, updatedAt }
+ *   users/{uid}                 { uid, zabBalance (ZAB in tenths), lastTxId, createdAt, updatedAt }
  *   users/{uid}/zabLedger/{txId}  { uid, type:'earn', source, amount, units, qty, setId, createdAt }
  * Each award runs in ONE Firestore transaction: tx doc create + balance += amount, lastTxId = txId.
  * txId = "<source>-<setId>" is deterministic per set/session, so a retry finds the existing tx and

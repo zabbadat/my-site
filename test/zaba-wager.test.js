@@ -1,7 +1,7 @@
 // ZAB wagers: stake limits, escrow, payout exactly once, refunds, silent players, every battle type.
 const WH = require("./lib/washers-match.js"), W = require("../zaba-wager.js"), Z = require("../zab-balance.js"), B = require("../battle-rooms.js"), fsx = require("fs");
 const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
-check("min bet 1: 0, negatives, fractions rejected", !W.validStake(0) && !W.validStake(-2) && !W.validStake(1.5) && !W.validStake("3") && W.validStake(1) && /Minimum wager is 1/.test(W.stakeError(0)));
+check("min stake 0.1 ZAB in tenths: 0, negatives, 1.55, text rejected; 1.5 accepted", !W.validStake(0) && !W.validStake(-2) && !W.validStake(1.55) && W.validStake(1.5) && !W.validStake("3") && W.validStake(1) && /at least 0\.1 ZAB/.test(W.stakeError(0)));
 check("MAX_STAKE single config constant (null = open)", W.MAX_STAKE === null && W.validStake(1e6));
 check("pot = 2 x stake", W.pot(1) === 2 && W.pot(5) === 10);
 check("key includes room createdAt", W.roomKey("tut", "K7QX", 123) === "tut_K7QX_123");

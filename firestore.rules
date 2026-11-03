@@ -9,6 +9,11 @@ service cloud.firestore {
     function ownsNew() { return request.resource.data.uid == request.auth.uid; }
     function shortString(v, max) { return v is string && v.size() <= max; }
 
+    // ZAB amounts are tenths (one decimal place). zabOk: a number >= 0 that is a whole number of tenths
+    // (rejects NaN, negatives, 1e-9, 0.0001, 0.05). tenths(): integer tenths, so sums compare exactly (no float noise).
+    function zabOk(x) { return x is number && x >= 0 && math.abs(x * 10 - math.round(x * 10)) < 0.000001 && (x == 0 || math.round(x * 10) >= 1); }
+    function tenths(x) { return math.round(x * 10); }
+
     // Washers games: only verified, plausible results can be posted. No edits or deletes.
     match /games/{id} {
       allow read: if signedIn(); // boards: signed-in read only (no public scraping of names / handles / ids)
@@ -196,7 +201,7 @@ service cloud.firestore {
         && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]) && stakeOk(); }
       // ZAB wager (optional): stake set once at create; countdown needs both seated stakes in escrow
       // (wagers/{key}, written only by the server). (release 2026-10-23).
-      function stakeOk() { return !('stake' in n()) || (n().stake is int && n().stake >= 1); }
+      function stakeOk() { return !('stake' in n()) || (zabOk(n().stake) && n().stake >= 0.1); }
       function wagerPath() { return /databases/$(database)/documents/wagers/$('plank_' + code + '_' + string(d().createdAt.toMillis())); }
       function wagerReady() { return !('stake' in d()) || (exists(wagerPath()) && get(wagerPath()).data.status == 'open'
         && get(wagerPath()).data.players.keys().hasAll(d().players.keys())); }
@@ -259,7 +264,7 @@ service cloud.firestore {
         && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]) && stakeOk(); }
       // ZAB wager (optional): stake set once at create; countdown needs both seated stakes in escrow
       // (wagers/{key}, written only by the server). (release 2026-10-23).
-      function stakeOk() { return !('stake' in n()) || (n().stake is int && n().stake >= 1); }
+      function stakeOk() { return !('stake' in n()) || (zabOk(n().stake) && n().stake >= 0.1); }
       function wagerPath() { return /databases/$(database)/documents/wagers/$('tut_' + code + '_' + string(d().createdAt.toMillis())); }
       function wagerReady() { return !('stake' in d()) || (exists(wagerPath()) && get(wagerPath()).data.status == 'open'
         && get(wagerPath()).data.players.keys().hasAll(d().players.keys())); }
@@ -333,7 +338,7 @@ service cloud.firestore {
         && n().players.keys().hasOnly([me()]) && freshSeat(n().players[me()]) && stakeOk(); }
       // ZAB wager (optional): stake set once at create; countdown needs both seated stakes in escrow
       // (wagers/{key}, written only by the server). (release 2026-10-23). No stake = both checks pass.
-      function stakeOk() { return !('stake' in n()) || (n().stake is int && n().stake >= 1); }
+      function stakeOk() { return !('stake' in n()) || (zabOk(n().stake) && n().stake >= 0.1); }
       function wagerPath() { return /databases/$(database)/documents/wagers/$('washers_' + code + '_' + string(d().createdAt.toMillis())); }
       function wagerReady() { return !('stake' in d()) || (exists(wagerPath()) && get(wagerPath()).data.status == 'open'
         && get(wagerPath()).data.players.keys().hasAll(d().players.keys())); }
@@ -348,9 +353,9 @@ service cloud.firestore {
       function potReady() { return potTotal() == 0 || (potFormed() && get(wagerPath()).data.players.keys().hasAll(d().players.keys())); }
       function potSeatOk(o, p) {
         return (!('wager' in p.diff(o).affectedKeys()) || (!('wager' in o) && d().status == 'waiting' && d().startAt == null
-            && p.wager is int && p.wager >= 0 && p.wager <= 1000000000))
-          && (!('agreed' in p.diff(o).affectedKeys()) || (d().status == 'waiting' && d().startAt == null && allIn() && p.agreed is int
-            && p.agreed == potTotal() && potTotal() > 0 && (!('agreed' in o) || o.agreed != p.agreed)))
+            && zabOk(p.wager) && p.wager <= 1000000000))
+          && (!('agreed' in p.diff(o).affectedKeys()) || (d().status == 'waiting' && d().startAt == null && allIn() && zabOk(p.agreed)
+            && tenths(p.agreed) == tenths(potTotal()) && potTotal() > 0 && (!('agreed' in o) || o.agreed != p.agreed)))
           && (!('ready' in p.diff(o).affectedKeys()) || !potFormed()); }
       // Reports (rep). packOk: a pack of exactly 3 washers, each 0 out / 2 box-bound / 3 shoot / 5 bank (Art. 5.1, 6).
       function packOk(a) { return a is list && a.size() == 3 && a[0] in [0,2,3,5] && a[1] in [0,2,3,5] && a[2] in [0,2,3,5]; }
@@ -460,9 +465,9 @@ service cloud.firestore {
       function potFormed() { return exists(wagerPath()) && get(wagerPath()).data.status == 'open' && get(wagerPath()).data.get('pot', false) == true; }
       function potReady() { return potTotal() == 0 || (potFormed() && get(wagerPath()).data.players.keys().hasAll(d().seats.keys())); }
       function potSeatOk(o, p) {
-        return (!('wager' in p.diff(o).affectedKeys()) || (!('wager' in o) && d().startAt == null && p.wager is int && p.wager >= 0 && p.wager <= 1000000000))
-          && (!('agreed' in p.diff(o).affectedKeys()) || (d().startAt == null && allIn() && p.agreed is int
-            && p.agreed == potTotal() && potTotal() > 0 && (!('agreed' in o) || o.agreed != p.agreed)))
+        return (!('wager' in p.diff(o).affectedKeys()) || (!('wager' in o) && d().startAt == null && zabOk(p.wager) && p.wager <= 1000000000))
+          && (!('agreed' in p.diff(o).affectedKeys()) || (d().startAt == null && allIn() && zabOk(p.agreed)
+            && tenths(p.agreed) == tenths(potTotal()) && potTotal() > 0 && (!('agreed' in o) || o.agreed != p.agreed)))
           && (!('ready' in p.diff(o).affectedKeys()) || !potFormed()); }
       // reports (rep). packOk: a pack of exactly 3 washers, each 0 out / 2 box-bound / 3 shoot / 5 bank.
       function packOk(a) { return a is list && a.size() == 3 && a[0] in [0,2,3,5] && a[1] in [0,2,3,5] && a[2] in [0,2,3,5]; }
@@ -576,11 +581,6 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
     }
-
-    // ZAB amounts are tenths (one decimal place). zabOk: a number >= 0 that is a whole number of tenths
-    // (rejects NaN, negatives, 1e-9, 0.0001, 0.05). tenths(): integer tenths, so sums compare exactly (no float noise).
-    function zabOk(x) { return x is number && x >= 0 && math.abs(x * 10 - math.round(x * 10)) < 0.000001 && (x == 0 || math.round(x * 10) >= 1); }
-    function tenths(x) { return math.round(x * 10); }
 
     // ZAB balances and ledgers: written ONLY by the server (admin SDK: zab-earn, zab-send, wager-* functions).
     // The owner may create their own empty profile (balance 0) and read their own balance and ledger. Nobody can

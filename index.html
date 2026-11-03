@@ -843,7 +843,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <p class="note" id="waPotTotal" hidden></p>
         <div id="waPotEntry" hidden>
           <p class="note">Your wager is final once confirmed: enter your own amount, tap Submit, then Confirm. 0 means no wager.</p>
-          <div class="row wg-entry"><label for="waPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="waPotAmt" type="number" inputmode="numeric" min="0" step="1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="waPotSubmit" type="button">Submit</button></div>
+          <div class="row wg-entry"><label for="waPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="waPotAmt" type="number" inputmode="decimal" min="0" step="0.1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="waPotSubmit" type="button">Submit</button></div>
         </div>
         <div id="waPotConfirm" hidden><p class="wg-ask" id="waPotAsk"></p><div class="row"><button class="btn" id="waPotYes" type="button">Confirm</button><button class="btn ghost" id="waPotBack" type="button">Back</button></div></div>
         <div id="waPotAgree" hidden><p class="note" id="waPotAgreeText"></p><div class="row"><button class="btn" id="waPotAgreeBtn" type="button">Agree to the pot</button></div></div>
@@ -867,7 +867,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <p class="note" id="wbPotTotal" hidden></p>
         <div id="wbPotEntry" hidden>
           <p class="note">Your wager is final once confirmed: enter your own amount, tap Submit, then Confirm. 0 means no wager.</p>
-          <div class="row wg-entry"><label for="wbPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="wbPotAmt" type="number" inputmode="numeric" min="0" step="1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="wbPotSubmit" type="button">Submit</button></div>
+          <div class="row wg-entry"><label for="wbPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="wbPotAmt" type="number" inputmode="decimal" min="0" step="0.1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="wbPotSubmit" type="button">Submit</button></div>
         </div>
         <div id="wbPotConfirm" hidden><p class="wg-ask" id="wbPotAsk"></p><div class="row"><button class="btn" id="wbPotYes" type="button">Confirm</button><button class="btn ghost" id="wbPotBack" type="button">Back</button></div></div>
         <div id="wbPotAgree" hidden><p class="note" id="wbPotAgreeText"></p><div class="row"><button class="btn" id="wbPotAgreeBtn" type="button">Agree to the pot</button></div></div>
@@ -3384,7 +3384,7 @@ async function bbLoadZab() { // ZAB for the rows shown (+ mine), signed in only,
   const ids = Object.keys(bbRows).map((k) => bbRows[k].uid).concat([me]).filter((u, i, a) => a.indexOf(u) === i && !bbZabAsked[u]);
   for (let i = 0; i < ids.length; i += 10) {
     const chunk = ids.slice(i, i + 10); chunk.forEach((u) => { bbZabAsked[u] = true; });
-    try { const snap = await getDocs(query(collection(db, "zabBoard"), where(documentId(), "in", chunk))); snap.forEach((d) => { const t = d.data().total; if (Number.isInteger(t)) bbZab[d.id] = t; }); } catch (e) { chunk.forEach((u) => { delete bbZabAsked[u]; }); }
+    try { const snap = await getDocs(query(collection(db, "zabBoard"), where(documentId(), "in", chunk))); snap.forEach((d) => { const t = d.data().total; if (window.ZabCurrency && window.ZabCurrency.isZab(t)) bbZab[d.id] = t; }); } catch (e) { chunk.forEach((u) => { delete bbZabAsked[u]; }); }
   }
   bbPaint();
 }
@@ -3571,7 +3571,7 @@ function mkWager(game, o) {
   const P = o.prefix; let off = null, curKey = null, w = null, lastSettle = 0, busy = false;
   // stake picker (create) + wager line / stake button (lobby), added once
   const start = $(P + "Start"), count = $(P + "Count");
-  if (start && !o.noUi) start.insertAdjacentHTML("beforeend", '<label for="' + P + 'Stake">Wager ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg> (optional, minimum ' + WG.MIN_STAKE + (WG.MAX_STAKE ? ", maximum " + WG.MAX_STAKE : "") + ')</label><div class="row"><input id="' + P + 'Stake" type="number" inputmode="numeric" min="' + WG.MIN_STAKE + '" step="1" placeholder="No wager" style="max-width:9rem"></div><p class="note" style="margin:.2rem 0 0">Both players stake the same amount; the winner takes the pot (2x the wager). Ties, draws, unverified games and rooms that never start are refunded.</p>');
+  if (start && !o.noUi) start.insertAdjacentHTML("beforeend", '<label for="' + P + 'Stake">Wager ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg> (optional, minimum ' + WG.MIN_STAKE + (WG.MAX_STAKE ? ", maximum " + WG.MAX_STAKE : "") + ')</label><div class="row"><input id="' + P + 'Stake" type="number" inputmode="decimal" min="' + WG.MIN_STAKE + '" step="0.1" placeholder="No wager" style="max-width:9rem"></div><p class="note" style="margin:.2rem 0 0">Both players stake the same amount; the winner takes the pot (2x the wager). Ties, draws, unverified games and rooms that never start are refunded.</p>');
   if (count && !o.noUi) count.insertAdjacentHTML("beforebegin", '<p class="note" id="' + P + 'Wager" hidden style="text-align:center;font-weight:700"></p><div class="row" id="' + P + 'StakeRow" hidden style="justify-content:center"><button class="btn" id="' + P + 'StakeBtn" type="button">Lock in</button></div>');
   const keyOf = (r) => (r && r.stake ? WG.roomKey(game, o.code(), o.fs.toMs(r.createdAt)) : null);
   async function call(name, body) {

@@ -1,6 +1,6 @@
 /* ZAB wagers on battles (TUT Battles, Plank Battles, Zabba Washer Battle). SERVER-SIDE spending only:
  * stake / payout / refund run in netlify/functions (admin SDK); clients stay earn-only (rules).
- * Room: creator sets room.stake (int >= MIN_STAKE) once at create. Each seated player stakes via wager-stake.
+ * Room: creator sets room.stake (ZAB in tenths, >= MIN_STAKE) once at create. Each seated player stakes via wager-stake.
  * Escrow: wagers/{key}, key = <game>_<code>_<room createdAt ms> (room codes are reused, createdAt is not):
  *   { key, game, code, roomCreatedAt, stake, players: { [uid]: { amount, at } }, status: open|paid|refunded,
  *     winner?, reason?, flag?, settledAt? }
@@ -17,7 +17,7 @@
     PB = (NODE ? require("./plank-battle.js") : root && root.ZabbaPlankBattle), BR = (NODE ? require("./battle-rooms.js") : root && root.ZabbaBattles),
     POT = (NODE ? require("./washers-pot.js") : root && root.ZabbaWasherPot); // per-player washers pot (washers-pot.js): wagers with pot:true settle through POT.plan
   // ---- config (user decision pending: MAX_STAKE null = no upper limit) ----
-  const MIN_STAKE = 1;
+  const MIN_STAKE = 0.1;               // stakes are ZAB in tenths, like balances and sends
   const MAX_STAKE = null;
   const COL = { washers: "washersBattles", tut: "tutBattles", plank: "battles" };
   const LABEL = { washers: "Zabba Washer Battle", tut: "TUT Battle", plank: "Plank Battle" };
@@ -27,14 +27,14 @@
   const MIN_WASHERS_MS = 60000;        // legacy constant (unused)
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
   const ZC = NODE ? require("./zab-currency.js") : root && root.ZabCurrency;
-  const balOf = (u) => (u && ZC.isZab(u.zabBalance) ? ZC.roundZab(u.zabBalance) : 0); // balances are tenths; stakes stay whole ZAB
-  function validStake(n) { return isInt(n) && n >= MIN_STAKE && (MAX_STAKE == null || n <= MAX_STAKE); }
+  const balOf = (u) => (u && ZC.isZab(u.zabBalance) ? ZC.roundZab(u.zabBalance) : 0); // balances and stakes are tenths (zab-currency.js)
+  function validStake(n) { return ZC.isZab(n) && n >= MIN_STAKE && (MAX_STAKE == null || n <= MAX_STAKE); }
   function stakeError(n) {
-    if (!isInt(n) || n < MIN_STAKE) return "Minimum wager is " + MIN_STAKE + " ZAB.";
+    if (!ZC.isZab(n) || n < MIN_STAKE) return "Wagers are at least " + MIN_STAKE + " ZAB, in steps of 0.1.";
     if (MAX_STAKE != null && n > MAX_STAKE) return "Maximum wager is " + MAX_STAKE + " ZAB.";
     return "";
   }
-  const pot = (stake) => 2 * stake;
+  const pot = (stake) => ZC.roundZab(2 * stake);
   const roomKey = (game, code, createdMs) => game + "_" + code + "_" + createdMs;
   const isGame = (g) => Object.prototype.hasOwnProperty.call(COL, g);
   const seated = (r) => Object.keys((r && r.players) || {});
@@ -136,7 +136,7 @@
     const o = gameOutcome(w.game, room, nowMs, toMs);
     if (o.state === "pending") return { action: "pending" };
     if (o.state === "refund") return refundAll(o.reason, o.flag);
-    const amount = s.reduce((n, u) => n + w.players[u].amount, 0);
+    const amount = ZC.roundZab(s.reduce((n, u) => n + w.players[u].amount, 0));
     return { action: "payout", winner: o.winner, amount, reason: o.reason, refunds: all.filter((x) => s.indexOf(x.uid) < 0) };
   }
 
@@ -159,7 +159,7 @@
         if (w && w.status !== "open") throw err(409, "This wager is already settled.");
         if (w && stakers(w).length >= 2) throw err(409, "Both stakes are already in.");
         const bal = balOf(u);
-        if (bal < room.stake) throw err(402, "Not enough ZAB: you have " + ZC.fmtZab(bal) + ", the wager is " + room.stake + ".");
+        if (bal < room.stake) throw err(402, "Not enough ZAB: you have " + ZC.fmtZab(bal) + ", the wager is " + ZC.fmtZab(room.stake) + ".");
         const seat = { amount: room.stake, at: fs.ts() };
         if (w) t.update(wRef, { ["players." + uid]: seat });
         else t.set(wRef, { key, game, code, roomCreatedAt: createdMs, stake: room.stake, players: { [uid]: seat }, status: "open", createdAt: fs.ts() });
@@ -209,10 +209,10 @@
   function err(status, message) { const e = new Error(message); e.status = status; return e; }
   // Client-side text for the result line.
   function outcomeText(w, uid) {
-    if (!w || w.status === "open") return w ? "Pot: " + pot(w.stake) + " ZAB" : "";
-    if (w.status === "paid") return w.winner === uid ? "You won the pot: +" + pot(w.stake) + " ZAB." : "Your opponent won the pot.";
+    if (!w || w.status === "open") return w ? "Pot: " + ZC.fmtZab(pot(w.stake)) + " ZAB" : "";
+    if (w.status === "paid") return w.winner === uid ? "You won the pot: +" + ZC.fmtZab(pot(w.stake)) + " ZAB." : "Your opponent won the pot.";
     const why = { unverified: " (unverified game, flagged)", implausible: " (result flagged)" }[w.flag] || "";
-    return "Wager refunded: +" + ((w.players && w.players[uid] && w.players[uid].amount) || w.stake) + " ZAB" + why + ".";
+    return "Wager refunded: +" + ZC.fmtZab((w.players && w.players[uid] && w.players[uid].amount) || w.stake) + " ZAB" + why + ".";
   }
   const api = { MIN_STAKE, MAX_STAKE, COL, LABEL, GRACE_MS, SILENT_MS, MAX_GAME_MS, MIN_WASHERS_MS, validStake, stakeError, pot, roomKey, isGame, allStaked, gameOutcome, plan, stake, settle, outcomeText, resultCheck, PAIR_FLAG };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

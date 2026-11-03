@@ -97,7 +97,7 @@
   <p class="fine" id="bankSendSignIn" hidden>Sign in to send Zab. <a href="/#play">Go to sign-in</a></p>
   <section id="bankSend" hidden>
   <h2>Send ZAB</h2>
-  <p class="fine">Send some of your ZAB to another player on the board. Pick them by name (names only, never emails). Whole numbers, up to 1,000 ZAB a send.</p>
+  <p class="fine">Send some of your ZAB to another player on the board. Pick them by name (names only, never emails). Amounts in steps of 0.1, up to 1,000 ZAB a send.</p>
   <form class="lookup" id="sendForm" autocomplete="off">
     <label for="sendTo" class="fine" style="flex-basis:100%">Player name</label>
     <div class="sugg-wrap"><input id="sendTo" placeholder="Player name" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sendSugg" required>
@@ -109,7 +109,7 @@
   <dialog id="sendModal" aria-labelledby="sendModalTitle"><form method="dialog" id="sendModalForm">
     <h2 id="sendModalTitle">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></h2>
     <p>To <strong id="sendModalName"></strong></p>
-    <label for="sendAmt" class="fine">Amount (whole ZAB, 1 to 1,000)</label><br>
+    <label for="sendAmt" class="fine">Amount (ZAB, 0.1 to 1,000)</label><br>
     <input id="sendAmt" type="number" min="0.1" max="1000" step="0.1" inputmode="decimal" placeholder="ZAB">
     <p class="fine" id="sendModalMsg" aria-live="polite">Sends can't be undone.</p>
     <p class="btns"><button value="cancel" class="btn ghost" id="sendCancel" formnovalidate>Cancel</button><button value="ok" class="btn" id="sendBtn">Send</button></p>

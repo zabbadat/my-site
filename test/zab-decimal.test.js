@@ -47,8 +47,8 @@ let k = 0; const key = () => "deckey" + String(++k).padStart(4, "0");
   check("send rejects 0, 0.05, 0.0001, 1e-9, -0, -0.1, NaN, Infinity, strings; min send 0.1", X.MIN_SEND === 0.1);
   const kk = key(); r = await X.send(fs, "d", { to: "c", amount: 0.7, key: kk }, T); const r2 = await X.send(fs, "d", { to: "c", amount: 0.7, key: kk }, T);
   check("decimal send retried with same key: idempotent", r.ok && r2.already && bal("d") === 11.8 && bal("c") === 0.9);
-  // wagers: stakes stay whole ZAB, balances may be tenths
-  check("stakes stay whole ZAB (min 1): 1.5 and 0.5 rejected", !W.validStake(1.5) && !W.validStake(0.5) && W.validStake(1));
+  // wagers: stakes are tenths too (one unit everywhere)
+  check("stakes are tenths (min 0.1): 1.5 and 0.5 accepted, 1.55 / 0.05 / 0 rejected", W.validStake(1.5) && W.validStake(0.5) && W.validStake(0.1) && !W.validStake(1.55) && !W.validStake(0.05) && !W.validStake(0) && W.pot(1.5) === 3);
   const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; const code = "DECK", createdAt = T - 5;
   db[W.COL.tut + "/" + code] = { code, status: "waiting", createdAt, startAt: null, stake: 3, players: { p: { name: "P", ready: false, joinedAt: T }, q: { name: "Q", ready: false, joinedAt: T + 1 } } };
   user("p", 3.7); user("q", 2.9);
@@ -56,7 +56,7 @@ let k = 0; const key = () => "deckey" + String(++k).padStart(4, "0");
   check(`stake 3 from a 3.7 balance leaves exactly 0.7 (got ${bal("p")})`, r.ok && bal("p") === 0.7 && r.balance === 0.7);
   e = await caught(W.stake(fs, "q", "tut", code)); check("2.9 can't cover a stake of 3 (402), nothing debited", e && e.status === 402 && bal("q") === 2.9);
   // pot splits: pots are whole ZAB (whole stakes); odd unit to the winning team's lowest seat; decimal pots refused
-  check("pot split: 5 between 2 -> [3, 2] (odd ZAB to the first/lowest seat); decimal pot refused", JSON.stringify(POT.split(5, 2)) === "[3,2]" && POT.split(2.5, 2).length === 0);
+  check("pot split in tenths: 5 between 2 -> [2.5, 2.5]; 2.5 between 2 -> [1.3, 1.2] (odd tenth to the lowest seat); 1.55 refused", JSON.stringify(POT.split(5, 2)) === "[2.5,2.5]" && JSON.stringify(POT.split(2.5, 2)) === "[1.3,1.2]" && POT.split(1.55, 2).length === 0);
   // ---- rules (text + a JS mirror of zabOk / tenths)
   const zabOk = (x) => typeof x === "number" && x >= 0 && Math.abs(x * 10 - Math.round(x * 10)) < 0.000001 && (x == 0 || Math.round(x * 10) >= 1), tenths = (x) => Math.round(x * 10);
   check("rules: zabOk = number >= 0 and a whole number of tenths; tenths() compares sums exactly", /function zabOk\(x\) \{ return x is number && x >= 0 && math\.abs\(x \* 10 - math\.round\(x \* 10\)\) < 0\.000001 && \(x == 0 \|\| math\.round\(x \* 10\) >= 1\); \}/.test(rules) && /function tenths\(x\) \{ return math\.round\(x \* 10\); \}/.test(rules));
@@ -65,7 +65,7 @@ let k = 0; const key = () => "deckey" + String(++k).padStart(4, "0");
   check("rules: browsers can only create an empty profile (balance 0); balance changes are server-only (zab-earn, zab-send, wagers)", /u\(\)\.zabBalance == 0 && u\(\)\.lastTxId == ''/.test(rules) && !/zabBalance is int/.test(rules));
   check("server earn amounts are tenths: 0.5 per 30-second hold, whole ZAB for the rate sources", Z.zabFor("pushups", 25) === 2 && Z.zabFor("hold", 1) === 0.5);
   check("rules: ledger server-only; tenths helpers kept for stakes and wagers", /match \/zabLedger\/\{txId\} \{[^}]*allow create, update, delete: if false;/.test(rules) && /function tenths\(x\)/.test(rules));
-  check("rules: stakes / wagers stay whole numbers (is int)", (rules.match(/stake is int/g) || []).length >= 3 && /p\.wager is int/.test(rules));
+  check("rules: stakes / wagers / agreed pots are tenths (zabOk, compared in tenths)", (rules.match(/zabOk\(n\(\)\.stake\) && n\(\)\.stake >= 0\.1/g) || []).length === 3 && (rules.match(/zabOk\(p\.wager\)/g) || []).length === 2 && !/stake is int|wager is int|agreed is int/.test(rules));
   // ---- page wiring
   check("page: each 30-second hold counts toward the set (+0.5 ZAB cue), credited by the server with the set; no halves counter", /if \(live\) pushHoldsThisSet \+= 1;/.test(html) && /" \+0\.5 ZAB"/.test(html) && /awardZab\("hold", id\)/.test(html) && !/bankHalf|½ banked/.test(html) && !Z.bankHalf);
   check("bank: send box takes 0.1 steps, validates tenths, formats with fmtZab", /step="0\.1"/.test(bank) && /ZC\.isZab\(Number\(\$\("sendAmt"\)\.value\)\)/.test(bank) && /ZC\.fmtZab\(mine\)/.test(bank));
