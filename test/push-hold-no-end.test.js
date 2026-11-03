@@ -60,5 +60,5 @@ check("'I give up' button exists for the 3:00 challenge (Sets has Finish set, On
   let a = null; for (let t = 25200; t <= 56000; t += 100) if (h.update(true, t).awarded && a == null) a = t;
   check("hold bonus: leaving the top restarts the 30 s", a != null && a >= 55200); }
 check("hold bonus: 0.5 ZAB constant, on-screen + spoken '30-second hold!', hold timer element, reset per set", SS.HOLD_REWARD.zab === 0.5 && SS.HOLD_REWARD.holdMs === 30000 && /"30-second hold!"/.test(html) && /id="pushHoldTimer"/.test(html) && /holdReward\.reset\(\)/.test(html));
-check("hold bonus credit is gated (HOLD_ZAB_LIVE=false) until fractional ZAB is supported by firestore.rules / ledger (whole-number amounts today)", /const HOLD_ZAB_LIVE = false;/.test(html));
+check("hold bonus credit is live as two halves = 1 ZAB (whole-number ledger; see hold-half-zab.test.js)", /const HOLD_ZAB_LIVE = true;/.test(html));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

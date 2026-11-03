@@ -19,9 +19,20 @@
     plank: { units: "seconds", per: 60, max: 7200 },
     walk: { units: "minutes", per: 10, max: 240 },
     tut: { units: "seconds", per: 60, max: 7200 },
-    washers: { units: "wins", per: 1, max: 1 }
+    washers: { units: "wins", per: 1, max: 1 },
+    // 30-second top hold (push-ups): two half-bonuses = 1 ZAB. One ledger entry per completed pair (qty 2 halves, amount 1).
+    hold: { units: "halves", per: 2, max: 2 }
   };
-  var PENDING_KEY = "zdZabPending";
+  var PENDING_KEY = "zdZabPending", HALF_KEY = "zdHoldHalf-";
+  // Hold halves per user (this device): bankHalf(store, uid) -> { banked: true } on the 1st half, { pair: true } on the 2nd
+  // (the caller then credits buildEarn(uid, "hold", 2, setId)); the count resets to 0 after a pair.
+  function bankHalf(store, uid) {
+    if (!store || !uid) return { banked: false, pair: false };
+    var k = HALF_KEY + String(uid).replace(/[^A-Za-z0-9_-]/g, ""), n = 0;
+    try { n = Number(store.getItem(k)) === 1 ? 1 : 0; } catch (e) {}
+    if (n === 0) { try { store.setItem(k, "1"); } catch (e) {} return { banked: true, pair: false }; }
+    try { store.setItem(k, "0"); } catch (e) {} return { banked: false, pair: true };
+  }
   // qty from raw measurements: reps as-is; ms -> whole seconds / minutes.
   function qtyFrom(source, raw) {
     var n = Number(raw) || 0;
@@ -29,6 +40,7 @@
     if (source === "walk") return Math.max(0, Math.floor(n / 60000));
     if (source === "plank" || source === "tut") return Math.max(0, Math.floor(n / 1000));
     if (source === "washers") return n > 0 ? 1 : 0;
+    if (source === "hold") return n >= 2 ? 2 : 0;
     return 0;
   }
   function zabFor(source, qty) {
@@ -93,14 +105,14 @@
     var q = readQ(store).filter(function (e) { return e.tx && e.tx.uid === uid; });
     return q.reduce(function (p, e) { return p.then(function () { return award(fs, e).then(function () { drop(store, e.id); }, function () {}); }); }, Promise.resolve());
   }
-  var LABEL = { pushups: "Push-ups", plank: "Plank", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers" };
+  var LABEL = { pushups: "Push-ups", plank: "Plank", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers", hold: "30-second holds" };
   var WAGER_TYPE = { stake: "Battle stake", payout: "Battle win", refund: "Battle refund" };
   var WAGER_GAME = { washers: "Zabba Washer Battle", tut: "TUT Battle", plank: "Plank Battle" };
   function mins(m) { m = Math.floor(m); return m + " minute" + (m === 1 ? "" : "s"); }
   var UNIT = { pushups: function (n) { return n + " push-up" + (n === 1 ? "" : "s"); }, plank: function (n) { return mins(n / 60); },
     tut: function (n) { return mins(n / 60); }, walk: function (n) { return mins(n); },
-    washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; } };
-  var OF = { pushups: "", plank: " of plank", tut: " of TUT", walk: " of walking" };
+    washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; }, hold: function (n) { return n + " top hold" + (n === 1 ? "" : "s"); } };
+  var OF = { pushups: "", plank: " of plank", tut: " of TUT", walk: " of walking", hold: "" };
   // Display lines built from RATES so the page always matches the earn math.
   function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { return UNIT[k](RATES[k].per) + OF[k] + " = 1 ZAB"; }).concat(["Won Zabba Washers game = 1 ZAB"]); }
   function txLine(t) {
@@ -184,7 +196,7 @@
         '<span class="zt-h-bal">' + esc(r.total.toLocaleString("en-US")) + (ZC ? " " + ZC.html("ZAB") : " ZAB") + "</span></li>";
     }).join("") + "</ol>";
   }
-  var api = { holderName: holderName, holdersView: holdersView, holdersHtml: holdersHtml, boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
+  var api = { bankHalf: bankHalf, holderName: holderName, holdersView: holdersView, holdersHtml: holdersHtml, boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
     profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabBalance = api;
 })(typeof window !== "undefined" ? window : this);
