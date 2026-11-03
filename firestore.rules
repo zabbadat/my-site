@@ -11,7 +11,7 @@ service cloud.firestore {
 
     // Washers games: only verified, plausible results can be posted. No edits or deletes.
     match /games/{id} {
-      allow read: if true;
+      allow read: if signedIn(); // boards: signed-in read only (no public scraping of names / handles / ids)
       allow create: if signedIn() && ownsNew()
         && request.resource.data.keys().hasOnly(
              ['name','xHandle','uid','score','steps','ms','verified','sensorSamples','maxGapMs','packs','createdAt'])
@@ -33,7 +33,7 @@ service cloud.firestore {
 
     // Pushup sets (unchanged behaviour, now validated). No edits or deletes.
     match /pushups/{id} {
-      allow read: if true;
+      allow read: if signedIn(); // boards: signed-in read only (no public scraping of names / handles / ids)
       allow create: if signedIn() && ownsNew()
         && request.resource.data.keys().hasOnly(['name','xHandle','uid','reps','ms','tutMs','holds','createdAt'])
         && shortString(request.resource.data.name, 40)
@@ -54,7 +54,7 @@ service cloud.firestore {
     // Plank holds: camera sessions only. holdSec must fit inside the time since the
     // camera session started (+10 s slack), and ms must agree with holdSec.
     match /planks/{id} {
-      allow read: if true;
+      allow read: if signedIn(); // boards: signed-in read only (no public scraping of names / handles / ids)
       allow create: if signedIn() && ownsNew()
         && request.resource.data.keys().hasOnly(['name','xHandle','uid','ms','holdSec','source','sessionStartedAt','createdAt'])
         && request.resource.data.keys().hasAll(['name','uid','ms','holdSec','source','sessionStartedAt','createdAt'])
@@ -92,7 +92,7 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
     match /plankDaily/{id} {
-      allow read: if true;
+      allow read: if signedIn(); // boards: signed-in read only (no public scraping of names / handles / ids)
       allow create: if signedIn() && ownsNew()
         && id == request.auth.uid + '_' + request.resource.data.date
         && plankDailyOk(request.resource.data)
@@ -124,7 +124,7 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
     match /dailySteps/{id} {
-      allow read: if true;
+      allow read: if signedIn(); // boards: signed-in read only (no public scraping of names / handles / ids)
       allow create: if signedIn() && ownsNew()
         && id == request.auth.uid + '_' + request.resource.data.date
         && dailyStepsOk(request.resource.data);
@@ -140,7 +140,7 @@ service cloud.firestore {
     // Live walk sessions: one doc per finished web live walk. Create only.
     // 1 min to 4 h, steps 0..40,000 (client also requires 30+ steps/min). No edits or deletes.
     match /walkSessions/{id} {
-      allow read: if true;
+      allow read: if signedIn(); // boards: signed-in read only (no public scraping of names / handles / ids)
       allow create: if signedIn() && ownsNew()
         && request.resource.data.keys().hasOnly(['name','xHandle','uid','ms','steps','createdAt'])
         && request.resource.data.keys().hasAll(['name','uid','ms','steps','createdAt'])
@@ -538,7 +538,7 @@ service cloud.firestore {
     // The seasonal record holds a name + counts (never an email) and is readable by anyone, signed in or not.
     // The lifetime tally and the one-time match log have no client access at all; the page never reads them. (staged, not published)
     match /washersBattleSeason/{id} {
-      allow read: if true;
+      allow read: if signedIn(); // boards: signed-in read only (no public scraping of names / handles / ids)
       allow write: if false;
     }
     match /washersBattleLifetime/{uid} {
@@ -552,7 +552,7 @@ service cloud.firestore {
 
     // TUT battle ranking: each player writes only their own row, from a finished battle they were in. (release 2026-10-23).
     match /tutBattleStats/{uid} {
-      allow read: if true;
+      allow read: if signedIn(); // boards: signed-in read only (no public scraping of names / handles / ids)
       allow create, update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['uid','name','wins','losses','battles','bestTutMs','bestReps','lastBattle','updatedAt'])
         && request.resource.data.uid == uid && request.resource.data.updatedAt == request.time

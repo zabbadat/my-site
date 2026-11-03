@@ -3365,6 +3365,7 @@ function bbPaint() {
   if (!BT || !$("bbBody")) return;
   const S = BT.seasonOf(Date.now()), me = bbMe();
   $("bbTitle").textContent = BT.titleFor(Date.now()); $("bbReset").textContent = BT.seasonResetText(Date.now());
+  if (!auth.currentUser) { signedOutRow("bbBody"); return; } // the season board needs sign-in to read (firestore.rules)
   const rows = Object.keys(bbRows).map((k) => bbRows[k]);
   const html = bbErr && !rows.length ? '<tr><td colspan="5">Couldn\'t load the board right now.</td></tr>' : BT.bodyHtml(rows, me, bbZab, { esc: escapeHtml, amountHtml: window.ZabCurrency.amountHtml });
   const box = $("bbScroll"), top = box.scrollTop; $("bbBody").innerHTML = html; box.scrollTop = top;
@@ -3395,6 +3396,7 @@ async function bbMore() {
 }
 function bbStart() {
   if (!BT || !$("bbBody")) return;
+  if (!auth.currentUser) { if (bbOff) { bbOff(); bbOff = null; } return; } // signed out: no read (rules), bbPaint shows the sign-in prompt
   const S = BT.seasonOf(Date.now());
   if (bbSeason && bbSeason.id !== S.id) { Object.keys(bbRows).forEach((k) => delete bbRows[k]); bbCursor = null; bbDone = false; bbMoreLoaded = false; if (bbOff) bbOff(); bbOff = null; }
   bbSeason = S; if (bbOff) return;
@@ -3716,7 +3718,7 @@ $("tbLeave").onclick = async () => {
   if (u && r && r.status === "live" && !tbLostSent) await TBm.reportLoss(tbFs, c, u.uid, "left", tbMine).catch(() => {});
   tbExit(); tbStat("You left the room."); if (u && c) tb.leave(c, u).catch(() => {});
 };
-onSnapshot(query(collection(db, "tutBattleStats"), orderBy("wins", "desc"), limit(20)), (snap) => {
+boardSnap("tbRankBody", query(collection(db, "tutBattleStats"), orderBy("wins", "desc"), limit(20)), (snap) => {
   const rows = []; snap.forEach((d) => rows.push(d.data()));
   const list = TBm.rankStats(rows), body = $("tbRankBody");
   body.innerHTML = list.length ? "" : '<tr><td colspan="6">Waiting for battles…</td></tr>';
@@ -3746,9 +3748,18 @@ $("boardTonightBtn").onclick = () => {
   paintRows(lastBoardRows);
 };
 
+// Public boards need sign-in to read (firestore.rules). boardSnap registers a board; boardsOnUser subscribes them while
+// signed in and, signed out, shows a sign-in prompt in each board instead of an error or stale rows.
+const boardSubs = []; let boardOffs = [];
+function signedOutRow(id) { const el = $(id); if (!el) return; const t = el.closest ? el.closest("table") : null, n = t ? t.querySelectorAll("thead th").length || 1 : 1; el.innerHTML = '<tr><td colspan="' + n + '">Sign in to see this board.</td></tr>'; }
+function boardSnap(bodyId, q, next, fail) { boardSubs.push({ bodyId, q, next, fail }); }
+function boardsOnUser(u) {
+  boardOffs.forEach((off) => off()); boardOffs = [];
+  boardSubs.forEach((b) => { if (u) boardOffs.push(onSnapshot(typeof b.q === "function" ? b.q() : b.q, b.next, b.fail)); else signedOutRow(b.bodyId); });
+}
 const q = query(collection(db, "games"), orderBy("steps", "asc"), limit(200));  
 
-onSnapshot(q, (snap) => {
+boardSnap("boardBody", q, (snap) => {
   const rows = snap.docs.map((d) => {
     const x = d.data();
     const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleString() : "";
@@ -3767,7 +3778,7 @@ onSnapshot(q, (snap) => {
 }, () => paintRows(localBoard()));
 
 const pq = query(collection(db, "pushups"), orderBy("reps", "desc"), limit(80));
-onSnapshot(pq, (snap) => {
+boardSnap("pushBoardBody", pq, (snap) => {
   const rows = snap.docs.map((d) => {
     const x = d.data();
     const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleString() : "";
@@ -3787,18 +3798,20 @@ const tutRowsOf = (snap) => snap.docs.map((d) => {
   const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "";
   return { name: x.name, xHandle: x.xHandle || "", reps: x.reps, ms: x.ms, when };
 });
-onSnapshot(query(collection(db, "pushups"), orderBy("ms", "desc"), limit(80)), (snap) => paintTutRows(tutRowsOf(snap)), () => {
-  onSnapshot(query(collection(db, "pushups"), orderBy("createdAt", "desc"), limit(300)), (snap) => paintTutRows(tutRowsOf(snap)),
-    () => paintTutRows(localPush()));
+boardSnap("tutBoardBody", query(collection(db, "pushups"), orderBy("ms", "desc"), limit(80)), (snap) => paintTutRows(tutRowsOf(snap)), () => {
+  if (!auth.currentUser) return;
+  boardOffs.push(onSnapshot(query(collection(db, "pushups"), orderBy("createdAt", "desc"), limit(300)), (snap) => paintTutRows(tutRowsOf(snap)),
+    () => paintTutRows(localPush())));
 });
 // Plank board: longest hold first.
 const plankRowsOf = (snap) => snap.docs.map((d) => { const x = d.data(); return { name: x.name, xHandle: x.xHandle || "", ms: x.ms, when: x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "" }; });
-onSnapshot(query(collection(db, "planks"), orderBy("ms", "desc"), limit(80)), (snap) => paintPlankRows(plankRowsOf(snap)), () => paintPlankRows(localPlanks()));
+boardSnap("plankBoardBody", query(collection(db, "planks"), orderBy("ms", "desc"), limit(80)), (snap) => paintPlankRows(plankRowsOf(snap)), () => paintPlankRows(localPlanks()));
 // Plank sets today: today's docs (equality only), ranked client-side.
-onSnapshot(query(collection(db, "plankDaily"), where("date", "==", PD ? PD.localDateKey() : ""), limit(300)), (snap) => paintPlankDailyRows(snap.docs.map((d) => d.data())), () => paintPlankDailyRows([]));
+boardSnap("plankDailyBody", () => query(collection(db, "plankDaily"), where("date", "==", PD ? PD.localDateKey() : ""), limit(300)), (snap) => paintPlankDailyRows(snap.docs.map((d) => d.data())), () => paintPlankDailyRows([]));
 // Daily steps board: today's docs (equality only, no composite index), ranked client-side.
-onSnapshot(query(collection(db, "dailySteps"), where("date", "==", DS ? DS.localDateKey() : ""), limit(300)), (snap) => paintDailyRows(snap.docs.map((d) => d.data())), () => paintDailyRows([]));
-onSnapshot(query(collection(db, "walkSessions"), orderBy("ms", "desc"), limit(200)), (snap) => paintWalkRows(snap.docs.map((d) => { const x = d.data(); return { ...x, at: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now() }; })), () => paintWalkRows([]));
+boardSnap("dailyBoardBody", () => query(collection(db, "dailySteps"), where("date", "==", DS ? DS.localDateKey() : ""), limit(300)), (snap) => paintDailyRows(snap.docs.map((d) => d.data())), () => paintDailyRows([]));
+boardSnap("walkBoardBody", query(collection(db, "walkSessions"), orderBy("ms", "desc"), limit(200)), (snap) => paintWalkRows(snap.docs.map((d) => { const x = d.data(); return { ...x, at: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now() }; })), () => paintWalkRows([]));
+onAuthStateChanged(auth, boardsOnUser); // after every boardSnap above is registered
 </script> 
 </body>
 </html>

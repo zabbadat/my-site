@@ -10,7 +10,7 @@ check("no approval / moderation fields in rules or page", !/approv|moderat|pendi
 const boards = { games: "createdAt", pushups: "createdAt", planks: "createdAt", plankDaily: "updatedAt", dailySteps: "updatedAt", walkSessions: "createdAt" };
 for (const [c, ts] of Object.entries(boards)) {
   const b = block(c);
-  check(`${c}: public read`, /allow read: if true;/.test(b));
+  check(`${c}: signed-in read (no public scraping)`, /allow read: if signedIn\(\);/.test(b));
   check(`${c}: signed-in owner create, whitelisted fields, server timestamp`, /allow create: if signedIn\(\) && ownsNew\(\)/.test(b) && /keys\(\)\.hasOnly\(|Ok\(request\.resource\.data\)/.test(b) && new RegExp(ts + " == request\\.time").test(b + rules));
   check(`${c}: board query has no approval filter`, new RegExp('collection\\(db, "' + c + '"\\)').test(html) && !new RegExp('collection\\(db, "' + c + '"\\)[^\\n]*where\\("(approved|status|verified)"').test(html));
 }
