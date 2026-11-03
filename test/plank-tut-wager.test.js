@@ -25,7 +25,7 @@ function mkRoom(game, stake, extra) { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ2345678
   return { code, key: W.roomKey(game, code, createdAt), ref: W.COL[game] + "/" + code }; }
 async function staked(game, stake) { setUser("a", 20); setUser("b", 20); const x = mkRoom(game, stake); await W.stake(fs, "a", game, x.code); await W.stake(fs, "b", game, x.code); return x; }
 const goLive = (r) => Object.assign(db[r.ref], { status: "live", startAt: T });
-const hold = (r, u, ms, ok) => (db[r.ref].players[u].result = { holdMs: ms, verified: ok !== false, at: T });
+const hold = (r, u, ms, ok) => (db[r.ref].players[u].result = { holdMs: ms, verified: ok !== false, at: T + ms }); // reported when the hold ended (server result check)
 const START = T;
 (async () => {
   // ================= PLANK =================

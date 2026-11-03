@@ -52,7 +52,7 @@ check("split: integers, sum is exactly the pot, parts differ by at most 1 (conse
     let n = 0; const CODES = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; const nextCode = () => { const k = n++; return "Q" + CODES[Math.floor(k / 32) % 32] + CODES[k % 32] + "2"; };
   const mkRoom = (wa, wb, agreeBoth = true) => { const code = nextCode(), t = wa + wb; db["washersBattles/" + code] = { code, status: "waiting", startAt: null, createdAt: T - n, players: { a: seat1("A", wa, agreeBoth && t > 0 ? t : 0), b: seat1("B", wb, agreeBoth && t > 0 ? t : 0) } };
     if (!agreeBoth || t === 0) { delete db["washersBattles/" + code].players.a.agreed; delete db["washersBattles/" + code].players.b.agreed; } return { code, ref: "washersBattles/" + code, key: P.potKey("room", code, T - n) }; };
-  const goLive1 = (r, pa, pb) => { const rm = db[r.ref]; rm.status = "live"; rm.startAt = T; rm.players.a.rep = []; rm.players.b.rep = []; WH.bariboshi(rm, 10, 30); pa.forEach((p, i) => WH.round(rm, i + 1, p, pb[i])); };
+  const goLive1 = (r, pa, pb) => { const rm = db[r.ref]; rm.status = "live"; rm.startAt = T - 120000; rm.players.a.rep = []; rm.players.b.rep = []; WH.bariboshi(rm, 10, 30); pa.forEach((p, i) => WH.round(rm, i + 1, p, pb[i])); };
   const WIN_A = [[[5, 5, 5], [5, 5, 5]], [[0, 0, 0], [0, 0, 0]]];
   setU("a", 100); setU("b", 100); setU("c", 100); setU("d", 100);
   // --- 1v1 unequal wagers: ONE combined pot of both full amounts (no matching, no refund of the excess) ---
@@ -92,7 +92,7 @@ check("split: integers, sum is exactly the pot, parts differ by at most 1 (conse
   // --- 2v2: one combined pot, winning team splits equally ---
   const mkArena = (ws, agreed = true) => { const code = nextCode(), a = HA.arena({ code, status: "waiting", startAt: null, createdAt: T - n }); const tot = ws.reduce((x, y) => x + y, 0);
     HA.UIDS.forEach((u, i) => { a.seats[u].wager = ws[i]; a.seats[u].ready = !!agreed; if (agreed && tot > 0) a.seats[u].agreed = tot; }); db["washersArenas/" + code] = a; return { code, ref: "washersArenas/" + code, key: P.potKey("arena", code, T - n) }; };
-  const live4 = (x, packs) => { const a = db[x.ref]; a.status = "live"; a.startAt = T; HA.UIDS.forEach((u) => (a.seats[u].rep = [])); HA.bariboshi(a, [10, 40, 30, 50]); if (packs) HA.round(a, 1, packs); };
+  const live4 = (x, packs) => { const a = db[x.ref]; a.status = "live"; a.startAt = T - 120000; HA.UIDS.forEach((u) => (a.seats[u].rep = [])); HA.bariboshi(a, [10, 40, 30, 50]); if (packs) HA.round(a, 1, packs); };
   ["a1", "a2", "b1", "b2"].forEach((u) => setU(u, 100)); let ar = mkArena([30, 0, 10, 20]); before = sumBal(["a1", "a2", "b1", "b2"]);
   fp = await P.formPot(fs, "b2", "arena", ar.code); const aw = db["wagers/" + ar.key];
   check("2v2: one combined pot of all four amounts; zero-amount seats are listed but not debited", fp.ok && fp.total === 60 && aw.kind === "arena" && aw.game === "arena" && Object.keys(aw.players).length === 4 && bal("a1") === 70 && bal("a2") === 100 && bal("b1") === 90 && bal("b2") === 80 && !db["users/a2/zabLedger/stake-" + ar.key]);

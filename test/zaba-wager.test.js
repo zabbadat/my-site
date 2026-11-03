@@ -21,7 +21,7 @@ let n = 0;
 function mkRoom(game, stake, extra) { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k = n++; const code = "AB" + A[Math.floor(k / 32) % 32] + A[k % 32]; const createdAt = T - k;
   db[W.COL[game] + "/" + code] = Object.assign({ code, status: "waiting", createdAt, startAt: null, stake, players: { a: { name: "A", ready: false, joinedAt: T }, b: { name: "B", ready: false, joinedAt: T + 1 } } }, extra || {});
   return { code, key: W.roomKey(game, code, createdAt), ref: W.COL[game] + "/" + code }; }
-const goLive = (r) => Object.assign(db[r.ref], { status: "live", startAt: T });
+const goLive = (r) => Object.assign(db[r.ref], { status: "live", startAt: r.ref.startsWith("washersBattles") ? T - 120000 : T }); // washers: a game that started 2 min ago (server result check: no instant wins)
 const caught = async (p) => { try { await p; return null; } catch (e) { return e; } };
 (async () => {
   // ---- staking ----
@@ -86,7 +86,7 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   r = await staked("tut", 4); goLive(r);
   out = await W.settle(fs, r.key, T + 300000); check("TUT both disconnected (no stats): refund", out.status === "refunded");
   // ---- Plank ----
-  r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: true, at: T };
+  r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: true, at: T + 30000 };
   out = await W.settle(fs, r.key, T + 40000); check("Plank: first to drop loses, 1-ZAB battle pays pot 2", out.winner === "b" && bal("b") === 21 && bal("a") === 19);
   r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: false, at: T };
   out = await W.settle(fs, r.key, T + 40000); check("Plank unverified hold: refund + flag", out.flag === "unverified" && bal("a") === 20);
