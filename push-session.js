@@ -87,7 +87,10 @@
   // Same rule as Plank (a bad pose must last badMs = 1 s; any good or uncertain frame restarts that); Plank also ends on 1 s missing,
   // here it is 2 s (the same out-of-frame time the TUT Battle judge uses; a front camera drops tracking more often than a side one).
   // A normal rep (bottom, pause, top hold) never produces these. Once failed it stays failed until reset().
-  var FAIL = { badMs: 1000, frameMs: 2000, minScore: 0.3 };
+  // Holding the top (press / plank) position must NEVER end a set, however long. Only knees down (legs in view, bent like kneeling,
+  // held badMs) or leaving the frame for frameMs (10 s, a give-up) ends it; "standing" (shoulders shrink / upright line) is only a flag,
+  // because a leaned-up front camera reads a long top hold that way. Knees out of frame never trigger.
+  var FAIL = { badMs: 1000, frameMs: 10000, minScore: 0.3, endOn: { knees: true, frame: true, standing: false } };
   function createFailureWatch(opts) {
     var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed;
     function reset(t0) { guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs })); seen = t0 == null ? null : t0; failed = null; }
@@ -96,14 +99,32 @@
     function update(kps, t, topWidth) {
       if (failed) return failed;
       if (seen == null) seen = t;
-      if (upper(kps)) seen = t; else if (t - seen >= o.frameMs) return (failed = "frame");
+      if (upper(kps)) seen = t; else if (o.endOn.frame && t - seen >= o.frameMs) return (failed = "frame");
       var g = guard.update(kps, t, topWidth);
-      if (g.event === "knees" || g.event === "standing") return (failed = g.event);
+      if (g.event === "knees" && o.endOn.knees) return (failed = "knees");
+      if (g.event === "standing" && o.endOn.standing) return (failed = "standing");
       return null;
     }
     return { update: update, reset: reset, failed: function () { return failed; } };
   }
-  var FAIL_TEXT = { knees: "Knees down", standing: "Stood up / left plank", frame: "Out of frame" };
+  // 30-second top-hold reward: one continuous hold at the top (press / plank) for holdMs earns the bonus ONCE per set.
+  // update(atTop, t, kneesDown) -> { holdMs, awarded (true only on the frame it is earned), done }. Leaving the top or knees down
+  // restarts the hold; reset() at each new set. Holding never ends the set.
+  var HOLD_REWARD = { holdMs: 30000, zab: 0.5 };
+  function createHoldReward(opts) {
+    var o = Object.assign({}, HOLD_REWARD, opts || {}), s;
+    function reset() { s = { since: null, done: false }; }
+    reset();
+    function update(atTop, t, kneesDown) {
+      if (!atTop || kneesDown) { s.since = null; return { holdMs: 0, awarded: false, done: s.done }; }
+      if (s.since == null) s.since = t;
+      var h = t - s.since, aw = !s.done && h >= o.holdMs;
+      if (aw) s.done = true;
+      return { holdMs: h, awarded: aw, done: s.done };
+    }
+    return { update: update, reset: reset, options: o, state: function () { return s; } };
+  }
+  var FAIL_TEXT = { knees: "Knees down", standing: "Stood up / left plank", frame: "Out of frame", gaveup: "Gave up" };
   // Personal history from localStorage entries [[key, value], ...]: per-day time under tension
   // (tutPrefix, e.g. "zabbadat-push-tut-guest-") and reps (repsPrefix, "zabbadat-push-total-guest-").
   // Returns today, best day (by time), all-time totals and days (newest first).
@@ -138,7 +159,7 @@
       .sort(function (a, b) { return Number(b.ms) - Number(a.ms); }).slice(0, n || 50);
   }
 
-  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD };
+  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

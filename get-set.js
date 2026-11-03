@@ -72,6 +72,8 @@
   //   0 s "Ready" · 2 s "get set" · 4 s "three" · 5 s "two" · 6 s "one" · 7 s "Go" (clock starts). Screen shows the same.
   var STEPS = [[0, "Ready", "Ready"], [2000, "get set", "Get set"], [4000, "three", "3"], [5000, "two", "2"], [6000, "one", "1"], [7000, "Go", "GO"]], DEFAULT_STEPS = STEPS;
   var COUNTDOWN_MS = 7000;
+  // Plank start (same style as the push-up 3-2-1): "three" 0 s, "two" 1 s, "one" 2 s, "Hold" 3 s; the hold clock starts at "Hold".
+  var PLANK_STEPS = [[0, "three", "3"], [1000, "two", "2"], [2000, "one", "1"], [3000, "Hold", "HOLD"]], PLANK_COUNT_MS = 3000;
   /* Quick restart start (no coaching, no 3-2-1): "Ready" 0 s, "set" 1.2 s, "Go" 2.4 s (clock starts). */
   var QUICK_STEPS = [[0, "Ready", "Ready"], [1200, "set", "Set"], [2400, "Go", "GO"]], QUICK_MS = 2400;
   function makeQuickCountdown(opts) { var o = {}, k; opts = opts || {}; for (k in opts) o[k] = opts[k]; o.steps = QUICK_STEPS; return makeGoCountdown(o); }
@@ -280,7 +282,7 @@
       }
     };
   }
-  var api = { makeQuickCountdown: makeQuickCountdown, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, makeBattleVoice: makeBattleVoice };
+  var api = { makeQuickCountdown: makeQuickCountdown, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);

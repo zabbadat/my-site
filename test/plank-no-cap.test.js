@@ -73,7 +73,7 @@ const run = (fr, onFrame) => { const h = P.createPlankHold(); let r, ended = nul
 const tick = html.slice(html.indexOf("async function plankTick"), html.indexOf("function newPlankHold"));
 check("page: no PLANK_SET_MS and no 'Minute set done' anywhere; plankTick has no fixed-time end", !/PLANK_SET_MS|Minute set done/.test(html) && !/r\.ms\s*>=/.test(tick));
 check("page: plankTimeVoice is the uncapped voice, ticked once per frame without await, only while holding and not saved", /const plankTimeVoice = [^\n]*makePlankTimeVoice\(\)/.test(html) && /!plankSaved\) plankTimeVoice\.tick\(r\.ms\)/.test(tick) && !/await[^\n]*plankTimeVoice/.test(html));
-check("page: plankEnded ends the voice first; a new hold resets it", /function plankEnded\(r\) \{\s*if \(typeof plankTimeVoice[^\n]*\.end\(\)/.test(html) && /createPlankHold\(\{ cue: true \}\)[^\n]*\n[^\n]*plankTimeVoice\.reset\(\)/.test(html));
+check("page: plankEnded ends the voice first; a new hold resets it", /function plankEnded\(r\) \{\s*if \(typeof plankTimeVoice[^\n]*\.end\(\)/.test(html) && /createPlankHold\(\{ cue: true, cueMaxMs: 12000 \}\)[^\n]*\n[^\n]*plankTimeVoice\.reset\(\)/.test(html));
 check("page: the old 60 s generic voice is not used for Plank House (Plank Battle keeps makeHoldVoice)", /const pbTimeVoice = [^\n]*makeHoldVoice\(\) : null;/.test(html));
 const fails = R.filter((x) => !x).length;
 console.log(`\n${R.length - fails} passed, ${fails} failed`); process.exit(fails ? 1 : 0);

@@ -8,7 +8,7 @@
   // 3:00 head-to-head: clock = room startAt (end of the shared countdown) + durationMs, same on both phones.
   // Top rests are allowed (no "stop repping" loss); each continuous top hold credits at most topCapMs of TUT.
   // settleMs: wait after 3:00 so both phones' final reps/TUT reach the room before the time-up result is decided.
-  const RULES = { postureHoldMs: 750, outOfFrameMs: 2000, publishMs: 1000, minScore: 0.3, durationMs: 180000, topCapMs: 10000, settleMs: 3000 };
+  const RULES = { postureHoldMs: 750, outOfFrameMs: 10000, publishMs: 1000, minScore: 0.3, durationMs: 180000, topCapMs: 10000, settleMs: 3000 };
   // Published rules only allow loseReason in [standing, knees, frame, stopped, left] and only a self-reported loss.
   // Time-up therefore reuses the allowed value "stopped" = "lost on time (less TUT, then fewer reps)".
   const TIME_UP = "stopped";
@@ -29,7 +29,7 @@
       if (st.lost) return st.lost;
       if (hasUpperBody(kps, o.minScore)) st.lastSeen = t;
       if (t - st.lastSeen >= o.outOfFrameMs) return (st.lost = "frame");
-      if (guard) { const g = guard.update(kps, t, topWidth); if (g.event === "standing" || g.event === "knees") return (st.lost = g.event); }
+      if (guard) { const g = guard.update(kps, t, topWidth); if (g.event === "knees") return (st.lost = g.event); /* holding the top never loses: "standing" is not a loss */ }
       return null;
     }
     return { update, reset, state: () => st };

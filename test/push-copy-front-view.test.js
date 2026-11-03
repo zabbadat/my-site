@@ -10,7 +10,7 @@ for (const k of ["pushups", "tut"]) { strings.push(G.COACH[k].place, G.COACH[k].
 const html = read("index.html");
 const line = (id) => { const i = html.indexOf(`id="${id}"`); if (i < 0) throw new Error("missing " + id); return html.slice(i, html.indexOf("</p>", i)); };
 strings.push(line("camNote"), line("pushGetSetNote"));
-const lead = html.slice(html.indexOf("Same login as washers. Start the clock"), html.indexOf("</p>", html.indexOf("Same login as washers. Start the clock")));
+const lead = html.slice(html.indexOf('<ul class="lead push-rules">'), html.indexOf("</ul>", html.indexOf('<ul class="lead push-rules">')));
 strings.push(lead);
 const tb = html.match(/\$\("tbCamNote"\)\.textContent = "([^"]*)"; requestAnimationFrame\(tbPose\)/);
 strings.push(tb ? tb[1] : "", html.match(/tbStat\(!tbStream \? "([^"]*)"/)[1]);
