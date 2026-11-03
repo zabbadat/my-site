@@ -1,4 +1,4 @@
-/* ZAB: earn-only balance + transaction log (no wagering, no spend yet).
+/* ZAB: balance + transaction log. Earning is server-checked (zab-earn.js); browsers call claimEarn, never award.
  * Data model (Firestore):
  *   users/{uid}                 { uid, zabBalance:int, lastTxId, createdAt, updatedAt }
  *   users/{uid}/zabLedger/{txId}  { uid, type:'earn', source, amount, units, qty, setId, createdAt }
@@ -96,6 +96,25 @@
     var q = readQ(store).filter(function (e) { return e.tx && e.tx.uid === uid; });
     return q.reduce(function (p, e) { return p.then(function () { return award(fs, e).then(function () { drop(store, e.id); }, function () {}); }); }, Promise.resolve());
   }
+  // ---- Server-checked earning (netlify/functions/zab-earn.js; zab-earn.js). The page saves the session doc first, then
+  // asks the server for ZAB for that session id: post({ source, id }) -> { credited, balance }. Pending claims wait in
+  // localStorage and are retried only for network / server errors (a 4xx answer is final). award() above is kept for the
+  // server, tests and tools; browsers can no longer write the ledger (firestore.rules).
+  var CLAIM_KEY = "zdZabClaims";
+  function readClaims(store) { try { var q = JSON.parse(store.getItem(CLAIM_KEY) || "[]"); return Array.isArray(q) ? q : []; } catch (e) { return []; } }
+  function claimKey(c) { return c.source + ":" + c.id; }
+  function keepClaim(store, c) { var q = readClaims(store); if (!q.some(function (x) { return claimKey(x) === claimKey(c); })) q.push(c); store.setItem(CLAIM_KEY, JSON.stringify(q.slice(-50))); }
+  function dropClaim(store, c) { store.setItem(CLAIM_KEY, JSON.stringify(readClaims(store).filter(function (x) { return claimKey(x) !== claimKey(c); }))); }
+  var CLAIM_SOURCES = ["pushups", "tut", "hold", "plank", "walk", "washers", "tutBattle"];
+  function claimEarn(post, store, source, id) {
+    var c = { source: String(source || ""), id: cleanId(id) };
+    if (CLAIM_SOURCES.indexOf(c.source) < 0 || !c.id) return Promise.resolve({ credited: 0, skipped: "invalid" });
+    keepClaim(store, c);
+    return post(c).then(function (r) { dropClaim(store, c); return r; }, function (e) { if (e && e.status && e.status < 500) dropClaim(store, c); throw e; });
+  }
+  function flushClaims(post, store) {
+    return readClaims(store).reduce(function (p, c) { return p.then(function () { return claimEarn(post, store, c.source, c.id).catch(function () {}); }); }, Promise.resolve());
+  }
   var LABEL = { pushups: "Push-ups", plank: "Plank", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers", hold: "30-second holds" };
   var WAGER_TYPE = { stake: "Battle stake", payout: "Battle win", refund: "Battle refund" };
   var WAGER_GAME = { washers: "Zabba Washer Battle", tut: "TUT Battle", plank: "Plank Battle" };
@@ -188,6 +207,6 @@
     }).join("") + "</ol>";
   }
   var api = { holderName: holderName, holdersView: holdersView, holdersHtml: holdersHtml, boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
-    profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
+    profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, claimEarn: claimEarn, flushClaims: flushClaims, readClaims: readClaims, CLAIM_KEY: CLAIM_KEY, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabBalance = api;
 })(typeof window !== "undefined" ? window : this);

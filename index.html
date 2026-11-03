@@ -1263,10 +1263,11 @@ let lastViolFlag = 0;
 // 30-second top-hold bonus (all push-up modes), once per set. Fractional ZAB is NOT live yet: balances and ledger amounts are whole
 // numbers (firestore.rules "is int", zab-balance validEarn). HOLD_ZAB_LIVE stays false until a fractional-ZAB migration ships.
 const HOLD_ZAB_LIVE = true; // each 30-second top hold credits 0.5 ZAB ("hold" earn; ZAB amounts are tenths)
+let pushHoldsThisSet = 0; // 30-second holds in the current set: saved with the set (pushups.holds) and credited by the server (zab-earn)
 const holdReward = window.ZabbadatSession && window.ZabbadatSession.createHoldReward ? window.ZabbadatSession.createHoldReward() : null;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
-// ZAB (internal: zabBalance): awardZab(source, qty, setId) is wired to Firestore after sign-in setup; no-op until then.
+// ZAB (internal: zabBalance): awardZab(source, sessionId) asks the zab-earn function to credit one saved session (server-checked); no-op until sign-in setup.
 const ZT = window.ZabBalance || null;
 if (window.ZabCurrency && $("ztBagLabel")) window.ZabCurrency.ring($("ztBagLabel"));
 if (ZT && $("ztRates")) $("ztRates").innerHTML = ZT.rateLines().map((l) => "<li>" + window.ZabCurrency.html(l) + "</li>").join("");
@@ -1613,9 +1614,9 @@ async function finishGame() {
     return;
   }
   if (!state.gameId) state.gameId = ZT ? ZT.newSetId() : "";
-  const winTok = ZT && currentUser ? awardZab("washers", ZT.qtyFrom("washers", 1), state.gameId).catch(() => null) : Promise.resolve(null);
   try {
-    await saveRemote(record);
+    const gameDocId = await saveRemote(record);
+    const winTok = ZT ? awardZab("washers", gameDocId).catch(() => null) : Promise.resolve(null); // server-checked: credits the saved, verified game
     setStatus(name + " posted: 21 in " + formatTime(ms) + " with " + state.steps.toLocaleString() + " steps.");
     winTok.then((tk) => { if (tk && tk.credited) setStatus($("status").textContent + zabNote(tk)); if (typeof zabRing === "function") zabRing($("status")); }, () => {});
   } catch (err) {
@@ -1765,6 +1766,7 @@ function freshPushSet() {
   if (typeof postureGuard !== "undefined" && postureGuard) postureGuard.reset();
   if (typeof pushChallenge !== "undefined" && pushChallenge) pushChallenge.reset();
   if (typeof holdReward !== "undefined" && holdReward) holdReward.reset();
+  if (typeof pushHoldsThisSet !== "undefined") pushHoldsThisSet = 0;
   if ($("pushHoldTimer")) $("pushHoldTimer").hidden = true;
   if ($("challengeResult")) $("challengeResult").hidden = true;
   if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
@@ -1890,6 +1892,10 @@ function finishPushSet(endedBy) {
   paintPushRows(local);
   const viol = (pushMode === "long" || pushMode === "challenge") && postureGuard ? " Rule breaks: " + postureGuard.state().count + "." : "";
   const doneTut = pushState.tut;
+  // Saved with the set so the server can credit it (zab-earn): TUT for One long set, and the 30-second holds.
+  record.tutMs = pushMode === "long" && window.ZabbadatSession ? Math.round(window.ZabbadatSession.tutToAdd(pushMode, ms, doneTut)) : 0;
+  record.holds = typeof pushHoldsThisSet !== "undefined" ? pushHoldsThisSet : 0;
+  if (typeof pushHoldsThisSet !== "undefined") pushHoldsThisSet = 0;
   // Finished and saved: clear the big rep number and the clock, and wipe the counter, so the next set starts clean. The result stays in the status line.
   Object.assign(pushState, { reps: 0, tut: 0, elapsed: 0, startedAt: 0 });
   if (typeof resetPoseBaseline === "function") resetPoseBaseline();
@@ -1908,11 +1914,11 @@ function finishPushSet(endedBy) {
     return;
   }
   $("pushStatus").textContent = head + " Posting…" + why + viol;
-  const tokSet = ZT ? ZT.newSetId() : "";
-  const tokP = Promise.all([awardZab("pushups", record.reps, tokSet), pushMode === "long" && ZT ? awardZab("tut", ZT.qtyFrom("tut", window.ZabbadatSession.tutToAdd(pushMode, ms, doneTut)), tokSet) : null])
+  // Server-checked ZAB: save the set first, then claim push-ups (+ TUT for One long set, + 30-second holds) for that saved set.
+  const zabFor = (id) => Promise.all([awardZab("pushups", id), record.tutMs > 0 ? awardZab("tut", id) : null, record.holds > 0 ? awardZab("hold", id) : null].map((p) => p && p.catch(() => null)))
     .then((a) => ({ credited: a.reduce((n, x) => n + ((x && x.credited) || 0), 0) }), () => null);
   saveRemotePush(record)
-    .then(() => tokP).then((tk) => { $("pushStatus").textContent = (failedTut ? head + " " + name + " posted it." : name + " posted " + record.reps + " reps in " + formatTime(ms) + ".") + why + viol + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
+    .then((id) => zabFor(id)).then((tk) => { $("pushStatus").textContent = (failedTut ? head + " " + name + " posted it." : name + " posted " + record.reps + " reps in " + formatTime(ms) + ".") + why + viol + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
 // One Start button: gate -> wake + speech unlock + spoken placement line (in the tap) -> camera -> pose -> spoken
@@ -2132,7 +2138,7 @@ async function poseTick(id = poseLoopId) {
         const line = "30-second hold!" + (live ? " +0.5 ZAB" : "");
         $("camNote").textContent = line; if (typeof zabRing === "function") zabRing($("camNote"));
         const GSh = window.ZabbadatGetSet; if (GSh && GSh.interruptSpeak) GSh.interruptSpeak(live ? "30-second hold! Plus half a ZAB." : "30-second hold!");
-        if (live) awardZab("hold", 1, ZT.newSetId()).catch(() => {});
+        if (live) pushHoldsThisSet += 1; // credited with the set (server-checked: pushups.holds)
       }
     }
     // Regular Sets: the set runs through any number of reps and any length of top hold; only knees down (legs in view, ~1 s) or
@@ -2298,8 +2304,8 @@ function plankEnded(r) {
   $("plankStatus").textContent = "Hold ended: " + why + ". Time " + formatTut(r.ms) + "." + (isSet ? " Set " + day.sets + " today." : " Under 10 seconds, not counted as a set.");
   if (!currentUser) { $("plankStatus").textContent += " Sign in to post to the Plank House board."; paintPlankRows(localPlanks()); return; }
   if (day) saveRemotePlankDaily(day, record).catch(() => { $("plankStatus").textContent += " Sets saved on this phone (sets board offline)."; });
-  if (ZT) awardZab("plank", ZT.qtyFrom("plank", r.ms), ZT.newSetId()).then((tk) => { $("plankStatus").textContent += zabNote(tk); if (typeof zabRing === "function") zabRing($("plankStatus")); }, () => {});
-  saveRemotePlank(record).then(() => { $("plankStatus").textContent += " Posted to the Plank House board."; })
+  saveRemotePlank(record).then((id) => { $("plankStatus").textContent += " Posted to the Plank House board.";
+    if (ZT) awardZab("plank", id).then((tk) => { $("plankStatus").textContent += zabNote(tk); if (typeof zabRing === "function") zabRing($("plankStatus")); }, () => {}); })
     .catch(() => { $("plankStatus").textContent += " Saved on this phone (board offline)."; paintPlankRows(localPlanks()); });
 }
 // "Hold plank." Cue first, count after: when the hold locks in (aligned, 1.5 s ready satisfied) it enters the "cue" phase and
@@ -2531,8 +2537,7 @@ async function endWalk(r) {
   const q = WS.qualifies(r), label = WS.formatClock(r.ms) + " with " + r.steps.toLocaleString() + " steps" + why;
   if (!q.ok) { $("walkStatus").textContent = "Session " + label + ". Not logged: " + q.why; return; }
   if (!currentUser) { $("walkStatus").textContent = "Session " + label + ". Sign in to post sessions to the board."; return; }
-  const tokP = ZT ? awardZab("walk", ZT.qtyFrom("walk", r.ms), ZT.newSetId()).catch(() => null) : Promise.resolve(null);
-  try { await saveRemoteWalk(r); $("walkStatus").textContent = "Posted session " + label + "." + zabNote(await tokP); if (typeof zabRing === "function") zabRing($("walkStatus")); }
+  try { const walkId = await saveRemoteWalk(r); const tokP = ZT ? awardZab("walk", walkId).catch(() => null) : Promise.resolve(null); $("walkStatus").textContent = "Posted session " + label + "." + zabNote(await tokP); if (typeof zabRing === "function") zabRing($("walkStatus")); }
   catch (e) { $("walkStatus").textContent = "Session " + label + ". Board offline, not posted."; }
 }
 function paintWalkRows(rows) {
@@ -2602,7 +2607,7 @@ const xProvider = new TwitterAuthProvider();
 
 saveRemote = async (record) => {
   if (!auth.currentUser) throw new Error("Sign in required");
-  await addDoc(collection(db, "games"), {
+  return (await addDoc(collection(db, "games"), {
     name: record.name,
     xHandle: record.xHandle || "",
     uid: auth.currentUser.uid,
@@ -2614,23 +2619,25 @@ saveRemote = async (record) => {
     maxGapMs: Math.round(Number(record.sensor.maxGapMs)),
     packs: Math.round(Number(record.sensor.packs)),
     createdAt: serverTimestamp()
-  });
+  })).id;
 };
 saveRemotePush = async (record) => {
   if (!auth.currentUser) throw new Error("Sign in required");
-  await addDoc(collection(db, "pushups"), {
+  return (await addDoc(collection(db, "pushups"), {
     name: record.name,
     xHandle: record.xHandle || "",
     uid: auth.currentUser.uid,
     reps: Number(record.reps),
     ms: Number(record.ms),
+    tutMs: Math.max(0, Math.min(Math.round(Number(record.tutMs) || 0), Math.round(Number(record.ms) || 0))),
+    holds: Math.max(0, Math.floor(Number(record.holds) || 0)),
     createdAt: serverTimestamp()
-  });
+  })).id;
 };
 
 saveRemotePlank = async (record) => {
   if (!auth.currentUser) throw new Error("Sign in required");
-  await addDoc(collection(db, "planks"), {
+  return (await addDoc(collection(db, "planks"), {
     name: record.name,
     xHandle: record.xHandle || "",
     uid: auth.currentUser.uid,
@@ -2639,7 +2646,7 @@ saveRemotePlank = async (record) => {
     source: "camera",
     sessionStartedAt: Math.round(Number(record.sessionStartedAt)),
     createdAt: serverTimestamp()
-  });
+  })).id;
 };
 
 saveRemotePlankDaily = async (day, record) => {
@@ -2665,7 +2672,7 @@ saveRemoteWalk = async (r) => {
   const handle = ($("xHandle").value || "").trim();
   const rec = WS.buildRecord({ name: dailyName(), xHandle: handle, uid: auth.currentUser.uid, ms: r.ms, steps: r.steps });
   if (!WS.validateRecord(rec).ok) throw new Error("Invalid walk session");
-  await addDoc(collection(db, "walkSessions"), { ...rec, createdAt: serverTimestamp() });
+  return (await addDoc(collection(db, "walkSessions"), { ...rec, createdAt: serverTimestamp() })).id;
 };
 
 const ztFs = { ts: () => serverTimestamp(), tx: (fn) => runTransaction(db, (t) => fn({ get: (p) => t.get(doc(db, ...p)).then((x) => (x.exists() ? x.data() : null)), set: (p, d) => t.set(doc(db, ...p), d), update: (p, d) => t.update(doc(db, ...p), d) })) };
@@ -2694,10 +2701,15 @@ function ztBadgeClick(ev) {
 if ($("ztBadge")) $("ztBadge").onclick = ztBadgeClick;
 function paintZabLedger(list) { const t = $("ztTxBody"); if (t && ZT) t.innerHTML = ZT.txRowsHtml(list, escapeHtml); }
 let ztTxOff = null;
-awardZab = async (source, qty, setId) => {
-  if (!ZT || !auth.currentUser) return { credited: 0 };
-  const e = ZT.buildEarn(auth.currentUser.uid, source, qty, setId);
-  const r = await ZT.earnAndQueue(ztFs, localStorage, e);
+// Server-checked earning: the session is saved first, then zab-earn credits ZAB for that session id (zab-earn.js).
+async function zabPost(body) {
+  const u = auth.currentUser; if (!u) throw Object.assign(new Error("Sign in to earn ZAB."), { status: 401 });
+  const res = await fetch("/.netlify/functions/zab-earn", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await u.getIdToken()) }, body: JSON.stringify(body) });
+  const j = await res.json().catch(() => ({})); if (!res.ok) throw Object.assign(new Error(j.error || "ZAB service unavailable."), { status: res.status }); return j;
+}
+awardZab = async (source, sessionId) => {
+  if (!ZT || !auth.currentUser || !sessionId) return { credited: 0 };
+  const r = await ZT.claimEarn(zabPost, localStorage, source, sessionId);
   if (r && r.balance != null) paintZab(r.balance);
   return r;
 };
@@ -2713,7 +2725,7 @@ function zabOnUser(u) {
   paintHolders("loading");
   ztHoldersOff = onSnapshot(query(collection(db, "zabBoard"), orderBy("total", "desc"), limit(10)), (snap) => paintHolders(snap.empty ? "empty" : "ok", snap.docs.map((d) => Object.assign({ id: d.id }, d.data())), u.uid), () => paintHolders("error"));
   ztTopOff = onSnapshot(query(collection(db, "zabBoard"), orderBy("total", "desc"), limit(1)), (snap) => paintTopBag(snap.empty ? null : snap.docs[0].data()), () => paintTopBag(null));
-  ZT.ensureProfile(ztFs, u.uid).then((p) => { paintZab(p.zabBalance); return ZT.flush(ztFs, localStorage, u.uid); }).catch(() => {}).finally(() => {
+  ZT.ensureProfile(ztFs, u.uid).then((p) => { paintZab(p.zabBalance); return ZT.flushClaims(zabPost, localStorage); }).catch(() => {}).finally(() => {
     if (auth.currentUser && auth.currentUser.uid === u.uid && !ztOff) ztOff = onSnapshot(doc(db, "users", u.uid), (d) => { if (d.exists()) { const n = ZT.profileFrom(d.data(), u.uid).zabBalance; paintZab(n); mirrorBoard(u, n); } }, () => {});
   });
 }
@@ -3150,7 +3162,7 @@ function tbFinish(r) {
   const loser = r.players && r.players[r.loserUid], winner = r.players && r.players[r.winnerUid];
   clearTimeout(tbSettleTimer);
   tbStat(r.loseReason === TBm.TIME_UP ? (winner ? winner.name : "Opponent") + " wins. " + TBm.WIN_REASON + "." : (loser ? loser.name : "Opponent") + ": " + TBm.resultText(r, r.loserUid) + ".");
-  if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); if (ZT) awardZab("tut", ZT.qtyFrom("tut", tbMine.tutMs), "b" + r.code).catch(() => {}); }
+  if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); if (ZT) awardZab("tutBattle", r.code).catch(() => {}); }
 }
 function tbEnter(code) {
   tbCodeCur = code; tbRecorded = null; tbLiveT0 = null; try { localStorage.setItem("zdTutBattle", code); } catch (e) {}

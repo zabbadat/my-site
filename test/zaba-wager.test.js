@@ -106,9 +106,9 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   // ---- rules ----
   const rules = fsx.readFileSync(__dirname + "/../firestore.rules", "utf8");
   check("rules: wagers server-only (client write false)", /match \/wagers\/\{key\} \{\s*allow read: if request.auth != null;\s*allow write: if false;/.test(rules));
-  check("rules: clients still earn-only zabLedger", rules.includes("t().uid == uid && t().type == 'earn'"));
+  check("rules: clients can't write zabLedger at all (server-checked earning)", /match \/zabLedger\/\{txId\} \{[^}]*allow create, update, delete: if false;/.test(rules));
   check("rules: all 3 rooms gate countdown on wagerReady + stake >= 1", (rules.match(/n\(\)\.startAt is int && wagerReady\(\)/g) || []).length === 3 && (rules.match(/&& stakeOk\(\); \}/g) || []).length === 3 && ["plank_", "tut_", "washers_"].every((g) => rules.includes("$('" + g + "' + code")));
-  check("rules: washers zabLedger clause untouched", /t\(\)\.source == 'washers' && t\(\)\.units == 'wins'\s+&& t\(\)\.qty == 1\s+&& t\(\)\.amount == 1\)\)/.test(rules));
+  check("rules: zabLedger is server-only (washers wins are credited by zab-earn from the saved game)", /match \/zabLedger\/\{txId\} \{[^}]*allow create, update, delete: if false;/.test(rules));
   // ---- functions + UI wiring ----
   const fn = (f) => fsx.readFileSync(__dirname + "/../netlify/functions/" + f, "utf8");
   check("functions exist and use common.js admin + auth", ["wager-stake.js", "wager-settle.js", "wager-sweep.js"].every((f) => /lib\/common/.test(fn(f))) && /uidFrom/.test(fn("wager-stake.js")) && /uidFrom/.test(fn("wager-settle.js")) && /schedule/.test(fn("wager-sweep.js")));

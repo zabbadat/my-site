@@ -23,6 +23,6 @@ function memFs(){const db={};const k=p=>p.join('/');return{db,ts:()=>'TS',tx:fn=
   const fg=html.slice(html.indexOf('async function finishGame'),html.indexOf('paintRows(localBoard());\nrender();'));
   ok(/awardZab\("washers"/.test(fg)&&fg.indexOf('awardZab("washers"')>fg.indexOf('if (!currentUser)'),'award only after verified + signed-in checks');
   ok(/state\.gameId/.test(fg),'uses game id');
-  ok(rules.includes("t().source == 'washers' && t().units == 'wins'    && t().qty == 1    && t().amount == 1"),'rules allow washers win');
+  ok(/match \/zabLedger\/\{txId\} \{[^}]*allow create, update, delete: if false;/.test(rules)&&/awardZab\("washers", gameDocId\)/.test(fg),'win credited by the server (zab-earn) from the saved game; ledger server-only');
   console.log('PASS washers win ZAB ('+n+' checks)');
 })().catch(e=>{console.log('FAIL',e.message);process.exit(1);});
