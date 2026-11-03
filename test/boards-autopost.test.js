@@ -16,6 +16,6 @@ for (const [c, ts] of Object.entries(boards)) {
 }
 const tx = block("users"), tb = block("zabBoard");
 check("ZAB: the ledger is server-only (no earn or spend from the client; zab-earn credits checked sessions)", /allow create, update, delete: if false;/.test(tx));
-check("zabBoard: signed-in read, owner write, total must equal own balance", /allow read: if request\.auth != null;/.test(tb) && /request\.auth\.uid == uid/.test(tb) && /tenths\(b\(\)\.total\) == tenths\(get\(/.test(tb));
-check("client posts boards directly on finish (addDoc/setDoc, no queue for review)", ["games", "pushups", "planks", "walkSessions"].every((c) => html.includes('addDoc(collection(db, "' + c + '")')) && ["plankDaily", "dailySteps", "zabBoard"].every((c) => html.includes('setDoc(doc(db, "' + c + '"')));
+check("zabBoard: signed-in read, server-only write (zab-board function: unique names, total from the real balance)", /allow read: if request\.auth != null;/.test(tb) && /allow write: if false;/.test(tb));
+check("client posts boards directly on finish (addDoc/setDoc, no queue for review)", ["games", "pushups", "planks", "walkSessions"].every((c) => html.includes('addDoc(collection(db, "' + c + '")')) && ["plankDaily", "dailySteps"].every((c) => html.includes('setDoc(doc(db, "' + c + '"')));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

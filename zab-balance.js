@@ -100,6 +100,11 @@
   // asks the server for ZAB for that session id: post({ source, id }) -> { credited, balance }. Pending claims wait in
   // localStorage and are retried only for network / server errors (a 4xx answer is final). award() above is kept for the
   // server, tests and tools; browsers can no longer write the ledger (firestore.rules).
+  // Board name fallback when the wanted name is taken (same as zab-names.js withSuffix): "<name> 1234", stable per uid.
+  function nameWithSuffix(name, uid) {
+    var h = 0, id = String(uid || ""); for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 10000;
+    return Array.from(String(name || "").replace(/\s+/g, " ").trim()).slice(0, 19).join("").trim() + " " + String(1000 + (h % 9000));
+  }
   var CLAIM_KEY = "zdZabClaims";
   function readClaims(store) { try { var q = JSON.parse(store.getItem(CLAIM_KEY) || "[]"); return Array.isArray(q) ? q : []; } catch (e) { return []; } }
   function claimKey(c) { return c.source + ":" + c.id; }
@@ -207,6 +212,6 @@
     }).join("") + "</ol>";
   }
   var api = { holderName: holderName, holdersView: holdersView, holdersHtml: holdersHtml, boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
-    profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, claimEarn: claimEarn, flushClaims: flushClaims, readClaims: readClaims, CLAIM_KEY: CLAIM_KEY, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
+    profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, claimEarn: claimEarn, nameWithSuffix: nameWithSuffix, flushClaims: flushClaims, readClaims: readClaims, CLAIM_KEY: CLAIM_KEY, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabBalance = api;
 })(typeof window !== "undefined" ? window : this);

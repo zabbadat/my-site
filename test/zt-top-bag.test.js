@@ -10,18 +10,20 @@ const fn = (name) => { const i = html.indexOf("function " + name + "("); const e
 { const el = { textContent: "x", hidden: false }; const ctx = { $: () => el, ZT, window: { ZabCurrency: ZC }, document: {} }; vm.createContext(ctx); vm.runInContext(fn("paintTopBag"), ctx);
   ctx.paintTopBag({ name: "Zab", total: 4 }); const shown = !el.hidden && /^Bank of Zabba \u2013 Top <span class="zab">ZAB<svg[\s\S]*<\/svg><\/span>: Zab \u00b7 4 <span class="zab">ZAB/.test(el.innerHTML) && /zab-ring/.test(el.innerHTML || "");
   ctx.paintTopBag(null); check("paintTopBag shows the line, hides on null (empty / no permission / error)", shown && el.hidden && el.innerHTML === ""); }
-{ const writes = []; let fail1 = true; const ctx = { ZT, db: {}, doc: (db, c, id) => c + "/" + id, serverTimestamp: () => "TS", setDoc: (p, d) => { writes.push([p, d]); return fail1 ? Promise.reject(new Error("denied")) : Promise.resolve(); },
-    publicName: (s) => String(s).split("@")[0], displayNameOf: (u) => u.displayName || u.email, ztMirrored: null };
-  vm.createContext(ctx); vm.runInContext("var ztMirrored = null;\n" + fn("mirrorBoard"), ctx);
+{ const calls = []; let mode = "fail"; const ctx = { ZT, publicName: (s) => String(s).split("@")[0], displayNameOf: (u) => u.displayName || u.email,
+    boardPost: (b) => { calls.push(JSON.stringify(b)); if (mode === "fail") return Promise.reject(Object.assign(new Error("down"), { status: 503 }));
+      if (mode === "taken" && b.name === "zab") return Promise.reject(Object.assign(new Error("taken"), { status: 409 })); return Promise.resolve({ ok: true }); } };
+  vm.createContext(ctx); vm.runInContext("var ztMirrored = null, ztBoardName = null;\n" + fn("mirrorBoard"), ctx);
   ctx.mirrorBoard({ uid: "u1", email: "zab@x.com" }, 5);
-  setTimeout(() => { fail1 = false; ctx.mirrorBoard({ uid: "u1", email: "zab@x.com" }, 5); ctx.mirrorBoard({ uid: "u1", email: "zab@x.com" }, 5);
-    check("mirror: writes zabBoard/{uid} {uid,name,total,updatedAt}, leaderboard name, retries after a denied write, no duplicate writes", writes.length === 2 && writes[0][0] === "zabBoard/u1" && JSON.stringify(writes[1][1]) === '{"uid":"u1","name":"zab","total":5,"updatedAt":"TS"}');
+  setTimeout(() => { mode = "taken"; calls.length = 0; ctx.mirrorBoard({ uid: "u1", email: "zab@x.com" }, 5); ctx.mirrorBoard({ uid: "u1", email: "zab@x.com" }, 5);
+  setTimeout(() => { const first = calls.slice(); calls.length = 0; mode = "ok"; ctx.mirrorBoard({ uid: "u1", email: "zab@x.com" }, 6);
+  setTimeout(() => {
+    check("mirror: claims the leaderboard name through zab-board (taken -> '<name> 1234'), retries after a failure, no duplicate calls, then only refreshes the total",
+      first[0] === '{"name":"zab"}' && /^\{"name":"zab \d{4}"\}$/.test(first[1]) && first.length === 2 && calls.length === 1 && calls[0] === "{}");
     check("wiring: mirror from the profile snapshot, top query only while signed in, unsubscribed on sign-out", /paintZab\(n\); mirrorBoard\(u, n\);/.test(html) && /ztTopOff = onSnapshot\(query\(collection\(db, "zabBoard"\), orderBy\("total", "desc"\), limit\(1\)\), \(snap\) => paintTopBag\(snap\.empty \? null : snap\.docs\[0\]\.data\(\)\), \(\) => paintTopBag\(null\)\)/.test(html) && /if \(ztTopOff\) \{ ztTopOff\(\); ztTopOff = null; \}\s*paintZab\(null\); paintTopBag\(null\);/.test(html));
-    check("award transaction untouched (mirror is outside it)", !/zabBoard/.test(fs.readFileSync(path.join(__dirname, "..", "zab-balance.js"), "utf8").slice(0, fs.readFileSync(path.join(__dirname, "..", "zab-balance.js"), "utf8").indexOf("function earnAndQueue"))));
     check("#ztTop present, hidden by default, near the balance", /<b id="ztBalance">[^\n]*\n\s*<p class="note" id="ztTop" hidden><\/p>/.test(html));
     const m = rules.slice(rules.indexOf("match /zabBoard/{uid}"));
-    check("draft rules: signed-in read only; owner write; keys uid/name/total/updatedAt; total == own zabBalance; no '@' in name; no delete",
-      /allow read: if request\.auth != null;/.test(m) && /request\.auth\.uid == uid/.test(m) && /hasOnly\(\['uid','name','total','updatedAt'\]\)/.test(m) && /tenths\(b\(\)\.total\) == tenths\(get\(\/databases\/\$\(database\)\/documents\/users\/\$\(uid\)\)\.data\.zabBalance\)/.test(m) && /!b\(\)\.name\.matches\('\.\*@\.\*'\)/.test(m) && /allow delete: if false;/.test(m));
+    check("rules: zabBoard signed-in read only; writes server-only (zab-board / zab-earn / zab-send)", /allow read: if request\.auth != null;\s*allow write: if false;/.test(m));
     check("users/{uid} stays owner-only read", /match \/users\/\{uid\} \{[\s\S]*?allow read: if request\.auth != null && request\.auth\.uid == uid;/.test(rules));
-    console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }, 20);
+    console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }, 20); }, 20); }, 20);
 }

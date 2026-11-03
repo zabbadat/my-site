@@ -2681,11 +2681,21 @@ let ztOff = null, ztTopOff = null, ztHoldersOff = null, ztMirrored = null;
 function paintTopBag(entry) { const el = $("ztTop"); if (!el) return; const line = ZT && ZT.topLine ? ZT.topLine(entry) : null; window.ZabCurrency.set(el, line || ""); el.hidden = !line; }
 // ZAB Holders scoreboard (zabBoard top 10; signed-in read only under the current rules): loading / empty / error / signed-out / ranked list.
 function paintHolders(state, docs, me) { const el = $("ztHoldersBody"); if (!el || !ZT || !ZT.holdersHtml) return; el.innerHTML = ZT.holdersHtml(state, state === "ok" ? ZT.holdersView(docs, me, 10) : null, escapeHtml); }
+// Board entry (zabBoard) is written by the server (zab-board function, zab-names.js): unique name, total from the real balance.
+// First call per sign-in claims the board name (falls back to "<name> 1234" when taken); later calls only refresh the total.
+let ztBoardName = null;
+async function boardPost(body) {
+  const u = auth.currentUser; if (!u) throw Object.assign(new Error("Sign in first."), { status: 401 });
+  const res = await fetch("/.netlify/functions/zab-board", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await u.getIdToken()) }, body: JSON.stringify(body) });
+  const j = await res.json().catch(() => ({})); if (!res.ok) throw Object.assign(new Error(j.error || "Board unavailable."), { status: res.status }); return j;
+}
 function mirrorBoard(u, total) {
-  if (!ZT || !ZT.boardEntry || !u || total == null || ztMirrored === u.uid + ":" + total) return;
+  if (!ZT || !u || total == null || ztMirrored === u.uid + ":" + total) return;
   ztMirrored = u.uid + ":" + total;
-  const e = ZT.boardEntry(u.uid, publicName(displayNameOf(u)), total);
-  setDoc(doc(db, "zabBoard", u.uid), { uid: e.uid, name: e.name, total: e.total, updatedAt: serverTimestamp() }).catch(() => { ztMirrored = null; });
+  const want = publicName(displayNameOf(u)), tag = u.uid;
+  const named = ztBoardName === tag ? boardPost({}).catch((e) => (e.status === 404 ? Promise.reject(e) : null)) : Promise.reject(Object.assign(new Error("name"), { status: 404 }));
+  named.catch(() => boardPost({ name: want }).catch((e) => (e.status === 409 ? boardPost({ name: ZT.nameWithSuffix(want, u.uid) }) : Promise.reject(e))))
+    .then(() => { ztBoardName = tag; }, () => { ztMirrored = null; });
 }
 let zabBalNow = null;
 function paintZab(n) { zabBalNow = n == null ? null : Number(n); const row = $("zabBalanceRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = window.ZabCurrency.fmtZab(Number(n)); } paintZabSection(n); }

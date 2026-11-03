@@ -600,19 +600,12 @@ service cloud.firestore {
       }
     }
 
-    // Public "Top Zabba Bag" mirror (zabBoard). Signed-in users may read name + total only; the owner
-    // writes their own doc, total must equal their users/{uid}.zabBalance, name is the leaderboard name (no '@').
+    // Public ZAB board (zabBoard): name + total. Read by any signed-in user; written ONLY by the server
+    // (zab-board / zab-earn / zab-send functions, admin SDK): unique names via names/{key} claims (server-only,
+    // covered by the default deny below), reserved names refused, total copied from users/{uid}.zabBalance.
     match /zabBoard/{uid} {
-      function b() { return request.resource.data; }
       allow read: if request.auth != null;
-      allow create, update: if request.auth != null && request.auth.uid == uid
-        && b().keys().hasOnly(['uid','name','total','updatedAt'])
-        && b().uid == uid && b().name is string && b().name.size() >= 1 && b().name.size() <= 40 && !b().name.matches('.*@.*')
-        && zabOk(b().total)
-        && exists(/databases/$(database)/documents/users/$(uid))
-        && tenths(b().total) == tenths(get(/databases/$(database)/documents/users/$(uid)).data.zabBalance)
-        && b().updatedAt == request.time;
-      allow delete: if false;
+      allow write: if false;
     }
 
     // Zabba reputation (reputation.js): public mirror, name + score only (never an email). Read by any signed-in user;
