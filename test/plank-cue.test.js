@@ -37,7 +37,7 @@ check("exact cue text", G.COACH.plank.cue === "Hold plank." && G.COACH.plank.cue
   check("stop during the cue ends with no time (the clock never started)", r.ended && r.reason === "stopped" && r.ms === 0); }
 
 // ---- page: speech order. Run the real plankCue() from index.html against a mock speech engine.
-const src = html.slice(html.indexOf("let plankCueSeq = 0;"), html.indexOf("function plankOutlineSet"));
+const src = html.slice(html.indexOf("let plankCueSeq = 0"), html.indexOf("function plankOutlineSet"));
 const $stub = "const __els = {}; function $(id) { return __els[id] || (__els[id] = { textContent: '', hidden: true }); }\n";
 function page(busyMs) {
   const log = [], t0 = Date.now(), now = () => Date.now() - t0;
@@ -49,26 +49,26 @@ function page(busyMs) {
   return { log, win, msg: () => vm.runInContext("$('plankMsg').textContent", ctx), drop: () => { phase = "ready"; }, cue: (n) => vm.runInContext(`plankCue({ phase: "cue", cueSeq: ${n} })`, ctx), stop: () => vm.runInContext("plankLoop = false", ctx) };
 }
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-check("page source: 3-2-1-Hold countdown (makeGoCountdown with PLANK_STEPS), then hold.begin; waits for earlier speech; once per cueSeq; new hold uses cue mode", /PLANK_STEPS/.test(src) && /plankCount\.run\(plankCountShow, cancelled\)/.test(src) && /hold\.begin\(performance\.now\(\)\)/.test(src) && /plankSpeechIdle\(\)/.test(src) && /r\.cueSeq === plankCueSeq\) return/.test(src) && /createPlankHold\(\{ cue: true, cueMaxMs: 12000 \}\)/.test(html));
+check("page source: 3-2-1-Hold countdown (makeGoCountdown with PLANK_STEPS), then hold.begin; waits for earlier speech; once per cueSeq; new hold uses cue mode", /PLANK_STEPS/.test(src) && /plankCount\.run\(plankCountShow, cancelled\)/.test(src) && /hold\.begin\(performance\.now\(\)\)/.test(src) && /plankSpeechIdle\(\)/.test(src) && /r\.cueSeq === plankCueSeq\) return/.test(src) && /createPlankHold\(\{ cue: true, cueMaxMs: 20000 \}\)/.test(html));
 check("page: no stray 'Hold it… 1.5s' digits and no second (pre-camera) plank countdown", !/Hold it… " \+ Math\.ceil/.test(html) && !/getSetCountdown\([^\n]*plankStatus/.test(html));
-check("get-set: PLANK_STEPS 3, 2, 1, Hold at 1 s each", JSON.stringify(G.PLANK_STEPS) === JSON.stringify([[0, "three", "3"], [1000, "two", "2"], [2000, "one", "1"], [3000, "Hold", "HOLD"]]));
+check("get-set: PLANK_STEPS 3, 2, 1, Hold at 1.2 s each", JSON.stringify(G.PLANK_STEPS) === JSON.stringify([[0, "Three.", "3"], [1200, "Two.", "2"], [2400, "One.", "1"], [3600, "Hold.", "HOLD"]]));
 (async () => {
   const useWin = (p) => { global.window = p.win; global.self = p.win; };
   { const p = page(0); useWin(p); p.cue(1); await wait(100);
-    check("idle speech: 'three' spoken + shown at once, begin() NOT yet", p.log.some((x) => x[0] === "speak" && x[1] === "three") && p.msg() === "3" && !p.log.some((x) => x[0] === "begin"));
-    await wait(2000); check("still counting at 2.1 s ('one'), no clock yet", p.log.some((x) => x[1] === "one") && !p.log.some((x) => x[0] === "begin"));
-    await wait(1100);
-    const words = p.log.filter((x) => x[0] === "speak").map((x) => x[1]), bg = p.log.find((x) => x[0] === "begin"), hs = p.log.find((x) => x[1] === "Hold");
-    check(`spoken three, two, one, Hold; clock starts exactly at Hold (${hs && hs[2]} / ${bg && bg[1]} ms)`, words.join(",") === "three,two,one,Hold" && !!bg && !!hs && Math.abs(bg[1] - hs[2]) < 30 && bg[1] >= 2950);
+    check("idle speech: 'three' spoken + shown at once, begin() NOT yet", p.log.some((x) => x[0] === "speak" && x[1] === "Three.") && p.msg() === "3" && !p.log.some((x) => x[0] === "begin"));
+    await wait(2400); check("still counting at 2.5 s ('one'), no clock yet", p.log.some((x) => x[1] === "One.") && !p.log.some((x) => x[0] === "begin"));
+    await wait(1300);
+    const words = p.log.filter((x) => x[0] === "speak").map((x) => x[1]), bg = p.log.find((x) => x[0] === "begin"), hs = p.log.find((x) => x[1] === "Hold.");
+    check(`spoken three, two, one, Hold; clock starts exactly at Hold (${hs && hs[2]} / ${bg && bg[1]} ms)`, words.join(",") === "Three.,Two.,One.,Hold." && !!bg && !!hs && Math.abs(bg[1] - hs[2]) < 30 && bg[1] >= 3550);
     p.cue(1); await wait(300);
-    check("the same lock-in never runs the countdown twice", p.log.filter((x) => x[1] === "three").length === 1 && p.log.filter((x) => x[0] === "begin").length === 1); }
+    check("the same lock-in never runs the countdown twice", p.log.filter((x) => x[1] === "Three.").length === 1 && p.log.filter((x) => x[0] === "begin").length === 1); }
   { const p = page(700); useWin(p); p.cue(1); await wait(500);
     check("earlier line still speaking: the countdown waits, never cancels or overlaps it", !p.log.some((x) => x[0] === "speak" || x[0] === "cancel"));
-    await wait(3600);
+    await wait(4400);
     const sp = p.log.find((x) => x[0] === "speak");
     check("...then counts right after it ends, and the clock starts at Hold", !!sp && sp[2] >= 700 && sp[2] < 1000 && p.log.some((x) => x[0] === "begin")); }
   { const p = page(0); useWin(p); p.cue(1); await wait(1100); p.drop(); await wait(2500);
-    check("form lost during the countdown: countdown stops, clock never starts", !p.log.some((x) => x[0] === "begin") && !p.log.some((x) => x[1] === "Hold")); }
+    check("form lost during the countdown: countdown stops, clock never starts", !p.log.some((x) => x[0] === "begin") && !p.log.some((x) => x[1] === "Hold.")); }
   { const p = page(0); useWin(p); p.stop(); p.cue(1); await wait(700);
     check("camera stopped before the cue: nothing spoken, no begin", p.log.length === 0); }
   delete global.window; delete global.self;

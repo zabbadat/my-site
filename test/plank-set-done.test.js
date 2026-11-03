@@ -25,7 +25,7 @@ function env() {
     plankTimeVoice: { end: () => log.push("voiceEnd") }, sessionTouch() {}, formatTut: (ms) => ms + "ms", renderPlankBest() {}, plankBest: () => 0,
     PD: { countsAsSet: (ms) => ms >= 10000, recordHold: () => ({ sets: 1 }), localDateKey: () => "2026-10-25" }, renderPlankDays() {}, paintPlankRows() {}, localPlanks: () => [],
     displayNameOf: () => "x", localStorage: { getItem: (k) => store[k] || null, setItem: (k, v) => { store[k] = String(v); log.push("save:" + k); } },
-    window: { ZabbadatPlank: P, ZabbadatGetSet: { interruptSpeak: (w) => log.push("say:" + w), PLANK_SET_DONE_LINE: G.PLANK_SET_DONE_LINE } } };
+    window: { ZabbadatPlank: P, ZabbadatGetSet: { plankSpeak: (w) => log.push("say:" + w), PLANK_SET_DONE_LINE: G.PLANK_SET_DONE_LINE } } };
   vm.createContext(ctx); vm.runInContext(m[0].replace(/^function plankEnded/, "plankEnded = function"), ctx);
   return ctx;
 }
@@ -64,7 +64,7 @@ check("no fixed-time auto-end in plankTick (PLANK_SET_MS and 'Minute set done' a
   check("Stop after 62 s: reason stopped, silent, time credited", r.reason === "stopped" && r.ms > 50000 && says(c).length === 0); }
 check("stopPlankCam and the Stop button also end via hold.stop (silent)", /const r = plankHold\.stop\(performance\.now\(\)\); plankEnded\(r\)/.test(html) && /\$\("plankStopBtn"\)\.onclick = \(\) => \{ if \(plankLoop && plankHold && !plankSaved\) plankEnded\(plankHold\.stop\(/.test(html));
 // single speaking site for plank failure, no per-failure lines
-check("plankEnded is the only plank place that speaks the failure line; guarded by reason !== 'stopped' after plankSaved = true", (html.match(/PLANK_SET_DONE_LINE/g) || []).length === 1 && /plankSaved = true;[\s\S]{0,400}r\.reason !== "stopped"\) \{ const GS = window\.ZabbadatGetSet; if \(GS && GS\.interruptSpeak\) GS\.interruptSpeak\(GS\.PLANK_SET_DONE_LINE\)/.test(html));
+check("plankEnded is the only plank place that speaks the failure line; guarded by reason !== 'stopped' after plankSaved = true", (html.match(/PLANK_SET_DONE_LINE/g) || []).length === 1 && /plankSaved = true;[\s\S]{0,400}r\.reason !== "stopped"\) \{ const GS = window\.ZabbadatGetSet; if \(GS && GS\.plankSpeak\) GS\.plankSpeak\(GS\.PLANK_SET_DONE_LINE\)/.test(html));
 check("no other spoken failure text in plank code ('Set done' never in plank-session.js / plank.html)", !/Set done/.test(fs.readFileSync(path.join(__dirname, "../plank-session.js"), "utf8")) && !/Set done/.test(fs.readFileSync(path.join(__dirname, "../plank.html"), "utf8")));
 // Hold plank cue is unaffected (a failure only happens during a hold, after the cue) and cancelled() stops a late cue
 check("'Hold plank.' cue untouched and its begin is cancelled once the hold is saved", G.COACH.plank.cue === "Hold plank." && /cancelled = \(\) => hold !== plankHold \|\| !plankLoop \|\| plankSaved/.test(html));

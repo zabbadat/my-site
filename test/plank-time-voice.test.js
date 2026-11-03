@@ -17,5 +17,5 @@ check("reset: a new hold restarts from 0", JSON.stringify(b.said) === JSON.strin
 check("silent fallback (no speechSynthesis) never throws", (() => { try { const v = G.makeHoldVoice(); v.tick(16000); return true; } catch (e) { return false; } })());
 const h = fs.readFileSync(__dirname + "/../index.html", "utf8");
 check("Plank House: ticks while holding, ends on hold end, resets per new hold (own uncapped voice, no 60 s end)",
-  /plankTimeVoice\.tick\(r\.ms\)/.test(h) && /function plankEnded\(r\) \{\s*if \(typeof plankTimeVoice[^\n]*\.end\(\)/.test(h) && /createPlankHold\((\{ cue: true(, cueMaxMs: 12000)? \})?\)[^\n]*\n[^\n]*plankTimeVoice\.reset\(\)/.test(h) && !/PLANK_SET_MS/.test(h));
+  /plankTimeVoice\.tick\(r\.ms\)/.test(h) && /function plankEnded\(r\) \{\s*if \(typeof plankTimeVoice[^\n]*\.end\(\)/.test(h) && /createPlankHold\((\{ cue: true(, cueMaxMs: 20000)? \})?\)[^\n]*\n[^\n]*plankTimeVoice\.reset\(\)/.test(h) && !/PLANK_SET_MS/.test(h));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

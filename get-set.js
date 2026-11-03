@@ -11,13 +11,16 @@
   var SPOKEN = ["3", "2", "1"];
   var SHOWN = ["3", "2", "1"];
   var AT = [0, 0.35, 0.7]; // fraction of the window
+  // ONE site-wide voice for every spoken prompt (push-ups, TUT, plank, hold cues, battles): the phone's own default TTS
+  // voice (never a chosen voice), default pitch, relaxed unhurried rate 0.88 (was 1.3 for cues and 1.1 for coaching lines).
+  var VOICE = { rate: 0.88 };
   function g() { return typeof window !== "undefined" ? window : root; }
   /* the currency is written ZAB but spoken "Zab" (never spelled out) */
   function say(t) { return String(t == null ? "" : t).replace(/\bZAB\b/g, "Zab"); }
-  function utter(text, volume) {
+  function utter(text, volume, voice) {
     var w = g();
     if (!w || !w.speechSynthesis || typeof w.SpeechSynthesisUtterance !== "function") return;
-    var u = new w.SpeechSynthesisUtterance(say(text)); u.rate = 1.3; if (volume !== undefined) u.volume = volume;
+    var u = new w.SpeechSynthesisUtterance(say(text)); u.rate = voice && voice.rate || VOICE.rate; if (volume !== undefined) u.volume = volume;
     w.speechSynthesis.speak(u);
   }
   function defaultUnlock() { var w = g(); if (!w || !w.speechSynthesis) return; w.speechSynthesis.cancel(); utter(" ", 0); }
@@ -38,6 +41,10 @@
   }
   // true while a spoken line is playing or queued (lets a later cue wait instead of cutting it off)
   function isSpeaking() { var w = g(); return !!(w && w.speechSynthesis && (w.speechSynthesis.speaking || w.speechSynthesis.pending)); }
+  // plankSpeak: same voice and rate, but QUEUES behind anything already speaking instead of cancelling it
+  // (no clipped words). Used for every plank line. Never throws.
+  var PLANK_VOICE = VOICE;
+  function plankSpeak(word) { try { utter(word, undefined, VOICE); } catch (e) { /* on-screen only */ } }
   function defaultStop() { var w = g(); if (w && w.speechSynthesis) w.speechSynthesis.cancel(); }
   function safe(f) { return function () { try { return f.apply(null, arguments); } catch (e) { /* on-screen only */ } }; }
   function makeGetSet(opts) {
@@ -72,8 +79,10 @@
   //   0 s "Ready" · 2 s "get set" · 4 s "three" · 5 s "two" · 6 s "one" · 7 s "Go" (clock starts). Screen shows the same.
   var STEPS = [[0, "Ready", "Ready"], [2000, "get set", "Get set"], [4000, "three", "3"], [5000, "two", "2"], [6000, "one", "1"], [7000, "Go", "GO"]], DEFAULT_STEPS = STEPS;
   var COUNTDOWN_MS = 7000;
-  // Plank start (same style as the push-up 3-2-1): "three" 0 s, "two" 1 s, "one" 2 s, "Hold" 3 s; the hold clock starts at "Hold".
-  var PLANK_STEPS = [[0, "three", "3"], [1000, "two", "2"], [2000, "one", "1"], [3000, "Hold", "HOLD"]], PLANK_COUNT_MS = 3000;
+  // Plank start, unhurried: "Three." 0 s, "Two." 1.2 s, "One." 2.4 s, "Hold." 3.6 s; the hold clock starts at "Hold".
+  // Each word gets 1.2 s so the slower plank voice finishes before the next one (the digits on screen change in step).
+  var PLANK_STEP_MS = 1200;
+  var PLANK_STEPS = [[0, "Three.", "3"], [1200, "Two.", "2"], [2400, "One.", "1"], [3600, "Hold.", "HOLD"]], PLANK_COUNT_MS = 3600;
   /* Quick restart start (no coaching, no 3-2-1): "Ready" 0 s, "set" 1.2 s, "Go" 2.4 s (clock starts). */
   var QUICK_STEPS = [[0, "Ready", "Ready"], [1200, "set", "Set"], [2400, "Go", "GO"]], QUICK_MS = 2400;
   function makeQuickCountdown(opts) { var o = {}, k; opts = opts || {}; for (k in opts) o[k] = opts[k]; o.steps = QUICK_STEPS; return makeGoCountdown(o); }
@@ -161,9 +170,10 @@
         else {
           var w = g();
           if (w && w.speechSynthesis && typeof w.SpeechSynthesisUtterance === "function") {
-            var u = new w.SpeechSynthesisUtterance(say(text)); u.rate = 1.1; u.onend = ended; u.onerror = ended;
+            var u = new w.SpeechSynthesisUtterance(say(text)); u.rate = opts.rate || VOICE.rate; u.onend = ended; u.onerror = ended;
             var ss = w.speechSynthesis;
-            if (ss.speaking || ss.pending) { ss.cancel(); setTimeout(function () { try { ss.speak(u); } catch (e) {} }, 60); } else ss.speak(u);
+            if (opts.queue) ss.speak(u); // plank: wait in line behind the current line, never cut it off
+            else if (ss.speaking || ss.pending) { ss.cancel(); setTimeout(function () { try { ss.speak(u); } catch (e) {} }, 60); } else ss.speak(u);
             started = true;
           }
         }
@@ -176,7 +186,7 @@
   var COACH = {
     pushups: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Go all the way down and back up." },
     tut: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up." },
-    plank: { place: "Prop your phone on the floor, off to your side, sideways or upright. Turn so the camera sees your side.", criteria: "Step back until the outline shows your whole body, head to heels. Then plank and hold: 3, 2, 1, Hold.", cue: "Hold plank.", rules: "Hips sagging, hips piking up, knees down, standing up, or leaving the frame for a second ends the hold." }
+    plank: { place: "Prop your phone on the floor, off to your side, sideways or upright. Turn so the camera sees your side.", criteria: "Step back until the outline shows your whole body, head to heels. Then plank and hold: 3, 2, 1, Hold.", cue: "Hold plank.", rules: "Keep it steady. Hips sagging, hips piking up, knees down, standing up, or leaving the frame for a second, ends the hold." }
   };
   function coachLines(kind) { return COACH[kind] || COACH.pushups; }
   function positionPrompt(kind) { return (POSITION[kind] || POSITION.pushups).join("\n"); }
@@ -253,7 +263,7 @@
   }
   function makePlankTimeVoice(opts) {
     opts = opts || {};
-    var speak = safe(opts.speak || defaultSpeak), every = opts.everyMs || PLANK_TIME_EVERY_MS, busy = opts.busy || isSpeaking, muted = opts.muted || null, last = 0, ended = false;
+    var speak = safe(opts.speak || plankSpeak), every = opts.everyMs || PLANK_TIME_EVERY_MS, busy = opts.busy || isSpeaking, muted = opts.muted || null, last = 0, ended = false;
     return {
       tick: function (ms) {
         if (ended) return null;
@@ -282,7 +292,7 @@
       }
     };
   }
-  var api = { makeQuickCountdown: makeQuickCountdown, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
+  var api = { VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);

@@ -608,7 +608,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="grid">
       <div class="card"><h3>Time Under Tension - <a class="tut-link" href="#tut-board">TUT</a></h3><p>Hold the pressed plank or keep pushing. Your time under tension adds up rep by rep, and you can rank it on the TUTS board.</p></div>
       <div class="card"><h3>Coordination &amp; strength</h3><p>Patterns that organize the body so movement costs less effort.</p></div>
-      <div class="card"><h3>Breath & meditation</h3><p>Settle the nervous system before you throw and after you walk.</p></div>
+      <div class="card"><h3>Breath & meditation</h3><p>Settle the nervous system before you activate the mechanism.</p></div>
       <div class="card"><h3>10k steps</h3><p>Washers is built so chasing 21 also gets you moving.</p></div>
     </div>
     <p class="lead" id="practiceLine" style="margin-top:1.6rem">Learn coordination, strength, breath, and meditation — games that make being active the point.</p>
@@ -1948,7 +1948,8 @@ function showPositioning(kind, el, cancelled, part) {
   const G = window.ZabbadatGetSet, lines = G && G.coachLines ? G.coachLines(kind) : null, place = part === "place";
   const txt = lines ? (place ? lines.place : lines.criteria) : "Get in position";
   if (el) { el.textContent = txt; if (el.style) el.style.whiteSpace = "pre-line"; }
-  if (lines && G.sayAndWait) return G.sayAndWait(txt, { minMs: place ? 0 : POSITION_MS, maxMs: POSITION_SPOKEN_MAX_MS, cancelled, now: () => performance.now() });
+  const pv = kind === "plank" && G && G.PLANK_VOICE ? { queue: true } : {};
+  if (lines && G.sayAndWait) return G.sayAndWait(txt, Object.assign({ minMs: place ? 0 : POSITION_MS, maxMs: POSITION_SPOKEN_MAX_MS, cancelled, now: () => performance.now() }, pv));
   return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), place ? 0 : POSITION_MS));
 }
 function cancelGetSet() { if (getSet) getSet.cancel(); if (quickSet) quickSet.cancel(); }
@@ -2277,7 +2278,7 @@ function plankEnded(r) {
   plankSaved = true;
   // Any FAILURE end (sag, pike, knees, standing, left frame, frozen/repeat) says the one shared line, once (plankSaved guards a second call).
   // A Stop tap ends with reason "stopped" and stays silent (there is no fixed-time auto-end: a hold runs until alignment fails or Stop). Time held is still saved below.
-  if (r.reason && r.reason !== "stopped") { const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.PLANK_SET_DONE_LINE); }
+  if (r.reason && r.reason !== "stopped") { const GS = window.ZabbadatGetSet; if (GS && GS.plankSpeak) GS.plankSpeak(GS.PLANK_SET_DONE_LINE); }
   const why = window.ZabbadatPlank.reasonText(r.reason);
   $("plankClock").textContent = formatTut(r.ms);
   $("plankMsg").textContent = "Final " + formatTut(r.ms);
@@ -2304,11 +2305,11 @@ function plankEnded(r) {
 // "Hold plank." Cue first, count after: when the hold locks in (aligned, 1.5 s ready satisfied) it enters the "cue" phase and
 // the clock only starts (hold.begin) once this line has been spoken. It waits for any earlier line (the rules line after Go)
 // to finish instead of cutting it off, and starts on its own if speech is silent or stuck (sayAndWait caps, cueMaxMs in the logic).
-let plankCueSeq = 0;
+let plankCueSeq = 0, plankLeadUntil = 0; const PLANK_LEAD_MS = 5500;
 function plankSpeechIdle() { const GS = window.ZabbadatGetSet; return !(GS && GS.isSpeaking && GS.isSpeaking()); }
-// Plank start: once a good plank is locked in (cue phase), show AND speak 3, 2, 1, Hold (1 s each, big digits); the clock starts at "Hold".
+// Plank start: once a good plank is locked in (cue phase), show AND speak 3, 2, 1, Hold (1.2 s each, slower plank voice, queued not cut, big digits); the clock starts at "Hold".
 // This is the only plank countdown (the old Ready / get set / 3-2-1 / Go before the camera loop and the "Hold it… 1.5s" digits are gone).
-const plankCount = window.ZabbadatGetSet && window.ZabbadatGetSet.PLANK_STEPS ? window.ZabbadatGetSet.makeGoCountdown({ steps: window.ZabbadatGetSet.PLANK_STEPS }) : null;
+const plankCount = window.ZabbadatGetSet && window.ZabbadatGetSet.PLANK_STEPS ? window.ZabbadatGetSet.makeGoCountdown({ steps: window.ZabbadatGetSet.PLANK_STEPS, speak: window.ZabbadatGetSet.plankSpeak, stop: () => {} }) : null;
 function plankCountShow(t) { const b = $("plankCount"); if (b) { b.textContent = t || ""; b.hidden = !t; } if (t) $("plankMsg").textContent = t; }
 function plankCue(r) {
   if (!r || r.phase !== "cue" || !r.cueSeq || r.cueSeq === plankCueSeq) return;
@@ -2317,7 +2318,8 @@ function plankCue(r) {
   const begin = (ok) => { if (ok && !cancelled()) hold.begin(performance.now()); setTimeout(() => plankCountShow(""), 700); };
   const say = () => (plankCount ? plankCount.run(plankCountShow, cancelled) : Promise.resolve(true)).then(begin, () => begin(false));
   let waited = 0;
-  const wait = () => { if (cancelled()) return; if (plankSpeechIdle() || waited >= 5000) return say(); waited += 100; setTimeout(wait, 100); };
+  // Lead-in: never count before plankLeadUntil (~5.5 s after the get-into-plank line) so there is time to get down into position.
+  const wait = () => { if (cancelled()) return; if (performance.now() >= plankLeadUntil && (plankSpeechIdle() || waited >= 5000)) return say(); if (performance.now() >= plankLeadUntil) waited += 100; setTimeout(wait, 100); };
   wait();
 }
 function plankOutlineSet(r) {
@@ -2349,7 +2351,7 @@ async function plankTick(id = plankLoopId) {
   if (plankLoop && id === plankLoopId) requestAnimationFrame(() => plankTick(id));
 }
 function newPlankHold() {
-  plankHold = window.ZabbadatPlank.createPlankHold({ cue: true, cueMaxMs: 12000 }); if (typeof plankCount !== "undefined" && plankCount) plankCount.cancel(); if (typeof plankCountShow === "function") plankCountShow(""); plankSaved = false; plankCueSeq = 0;
+  plankHold = window.ZabbadatPlank.createPlankHold({ cue: true, cueMaxMs: 20000 }); if (typeof plankCount !== "undefined" && plankCount) plankCount.cancel(); if (typeof plankCountShow === "function") plankCountShow(""); plankSaved = false; plankCueSeq = 0;
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.reset();
   $("plankClock").textContent = "0:00"; $("plankMsg").textContent = "Get into plank";
   $("plankStopBtn").hidden = false; $("plankAgainBtn").hidden = true;
@@ -2383,13 +2385,14 @@ async function startPlankCam() {
     if (!live()) return;
     if (!restart && !(await showPositioning("plank", $("plankStatus"), () => !live(), "criteria"))) return;
     if (!live()) return;
+    plankLeadUntil = performance.now() + PLANK_LEAD_MS; // get-into-plank lead-in before 3, 2, 1, Hold
     // no pre-countdown here: 3, 2, 1, Hold runs once the plank is locked in (plankCue); the clock starts at "Hold"
     sessionCommit("plank");
     plankStarting = false;
     plankSessionStartedAt = Date.now();
     newPlankHold();
     $("plankStatus").textContent = "Whole body in the outline, side-on. Hold a straight plank: 3, 2, 1, Hold, and the clock starts. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.";
-    if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.interruptSpeak) window.ZabbadatGetSet.interruptSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once after Go on a fresh start */
+    if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once after Go on a fresh start */
     plankLoop = true; plankTick(++plankLoopId);
   } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = "Camera or pose blocked."; } }
 }

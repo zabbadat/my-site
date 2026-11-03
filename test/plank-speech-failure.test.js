@@ -24,6 +24,6 @@ let ret; try { const hv = G.makeHoldVoice(); ret = hv.tick(15000); } catch (e) {
 check("hold voice tick with a throwing synth does not throw", ret !== "threw");
 // page wiring: the rules line is still spoken once after Go on a fresh start, through the (now non-throwing) helper
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-check("startPlankCam still calls interruptSpeak for the rules line", /if \(!restart && window\.ZabbadatGetSet && window\.ZabbadatGetSet\.interruptSpeak\) window\.ZabbadatGetSet\.interruptSpeak\(window\.ZabbadatGetSet\.COACH\.plank\.rules\)/.test(html));
+check("startPlankCam speaks the rules line through the queued plankSpeak", /if \(!restart && window\.ZabbadatGetSet && window\.ZabbadatGetSet\.plankSpeak\) window\.ZabbadatGetSet\.plankSpeak\(window\.ZabbadatGetSet\.COACH\.plank\.rules\)/.test(html));
 check("get-set.js interruptSpeak body is wrapped in try/catch", /function interruptSpeak\(word\) \{\s*try \{/.test(src));
 const fails = R.filter((x) => !x).length; console.log(`\n${R.length - fails}/${R.length} passed`); process.exit(fails ? 1 : 0);

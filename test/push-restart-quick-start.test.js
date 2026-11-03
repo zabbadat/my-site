@@ -37,6 +37,7 @@ let camOn = false, poseLoopOn = false, camStream = null, pushCounter = { ph: "ca
 let plankLoop = false, plankHold = null, plankSaved = false, plankStream = null, plankSessionStartedAt = 0;
 async function loadCamLibs() {} async function ensurePose() { log.push("pose"); }
 function poseTick() {} function syncPushStartBtn() {} let poseLoopId = 0, plankLoopId = 0; function renderPush() {} function resetPoseBaseline() {} function camExitFs() {} function setCamStatus() {}
+let plankLeadUntil = 0; const PLANK_LEAD_MS = 5500;
 function newPlankHold() { log.push("plankHold"); } function plankTick() {} function plankEnded() {}`;
   const SRC = [STUBS, line("const GET_SET_MS"), line("const getSet = "), line("const quickSet = "), line("const sessionTrack = "), line("function sessionPlan"), line("function sessionCommit"), line("function sessionTouch"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
     fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '),

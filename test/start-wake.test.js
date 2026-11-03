@@ -40,7 +40,7 @@ function displayNameOf() { return "x"; } window.ZabbadatSession = { setsToAdd: (
 const stepDetector = { reset() {} }; const stepVerifier = { reset() {}, resume() {}, pause() {}, result: () => ({ verified: true, reasons: [] }) };
 let camStream = null, camOn = false, poseLoopOn = false, plankLoop = false, plankHold = null, plankSaved = false, plankStream = null, plankSessionStartedAt = 0;
 const getSet = null, quickSet = null; function sessionPlan() { return "fresh"; } function sessionCommit() {} function sessionTouch() {} let pushCounter = null; let camFail = false; async function loadCamLibs() { if (camFail) throw new Error("blocked"); } async function ensurePose() {} function poseTick() {} function plankTick() {} function syncPushStartBtn() {} let poseLoopId = 0, plankLoopId = 0;
-function camExitFs() {} function setCamStatus() {} function newPlankHold() {} function plankEnded() {}`;
+function camExitFs() {} function setCamStatus() {} function newPlankHold() {} function plankEnded() {} let plankLeadUntil = 0; const PLANK_LEAD_MS = 5500;`;
 const GAME = [handler("startBtn"), handler("pauseBtn"), handler("resetBtn"), "async " + fnSrc("finishGame"), "this.finishGame = finishGame;"].join("\n");
 const PUSH = [fnSrc("finishPushSet"), line("const GET_SET_MS"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"), fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '), between('if ($("pushPauseBtn")) $("pushPauseBtn").onclick = ', "\n};"),
   fnSrc("freshPushSet"), "this.finishPushSet = finishPushSet;"].join("\n");

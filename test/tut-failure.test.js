@@ -81,7 +81,7 @@ check("TUT copy says the set ends and the time and reps so far still post (no 'v
 
 // ---- regular Sets: no timed voice, no failure. Sets-mode code path speaks only rep numbers and the start coaching.
 check("regular Sets get NO 15 s count: the one tutTimeVoice.tick call is gated on long/challenge only", html.split("tutTimeVoice.tick(").length === 2 && /\(pushMode === "long" \|\| pushMode === "challenge"\) && pushState\.running && !pushState\.finished\) tutTimeVoice\.tick\(now\)/.test(html));
-check("regular Sets: nothing else speaks on a timer (6 interruptSpeak call sites: rules line, TUT end, TUT 0-rep end, TUT Battle loss, plank failure end, 30-second hold cue; only sayRep and the shared coaching lines call speech in the push-up code)", (html.match(/interruptSpeak\(/g) || []).length === 6 && !/pushMode === "sets"[^\n]*(interruptSpeak|tick\()/.test(html));
+check("regular Sets: nothing else speaks on a timer (4 interruptSpeak call sites: TUT end, TUT 0-rep end, TUT Battle loss, 30-second hold cue; plank lines use the queued plankSpeak; only sayRep and the shared coaching lines call speech in the push-up code)", (html.match(/interruptSpeak\(/g) || []).length === 4 && !/pushMode === "sets"[^\n]*(interruptSpeak|tick\()/.test(html));
 { const sets = html.slice(html.indexOf('if ($("pushPauseBtn")) $("pushPauseBtn").onclick'), html.indexOf('if ($("pushFinishBtn"))'));
   check("Sets pause/resume path has no voice or failure code", !/tutTimeVoice|failWatch|voidTutSet|interruptSpeak/.test(sets)); }
 
