@@ -36,7 +36,12 @@
     reachFrac: 0.4,       // rep must close at least 40% of the user's own wrist-to-shoulder range
     reachReturn: 0.35,    // ...and open back up at least 35% of it before the rep is credited
     topFollowMs: 400,     // the top follows upward movement of the body this fast
-    topWinMs: 7000        // window (longer than maxRepMs) with no return to the top = the body moved, re-base
+    topWinMs: 7000,       // window (longer than maxRepMs) with no return to the top = the body moved, re-base
+    // Shoulders-only fallback (hats, hoods, face down): the nose is used only when confident and not jumping.
+    noseMin: 0.5,         // nose confidence needed to use the head share (below = shoulders-only)
+    noseJump: 0.5,        // a nose offset this far (shoulder widths) from its running value = brim/hood misread, ignored
+    learnRate: 0.05,      // how fast the face->shoulders mapping learns while the face is visible
+    handBackMs: 600       // when the face returns, the leftover offset fades over this long
   };
 
   // One Euro filter (Casiez et al.): low cutoff at rest (kills jitter), cutoff rises with speed (kills lag).
@@ -84,7 +89,7 @@
         top: null, bottom: null,
         topQ: null, bottomQ: null, qTopSamples: [], qs: null, minQ: null,
         stage: "up", needTop: false, repStart: null, lastTopT: null, bottomT: null, bottomMs: 0,
-        peak: null, repTopMin: null, noseOff: null, roll: [], rollT: null, swS: null, topSize: null,
+        peak: null, repTopMin: null, noseOff: null, map: null, fbRaw: false, fbOff: 0, hand: null, lastY: null, roll: [], rollT: null, swS: null, topSize: null,
         reps: 0, status: "Start your push-ups"
       };
     }
@@ -98,6 +103,15 @@
       return h && t - h.t <= o.holdMs ? h : null;
     }
 
+    // Running linear fit nose offset ~ shoulders-only height (exponentially weighted), used by the shoulders-only fallback.
+    function learn(x, yv) {
+      var m = s.map, a = o.learnRate;
+      if (!m) { s.map = { mx: x, my: yv, vxx: 0, vxy: 0, n: 1 }; return; }
+      var dx = x - m.mx, dy = yv - m.my;
+      m.mx += a * dx; m.my += a * dy; m.n++;
+      m.vxx = (1 - a) * (m.vxx + a * dx * dx); m.vxy = (1 - a) * (m.vxy + a * dx * dy);
+    }
+
     // One frame -> { y, reach, sw }.
     //  y     = shoulder (and head) height in the frame / shoulder width in pixels; y grows downward ("sw" units)
     //  reach = mean wrist-to-shoulder distance / shoulder width in pixels (null when no wrist is visible)
@@ -107,12 +121,38 @@
       if (!ls || !rs) return null;
       var swPx = dist(ls, rs);
       if (!(swPx > 1)) return null;
-      var n = point(kps, "nose", t), midY = (ls.y + rs.y) / 2, y = midY / swPx;
+      var midY = (ls.y + rs.y) / 2, y = midY / swPx, shY = y, n = null;
+      for (var j = 0; j < kps.length; j++) if (kps[j].name === "nose") { n = kps[j]; break; }
+      if (n && !(n.score == null || n.score >= o.noseMin)) n = null;
+      if (n && s.noseOff != null && Math.abs((n.y - midY) / swPx - s.noseOff) > o.noseJump) n = null;
       if (n) {
+        // Face visible and confident: exactly the original head + shoulder signal.
         var off = (n.y - midY) / swPx;
         s.noseOff = s.noseOff == null ? off : s.noseOff + 0.2 * (off - s.noseOff);
         y = (midY + n.y) / 2 / swPx;
-      } else if (s.noseOff != null) y = midY / swPx + s.noseOff / 2; // keep the head share steady when the nose drops out
+        learn(shY, off);
+        if (s.fbRaw) { s.hand = { v: s.lastY - y, t: t }; } // face back after an unmapped stretch: fade the step out
+        s.fbRaw = false;
+        if (s.hand) {
+          var k = Math.exp(-(t - s.hand.t) / o.handBackMs);
+          if (k < 0.01) s.hand = null; else y += s.hand.v * k;
+        }
+      } else {
+        // Shoulders only: predict the head share from shoulder height with the fit learned while the face was
+        // visible (so the hand-off is not a step and depth keeps its scale). No usable fit yet: hold the last
+        // head share (or none if the face was never seen) so the switch itself is not read as motion.
+        var L = s.map;
+        if (L && L.n >= 15 && L.vxx > 4e-4) {
+          var B = Math.max(-1, Math.min(4, L.vxy / L.vxx));
+          y = shY + (L.my + B * (shY - L.mx)) / 2;
+          s.fbRaw = false;
+        } else {
+          if (!s.fbRaw) s.fbOff = s.lastY != null ? s.lastY - shY : 0;
+          y = shY + s.fbOff;
+          s.fbRaw = true;
+        }
+      }
+      s.lastY = y;
       var rr = [];
       [ls, rs].forEach(function (sh, i) {
         var wr = point(kps, (i ? "right" : "left") + "_wrist", t);

@@ -32,9 +32,9 @@ s.hide(120000); const h = s.show(120000 + W.MAX_HIDDEN_MS + 1);
 check("long hide ends session at hide time", h && h.reason === "hidden" && h.ms === 90000);
 
 s = W.createSession(0, 0);
-check("no cap before 4h", s.tick(W.MAX_MS - 1, 10) === null);
-const c = s.tick(W.MAX_MS + 5000, 20000);
-check("4h cap ends", c && c.reason === "cap" && c.ms === W.MAX_MS);
+check("no time cap: still running at 4h", s.tick(14400000 + 5000, 20000) === null);
+check("no time cap: still running at 12h", s.tick(43200000, 60000) === null && W.MAX_MS === Infinity);
+{ const s2 = W.createSession(0, 0); const r2 = s2.stop(5 * 3600000, 30000); check("5 hour walk qualifies and validates", r2 && r2.ms === 5 * 3600000 && W.qualifies(r2).ok && W.validateRecord(W.buildRecord({ uid: "u", ms: r2.ms, steps: r2.steps })).ok); }
 
 const rec = W.buildRecord({ name: "  Zab ", xHandle: "zabbadat", uid: "u1", ms: 360000.4, steps: 1200 });
 check("record shape", rec.name === "Zab" && rec.xHandle === "@zabbadat" && rec.ms === 360000 && rec.steps === 1200);
@@ -42,7 +42,7 @@ check("record valid", W.validateRecord(rec).ok);
 check("no uid invalid", !W.validateRecord({ ...rec, uid: "" }).ok);
 check("short invalid", !W.validateRecord({ ...rec, ms: 30000 }).ok);
 check("4 min record invalid", !W.validateRecord({ ...rec, ms: 240000, steps: 1000 }).ok);
-check("steps cap", W.buildRecord({ uid: "u", ms: 310000, steps: 99999 }).steps === W.MAX_STEPS);
+check("steps cap", W.buildRecord({ uid: "u", ms: 310000, steps: 9999999 }).steps === W.MAX_STEPS);
 
 const rows = [{ name: "a", ms: 310000, steps: 1, at: 5 }, { name: "b", ms: 900000, steps: 1, at: 1 }, { name: "c", ms: 70000, steps: 1, at: 9 }];
 check("rank desc + filter", W.rankSessions(rows).map(x => x.name).join() === "b,a");

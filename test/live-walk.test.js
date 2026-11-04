@@ -2,7 +2,7 @@
 const L = require("../live-walk.js");
 const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
 const r = L.record("u", 1000.4, 99999999, 50000, 0, 1);
-check("record clamps", r.activeMs === 14400000 && r.steps === 40000 && r.paused === false && r.active === true);
+check("record clamps (no 4 h time cap; 50,000 steps kept)", r.activeMs === 99999999 && r.steps === 50000 && r.paused === false && r.active === true);
 check("first push", L.shouldPush(null, r, 0));
 const last = { steps: 10, paused: false, active: true, at: 1000 };
 check("no push unchanged", !L.shouldPush(last, { steps: 10, paused: false, active: true }, 5000));

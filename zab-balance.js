@@ -17,11 +17,13 @@
   var RATES = {
     pushups: { units: "reps", per: 10, max: 5000 },
     plank: { units: "seconds", per: 60, max: 7200 },
-    walk: { units: "minutes", per: 10, max: 240 },
+    walk: { units: "minutes", per: 10, max: 1440 },
     tut: { units: "seconds", per: 60, max: 7200 },
     washers: { units: "wins", per: 1, max: 1 },
     // 30-second top hold (push-ups): each hold credits 0.5 ZAB (qty 1 hold, amount 0.5).
-    hold: { units: "holds", per: 1, max: 1, zab: 0.5 }
+    hold: { units: "holds", per: 1, max: 1, zab: 0.5 },
+    // 10,000 steps in a local day: a 4 ZAB bonus once per day (setId = YYYY-MM-DD), on top of the walk earn.
+    steps10k: { units: "steps", per: 10000, max: 10000, zab: 4 }
   };
   var PENDING_KEY = "zdZabPending";
   // qty from raw measurements: reps as-is; ms -> whole seconds / minutes.
@@ -32,6 +34,7 @@
     if (source === "plank" || source === "tut") return Math.max(0, Math.floor(n / 1000));
     if (source === "washers") return n > 0 ? 1 : 0;
     if (source === "hold") return n >= 1 ? 1 : 0;
+    if (source === "steps10k") return n >= 10000 ? 10000 : 0;
     return 0;
   }
   function zabFor(source, qty) {
@@ -50,6 +53,8 @@
     return { id: txId(source, setId), tx: { uid: uid, type: "earn", source: source, amount: amount, units: r.units, qty: q, setId: cleanId(setId) } };
   }
   // Zabba Washers: 1 ZAB for a won game, once per gameId; null on loss / no user / no id.
+  // 10K bonus: 4 ZAB once per local day (dateKey YYYY-MM-DD); null below 10,000 steps or without a valid day.
+  function tenKEarn(uid, steps, dateKey) { return /^\d{4}-\d{2}-\d{2}$/.test(String(dateKey || "")) ? buildEarn(uid, "steps10k", qtyFrom("steps10k", steps), dateKey) : null; }
   function washersWinEarn(uid, won, gameId) { return won ? buildEarn(uid, "washers", 1, gameId) : null; }
   function validEarn(t) {
     var r = t && RATES[t.source];
@@ -96,14 +101,15 @@
     var q = readQ(store).filter(function (e) { return e.tx && e.tx.uid === uid; });
     return q.reduce(function (p, e) { return p.then(function () { return award(fs, e).then(function () { drop(store, e.id); }, function () {}); }); }, Promise.resolve());
   }
-  var LABEL = { pushups: "Push-ups", plank: "Plank", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers", hold: "30-second holds" };
+  var LABEL = { pushups: "Push-ups", plank: "Plank", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers", hold: "30-second holds", steps10k: "10K steps bonus" };
   var WAGER_TYPE = { stake: "Battle stake", payout: "Battle win", refund: "Battle refund" };
   var WAGER_GAME = { washers: "Zabba Washer Battle", tut: "TUT Battle", plank: "Plank Battle" };
   function mins(m) { m = Math.floor(m); return m + " minute" + (m === 1 ? "" : "s"); }
   var UNIT = { pushups: function (n) { return n + " push-up" + (n === 1 ? "" : "s"); }, plank: function (n) { return mins(n / 60); },
     tut: function (n) { return mins(n / 60); }, walk: function (n) { return mins(n); },
-    washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; }, hold: function (n) { return n + " 30-second hold" + (n === 1 ? "" : "s"); } };
-  var OF = { pushups: "", plank: " of plank", tut: " of TUT", walk: " of walking", hold: "" };
+    washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; }, hold: function (n) { return n + " 30-second hold" + (n === 1 ? "" : "s"); },
+    steps10k: function (n) { return Number(n).toLocaleString("en-US") + " steps in a day"; } };
+  var OF = { pushups: "", plank: " of plank", tut: " of TUT", walk: " of walking", hold: "", steps10k: "" };
   // Display lines built from RATES so the page always matches the earn math.
   function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { return UNIT[k](RATES[k].per) + OF[k] + " = 1 ZAB"; }).concat(["Won Zabba Washers game = 1 ZAB"]); }
   function txLine(t) {
@@ -187,7 +193,7 @@
         '<span class="zt-h-bal">' + esc(r.total.toLocaleString("en-US")) + (ZC ? " " + ZC.html("ZAB") : " ZAB") + "</span></li>";
     }).join("") + "</ol>";
   }
-  var api = { holderName: holderName, holdersView: holdersView, holdersHtml: holdersHtml, boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
+  var api = { tenKEarn: tenKEarn, holderName: holderName, holdersView: holdersView, holdersHtml: holdersHtml, boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
     profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabBalance = api;
 })(typeof window !== "undefined" ? window : this);

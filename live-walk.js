@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ZabbadatLiveWalk = factory();
 })(typeof self !== "undefined" ? self : this, function () {
-  var STALE_MS = 120000, PUSH_MS = 3000, KEEPALIVE_MS = 60000, MAX_MS = 14400000, MAX_STEPS = 40000;
+  var STALE_MS = 120000, PUSH_MS = 3000, KEEPALIVE_MS = 60000, MAX_MS = 9e15, MAX_STEPS = 1000000 /* no time cap; MAX_MS only keeps the number sane */;
   function clampInt(n, lo, hi) { n = Math.round(Number(n) || 0); return Math.max(lo, Math.min(hi, n)); }
   // Build the doc written by the walking device.
   function record(uid, startedAt, activeMs, steps, paused, active) {

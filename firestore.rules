@@ -133,7 +133,7 @@ service cloud.firestore {
     }
 
     // Live walk sessions: one doc per finished web live walk. Create only.
-    // 1 min to 4 h, steps 0..40,000 (client also requires 30+ steps/min). No edits or deletes.
+    // 1 min or longer (no time cap), steps 0..1,000,000 (client also requires 5 min and 30+ steps/min). No edits or deletes.
     match /walkSessions/{id} {
       allow read: if true;
       allow create: if signedIn() && ownsNew()
@@ -142,9 +142,9 @@ service cloud.firestore {
         && shortString(request.resource.data.name, 40) && request.resource.data.name.size() > 0
         && (!('xHandle' in request.resource.data) || shortString(request.resource.data.xHandle, 21))
         && request.resource.data.ms is int
-        && request.resource.data.ms >= 60000 && request.resource.data.ms <= 14400000
+        && request.resource.data.ms >= 60000
         && request.resource.data.steps is int
-        && request.resource.data.steps >= 0 && request.resource.data.steps <= 40000
+        && request.resource.data.steps >= 0 && request.resource.data.steps <= 1000000
         && request.resource.data.createdAt == request.time;
       allow update, delete: if false;
     }
@@ -166,9 +166,9 @@ service cloud.firestore {
         && request.resource.data.paused is bool
         && request.resource.data.startedAt is int
         && request.resource.data.activeMs is number
-        && request.resource.data.activeMs >= 0 && request.resource.data.activeMs <= 14400000
+        && request.resource.data.activeMs >= 0
         && request.resource.data.steps is int
-        && request.resource.data.steps >= 0 && request.resource.data.steps <= 40000
+        && request.resource.data.steps >= 0 && request.resource.data.steps <= 1000000
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
@@ -611,8 +611,10 @@ service cloud.firestore {
           && ((t().source == 'pushups' && t().units == 'reps'    && t().qty <= 5000 && t().amount is int && t().amount * 10 <= t().qty)
            || (t().source == 'plank'   && t().units == 'seconds' && t().qty <= 7200 && t().amount is int && t().amount * 60 <= t().qty)
            || (t().source == 'tut'     && t().units == 'seconds' && t().qty <= 7200 && t().amount is int && t().amount * 60 <= t().qty)
-           || (t().source == 'walk'    && t().units == 'minutes' && t().qty <= 240  && t().amount is int && t().amount * 10 <= t().qty)
+           || (t().source == 'walk'    && t().units == 'minutes' && t().qty <= 1440 && t().amount is int && t().amount * 10 <= t().qty)
            || (t().source == 'hold'    && t().units == 'holds'   && t().qty == 1    && t().amount == 0.5)
+           // 10K steps bonus: 4 ZAB, one per user per local day (doc id steps10k-YYYY-MM-DD, create-only)
+           || (t().source == 'steps10k' && t().units == 'steps' && t().qty == 10000 && t().amount == 4 && t().setId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))
            || (t().source == 'washers' && t().units == 'wins'    && t().qty == 1    && t().amount == 1))
           && getAfter(userPath()).data.lastTxId == txId
           && tenths(getAfter(userPath()).data.zabBalance) == tenths(before()) + tenths(t().amount);

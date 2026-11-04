@@ -1020,9 +1020,10 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn ghost" id="dailyRefreshBtn" type="button" hidden>Refresh from phone</button>
       <button class="btn danger" id="dailyResetBtn" type="button">Reset</button>
     </div>
+    <div class="card" id="tenKBonus" style="margin-top:1rem"><h3>Ten thousand steps. Breathe, stride, collect.</h3><p>Hit 10K in a day and stack a 4 <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> bonus on top of every step you've earned.</p></div>
     <p class="note" id="dailyStatus" aria-live="polite">Signed-in totals post to the daily board. Unsigned stays on this phone.</p>
     <h3 style="margin-top:1.6rem">Live walk sessions</h3>
-    <p class="lead">Start a live walk and the session clock runs. Stop it to log the session: 5 minute minimum, 30+ steps a minute on average, 4 hour cap. Hiding the page pauses the clock; hidden over 2 minutes ends the session.</p>
+    <p class="lead">Start a live walk and the session clock runs. Stop it to log the session: 5 minute minimum, 30+ steps a minute on average, no time cap. Hiding the page pauses the clock; hidden over 2 minutes ends the session.</p>
     <div class="stats">
       <div class="stat"><b id="dailySource">—</b><span>Source</span></div>
     </div>
@@ -2433,7 +2434,25 @@ const daily = DS ? DS.createController(window, { onChange: (s) => {
   $("dailyWalkBtn").textContent = s.walking ? "Hold to stop" : "Start live walk";
   if (s.msg) $("dailyStatus").textContent = s.msg;
   if (s.walking && currentUser && s.steps > dailyPosted && !dailyLiveTimer) dailyLiveTimer = setTimeout(() => { dailyLiveTimer = null; postDaily(true); }, 3000);
+  if (s.steps >= 10000) tenKBonus(s);
 } }) : null;
+// 10K steps bonus: 4 ZAB once per user per local day, on top of the walk earn (zab-balance.js steps10k; ledger id steps10k-YYYY-MM-DD).
+const TEN_K_LINE = "Ten thousand steps. Four ZAB bonus. Breathe easy, and keep striding.";
+let tenKBusy = false;
+function tenKBonus(s) {
+  if (tenKBusy || !ZT || !currentUser || !s || !s.date) return;
+  const key = "zd10k-" + currentUser.uid + "-" + s.date;
+  try { if (localStorage.getItem(key)) return; } catch (e) {}
+  const e = ZT.tenKEarn(currentUser.uid, s.steps, s.date); if (!e) return;
+  tenKBusy = true;
+  awardZab("steps10k", e.tx.qty, s.date).then((r) => {
+    if (r && (r.credited > 0 || r.skipped === "duplicate")) { try { localStorage.setItem(key, "1"); } catch (x) {} }
+    if (r && r.credited > 0) {
+      $("dailyStatus").textContent = "Ten thousand steps. Breathe, stride, collect. +4 ZAB bonus.";
+      const G = window.ZabbadatGetSet; if (G && G.plankSpeak) G.plankSpeak(TEN_K_LINE); // shared phone voice, rate 0.88, queued
+    }
+  }).catch(() => {}).finally(() => { tenKBusy = false; });
+}
 function dailyName() {
   const typed = ($("player").value || "").trim().slice(0, 20);
   return currentUser ? (typed || displayNameOf(currentUser)) : (typed || "Player");
@@ -2528,7 +2547,7 @@ async function endWalk(r) {
   if (walkWake) walkWake.stop().catch(() => {});
   liveEnd(r);
   $("walkClock").textContent = WS.formatClock(r.ms); $("walkSteps").textContent = r.steps.toLocaleString();
-  const why = r.reason === "cap" ? " (4 hour cap)" : r.reason === "hidden" ? " (page hidden too long)" : "";
+  const why = r.reason === "hidden" ? " (page hidden too long)" : "";
   const q = WS.qualifies(r), label = WS.formatClock(r.ms) + " with " + r.steps.toLocaleString() + " steps" + why;
   if (!q.ok) { $("walkStatus").textContent = "Session " + label + ". Not logged: " + q.why; return; }
   if (!currentUser) { $("walkStatus").textContent = "Session " + label + ". Sign in to post sessions to the board."; return; }
@@ -2724,6 +2743,7 @@ function showUser(user) {
   const signedIn = !!(user && user.uid);
       if (signedIn) {
     $("whoName").textContent = displayNameOf(user);
+    if (daily) setTimeout(() => tenKBonus(daily.state()), 0); // already past 10K before signing in
     $("player").disabled = false;
     if (!$("player").value.trim()) $("player").value = displayNameOf(user);
     $("signInBtn").hidden = true;
