@@ -292,7 +292,17 @@
       }
     };
   }
-  var api = { VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
+  // Pocket cue for walking features (live walk, Zabba Washers): one relaxed line in the shared voice plus a short buzz,
+  // so the walker can pocket the phone without looking. Breath first. Never throws.
+  var POCKET_LINE = "Phone in your pocket. Breathe easy, and walk.";
+  function pocketCue(opts) {
+    opts = opts || {};
+    var w = g(), spoke = false, buzzed = false;
+    try { if (w && w.speechSynthesis && typeof w.SpeechSynthesisUtterance === "function") { utter(POCKET_LINE, undefined, VOICE); spoke = true; } } catch (e) {}
+    try { var n = w && w.navigator; if (n && typeof n.vibrate === "function") { n.vibrate([120, 80, 120]); buzzed = true; } } catch (e) {}
+    return { line: POCKET_LINE, spoke: spoke, buzzed: buzzed };
+  }
+  var api = { POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);

@@ -88,15 +88,16 @@
       } catch (e) { st.msg = "Motion access failed."; emit(); return false; }
       det = (hooks.detectorFactory || function () { return win.ZabbadatSteps.createStepDetector(); })();
       onMotion = function (e) {
-        var a = e.accelerationIncludingGravity || e.acceleration, g = e.accelerationIncludingGravity;
-        if (!a) return;
+        // Orientation-free (pocket): prefer the gravity-included magnitude; some browsers send it with null axes.
+        var g = e.accelerationIncludingGravity, a = (g && g.x != null) ? g : e.acceleration;
+        if (!a || a.x == null) return;
         var r = e.rotationRate;
         var res = det.update({ t: win.performance.now(), x: a.x, y: a.y, z: a.z, gravity: a === g,
           rot: r ? { alpha: r.alpha || 0, beta: r.beta || 0, gamma: r.gamma || 0 } : null });
         if (res.added) setSteps(addWeb(st.steps, res.added));
       };
       win.addEventListener("devicemotion", onMotion);
-      walking = true; st.source = "web"; st.msg = "Live walk on. Keep this page open and the screen on."; emit(); return true;
+      walking = true; st.source = "web"; st.msg = "Live walk on. Phone in your pocket, breathe easy, and walk. The screen stays awake and locked; steps keep counting."; emit(); return true;
     }
     function stopWalk() {
       if (onMotion) win.removeEventListener("devicemotion", onMotion);

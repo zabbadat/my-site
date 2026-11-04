@@ -664,7 +664,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn danger" id="resetBtn" type="button">Reset</button>
     </div>
     <p class="note" id="sensorStartNote">Once start game, step sensor is initiated.</p>
-    <p class="note" id="gameLockNote">The screen locks when the game starts. Hold 1 second to unlock and score a pack; it locks again after you score. While unlocked, hold 1 second to end the game.</p>
+    <p class="note" id="gameLockNote">Pocket play: after Start game, slip the phone in your pocket and walk; steps count from the pocket and the screen stays awake. The screen locks when the game starts. Hold 1 second to unlock and score a pack; it locks again after you score. While unlocked, hold 1 second to end the game.</p>
        <div class="row">
       <button class="btn ghost" type="button" data-points="2">+2 box-bound</button>
       <button class="btn ghost" type="button" data-points="3">+3 shoot</button>
@@ -1009,7 +1009,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="steps">
     <h2>Step Equity</h2>
-    <p class="lead">Step Equity: stopping posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk: steps count while this page stays open with the screen on. Same login as washers.</p>
+    <p class="lead">Step Equity: stopping posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk, put the phone in your pocket and walk: the page keeps the screen awake and locked, and steps count from the pocket. Same login as washers.</p>
     <div class="stats duo">
       <div class="stat"><b id="dailyCount">0</b><span>Steps today</span></div>
       <div class="stat"><b id="walkClock">00:00</b><span>Session time</span></div>
@@ -1399,6 +1399,7 @@ $("startBtn").onclick = () => {
   setStatus("Game on.");
   startPhoneSteps();
   if (gameWake) gameWake.start().catch(() => {});
+  if (window.ZabbadatGetSet && window.ZabbadatGetSet.pocketCue) window.ZabbadatGetSet.pocketCue();
   render();
   setPocket(true);
 };
@@ -2563,7 +2564,7 @@ if (WS && daily) {
     const stopAt = performance.now(), stepsNow = daily.state().steps;
     await dailyClick();
     const is = daily.state().walking;
-    if (!was && is) { beginWalk(); setWalkLock(true); }
+    if (!was && is) { beginWalk(); setWalkLock(true); if (window.ZabbadatGetSet && window.ZabbadatGetSet.pocketCue) window.ZabbadatGetSet.pocketCue(); }
     else if (was && !is && walkSession) endWalk(walkSession.stop(stopAt, stepsNow));
   };
   // Walking: the button is pocket-locked; a tap only hints, a 1 s hold unlocks and stops (shared bindHold).

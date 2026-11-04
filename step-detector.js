@@ -16,7 +16,9 @@
     minStepMs: 250, maxStepMs: 2000,
     confirmSteps: 3,      // steps needed in rhythm before counting (then back-filled)
     rhythmRatio: 2.2,     // consecutive intervals may differ by at most this factor
-    rotSpikeDps: 250,     // rotation speed that marks a throw (deg/s)
+    rotSpikeDps: 250,     // rotation speed that marks a throw (deg/s), floor of the adaptive throw threshold
+    rotTauMs: 2000,       // pocket: how fast the typical walking rotation level is followed
+    rotFactor: 3,         // pocket: a throw must spin this many times faster than the walking leg swing
     throwBeforeMs: 300, throwAfterMs: 600,   // ignore step candidates in this window around a throw
     pendingMs: 300        // candidates wait this long so a throw just after them can veto
   };
@@ -27,7 +29,7 @@
     function reset() {
       s = { lastT: null, g: null, lp: 0, prevLp: 0, rising: false, amp: 0.5, sawValley: true,
             lastCand: null, lastInterval: null, streak: [], walking: false,
-            pending: [], lastSpike: -1e9, steps: 0 };
+            pending: [], lastSpike: -1e9, steps: 0, rotAmp: 0 };
     }
     reset();
     function ema(prev, x, dt, tau) { return prev + (1 - Math.exp(-dt / tau)) * (x - prev); }
@@ -69,7 +71,15 @@
       var thr = Math.max(o.minThr, o.thrFactor * s.amp);
       // throw detection from gyroscope
       var r = e.rot;
-      if (r) { var w = Math.sqrt((r.alpha || 0) * (r.alpha || 0) + (r.beta || 0) * (r.beta || 0) + (r.gamma || 0) * (r.gamma || 0)); if (w > o.rotSpikeDps) s.lastSpike = t; }
+      // Pocket-friendly: a phone in a pocket swings with the thigh every step (often 150-350 deg/s), which used to
+      // veto real steps. The throw threshold now adapts: max(floor, rotFactor x the recent walking rotation level),
+      // so only a spin far above the leg swing (a hand-held throw) vetoes. Hand-held play behaves as before.
+      if (r) {
+        var w = Math.sqrt((r.alpha || 0) * (r.alpha || 0) + (r.beta || 0) * (r.beta || 0) + (r.gamma || 0) * (r.gamma || 0));
+        var spikeThr = Math.max(o.rotSpikeDps, o.rotFactor * s.rotAmp);
+        if (w > spikeThr) s.lastSpike = t;
+        s.rotAmp = ema(s.rotAmp, Math.min(w, Math.max(o.rotSpikeDps, o.rotFactor * s.rotAmp)), dt, o.rotTauMs);
+      }
       // peak with valley requirement
       if (lp < -o.valleyFrac * thr) s.sawValley = true;
       if (lp > s.lp) s.rising = true;
