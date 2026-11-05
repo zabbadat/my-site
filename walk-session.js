@@ -1,6 +1,6 @@
 /* ZabbaDat live walk sessions: pure logic (no DOM). Used by the web live walk in #steps.
  * Anti-cheat (mirrored in firestore.rules /walkSessions):
- *   - a session only posts if it lasted >= 5 min (MIN_MS = 300000); firestore.rules still allows >= 60 s, so the client is the stricter gate
+ *   - a session only posts if it lasted >= 10 min (MIN_MS = 600000); firestore.rules match this (ms >= 600000)
  *   - average pace >= 30 steps/min (MIN_SPM) and >= 30 steps total (MIN_STEPS), so idle clocks don't count
  *   - no time cap (MAX_MS = Infinity): a session runs until stopped or hidden too long
  *   - steps capped at 40,000 per session
@@ -9,7 +9,7 @@
  * Steps are the daily-steps total at stop minus the total at start (same detector, same pocket lock). */
 (function (root) {
   "use strict";
-  var MIN_MS = 300000, MAX_MS = Infinity, MIN_SPM = 30, MIN_STEPS = 30, MAX_STEPS = 1000000, MAX_HIDDEN_MS = 120000, NAME_MAX = 40, HANDLE_MAX = 21;
+  var MIN_MS = 600000, MAX_MS = Infinity, MIN_SPM = 30, MIN_STEPS = 30, MAX_STEPS = 1000000, MAX_HIDDEN_MS = 120000, NAME_MAX = 40, HANDLE_MAX = 21;
 
   function formatClock(ms) {
     var s = Math.max(0, Math.floor((Number(ms) || 0) / 1000)), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60;
@@ -45,7 +45,7 @@
   }
   function qualifies(r) {
     if (!r) return { ok: false, why: "no session" };
-    if (!(r.ms >= MIN_MS)) return { ok: false, why: "Sessions under 5 minutes don't count." };
+    if (!(r.ms >= MIN_MS)) return { ok: false, why: "Sessions under 10 minutes don't count." };
     if (r.steps < MIN_STEPS || r.steps / (r.ms / 60000) < MIN_SPM) return { ok: false, why: "Not enough steps (need 30+ steps a minute on average)." };
     if (r.steps > MAX_STEPS) return { ok: false, why: "Too many steps." };
     return { ok: true, why: "" };

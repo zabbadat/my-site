@@ -9,21 +9,22 @@ check("clock zero/neg", W.formatClock(-5) === "00:00");
 
 let s = W.createSession(1000, 500);
 check("elapsed runs", s.elapsed(61000) === 60000);
-let r = s.stop(361000, 1700);
-check("stop result", r.ms === 360000 && r.steps === 1200 && r.reason === "stopped");
+let r = s.stop(601000, 1700);
+check("stop result", r.ms === 600000 && r.steps === 1200 && r.reason === "stopped");
 check("stop idempotent", s.stop(999999, 9999) === r);
 check("qualifies 100 spm", W.qualifies(r).ok);
 
-check("min is 5 min", W.MIN_MS === 300000);
-check("under 5 min rejected", !W.qualifies({ ms: 299999, steps: 2000 }).ok);
+check("min is 10 min", W.MIN_MS === 600000);
+check("under 10 min rejected", !W.qualifies({ ms: 599999, steps: 2000 }).ok);
 check("1 min no longer counts", !W.qualifies({ ms: 60000, steps: 200 }).ok);
-check("under-5-min message", W.qualifies({ ms: 120000, steps: 400 }).why === "Sessions under 5 minutes don't count.");
-check("exactly 5 min ok", W.qualifies({ ms: 300000, steps: 150 }).ok);
-check("5 min short session: stop at 4:59 not logged, steps still counted in result", (() => { const q = W.createSession(0, 0), x = q.stop(299000, 500); return x.steps === 500 && !W.qualifies(x).ok; })());
-check("hidden-end under 5 min not logged", (() => { const q = W.createSession(0, 0); q.hide(120000); const x = q.show(120000 + W.MAX_HIDDEN_MS + 1); return x.reason === "hidden" && x.ms === 120000 && !W.qualifies(x).ok; })());
+check("under-10-min message", W.qualifies({ ms: 120000, steps: 400 }).why === "Sessions under 10 minutes don't count.");
+check("exactly 5 min earns nothing", !W.qualifies({ ms: 300000, steps: 150 }).ok);
+check("exactly 10 min ok", W.qualifies({ ms: 600000, steps: 300 }).ok);
+check("short session: stop at 9:59 not logged, steps still counted in result", (() => { const q = W.createSession(0, 0), x = q.stop(599000, 500); return x.steps === 500 && !W.qualifies(x).ok; })());
+check("hidden-end under 10 min not logged", (() => { const q = W.createSession(0, 0); q.hide(120000); const x = q.show(120000 + W.MAX_HIDDEN_MS + 1); return x.reason === "hidden" && x.ms === 120000 && !W.qualifies(x).ok; })());
 check("idle clock rejected", !W.qualifies({ ms: 600000, steps: 100 }).ok);
 check("30 spm ok", W.qualifies({ ms: 600000, steps: 300 }).ok);
-check("tiny total rejected", !W.qualifies({ ms: 300000, steps: 29 }).ok);
+check("tiny total rejected", !W.qualifies({ ms: 600000, steps: 29 }).ok);
 
 s = W.createSession(0, 0);
 s.hide(60000); check("paused on hide", s.isPaused() && s.elapsed(100000) === 60000);
@@ -36,15 +37,15 @@ check("no time cap: still running at 4h", s.tick(14400000 + 5000, 20000) === nul
 check("no time cap: still running at 12h", s.tick(43200000, 60000) === null && W.MAX_MS === Infinity);
 { const s2 = W.createSession(0, 0); const r2 = s2.stop(5 * 3600000, 30000); check("5 hour walk qualifies and validates", r2 && r2.ms === 5 * 3600000 && W.qualifies(r2).ok && W.validateRecord(W.buildRecord({ uid: "u", ms: r2.ms, steps: r2.steps })).ok); }
 
-const rec = W.buildRecord({ name: "  Zab ", xHandle: "zabbadat", uid: "u1", ms: 360000.4, steps: 1200 });
-check("record shape", rec.name === "Zab" && rec.xHandle === "@zabbadat" && rec.ms === 360000 && rec.steps === 1200);
+const rec = W.buildRecord({ name: "  Zab ", xHandle: "zabbadat", uid: "u1", ms: 600000.4, steps: 1200 });
+check("record shape", rec.name === "Zab" && rec.xHandle === "@zabbadat" && rec.ms === 600000 && rec.steps === 1200);
 check("record valid", W.validateRecord(rec).ok);
 check("no uid invalid", !W.validateRecord({ ...rec, uid: "" }).ok);
 check("short invalid", !W.validateRecord({ ...rec, ms: 30000 }).ok);
 check("4 min record invalid", !W.validateRecord({ ...rec, ms: 240000, steps: 1000 }).ok);
 check("steps cap", W.buildRecord({ uid: "u", ms: 310000, steps: 9999999 }).steps === W.MAX_STEPS);
 
-const rows = [{ name: "a", ms: 310000, steps: 1, at: 5 }, { name: "b", ms: 900000, steps: 1, at: 1 }, { name: "c", ms: 70000, steps: 1, at: 9 }];
+const rows = [{ name: "a", ms: 610000, steps: 1, at: 5 }, { name: "b", ms: 900000, steps: 1, at: 1 }, { name: "c", ms: 70000, steps: 1, at: 9 }];
 check("rank desc + filter", W.rankSessions(rows).map(x => x.name).join() === "b,a");
 check("rank since", W.rankSessions(rows, 20, 4).map(x => x.name).join() === "a");
 

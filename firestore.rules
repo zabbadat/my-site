@@ -133,7 +133,7 @@ service cloud.firestore {
     }
 
     // Live walk sessions: one doc per finished web live walk. Create only.
-    // 1 min or longer (no time cap), steps 0..1,000,000 (client also requires 5 min and 30+ steps/min). No edits or deletes.
+    // 10 min or longer (no time cap), steps 0..1,000,000 (client also requires 10 min and 30+ steps/min). No edits or deletes.
     match /walkSessions/{id} {
       allow read: if true;
       allow create: if signedIn() && ownsNew()
@@ -142,7 +142,7 @@ service cloud.firestore {
         && shortString(request.resource.data.name, 40) && request.resource.data.name.size() > 0
         && (!('xHandle' in request.resource.data) || shortString(request.resource.data.xHandle, 21))
         && request.resource.data.ms is int
-        && request.resource.data.ms >= 60000
+        && request.resource.data.ms >= 600000
         && request.resource.data.steps is int
         && request.resource.data.steps >= 0 && request.resource.data.steps <= 1000000
         && request.resource.data.createdAt == request.time;

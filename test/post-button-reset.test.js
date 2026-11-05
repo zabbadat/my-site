@@ -59,6 +59,6 @@ function page(o) {
   p = page({ steps: 900 }); await p.post(false);
   check("post succeeds: 'Posted 900 steps to today's board.' and retries reset", /^Posted 900 steps to today's board\.$/.test(p.els.dailyStatus.textContent) && p.posted() === 900 && p.timers.length === 0);
   // ---- unchanged auto-post
-  check("auto-post on stop unchanged: stopWalk then postDaily(true); endWalk still gates on the 5 min minimum and signed-in", /daily\.stopWalk\(\); postDaily\(true\)/.test(html) && /const q = WS\.qualifies\(r\)/.test(html) && /Sessions under 5 minutes don't count/.test(R("walk-session.js")));
+  check("auto-post on stop unchanged: stopWalk then postDaily(true); endWalk still gates on the 10 min minimum and signed-in", /daily\.stopWalk\(\); postDaily\(true\)/.test(html) && /const q = WS\.qualifies\(r\)/.test(html) && /Sessions under 10 minutes don't count/.test(R("walk-session.js")));
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
 })();
