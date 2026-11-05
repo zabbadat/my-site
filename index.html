@@ -424,6 +424,10 @@
 .tut-hero.unboxed .tut-rules{margin-bottom:1.2rem}
 .tut-hero.unboxed .tut-stats{margin-bottom:1.2rem}
 .tut-hero.unboxed .actions{margin-top:1.4rem}
+
+/* Unselected buttons get a visible outline so they read as tappable; selected (hover/focus/active) unchanged */
+.promo-banner .btn:not(:hover):not(:focus-visible):not(:active){outline:2px solid #0b1410;outline-offset:2px}
+#startBtn:not(:hover):not(:focus-visible):not(:active){outline:2px solid var(--accent);outline-offset:3px}
 </style> <link rel="icon" type="image/png" href="/zd-v2-icon-512.png"><link rel="apple-touch-icon" href="/zd-v2-icon-1024.png">
 <style id="palette">
 /* Electric lime + hot pink palette */
