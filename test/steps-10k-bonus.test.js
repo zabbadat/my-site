@@ -24,11 +24,10 @@ function fakeFs() {
   check("stacks on the walk earn (90 min = 9 ZAB unchanged, total 17)", f.db["users/u"].zabBalance === 17);
   const o = await Z.award(f, Z.tenKEarn("other", 10000, "2026-11-03"));
   check("per user: another user same day still paid", o.credited === 4);
-  // rules text
+  // rules text: earning moved to the server, so browsers can no longer write a steps10k ledger entry.
   const rules = fs.readFileSync(path.join(__dirname, "..", "firestore.rules"), "utf8");
-  const line = rules.split("\n").find((l) => l.includes("t().source == 'steps10k'")) || "";
-  check("rules: steps10k clause requires units steps, qty 10000, amount exactly 4, setId a date", /units == 'steps'/.test(line) && /qty == 10000/.test(line) && /amount == 4\b/.test(line) && /setId\.matches\('\^\[0-9\]\{4\}-\[0-9\]\{2\}-\[0-9\]\{2\}\$'\)/.test(line));
-  check("rules: ledger docs stay create-only and id = source-setId", /txId == t\(\)\.source \+ '-' \+ t\(\)\.setId/.test(rules) && /match \/zabLedger\/\{txId\}[\s\S]*?allow update, delete: if false;/.test(rules));
+  check("rules: no client steps10k ledger clause (balances and ledger are server-only)", !/t\(\)\.source == 'steps10k'/.test(rules) && /u\(\)\.zabBalance == 0 && u\(\)\.lastTxId == ''/.test(rules));
+  check("rules: ledger writes are server-only", /match \/zabLedger\/\{txId\}[\s\S]*?allow create, update, delete: if false;/.test(rules));
   // page
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   check("page: daily onChange triggers the bonus at 10,000", /if \(s\.steps >= 10000\) tenKBonus\(s\);/.test(html));

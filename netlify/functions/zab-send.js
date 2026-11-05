@@ -1,4 +1,4 @@
-// POST /.netlify/functions/zab-send  { to: <recipient uid from zabBoard>, amount: <whole ZAB>, key: <idempotency key> }
+// POST /.netlify/functions/zab-send  { to: <recipient uid from zabBoard>, amount: <ZAB in tenths, 0.1 to 1,000>, key: <idempotency key> }
 // Authorization: Bearer <Firebase sign-in credential>. Moves ZAB between two players in one transaction (zab-transfer.js).
 const { json, notConfigured, missingEnv, uidFrom } = require("../lib/common");
 const X = require("../../zab-transfer.js");

@@ -7,7 +7,7 @@
  * every positive amount is debited into wagers/{key} (all or nothing) with a stake ledger entry. Nothing is escrowed before that, so a
  * player who leaves before the pot forms simply takes their seat (and its locked amount) away.
  * Payout (decided from the room/arena doc with the shared decide(), idempotent, exactly the existing guard pattern): the winner of a 1v1 takes
- * the whole pot; the winning team of a 2v2 splits it equally (an odd Zab goes to the winning team's lowest seat). Ties, everyone out, a match
+ * the whole pot; the winning team of a 2v2 splits it equally (in tenths; an odd tenth goes to the winning team's lowest seat). Ties, everyone out, a match
  * that never starts, a room abandoned before the start = every player gets their own amount back. No Zab is created or destroyed.
  * Label: the wager currency in this flow is always written "Zab" (capital Z, lowercase a, b) followed by the ring icon, then the number.
  * Every wager string goes through html()/set() so the ring is placed after the word and never before it.
@@ -17,8 +17,8 @@
   const NODE = typeof module !== "undefined" && !!module.exports;
   const WB = NODE ? require("./washers-battle.js") : root && root.ZabbaWasherBattle, AR = NODE ? require("./washers-arena.js") : root && root.ZabbaArena,
     BR = NODE ? require("./battle-rooms.js") : root && root.ZabbaBattles,
-    ZC = NODE ? require("./zab-currency.js") : root && root.ZabCurrency;
-  const WORD = "Zab", MIN_WAGER = 1, MAX_WAGER = 1000000000, MAX_GAME_MS = 4 * 3600000;
+    ZC = NODE ? require("./zab-currency.js") : root && root.ZabCurrency; // wagers are Zab in tenths, like balances
+  const WORD = "Zab", MIN_WAGER = 0.1, MAX_WAGER = 1000000000, MAX_GAME_MS = 4 * 3600000;
   const COL = { room: "washersBattles", arena: "washersArenas" }, GAME = { room: "washers", arena: "arena" };
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
   const err = (status, message) => Object.assign(new Error(message), { status });
@@ -38,26 +38,26 @@
   const kindOf = (r) => (r && r.seats ? "arena" : "room");
   const sizeOf = (r) => (r && r.seats ? r.size : 2);
   const ids = (r) => Object.keys(seatsOf(r));
-  const hasWager = (s) => !!s && isInt(s.wager) && s.wager >= 0;
+  const hasWager = (s) => !!s && ZC.isZab(s.wager);
   function summary(r) {
     const S = seatsOf(r), u = ids(r), size = sizeOf(r), full = !!r && u.length === size && (size === 2 || size === 4);
     const rows = u.map((id) => ({ uid: id, wager: hasWager(S[id]) ? S[id].wager : null, agreed: S[id].agreed, team: S[id].team || null, slot: isInt(S[id].slot) ? S[id].slot : null }))
       .sort((x, y) => ((x.slot == null ? 9 : x.slot) - (y.slot == null ? 9 : y.slot)) || (x.uid < y.uid ? -1 : 1));
-    const total = rows.reduce((n, x) => n + (x.wager || 0), 0), allSubmitted = full && rows.every((x) => x.wager != null);
-    const sides = { a: 0, b: 0 }; rows.forEach((x) => { if (x.team === "a" || x.team === "b") sides[x.team] += x.wager || 0; });
-    const needed = allSubmitted && total > 0, allAgreed = needed && rows.every((x) => x.agreed === total);
+    const total = ZC.roundZab(rows.reduce((n, x) => n + (x.wager || 0), 0)), allSubmitted = full && rows.every((x) => x.wager != null);
+    const sides = { a: 0, b: 0 }; rows.forEach((x) => { if (x.team === "a" || x.team === "b") sides[x.team] = ZC.roundZab(sides[x.team] + (x.wager || 0)); });
+    const needed = allSubmitted && total > 0, allAgreed = needed && rows.every((x) => ZC.isZab(x.agreed) && ZC.roundZab(x.agreed) === total);
     return { full, size, rows, total, sides, allSubmitted, needed, allAgreed, submittedCount: rows.filter((x) => x.wager != null).length };
   }
   // ---- validation (client checks mirror the rules; the rules are what bind) ----
-  const validWager = (n) => isInt(n) && n >= 0 && n <= MAX_WAGER && (n === 0 || n >= MIN_WAGER);
-  const wagerError = (n) => (!isInt(n) || n < 0 ? "Enter a whole number of Zab, or 0 for no wager." : n > MAX_WAGER ? "Maximum wager is " + amountText(MAX_WAGER) + "." : "");
+  const validWager = (n) => ZC.isZab(n) && n <= MAX_WAGER && (n === 0 || n >= MIN_WAGER);
+  const wagerError = (n) => (!ZC.isZab(n) ? "Enter an amount of Zab in steps of 0.1, or 0 for no wager." : n > MAX_WAGER ? "Maximum wager is " + amountText(MAX_WAGER) + "." : "");
   function submitError(r, uid, n, balance) {
     const s = seatsOf(r)[uid];
     if (!r) return "No room with that code.";
     if (!s) return "Join the room first.";
     if (r.status !== "waiting" || r.startAt != null) return "Wagers close when the countdown starts.";
     if (hasWager(s)) return "Your wager is already final.";
-    if (!validWager(n)) return wagerError(n) || "Enter a whole number of Zab, or 0 for no wager.";
+    if (!validWager(n)) return wagerError(n) || "Enter an amount of Zab in steps of 0.1, or 0 for no wager.";
     if (ZC && ZC.isZab(balance) && n > balance) return "Not enough Zab: you have " + ZC.fmtZab(balance) + ", the wager is " + ZC.fmtZab(n) + ".";
     return "";
   }
@@ -86,8 +86,9 @@
   }
   const canStart = (r, w) => (ids(r).some((u) => hasWager(seatsOf(r)[u]) && seatsOf(r)[u].wager > 0) ? covers(r, w) : true);
   // ---- payout math: integers only; remainder to the first winners in seat order ----
-  function split(total, n) { if (!isInt(total) || total < 0 || !isInt(n) || n < 1) return []; const base = Math.floor(total / n), rem = total - base * n;
-    return Array.from({ length: n }, (_, i) => base + (i < rem ? 1 : 0)); }
+  // Split a pot in tenths: equal shares, the odd tenth(s) to the lowest seats first (5 -> 2.5 + 2.5, 0.5 -> 0.3 + 0.2).
+  function split(total, n) { if (!ZC.isZab(total) || !isInt(n) || n < 1) return []; const t10 = Math.round(total * 10), base = Math.floor(t10 / n), rem = t10 - base * n;
+    return Array.from({ length: n }, (_, i) => (base + (i < rem ? 1 : 0)) / 10); }
   const potKey = (kind, code, createdMs) => GAME[kind] + "_" + code + "_" + createdMs;
   // ---- server: form the pot (all or nothing). fs as zaba-wager.js: tx(fn(t)), t.get(pathArray), t.set(path, d), t.update(path, patch), ts(), toMs ----
   function formPot(fs, uid, kind, rawCode) {
@@ -113,8 +114,7 @@
           throw err(402, mine ? "Not enough Zab: you have " + ZC.fmtZab(b) + ", your wager is " + ZC.fmtZab(S[uid].wager) + ". Nobody was charged." : "Another player doesn't have enough Zab for this pot. Nobody was charged."); }
         if (prior.some(Boolean)) throw err(409, "Wager ledger already has an entry for this room.");
         const players = {}; seatIds.forEach((u) => { players[u] = { amount: S[u].wager, at: fs.ts() }; });
-        seatIds.forEach((u, i) => { const a = S[u].wager; if (a <= 0) return; const bal = balOf(users[i]);
-          t.update(["users", u], { zabBalance: ZC.roundZab(bal - a), lastTxId: txId, updatedAt: fs.ts() });
+        seatIds.forEach((u, i) => { const a = S[u].wager; if (a <= 0) return; const bal = balOf(users[i]);          t.update(["users", u], { zabBalance: ZC.roundZab(bal - a), lastTxId: txId, updatedAt: fs.ts() });
           t.set(["users", u, "zabLedger", txId], { uid: u, type: "stake", source: "wager", game: GAME[kind], amount: -a, wager: key, code, createdAt: fs.ts() }); });
         t.set(["wagers", key], { key, game: GAME[kind], kind, code, roomCreatedAt: createdMs, pot: true, total: m.total, players, status: "open", createdAt: fs.ts() });
         return { ok: true, key, total: m.total };
@@ -139,7 +139,7 @@
     const o = outcome(w.kind, room, nowMs);
     if (o.state === "pending") return { action: "pending" };
     if (o.state === "refund") return refundAll(o.reason);
-    const total = mine.reduce((n, x) => n + x.amount, 0), order = o.winners.slice().sort((x, y) => { const sx = seatsOf(room)[x].slot, sy = seatsOf(room)[y].slot; return ((isInt(sx) ? sx : 9) - (isInt(sy) ? sy : 9)) || (x < y ? -1 : 1); });
+    const total = ZC.roundZab(mine.reduce((n, x) => n + x.amount, 0)), order = o.winners.slice().sort((x, y) => { const sx = seatsOf(room)[x].slot, sy = seatsOf(room)[y].slot; return ((isInt(sx) ? sx : 9) - (isInt(sy) ? sy : 9)) || (x < y ? -1 : 1); });
     const parts = split(total, order.length), payouts = order.map((u, i) => ({ uid: u, amount: parts[i] })).filter((x) => x.amount > 0);
     return { action: "payout", winner: order.length === 1 ? order[0] : null, winners: order, payouts, refunds: [], reason: o.reason };
   }
@@ -149,8 +149,7 @@
     if (w.status === "open") return "Pot formed: " + amountText(w.total) + ", held until the match ends.";
     if (w.status === "paid") { const got = w.paid && w.paid[uid]; const won = Array.isArray(w.winners) && w.winners.indexOf(uid) >= 0;
       return won ? "You won Zab +" + ZC.fmtZab(got || 0) + " from the pot of " + amountText(w.total) + "." : "Your side lost its Zab wager (" + amountText((w.players[uid] && w.players[uid].amount) || 0) + ")."; }
-    return "Wager refunded: Zab +" + ZC.fmtZab((w.players && w.players[uid] && w.players[uid].amount) || 0) + ".";
-  }
+    return "Wager refunded: Zab +" + ZC.fmtZab((w.players && w.players[uid] && w.players[uid].amount) || 0) + ".";  }
   const api = { WORD, MIN_WAGER, MAX_WAGER, MAX_GAME_MS, COL, GAME, RING, esc, labelHtml, amountHtml, amountText, html, set, seatsOf, seatField, kindOf, sizeOf, hasWager, summary, validWager,
     wagerError, submitError, agreeError, submit, agree, covers, canStart, split, potKey, formPot, outcome, plan, resultText };
   if (NODE) module.exports = api;

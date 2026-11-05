@@ -15,11 +15,11 @@ check("1v1 summary: total, all submitted, pot needed, nobody agreed yet", m.tota
 m = P.summary(room([50, null])); check("one seat still deciding: not all submitted, no pot yet", !m.allSubmitted && !m.needed && m.total === 50);
 m = P.summary(room([0, 0])); check("everyone chose no wager: all submitted, no pot", m.allSubmitted && !m.needed && !m.allAgreed);
 m = P.summary(room([50, 30], [80, 80])); check("both agreed to the same total: all agreed", m.allAgreed); m = P.summary(room([50, 30], [80, 50])); check("an agreement to a different total does not count", !m.allAgreed);
-check("wager validity: integers 0..max only", [0, 1, 50, 1e9].every(P.validWager) && [-1, 1.5, "5", null, NaN, 1e9 + 1].every((x) => !P.validWager(x)));
+check("wager validity: ZAB in tenths 0..max only", [0, 0.1, 1, 1.5, 50, 1e9].every(P.validWager) && [-1, 1.55, 0.05, "5", null, NaN, 1e9 + 1].every((x) => !P.validWager(x)));
 check("submit errors: not seated, closed, already locked, bad amount, over balance", P.submitError(room([null, null]), "z", 5) && P.submitError(room([null, null], null, { status: "countdown", startAt: 5 }), "a", 5) && P.submitError(room([5, null]), "a", 7) && P.submitError(room([null, null]), "a", -2) && P.submitError(room([null, null]), "a", 50, 10) && !P.submitError(room([null, null]), "a", 0) && !P.submitError(room([null, null]), "a", 50, 50));
 // ---------- split math + conservation ----------
-let okSplit = true; for (let total = 0; total <= 200; total++) for (let n = 1; n <= 4; n++) { const s = P.split(total, n); if (s.length !== n || s.reduce((x, y) => x + y, 0) !== total || Math.max(...s) - Math.min(...s) > 1 || !s.every(Number.isInteger)) okSplit = false; }
-check("split: integers, sum is exactly the pot, parts differ by at most 1 (conservation for 0..200 x 1..4 winners)", okSplit && P.split(7, 2).join() === "4,3" && P.split(1, 2).join() === "1,0" && P.split(0, 2).join() === "0,0");
+let okSplit = true; for (let t10 = 0; t10 <= 2000; t10++) for (let n = 1; n <= 4; n++) { const total = t10 / 10, s = P.split(total, n); if (s.length !== n || Math.round(s.reduce((x, y) => x + y, 0) * 10) !== t10 || Math.round((Math.max(...s) - Math.min(...s)) * 10) > 1 || !s.every((x) => Number.isInteger(Math.round(x * 10)) && Math.abs(x * 10 - Math.round(x * 10)) < 1e-9)) okSplit = false; }
+check("split in tenths: sum is exactly the pot, parts differ by at most 0.1, odd tenth to the lowest seat (conservation for 0..200.0 x 1..4 winners)", okSplit && P.split(7, 2).join() === "3.5,3.5" && P.split(0.5, 2).join() === "0.3,0.2" && P.split(0.1, 2).join() === "0.1,0" && P.split(0, 2).join() === "0,0");
 // ---------- client writes (mock room fs): one-time lock-in, tamper tests ----------
 (async () => {
   const S = mockFs(), put = (d) => { S.docs.K7QX = JSON.parse(JSON.stringify(d)); };
@@ -28,7 +28,7 @@ check("split: integers, sum is exactly the pot, parts differ by at most 1 (conse
   for (const [lbl, v] of [["higher", 60], ["lower", 10], ["zero", 0], ["same", 50]]) { const e = await caught(P.submit(S.fs, "K7QX", "a", v, 100)); check(`second write rejected (${lbl}): the first value is final`, e && /already final/.test(e.message) && S.docs.K7QX.players.a.wager === 50); }
   let e = await caught(P.submit(S.fs, "K7QX", "zz", 5)); check("a non-seated user cannot write a wager", e && S.docs.K7QX.players.zz === undefined);
   e = await caught(P.submit(S.fs, "K7QX", "b", 500, 100)); check("over the player's own balance is refused", e && /Not enough Zab/.test(e.message) && S.docs.K7QX.players.b.wager === undefined);
-  e = await caught(P.submit(S.fs, "K7QX", "b", -5, 100)); check("negative / fractional / text amounts refused", e && !!(await caught(P.submit(S.fs, "K7QX", "b", 1.5))) && !!(await caught(P.submit(S.fs, "K7QX", "b", "9"))) && S.docs.K7QX.players.b.wager === undefined);
+  e = await caught(P.submit(S.fs, "K7QX", "b", -5, 100)); check("negative / fractional / text amounts refused", e && !!(await caught(P.submit(S.fs, "K7QX", "b", 1.55))) && !!(await caught(P.submit(S.fs, "K7QX", "b", "9"))) && S.docs.K7QX.players.b.wager === undefined);
   e = await caught(P.agree(S.fs, "K7QX", "a")); check("agreeing before everyone locked in is refused", e && /lock in/.test(e.message) && S.docs.K7QX.players.a.agreed === undefined);
   await P.submit(S.fs, "K7QX", "b", 30, 100); const ag = await P.agree(S.fs, "K7QX", "a");
   check("after all locked in, agree records the pot total and marks the player ready; amounts are untouched", ag.agreed === 80 && S.docs.K7QX.players.a.agreed === 80 && S.docs.K7QX.players.a.ready === true && S.docs.K7QX.players.a.wager === 50 && S.docs.K7QX.players.b.wager === 30);
@@ -52,7 +52,7 @@ check("split: integers, sum is exactly the pot, parts differ by at most 1 (conse
     let n = 0; const CODES = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; const nextCode = () => { const k = n++; return "Q" + CODES[Math.floor(k / 32) % 32] + CODES[k % 32] + "2"; };
   const mkRoom = (wa, wb, agreeBoth = true) => { const code = nextCode(), t = wa + wb; db["washersBattles/" + code] = { code, status: "waiting", startAt: null, createdAt: T - n, players: { a: seat1("A", wa, agreeBoth && t > 0 ? t : 0), b: seat1("B", wb, agreeBoth && t > 0 ? t : 0) } };
     if (!agreeBoth || t === 0) { delete db["washersBattles/" + code].players.a.agreed; delete db["washersBattles/" + code].players.b.agreed; } return { code, ref: "washersBattles/" + code, key: P.potKey("room", code, T - n) }; };
-  const goLive1 = (r, pa, pb) => { const rm = db[r.ref]; rm.status = "live"; rm.startAt = T; rm.players.a.rep = []; rm.players.b.rep = []; WH.bariboshi(rm, 10, 30); pa.forEach((p, i) => WH.round(rm, i + 1, p, pb[i])); };
+  const goLive1 = (r, pa, pb) => { const rm = db[r.ref]; rm.status = "live"; rm.startAt = T - 120000; rm.players.a.rep = []; rm.players.b.rep = []; WH.bariboshi(rm, 10, 30); pa.forEach((p, i) => WH.round(rm, i + 1, p, pb[i])); };
   const WIN_A = [[[5, 5, 5], [5, 5, 5]], [[0, 0, 0], [0, 0, 0]]];
   setU("a", 100); setU("b", 100); setU("c", 100); setU("d", 100);
   // --- 1v1 unequal wagers: ONE combined pot of both full amounts (no matching, no refund of the excess) ---
@@ -92,7 +92,7 @@ check("split: integers, sum is exactly the pot, parts differ by at most 1 (conse
   // --- 2v2: one combined pot, winning team splits equally ---
   const mkArena = (ws, agreed = true) => { const code = nextCode(), a = HA.arena({ code, status: "waiting", startAt: null, createdAt: T - n }); const tot = ws.reduce((x, y) => x + y, 0);
     HA.UIDS.forEach((u, i) => { a.seats[u].wager = ws[i]; a.seats[u].ready = !!agreed; if (agreed && tot > 0) a.seats[u].agreed = tot; }); db["washersArenas/" + code] = a; return { code, ref: "washersArenas/" + code, key: P.potKey("arena", code, T - n) }; };
-  const live4 = (x, packs) => { const a = db[x.ref]; a.status = "live"; a.startAt = T; HA.UIDS.forEach((u) => (a.seats[u].rep = [])); HA.bariboshi(a, [10, 40, 30, 50]); if (packs) HA.round(a, 1, packs); };
+  const live4 = (x, packs) => { const a = db[x.ref]; a.status = "live"; a.startAt = T - 120000; HA.UIDS.forEach((u) => (a.seats[u].rep = [])); HA.bariboshi(a, [10, 40, 30, 50]); if (packs) HA.round(a, 1, packs); };
   ["a1", "a2", "b1", "b2"].forEach((u) => setU(u, 100)); let ar = mkArena([30, 0, 10, 20]); before = sumBal(["a1", "a2", "b1", "b2"]);
   fp = await P.formPot(fs, "b2", "arena", ar.code); const aw = db["wagers/" + ar.key];
   check("2v2: one combined pot of all four amounts; zero-amount seats are listed but not debited", fp.ok && fp.total === 60 && aw.kind === "arena" && aw.game === "arena" && Object.keys(aw.players).length === 4 && bal("a1") === 70 && bal("a2") === 100 && bal("b1") === 90 && bal("b2") === 80 && !db["users/a2/zabLedger/stake-" + ar.key]);
@@ -101,7 +101,7 @@ check("split: integers, sum is exactly the pot, parts differ by at most 1 (conse
   check("2v2: winning team splits the pot equally (60 -> 30 + 30), losers get nothing back", out.status === "paid" && bal("a1") === 100 && bal("a2") === 130 && bal("b1") === 90 && bal("b2") === 80 && sumBal(["a1", "a2", "b1", "b2"]) === before);
   out = await W.settle(fs, ar.key, T); check("2v2 settle idempotent", out.already && bal("a2") === 130);
   ar = mkArena([3, 4, 0, 0]); before = sumBal(["a1", "a2", "b1", "b2"]); const b1b = bal("b1"), b2b = bal("b2"); await P.formPot(fs, "a1", "arena", ar.code); live4(ar, [[0, 0, 0], [0, 0, 0], [5, 5, 5], [5, 5, 5]]); out = await W.settle(fs, ar.key, T);
-  check("2v2 the winning team staked nothing and the losing team staked: the winners still split the whole pot (7 -> 4 + 3, lowest seat gets the odd Zab)", out.status === "paid" && bal("b1") === b1b + 4 && bal("b2") === b2b + 3 && sumBal(["a1", "a2", "b1", "b2"]) === before);
+  check("2v2 the winning team staked nothing and the losing team staked: the winners still split the whole pot in tenths (7 -> 3.5 + 3.5)", out.status === "paid" && bal("b1") === b1b + 3.5 && bal("b2") === b2b + 3.5 && sumBal(["a1", "a2", "b1", "b2"]) === before);
   ar = mkArena([5, 5, 5, 5]); before = sumBal(["a1", "a2", "b1", "b2"]); await P.formPot(fs, "a1", "arena", ar.code); live4(ar, null);
   for (let k = 1; k <= 30; k++) HA.round(db[ar.ref], k, [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]); out = await W.settle(fs, ar.key, T);
   check("2v2 tie / cap reached: each player gets their OWN amount back", out.status === "refunded" && sumBal(["a1", "a2", "b1", "b2"]) === before && db["users/a2/zabLedger/refund-" + ar.key].amount === 5);

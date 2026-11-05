@@ -9,6 +9,7 @@ function wagerFs() {
       get: (p) => tr.get(ref(p)).then((s) => (s.exists ? s.data() : null)),
       set: (p, d) => { tr.set(ref(p), d); },
       update: (p, patch) => { tr.update(ref(p), patch); },
+      delete: (p) => { tr.delete(ref(p)); },
     }))),
     ts: () => FV.serverTimestamp(),
     toMs: (v) => (v && typeof v.toMillis === "function" ? v.toMillis() : typeof v === "number" ? v : null),

@@ -1,7 +1,7 @@
 // ZAB wagers: stake limits, escrow, payout exactly once, refunds, silent players, every battle type.
 const WH = require("./lib/washers-match.js"), W = require("../zaba-wager.js"), Z = require("../zab-balance.js"), B = require("../battle-rooms.js"), fsx = require("fs");
 const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
-check("min bet 1: 0, negatives, fractions rejected", !W.validStake(0) && !W.validStake(-2) && !W.validStake(1.5) && !W.validStake("3") && W.validStake(1) && /Minimum wager is 1/.test(W.stakeError(0)));
+check("min stake 0.1 ZAB in tenths: 0, negatives, 1.55, text rejected; 1.5 accepted", !W.validStake(0) && !W.validStake(-2) && !W.validStake(1.55) && W.validStake(1.5) && !W.validStake("3") && W.validStake(1) && /at least 0\.1 ZAB/.test(W.stakeError(0)));
 check("MAX_STAKE single config constant (null = open)", W.MAX_STAKE === null && W.validStake(1e6));
 check("pot = 2 x stake", W.pot(1) === 2 && W.pot(5) === 10);
 check("key includes room createdAt", W.roomKey("tut", "K7QX", 123) === "tut_K7QX_123");
@@ -21,7 +21,7 @@ let n = 0;
 function mkRoom(game, stake, extra) { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k = n++; const code = "AB" + A[Math.floor(k / 32) % 32] + A[k % 32]; const createdAt = T - k;
   db[W.COL[game] + "/" + code] = Object.assign({ code, status: "waiting", createdAt, startAt: null, stake, players: { a: { name: "A", ready: false, joinedAt: T }, b: { name: "B", ready: false, joinedAt: T + 1 } } }, extra || {});
   return { code, key: W.roomKey(game, code, createdAt), ref: W.COL[game] + "/" + code }; }
-const goLive = (r) => Object.assign(db[r.ref], { status: "live", startAt: T });
+const goLive = (r) => Object.assign(db[r.ref], { status: "live", startAt: r.ref.startsWith("washersBattles") ? T - 120000 : T }); // washers: a game that started 2 min ago (server result check: no instant wins)
 const caught = async (p) => { try { await p; return null; } catch (e) { return e; } };
 (async () => {
   // ---- staking ----
@@ -86,7 +86,7 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   r = await staked("tut", 4); goLive(r);
   out = await W.settle(fs, r.key, T + 300000); check("TUT both disconnected (no stats): refund", out.status === "refunded");
   // ---- Plank ----
-  r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: true, at: T };
+  r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: true, at: T + 30000 };
   out = await W.settle(fs, r.key, T + 40000); check("Plank: first to drop loses, 1-ZAB battle pays pot 2", out.winner === "b" && bal("b") === 21 && bal("a") === 19);
   r = await staked("plank", 1); goLive(r); db[r.ref].players.a.result = { holdMs: 30000, verified: false, at: T };
   out = await W.settle(fs, r.key, T + 40000); check("Plank unverified hold: refund + flag", out.flag === "unverified" && bal("a") === 20);
@@ -106,9 +106,9 @@ const caught = async (p) => { try { await p; return null; } catch (e) { return e
   // ---- rules ----
   const rules = fsx.readFileSync(__dirname + "/../firestore.rules", "utf8");
   check("rules: wagers server-only (client write false)", /match \/wagers\/\{key\} \{\s*allow read: if request.auth != null;\s*allow write: if false;/.test(rules));
-  check("rules: clients still earn-only zabLedger", rules.includes("t().uid == uid && t().type == 'earn'"));
+  check("rules: clients can't write zabLedger at all (server-checked earning)", /match \/zabLedger\/\{txId\} \{[^}]*allow create, update, delete: if false;/.test(rules));
   check("rules: all 3 rooms gate countdown on wagerReady + stake >= 1", (rules.match(/n\(\)\.startAt is int && wagerReady\(\)/g) || []).length === 3 && (rules.match(/&& stakeOk\(\); \}/g) || []).length === 3 && ["plank_", "tut_", "washers_"].every((g) => rules.includes("$('" + g + "' + code")));
-  check("rules: washers zabLedger clause untouched", /t\(\)\.source == 'washers' && t\(\)\.units == 'wins'\s+&& t\(\)\.qty == 1\s+&& t\(\)\.amount == 1\)\)/.test(rules));
+  check("rules: zabLedger is server-only (washers wins are credited by zab-earn from the saved game)", /match \/zabLedger\/\{txId\} \{[^}]*allow create, update, delete: if false;/.test(rules));
   // ---- functions + UI wiring ----
   const fn = (f) => fsx.readFileSync(__dirname + "/../netlify/functions/" + f, "utf8");
   check("functions exist and use common.js admin + auth", ["wager-stake.js", "wager-settle.js", "wager-sweep.js"].every((f) => /lib\/common/.test(fn(f))) && /uidFrom/.test(fn("wager-stake.js")) && /uidFrom/.test(fn("wager-settle.js")) && /schedule/.test(fn("wager-sweep.js")));

@@ -897,7 +897,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <p class="note" id="waPotTotal" hidden></p>
         <div id="waPotEntry" hidden>
           <p class="note">Your wager is final once confirmed: enter your own amount, tap Submit, then Confirm. 0 means no wager.</p>
-          <div class="row wg-entry"><label for="waPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="waPotAmt" type="number" inputmode="numeric" min="0" step="1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="waPotSubmit" type="button">Submit</button></div>
+          <div class="row wg-entry"><label for="waPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="waPotAmt" type="number" inputmode="decimal" min="0" step="0.1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="waPotSubmit" type="button">Submit</button></div>
         </div>
         <div id="waPotConfirm" hidden><p class="wg-ask" id="waPotAsk"></p><div class="row"><button class="btn" id="waPotYes" type="button">Confirm</button><button class="btn ghost" id="waPotBack" type="button">Back</button></div></div>
         <div id="waPotAgree" hidden><p class="note" id="waPotAgreeText"></p><div class="row"><button class="btn" id="waPotAgreeBtn" type="button">Agree to the pot</button></div></div>
@@ -921,7 +921,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <p class="note" id="wbPotTotal" hidden></p>
         <div id="wbPotEntry" hidden>
           <p class="note">Your wager is final once confirmed: enter your own amount, tap Submit, then Confirm. 0 means no wager.</p>
-          <div class="row wg-entry"><label for="wbPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="wbPotAmt" type="number" inputmode="numeric" min="0" step="1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="wbPotSubmit" type="button">Submit</button></div>
+          <div class="row wg-entry"><label for="wbPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="wbPotAmt" type="number" inputmode="decimal" min="0" step="0.1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="wbPotSubmit" type="button">Submit</button></div>
         </div>
         <div id="wbPotConfirm" hidden><p class="wg-ask" id="wbPotAsk"></p><div class="row"><button class="btn" id="wbPotYes" type="button">Confirm</button><button class="btn ghost" id="wbPotBack" type="button">Back</button></div></div>
         <div id="wbPotAgree" hidden><p class="note" id="wbPotAgreeText"></p><div class="row"><button class="btn" id="wbPotAgreeBtn" type="button">Agree to the pot</button></div></div>
@@ -1317,10 +1317,11 @@ const failWatch = window.ZabbadatSession && window.ZabbadatSession.createFailure
 let lastViolFlag = 0;
 // 30-second top-hold bonus (all push-up modes), once per set. Each hold credits 0.5 ZAB ("hold" earn; ZAB amounts are tenths).
 const HOLD_ZAB_LIVE = true;
+let pushHoldsThisSet = 0; // 30-second holds in the current set: saved with the set (pushups.holds) and credited by the server (zab-earn)
 const holdReward = window.ZabbadatSession && window.ZabbadatSession.createHoldReward ? window.ZabbadatSession.createHoldReward() : null;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
-// ZAB (internal: zabBalance): awardZab(source, qty, setId) is wired to Firestore after sign-in setup; no-op until then.
+// ZAB (internal: zabBalance): awardZab(source, sessionId) asks the zab-earn function to credit one saved session (server-checked); no-op until sign-in setup.
 const ZT = window.ZabBalance || null;
 if (window.ZabCurrency && $("ztBagLabel")) window.ZabCurrency.ring($("ztBagLabel"));
 if (ZT && $("ztRates")) $("ztRates").innerHTML = ZT.rateLines().map((l) => "<li>" + window.ZabCurrency.html(l) + "</li>").join("");
@@ -1668,9 +1669,9 @@ async function finishGame() {
     return;
   }
   if (!state.gameId) state.gameId = ZT ? ZT.newSetId() : "";
-  const winTok = ZT && currentUser ? awardZab("washers", ZT.qtyFrom("washers", 1), state.gameId).catch(() => null) : Promise.resolve(null);
   try {
-    await saveRemote(record);
+    const gameDocId = await saveRemote(record);
+    const winTok = ZT ? awardZab("washers", gameDocId).catch(() => null) : Promise.resolve(null); // server-checked: credits the saved, verified game
     setStatus(name + " posted: 21 in " + formatTime(ms) + " with " + state.steps.toLocaleString() + " steps.");
     winTok.then((tk) => { if (tk && tk.credited) setStatus($("status").textContent + zabNote(tk)); if (typeof zabRing === "function") zabRing($("status")); }, () => {});
   } catch (err) {
@@ -1820,6 +1821,7 @@ function freshPushSet() {
   if (typeof postureGuard !== "undefined" && postureGuard) postureGuard.reset();
   if (typeof pushChallenge !== "undefined" && pushChallenge) pushChallenge.reset();
   if (typeof holdReward !== "undefined" && holdReward) holdReward.reset();
+  if (typeof pushHoldsThisSet !== "undefined") pushHoldsThisSet = 0;
   if ($("pushHoldTimer")) $("pushHoldTimer").hidden = true;
   if ($("challengeResult")) $("challengeResult").hidden = true;
   if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
@@ -1945,6 +1947,10 @@ function finishPushSet(endedBy) {
   paintPushRows(local);
   const viol = (pushMode === "long" || pushMode === "challenge") && postureGuard ? " Rule breaks: " + postureGuard.state().count + "." : "";
   const doneTut = pushState.tut;
+  // Saved with the set so the server can credit it (zab-earn): TUT for One long set, and the 30-second holds.
+  record.tutMs = pushMode === "long" && window.ZabbadatSession ? Math.round(window.ZabbadatSession.tutToAdd(pushMode, ms, doneTut)) : 0;
+  record.holds = typeof pushHoldsThisSet !== "undefined" ? pushHoldsThisSet : 0;
+  if (typeof pushHoldsThisSet !== "undefined") pushHoldsThisSet = 0;
   // Finished and saved: clear the big rep number and the clock, and wipe the counter, so the next set starts clean. The result stays in the status line.
   Object.assign(pushState, { reps: 0, tut: 0, elapsed: 0, startedAt: 0 });
   if (typeof resetPoseBaseline === "function") resetPoseBaseline();
@@ -1963,11 +1969,11 @@ function finishPushSet(endedBy) {
     return;
   }
   $("pushStatus").textContent = head + " Posting…" + why + viol;
-  const tokSet = ZT ? ZT.newSetId() : "";
-  const tokP = Promise.all([awardZab("pushups", record.reps, tokSet), pushMode === "long" && ZT ? awardZab("tut", ZT.qtyFrom("tut", window.ZabbadatSession.tutToAdd(pushMode, ms, doneTut)), tokSet) : null])
+  // Server-checked ZAB: save the set first, then claim push-ups (+ TUT for One long set, + 30-second holds) for that saved set.
+  const zabFor = (id) => Promise.all([awardZab("pushups", id), record.tutMs > 0 ? awardZab("tut", id) : null, record.holds > 0 ? awardZab("hold", id) : null].map((p) => p && p.catch(() => null)))
     .then((a) => ({ credited: (window.ZabCurrency && window.ZabCurrency.roundZab ? window.ZabCurrency.roundZab : function (x) { return Math.round(Number(x) * 10) / 10; })(a.reduce((n, x) => n + ((x && x.credited) || 0), 0)) }), () => null);
   saveRemotePush(record)
-    .then(() => tokP).then((tk) => { $("pushStatus").textContent = (failedTut ? head + " " + name + " posted it." : name + " posted " + record.reps + " reps in " + formatTime(ms) + ".") + why + viol + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
+    .then((id) => zabFor(id)).then((tk) => { $("pushStatus").textContent = (failedTut ? head + " " + name + " posted it." : name + " posted " + record.reps + " reps in " + formatTime(ms) + ".") + why + viol + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
 // One Start button: gate -> wake + speech unlock + spoken placement line (in the tap) -> camera -> pose -> spoken
@@ -2187,7 +2193,7 @@ async function poseTick(id = poseLoopId) {
         const line = "30-second hold!" + (live ? " +0.5 ZAB" : "");
         $("camNote").textContent = line; if (typeof zabRing === "function") zabRing($("camNote"));
         const GSh = window.ZabbadatGetSet; if (GSh && GSh.interruptSpeak) GSh.interruptSpeak(live ? "30-second hold! Plus half a ZAB." : "30-second hold!");
-        if (live) awardZab("hold", 1, ZT.newSetId()).catch(() => {});
+        if (live) pushHoldsThisSet += 1; // credited with the set (server-checked: pushups.holds)
       }
     }
     // Regular Sets: the set runs through any number of reps and any length of top hold; only knees down (legs in view, ~1 s) or
@@ -2353,8 +2359,8 @@ function plankEnded(r) {
   $("plankStatus").textContent = "Hold ended: " + why + ". Time " + formatTut(r.ms) + "." + (isSet ? " Set " + day.sets + " today." : " Under 10 seconds, not counted as a set.");
   if (!currentUser) { $("plankStatus").textContent += " Sign in to post to the Plank House board."; paintPlankRows(localPlanks()); return; }
   if (day) saveRemotePlankDaily(day, record).catch(() => { $("plankStatus").textContent += " Sets saved on this phone (sets board offline)."; });
-  if (ZT) awardZab("plank", ZT.qtyFrom("plank", r.ms), ZT.newSetId()).then((tk) => { $("plankStatus").textContent += zabNote(tk); if (typeof zabRing === "function") zabRing($("plankStatus")); }, () => {});
-  saveRemotePlank(record).then(() => { $("plankStatus").textContent += " Posted to the Plank House board."; })
+  saveRemotePlank(record).then((id) => { $("plankStatus").textContent += " Posted to the Plank House board.";
+    if (ZT) awardZab("plank", id).then((tk) => { $("plankStatus").textContent += zabNote(tk); if (typeof zabRing === "function") zabRing($("plankStatus")); }, () => {}); })
     .catch(() => { $("plankStatus").textContent += " Saved on this phone (board offline)."; paintPlankRows(localPlanks()); });
 }
 // "Hold plank." Cue first, count after: when the hold locks in (aligned, 1.5 s ready satisfied) it enters the "cue" phase and
@@ -2604,8 +2610,7 @@ async function endWalk(r) {
   const q = WS.qualifies(r), label = WS.formatClock(r.ms) + " with " + r.steps.toLocaleString() + " steps" + why;
   if (!q.ok) { $("walkStatus").textContent = "Session " + label + ". Not logged: " + q.why; return; }
   if (!currentUser) { $("walkStatus").textContent = "Session " + label + ". Sign in to post sessions to the board."; return; }
-  const tokP = ZT ? awardZab("walk", ZT.qtyFrom("walk", r.ms), ZT.newSetId()).catch(() => null) : Promise.resolve(null);
-  try { await saveRemoteWalk(r); $("walkStatus").textContent = "Posted session " + label + "." + zabNote(await tokP); if (typeof zabRing === "function") zabRing($("walkStatus")); }
+  try { const walkId = await saveRemoteWalk(r); const tokP = ZT ? awardZab("walk", walkId).catch(() => null) : Promise.resolve(null); $("walkStatus").textContent = "Posted session " + label + "." + zabNote(await tokP); if (typeof zabRing === "function") zabRing($("walkStatus")); }
   catch (e) { $("walkStatus").textContent = "Session " + label + ". Board offline, not posted."; }
 }
 function paintWalkRows(rows) {
@@ -2675,7 +2680,7 @@ const xProvider = new TwitterAuthProvider();
 
 saveRemote = async (record) => {
   if (!auth.currentUser) throw new Error("Sign in required");
-  await addDoc(collection(db, "games"), {
+  return (await addDoc(collection(db, "games"), {
     name: record.name,
     xHandle: record.xHandle || "",
     uid: auth.currentUser.uid,
@@ -2687,23 +2692,25 @@ saveRemote = async (record) => {
     maxGapMs: Math.round(Number(record.sensor.maxGapMs)),
     packs: Math.round(Number(record.sensor.packs)),
     createdAt: serverTimestamp()
-  });
+  })).id;
 };
 saveRemotePush = async (record) => {
   if (!auth.currentUser) throw new Error("Sign in required");
-  await addDoc(collection(db, "pushups"), {
+  return (await addDoc(collection(db, "pushups"), {
     name: record.name,
     xHandle: record.xHandle || "",
     uid: auth.currentUser.uid,
     reps: Number(record.reps),
     ms: Number(record.ms),
+    tutMs: Math.max(0, Math.min(Math.round(Number(record.tutMs) || 0), Math.round(Number(record.ms) || 0))),
+    holds: Math.max(0, Math.floor(Number(record.holds) || 0)),
     createdAt: serverTimestamp()
-  });
+  })).id;
 };
 
 saveRemotePlank = async (record) => {
   if (!auth.currentUser) throw new Error("Sign in required");
-  await addDoc(collection(db, "planks"), {
+  return (await addDoc(collection(db, "planks"), {
     name: record.name,
     xHandle: record.xHandle || "",
     uid: auth.currentUser.uid,
@@ -2712,7 +2719,7 @@ saveRemotePlank = async (record) => {
     source: "camera",
     sessionStartedAt: Math.round(Number(record.sessionStartedAt)),
     createdAt: serverTimestamp()
-  });
+  })).id;
 };
 
 saveRemotePlankDaily = async (day, record) => {
@@ -2738,7 +2745,7 @@ saveRemoteWalk = async (r) => {
   const handle = ($("xHandle").value || "").trim();
   const rec = WS.buildRecord({ name: dailyName(), xHandle: handle, uid: auth.currentUser.uid, ms: r.ms, steps: r.steps });
   if (!WS.validateRecord(rec).ok) throw new Error("Invalid walk session");
-  await addDoc(collection(db, "walkSessions"), { ...rec, createdAt: serverTimestamp() });
+  return (await addDoc(collection(db, "walkSessions"), { ...rec, createdAt: serverTimestamp() })).id;
 };
 
 const ztFs = { ts: () => serverTimestamp(), tx: (fn) => runTransaction(db, (t) => fn({ get: (p) => t.get(doc(db, ...p)).then((x) => (x.exists() ? x.data() : null)), set: (p, d) => t.set(doc(db, ...p), d), update: (p, d) => t.update(doc(db, ...p), d) })) };
@@ -2747,11 +2754,21 @@ let ztOff = null, ztTopOff = null, ztHoldersOff = null, ztMirrored = null;
 function paintTopBag(entry) { const el = $("ztTop"); if (!el) return; const line = ZT && ZT.topLine ? ZT.topLine(entry) : null; window.ZabCurrency.set(el, line || ""); el.hidden = !line; }
 // ZAB Holders scoreboard (zabBoard top 10; signed-in read only under the current rules): loading / empty / error / signed-out / ranked list.
 function paintHolders(state, docs, me) { const el = $("ztHoldersBody"); if (!el || !ZT || !ZT.holdersHtml) return; el.innerHTML = ZT.holdersHtml(state, state === "ok" ? ZT.holdersView(docs, me, 10) : null, escapeHtml); }
+// Board entry (zabBoard) is written by the server (zab-board function, zab-names.js): unique name, total from the real balance.
+// First call per sign-in claims the board name (falls back to "<name> 1234" when taken); later calls only refresh the total.
+let ztBoardName = null;
+async function boardPost(body) {
+  const u = auth.currentUser; if (!u) throw Object.assign(new Error("Sign in first."), { status: 401 });
+  const res = await fetch("/.netlify/functions/zab-board", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await u.getIdToken()) }, body: JSON.stringify(body) });
+  const j = await res.json().catch(() => ({})); if (!res.ok) throw Object.assign(new Error(j.error || "Board unavailable."), { status: res.status }); return j;
+}
 function mirrorBoard(u, total) {
-  if (!ZT || !ZT.boardEntry || !u || total == null || ztMirrored === u.uid + ":" + total) return;
+  if (!ZT || !u || total == null || ztMirrored === u.uid + ":" + total) return;
   ztMirrored = u.uid + ":" + total;
-  const e = ZT.boardEntry(u.uid, publicName(displayNameOf(u)), total);
-  setDoc(doc(db, "zabBoard", u.uid), { uid: e.uid, name: e.name, total: e.total, updatedAt: serverTimestamp() }).catch(() => { ztMirrored = null; });
+  const want = publicName(displayNameOf(u)), tag = u.uid;
+  const named = ztBoardName === tag ? boardPost({}).catch((e) => (e.status === 404 ? Promise.reject(e) : null)) : Promise.reject(Object.assign(new Error("name"), { status: 404 }));
+  named.catch(() => boardPost({ name: want }).catch((e) => (e.status === 409 ? boardPost({ name: ZT.nameWithSuffix(want, u.uid) }) : Promise.reject(e))))
+    .then(() => { ztBoardName = tag; }, () => { ztMirrored = null; });
 }
 let zabBalNow = null;
 function paintZab(n) { zabBalNow = n == null ? null : Number(n); const row = $("zabBalanceRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = window.ZabCurrency.fmtZab(Number(n)); } paintZabSection(n); }
@@ -2767,10 +2784,15 @@ function ztBadgeClick(ev) {
 if ($("ztBadge")) $("ztBadge").onclick = ztBadgeClick;
 function paintZabLedger(list) { const t = $("ztTxBody"); if (t && ZT) t.innerHTML = ZT.txRowsHtml(list, escapeHtml); }
 let ztTxOff = null;
-awardZab = async (source, qty, setId) => {
-  if (!ZT || !auth.currentUser) return { credited: 0 };
-  const e = ZT.buildEarn(auth.currentUser.uid, source, qty, setId);
-  const r = await ZT.earnAndQueue(ztFs, localStorage, e);
+// Server-checked earning: the session is saved first, then zab-earn credits ZAB for that session id (zab-earn.js).
+async function zabPost(body) {
+  const u = auth.currentUser; if (!u) throw Object.assign(new Error("Sign in to earn ZAB."), { status: 401 });
+  const res = await fetch("/.netlify/functions/zab-earn", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await u.getIdToken()) }, body: JSON.stringify(body) });
+  const j = await res.json().catch(() => ({})); if (!res.ok) throw Object.assign(new Error(j.error || "ZAB service unavailable."), { status: res.status }); return j;
+}
+awardZab = async (source, sessionId) => {
+  if (!ZT || !auth.currentUser || !sessionId) return { credited: 0 };
+  const r = await ZT.claimEarn(zabPost, localStorage, source, sessionId);
   if (r && r.balance != null) paintZab(r.balance);
   return r;
 };
@@ -2786,7 +2808,7 @@ function zabOnUser(u) {
   paintHolders("loading");
   ztHoldersOff = onSnapshot(query(collection(db, "zabBoard"), orderBy("total", "desc"), limit(10)), (snap) => paintHolders(snap.empty ? "empty" : "ok", snap.docs.map((d) => Object.assign({ id: d.id }, d.data())), u.uid), () => paintHolders("error"));
   ztTopOff = onSnapshot(query(collection(db, "zabBoard"), orderBy("total", "desc"), limit(1)), (snap) => paintTopBag(snap.empty ? null : snap.docs[0].data()), () => paintTopBag(null));
-  ZT.ensureProfile(ztFs, u.uid).then((p) => { paintZab(p.zabBalance); return ZT.flush(ztFs, localStorage, u.uid); }).catch(() => {}).finally(() => {
+  ZT.ensureProfile(ztFs, u.uid).then((p) => { paintZab(p.zabBalance); return ZT.flushClaims(zabPost, localStorage); }).catch(() => {}).finally(() => {
     if (auth.currentUser && auth.currentUser.uid === u.uid && !ztOff) ztOff = onSnapshot(doc(db, "users", u.uid), (d) => { if (d.exists()) { const n = ZT.profileFrom(d.data(), u.uid).zabBalance; paintZab(n); mirrorBoard(u, n); } }, () => {});
   });
 }
@@ -3224,7 +3246,7 @@ function tbFinish(r) {
   const loser = r.players && r.players[r.loserUid], winner = r.players && r.players[r.winnerUid];
   clearTimeout(tbSettleTimer);
   tbStat(r.loseReason === TBm.TIME_UP ? (winner ? winner.name : "Opponent") + " wins. " + TBm.WIN_REASON + "." : (loser ? loser.name : "Opponent") + ": " + TBm.resultText(r, r.loserUid) + ".");
-  if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); if (ZT) awardZab("tut", ZT.qtyFrom("tut", tbMine.tutMs), "b" + r.code).catch(() => {}); }
+  if (me && tbRecorded !== r.code + ":" + me) { tbRecorded = r.code + ":" + me; TBm.recordResult(tbStatsFs, r, me).catch(() => { tbRecorded = null; }); if (ZT) awardZab("tutBattle", r.code).catch(() => {}); }
 }
 function tbEnter(code) {
   tbCodeCur = code; tbRecorded = null; tbLiveT0 = null; try { localStorage.setItem("zdTutBattle", code); } catch (e) {}
@@ -3417,6 +3439,7 @@ function bbPaint() {
   if (!BT || !$("bbBody")) return;
   const S = BT.seasonOf(Date.now()), me = bbMe();
   $("bbTitle").textContent = BT.titleFor(Date.now()); $("bbReset").textContent = BT.seasonResetText(Date.now());
+  if (!auth.currentUser) { signedOutRow("bbBody"); return; } // the season board needs sign-in to read (firestore.rules)
   const rows = Object.keys(bbRows).map((k) => bbRows[k]);
   const html = bbErr && !rows.length ? '<tr><td colspan="5">Couldn\'t load the board right now.</td></tr>' : BT.bodyHtml(rows, me, bbZab, { esc: escapeHtml, amountHtml: window.ZabCurrency.amountHtml });
   const box = $("bbScroll"), top = box.scrollTop; $("bbBody").innerHTML = html; box.scrollTop = top;
@@ -3435,8 +3458,7 @@ async function bbLoadZab() { // ZAB for the rows shown (+ mine), signed in only,
   const ids = Object.keys(bbRows).map((k) => bbRows[k].uid).concat([me]).filter((u, i, a) => a.indexOf(u) === i && !bbZabAsked[u]);
   for (let i = 0; i < ids.length; i += 10) {
     const chunk = ids.slice(i, i + 10); chunk.forEach((u) => { bbZabAsked[u] = true; });
-    try { const snap = await getDocs(query(collection(db, "zabBoard"), where(documentId(), "in", chunk))); snap.forEach((d) => { const t = d.data().total; if (window.ZabCurrency.isZab(t)) bbZab[d.id] = t; }); } catch (e) { chunk.forEach((u) => { delete bbZabAsked[u]; }); }
-  }
+    try { const snap = await getDocs(query(collection(db, "zabBoard"), where(documentId(), "in", chunk))); snap.forEach((d) => { const t = d.data().total; if (window.ZabCurrency && window.ZabCurrency.isZab(t)) bbZab[d.id] = t; }); } catch (e) { chunk.forEach((u) => { delete bbZabAsked[u]; }); }  }
   bbPaint();
 }
 async function bbMore() {
@@ -3447,6 +3469,7 @@ async function bbMore() {
 }
 function bbStart() {
   if (!BT || !$("bbBody")) return;
+  if (!auth.currentUser) { if (bbOff) { bbOff(); bbOff = null; } return; } // signed out: no read (rules), bbPaint shows the sign-in prompt
   const S = BT.seasonOf(Date.now());
   if (bbSeason && bbSeason.id !== S.id) { Object.keys(bbRows).forEach((k) => delete bbRows[k]); bbCursor = null; bbDone = false; bbMoreLoaded = false; if (bbOff) bbOff(); bbOff = null; }
   bbSeason = S; if (bbOff) return;
@@ -3621,7 +3644,7 @@ function mkWager(game, o) {
   const P = o.prefix; let off = null, curKey = null, w = null, lastSettle = 0, busy = false;
   // stake picker (create) + wager line / stake button (lobby), added once
   const start = $(P + "Start"), count = $(P + "Count");
-  if (start && !o.noUi) start.insertAdjacentHTML("beforeend", '<label for="' + P + 'Stake">Wager ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg> (optional, minimum ' + WG.MIN_STAKE + (WG.MAX_STAKE ? ", maximum " + WG.MAX_STAKE : "") + ')</label><div class="row"><input id="' + P + 'Stake" type="number" inputmode="numeric" min="' + WG.MIN_STAKE + '" step="1" placeholder="No wager" style="max-width:9rem"></div><p class="note" style="margin:.2rem 0 0">Both players stake the same amount; the winner takes the pot (2x the wager). Ties, draws, unverified games and rooms that never start are refunded.</p>');
+  if (start && !o.noUi) start.insertAdjacentHTML("beforeend", '<label for="' + P + 'Stake">Wager ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg> (optional, minimum ' + WG.MIN_STAKE + (WG.MAX_STAKE ? ", maximum " + WG.MAX_STAKE : "") + ')</label><div class="row"><input id="' + P + 'Stake" type="number" inputmode="decimal" min="' + WG.MIN_STAKE + '" step="0.1" placeholder="No wager" style="max-width:9rem"></div><p class="note" style="margin:.2rem 0 0">Both players stake the same amount; the winner takes the pot (2x the wager). Ties, draws, unverified games and rooms that never start are refunded.</p>');
   if (count && !o.noUi) count.insertAdjacentHTML("beforebegin", '<p class="note" id="' + P + 'Wager" hidden style="text-align:center;font-weight:700"></p><div class="row" id="' + P + 'StakeRow" hidden style="justify-content:center"><button class="btn" id="' + P + 'StakeBtn" type="button">Lock in</button></div>');
   const keyOf = (r) => (r && r.stake ? WG.roomKey(game, o.code(), o.fs.toMs(r.createdAt)) : null);
   async function call(name, body) {
@@ -3768,7 +3791,7 @@ $("tbLeave").onclick = async () => {
   if (u && r && r.status === "live" && !tbLostSent) await TBm.reportLoss(tbFs, c, u.uid, "left", tbMine).catch(() => {});
   tbExit(); tbStat("You left the room."); if (u && c) tb.leave(c, u).catch(() => {});
 };
-onSnapshot(query(collection(db, "tutBattleStats"), orderBy("wins", "desc"), limit(20)), (snap) => {
+boardSnap("tbRankBody", query(collection(db, "tutBattleStats"), orderBy("wins", "desc"), limit(20)), (snap) => {
   const rows = []; snap.forEach((d) => rows.push(d.data()));
   const list = TBm.rankStats(rows), body = $("tbRankBody");
   body.innerHTML = list.length ? "" : '<tr><td colspan="6">Waiting for battles…</td></tr>';
@@ -3798,9 +3821,18 @@ $("boardTonightBtn").onclick = () => {
   paintRows(lastBoardRows);
 };
 
+// Public boards need sign-in to read (firestore.rules). boardSnap registers a board; boardsOnUser subscribes them while
+// signed in and, signed out, shows a sign-in prompt in each board instead of an error or stale rows.
+const boardSubs = []; let boardOffs = [];
+function signedOutRow(id) { const el = $(id); if (!el) return; const t = el.closest ? el.closest("table") : null, n = t ? t.querySelectorAll("thead th").length || 1 : 1; el.innerHTML = '<tr><td colspan="' + n + '">Sign in to see this board.</td></tr>'; }
+function boardSnap(bodyId, q, next, fail) { boardSubs.push({ bodyId, q, next, fail }); }
+function boardsOnUser(u) {
+  boardOffs.forEach((off) => off()); boardOffs = [];
+  boardSubs.forEach((b) => { if (u) boardOffs.push(onSnapshot(typeof b.q === "function" ? b.q() : b.q, b.next, b.fail)); else signedOutRow(b.bodyId); });
+}
 const q = query(collection(db, "games"), orderBy("steps", "asc"), limit(200));  
 
-onSnapshot(q, (snap) => {
+boardSnap("boardBody", q, (snap) => {
   const rows = snap.docs.map((d) => {
     const x = d.data();
     const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleString() : "";
@@ -3819,7 +3851,7 @@ onSnapshot(q, (snap) => {
 }, () => paintRows(localBoard()));
 
 const pq = query(collection(db, "pushups"), orderBy("reps", "desc"), limit(80));
-onSnapshot(pq, (snap) => {
+boardSnap("pushBoardBody", pq, (snap) => {
   const rows = snap.docs.map((d) => {
     const x = d.data();
     const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleString() : "";
@@ -3839,18 +3871,20 @@ const tutRowsOf = (snap) => snap.docs.map((d) => {
   const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "";
   return { name: x.name, xHandle: x.xHandle || "", reps: x.reps, ms: x.ms, when };
 });
-onSnapshot(query(collection(db, "pushups"), orderBy("ms", "desc"), limit(80)), (snap) => paintTutRows(tutRowsOf(snap)), () => {
-  onSnapshot(query(collection(db, "pushups"), orderBy("createdAt", "desc"), limit(300)), (snap) => paintTutRows(tutRowsOf(snap)),
-    () => paintTutRows(localPush()));
+boardSnap("tutBoardBody", query(collection(db, "pushups"), orderBy("ms", "desc"), limit(80)), (snap) => paintTutRows(tutRowsOf(snap)), () => {
+  if (!auth.currentUser) return;
+  boardOffs.push(onSnapshot(query(collection(db, "pushups"), orderBy("createdAt", "desc"), limit(300)), (snap) => paintTutRows(tutRowsOf(snap)),
+    () => paintTutRows(localPush())));
 });
 // Plank board: longest hold first.
 const plankRowsOf = (snap) => snap.docs.map((d) => { const x = d.data(); return { name: x.name, xHandle: x.xHandle || "", ms: x.ms, when: x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "" }; });
-onSnapshot(query(collection(db, "planks"), orderBy("ms", "desc"), limit(80)), (snap) => paintPlankRows(plankRowsOf(snap)), () => paintPlankRows(localPlanks()));
+boardSnap("plankBoardBody", query(collection(db, "planks"), orderBy("ms", "desc"), limit(80)), (snap) => paintPlankRows(plankRowsOf(snap)), () => paintPlankRows(localPlanks()));
 // Plank sets today: today's docs (equality only), ranked client-side.
-onSnapshot(query(collection(db, "plankDaily"), where("date", "==", PD ? PD.localDateKey() : ""), limit(300)), (snap) => paintPlankDailyRows(snap.docs.map((d) => d.data())), () => paintPlankDailyRows([]));
+boardSnap("plankDailyBody", () => query(collection(db, "plankDaily"), where("date", "==", PD ? PD.localDateKey() : ""), limit(300)), (snap) => paintPlankDailyRows(snap.docs.map((d) => d.data())), () => paintPlankDailyRows([]));
 // Daily steps board: today's docs (equality only, no composite index), ranked client-side.
-onSnapshot(query(collection(db, "dailySteps"), where("date", "==", DS ? DS.localDateKey() : ""), limit(300)), (snap) => paintDailyRows(snap.docs.map((d) => d.data())), () => paintDailyRows([]));
-onSnapshot(query(collection(db, "walkSessions"), orderBy("ms", "desc"), limit(200)), (snap) => paintWalkRows(snap.docs.map((d) => { const x = d.data(); return { ...x, at: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now() }; })), () => paintWalkRows([]));
+boardSnap("dailyBoardBody", () => query(collection(db, "dailySteps"), where("date", "==", DS ? DS.localDateKey() : ""), limit(300)), (snap) => paintDailyRows(snap.docs.map((d) => d.data())), () => paintDailyRows([]));
+boardSnap("walkBoardBody", query(collection(db, "walkSessions"), orderBy("ms", "desc"), limit(200)), (snap) => paintWalkRows(snap.docs.map((d) => { const x = d.data(); return { ...x, at: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now() }; })), () => paintWalkRows([]));
+onAuthStateChanged(auth, boardsOnUser); // after every boardSnap above is registered
 </script> 
 </body>
 </html>
