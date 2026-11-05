@@ -4,7 +4,7 @@ const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
 const nav = html.slice(html.indexOf("<nav>"), html.indexOf("</nav>"));
 const links = [...nav.matchAll(/<a href="(#[^"]+)">(.+?)<\/a>/g)].map((m) => m[1]);
-const NAV = ["#approach", "#washers", "#push", "#plank", "#steps", "#battles-hub", "#zab", "#league", "#cooling-box", "#corporate", "#order", "#membership"];
+const NAV = ["#approach", "#washers", "#push", "#zab", "#plank", "#steps", "#battles-hub", "#league", "#cooling-box", "#corporate", "#order", "#membership"];
 check("nav order: Zabba Washers right after The Practice, Step Equity before Battles, others keep relative order", JSON.stringify(links) === JSON.stringify(NAV));
 check("nav: Zabba Washers link immediately follows The Practice", /<a href="#approach">The Practice<\/a>\s*<a href="#washers">Zabba Washers<\/a>/.test(nav));
 check("nav: TUT Battles link absent", !/href="#tutbattles"/.test(nav) && !/TUT Battles<\/a>/.test(nav));
