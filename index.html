@@ -853,7 +853,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="note" id="ztSignedOut">Sign in to start earning. <a href="#play" id="ztSignInLink">Go to sign-in</a></p>
     <h3>Earn rates</h3>
     <ul class="zt-rates" id="ztRates"></ul>
-    <p class="fine">Each set or walk counts on its own; leftovers don't carry over.</p>
+    <p class="fine">Each set or walk counts on its own. Leftovers from plank, TUT and walking don't carry over.</p>
     <h3>Recent earnings</h3>
     <table><thead><tr><th>Source</th><th><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></th><th>Activity</th><th>When</th></tr></thead><tbody id="ztTxBody"><tr><td colspan="4">Sign in to see your earnings.</td></tr></tbody></table>
   </section>
@@ -1314,9 +1314,8 @@ const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostu
 // TUT failure watch (One long set + 3:00 challenge only; regular Sets never use it): knees / stood up / out of frame ends and VOIDS the set.
 const failWatch = window.ZabbadatSession && window.ZabbadatSession.createFailureWatch ? window.ZabbadatSession.createFailureWatch() : null;
 let lastViolFlag = 0;
-// 30-second top-hold bonus (all push-up modes), once per set. Fractional ZAB is NOT live yet: balances and ledger amounts are whole
-// numbers (firestore.rules "is int", zab-balance validEarn). HOLD_ZAB_LIVE stays false until a fractional-ZAB migration ships.
-const HOLD_ZAB_LIVE = true; // each 30-second top hold credits 0.5 ZAB ("hold" earn; ZAB amounts are tenths)
+// 30-second top-hold bonus (all push-up modes), once per set. Each hold credits 0.5 ZAB ("hold" earn; ZAB amounts are tenths).
+const HOLD_ZAB_LIVE = true;
 const holdReward = window.ZabbadatSession && window.ZabbadatSession.createHoldReward ? window.ZabbadatSession.createHoldReward() : null;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
@@ -1326,7 +1325,7 @@ if (window.ZabCurrency && $("ztBagLabel")) window.ZabCurrency.ring($("ztBagLabel
 if (ZT && $("ztRates")) $("ztRates").innerHTML = ZT.rateLines().map((l) => "<li>" + window.ZabCurrency.html(l) + "</li>").join("");
 let awardZab = async () => ({ credited: 0 });
 function zabRing(el) { if (window.ZabCurrency) window.ZabCurrency.ring(el); }
-function zabNote(r) { return r && r.credited > 0 ? " +" + r.credited + " ZAB." : ""; }
+function zabNote(r) { if (!(r && r.credited > 0)) return ""; var n = window.ZabCurrency && window.ZabCurrency.fmtZab ? window.ZabCurrency.fmtZab(r.credited) : String(r.credited); return " +" + n + " ZAB."; }
 
 // Washers lock lives on #startBtn: locked = "Hold to score", unlocked = "Hold to stop", idle = "Start game".
 function paintGameBtn() {
@@ -1965,7 +1964,7 @@ function finishPushSet(endedBy) {
   $("pushStatus").textContent = head + " Posting…" + why + viol;
   const tokSet = ZT ? ZT.newSetId() : "";
   const tokP = Promise.all([awardZab("pushups", record.reps, tokSet), pushMode === "long" && ZT ? awardZab("tut", ZT.qtyFrom("tut", window.ZabbadatSession.tutToAdd(pushMode, ms, doneTut)), tokSet) : null])
-    .then((a) => ({ credited: a.reduce((n, x) => n + ((x && x.credited) || 0), 0) }), () => null);
+    .then((a) => ({ credited: (window.ZabCurrency && window.ZabCurrency.roundZab ? window.ZabCurrency.roundZab : function (x) { return Math.round(Number(x) * 10) / 10; })(a.reduce((n, x) => n + ((x && x.credited) || 0), 0)) }), () => null);
   saveRemotePush(record)
     .then(() => tokP).then((tk) => { $("pushStatus").textContent = (failedTut ? head + " " + name + " posted it." : name + " posted " + record.reps + " reps in " + formatTime(ms) + ".") + why + viol + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
@@ -3435,7 +3434,7 @@ async function bbLoadZab() { // ZAB for the rows shown (+ mine), signed in only,
   const ids = Object.keys(bbRows).map((k) => bbRows[k].uid).concat([me]).filter((u, i, a) => a.indexOf(u) === i && !bbZabAsked[u]);
   for (let i = 0; i < ids.length; i += 10) {
     const chunk = ids.slice(i, i + 10); chunk.forEach((u) => { bbZabAsked[u] = true; });
-    try { const snap = await getDocs(query(collection(db, "zabBoard"), where(documentId(), "in", chunk))); snap.forEach((d) => { const t = d.data().total; if (Number.isInteger(t)) bbZab[d.id] = t; }); } catch (e) { chunk.forEach((u) => { delete bbZabAsked[u]; }); }
+    try { const snap = await getDocs(query(collection(db, "zabBoard"), where(documentId(), "in", chunk))); snap.forEach((d) => { const t = d.data().total; if (window.ZabCurrency.isZab(t)) bbZab[d.id] = t; }); } catch (e) { chunk.forEach((u) => { delete bbZabAsked[u]; }); }
   }
   bbPaint();
 }
@@ -3649,7 +3648,7 @@ function mkWager(game, o) {
     const code = BR.normCode(raw); if (!BR.isValidCode(code)) return true;
     let r = null; try { r = await o.fs.tx(code, (t) => t.get()); } catch (e) { return true; }
     if (!r || !r.stake || (currentUser && r.players && currentUser.uid in r.players)) return true;
-    return confirm("This battle has a wager of " + r.stake + " ZAB each. Winner takes the pot of " + WG.pot(r.stake) + ". Join and stake " + r.stake + "?");
+    return confirm("This battle has a wager of " + window.ZabCurrency.fmtZab(r.stake) + " ZAB each. Winner takes the pot of " + window.ZabCurrency.fmtZab(WG.pot(r.stake)) + ". Join and stake " + window.ZabCurrency.fmtZab(r.stake) + "?");
   }
   function paint() {
     const r = o.room(), me = currentUser && currentUser.uid, k = keyOf(r);
@@ -3662,9 +3661,9 @@ function mkWager(game, o) {
     line.hidden = false;
     if (w && w.status !== "open") line.textContent = WG.outcomeText(w, me);
     else { const n = w ? Object.keys(w.players || {}).length : 0;
-      window.ZabCurrency.set(line, "Wager " + r.stake + " each · Pot " + WG.pot(r.stake) + " ZAB" + (pre ? " · " + n + "/2 locked in" + (staked ? " (you ✓)" : "") + (n < 2 ? " · countdown starts when both are locked in" : "") : "")); }
+      window.ZabCurrency.set(line, "Wager " + window.ZabCurrency.fmtZab(r.stake) + " each · Pot " + window.ZabCurrency.fmtZab(WG.pot(r.stake)) + " ZAB" + (pre ? " · " + n + "/2 locked in" + (staked ? " (you ✓)" : "") + (n < 2 ? " · countdown starts when both are locked in" : "") : "")); }
     row.hidden = !(pre && mineSeated && !staked && (!w || w.status === "open"));
-    window.ZabCurrency.set($(P + "StakeBtn"), "Lock in " + r.stake + " ZAB");
+    window.ZabCurrency.set($(P + "StakeBtn"), "Lock in " + window.ZabCurrency.fmtZab(r.stake) + " ZAB");
     if (r && BR.started(r) && o.decided(r)) settle(false);
     if (r && (r.status === "abandoned") && w && w.status === "open") settle(false);
   }

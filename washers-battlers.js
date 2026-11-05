@@ -18,6 +18,7 @@
   const NODE = typeof module !== "undefined" && !!module.exports;
   const WB = NODE ? require("./washers-battle.js") : root && root.ZabbaWasherBattle;
   const AR = NODE ? require("./washers-arena.js") : root && root.ZabbaArena;
+  const ZC = NODE ? require("./zab-currency.js") : root && root.ZabCurrency;
   const TZ = "America/New_York", PAGE = 50, VISIBLE_ROWS = 10, RCOL = "washersBattles";
   const MAXW = 99999, MAXMS = 9999999999999;
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
@@ -56,12 +57,12 @@
   // Exact rank of a record among ALL players from a count of records ranked ahead of it (count query): 1 + ahead.
   const rankFromAhead = (ahead) => (isInt(ahead) && ahead >= 0 ? ahead + 1 : 0);
   const name = (n) => (WB ? WB.pubName(n) : String(n || "Player"));
-  const youLine = (rank, r, zab) => !r ? "You: no battles this season yet." : "You: #" + rank + ", " + r.wins + (r.wins === 1 ? " win" : " wins") + ", " + r.losses + (r.losses === 1 ? " loss" : " losses") + (zab == null ? "" : ", " + Number(zab).toLocaleString("en-US") + " ZAB");
+  const youLine = (rank, r, zab) => !r ? "You: no battles this season yet." : "You: #" + rank + ", " + r.wins + (r.wins === 1 ? " win" : " wins") + ", " + r.losses + (r.losses === 1 ? " loss" : " losses") + (zab == null ? "" : ", " + ZC.fmtZab(Number(zab)) + " ZAB");
   // ---- table html (names escaped by esc; ZAB via ZabCurrency amountHtml passed in) ----
   const DASH = "—";
   function rowHtml(r, i, me, zabMap, o) {
     const esc = o.esc, self = !!me && r.uid === me, z = zabMap && zabMap[r.uid];
-    const zab = !me ? DASH : isInt(z) ? o.amountHtml(z) : DASH;
+    const zab = !me ? DASH : (ZC && ZC.isZab(z) ? o.amountHtml(z) : DASH);
     return '<tr' + (self ? ' class="bb-me" data-me="1" aria-current="true"' : "") + ' data-uid="' + esc(r.uid) + '"><td>' + (i + 1) + "</td><td>" + esc(name(r.name)) + (self ? " (you)" : "") + "</td><td>" + (r.wins | 0) + "</td><td>" + (r.losses | 0) + "</td><td>" + zab + "</td></tr>";
   }
   function bodyHtml(rows, me, zabMap, o) {

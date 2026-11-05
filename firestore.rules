@@ -608,7 +608,7 @@ service cloud.firestore {
           && t().setId is string && t().setId.matches('^[A-Za-z0-9_-]{1,60}$')
           && txId == t().source + '-' + t().setId
           && t().qty is int && t().qty >= 0 && zabOk(t().amount) && t().amount >= 0.1
-          && ((t().source == 'pushups' && t().units == 'reps'    && t().qty <= 5000 && t().amount is int && t().amount * 10 <= t().qty)
+          && ((t().source == 'pushups' && t().units == 'reps'    && t().qty <= 5000 && tenths(t().amount) <= t().qty)
            || (t().source == 'plank'   && t().units == 'seconds' && t().qty <= 7200 && t().amount is int && t().amount * 60 <= t().qty)
            || (t().source == 'tut'     && t().units == 'seconds' && t().qty <= 7200 && t().amount is int && t().amount * 60 <= t().qty)
            || (t().source == 'walk'    && t().units == 'minutes' && t().qty <= 1440 && t().amount is int && t().amount * 10 <= t().qty)

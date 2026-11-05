@@ -17,7 +17,7 @@ function memFs(){const db={};const k=p=>p.join('/');return{db,ts:()=>'TS',tx:fn=
   await ZT.award(f,ZT.washersWinEarn('u1',true,'g2')); ok(f.db['users/u1'].zabBalance===2,'new game awards again');
   ok(!ZT.validEarn(Object.assign({},e.tx,{amount:2})),'amount 2 rejected');
   ok(ZT.txLine(e.tx).source==='Won Zabba Washers'&&ZT.txLine(e.tx).qty==='1 game won','tx reason text');
-  ok(ZT.RATES.pushups.per===10&&ZT.RATES.plank.per===60&&ZT.RATES.tut.per===60&&ZT.RATES.walk.per===10,'other rates unchanged');
+  ok(ZT.RATES.pushups.per===1&&ZT.RATES.pushups.zab===0.1&&ZT.RATES.plank.per===60&&ZT.RATES.tut.per===60&&ZT.RATES.walk.per===10,'other rates: push-ups 0.1 each, others unchanged');
   const L=ZT.rateLines(); ok(L.length===5&&L[4]==='Won Zabba Washers game = 1 ZAB','earn rates line');
   ok(ZT.qtyFrom('washers',1)===1&&ZT.qtyFrom('washers',0)===0,'qty');
   const fg=html.slice(html.indexOf('async function finishGame'),html.indexOf('paintRows(localBoard());\nrender();'));

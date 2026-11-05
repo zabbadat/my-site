@@ -16,7 +16,8 @@
 (function (root) {
   const NODE = typeof module !== "undefined" && !!module.exports;
   const WB = NODE ? require("./washers-battle.js") : root && root.ZabbaWasherBattle, AR = NODE ? require("./washers-arena.js") : root && root.ZabbaArena,
-    BR = NODE ? require("./battle-rooms.js") : root && root.ZabbaBattles;
+    BR = NODE ? require("./battle-rooms.js") : root && root.ZabbaBattles,
+    ZC = NODE ? require("./zab-currency.js") : root && root.ZabCurrency;
   const WORD = "Zab", MIN_WAGER = 1, MAX_WAGER = 1000000000, MAX_GAME_MS = 4 * 3600000;
   const COL = { room: "washersBattles", arena: "washersArenas" }, GAME = { room: "washers", arena: "arena" };
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
@@ -24,12 +25,12 @@
   // ---- label: word, then ring, then the number ----
   const RING = '<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>';
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const num = (n) => (typeof n === "number" && isFinite(n) ? n.toLocaleString("en-US") : esc(n));
+  const num = (n) => (typeof n === "number" && isFinite(n) ? ZC.fmtZab(n) : esc(n));
   const labelHtml = () => '<span class="zab zab-wager">' + WORD + RING + "</span>";
   const amountHtml = (n) => '<span class="zab zab-wager">' + WORD + RING + " " + num(n) + "</span>";
-  const amountText = (n) => WORD + " " + (typeof n === "number" ? n.toLocaleString("en-US") : n);
+  const amountText = (n) => WORD + " " + (typeof n === "number" ? ZC.fmtZab(n) : n);
   // any wager text -> safe HTML: "Zab 50" / "Zab +50" become word + ring + number, a lone "Zab" becomes word + ring
-  const html = (s) => esc(s).replace(/\bZab\b(?: (\+?\d[\d,]*))?/g, (m, n) => (n ? amountHtml(n) : labelHtml()));
+  const html = (s) => esc(s).replace(/\bZab\b(?: (\+?\d[\d,]*(?:\.\d)?))?/g, (m, n) => (n ? amountHtml(n) : labelHtml()));
   function set(el, text) { if (el) el.innerHTML = html(text); return el; }
   // ---- seats / summary (works on a 1v1 room: players, and a 2v2 arena: seats) ----
   const seatsOf = (r) => (r && (r.seats || r.players)) || {};
@@ -57,7 +58,7 @@
     if (r.status !== "waiting" || r.startAt != null) return "Wagers close when the countdown starts.";
     if (hasWager(s)) return "Your wager is already final.";
     if (!validWager(n)) return wagerError(n) || "Enter a whole number of Zab, or 0 for no wager.";
-    if (isInt(balance) && n > balance) return "Not enough Zab: you have " + balance + ", the wager is " + n + ".";
+    if (ZC && ZC.isZab(balance) && n > balance) return "Not enough Zab: you have " + ZC.fmtZab(balance) + ", the wager is " + ZC.fmtZab(n) + ".";
     return "";
   }
   function agreeError(r, uid) {
@@ -106,13 +107,14 @@
         if (!m.allSubmitted) throw err(409, "Every player must lock in a wager first.");
         if (!m.needed) return { ok: true, none: true, total: 0 };
         if (!m.allAgreed) throw err(409, "Every player must agree to the pot first.");
-        const short = seatIds.findIndex((u, i) => { const a = S[u].wager, b = users[i] && isInt(users[i].zabBalance) ? users[i].zabBalance : 0; return a > b; });
-        if (short >= 0) { const mine = seatIds[short] === uid, b = users[short] && isInt(users[short].zabBalance) ? users[short].zabBalance : 0;
-          throw err(402, mine ? "Not enough Zab: you have " + b + ", your wager is " + S[uid].wager + ". Nobody was charged." : "Another player doesn't have enough Zab for this pot. Nobody was charged."); }
+        const balOf = (u) => (u && ZC.isZab(u.zabBalance) ? ZC.roundZab(u.zabBalance) : 0);
+        const short = seatIds.findIndex((u, i) => { const a = S[u].wager, b = balOf(users[i]); return a > b; });
+        if (short >= 0) { const mine = seatIds[short] === uid, b = balOf(users[short]);
+          throw err(402, mine ? "Not enough Zab: you have " + ZC.fmtZab(b) + ", your wager is " + ZC.fmtZab(S[uid].wager) + ". Nobody was charged." : "Another player doesn't have enough Zab for this pot. Nobody was charged."); }
         if (prior.some(Boolean)) throw err(409, "Wager ledger already has an entry for this room.");
         const players = {}; seatIds.forEach((u) => { players[u] = { amount: S[u].wager, at: fs.ts() }; });
-        seatIds.forEach((u, i) => { const a = S[u].wager; if (a <= 0) return; const bal = users[i].zabBalance;
-          t.update(["users", u], { zabBalance: bal - a, lastTxId: txId, updatedAt: fs.ts() });
+        seatIds.forEach((u, i) => { const a = S[u].wager; if (a <= 0) return; const bal = balOf(users[i]);
+          t.update(["users", u], { zabBalance: ZC.roundZab(bal - a), lastTxId: txId, updatedAt: fs.ts() });
           t.set(["users", u, "zabLedger", txId], { uid: u, type: "stake", source: "wager", game: GAME[kind], amount: -a, wager: key, code, createdAt: fs.ts() }); });
         t.set(["wagers", key], { key, game: GAME[kind], kind, code, roomCreatedAt: createdMs, pot: true, total: m.total, players, status: "open", createdAt: fs.ts() });
         return { ok: true, key, total: m.total };
@@ -146,8 +148,8 @@
     if (!w || !w.pot) return "";
     if (w.status === "open") return "Pot formed: " + amountText(w.total) + ", held until the match ends.";
     if (w.status === "paid") { const got = w.paid && w.paid[uid]; const won = Array.isArray(w.winners) && w.winners.indexOf(uid) >= 0;
-      return won ? "You won Zab +" + (got || 0) + " from the pot of " + amountText(w.total) + "." : "Your side lost its Zab wager (" + amountText((w.players[uid] && w.players[uid].amount) || 0) + ")."; }
-    return "Wager refunded: Zab +" + ((w.players && w.players[uid] && w.players[uid].amount) || 0) + ".";
+      return won ? "You won Zab +" + ZC.fmtZab(got || 0) + " from the pot of " + amountText(w.total) + "." : "Your side lost its Zab wager (" + amountText((w.players[uid] && w.players[uid].amount) || 0) + ")."; }
+    return "Wager refunded: Zab +" + ZC.fmtZab((w.players && w.players[uid] && w.players[uid].amount) || 0) + ".";
   }
   const api = { WORD, MIN_WAGER, MAX_WAGER, MAX_GAME_MS, COL, GAME, RING, esc, labelHtml, amountHtml, amountText, html, set, seatsOf, seatField, kindOf, sizeOf, hasWager, summary, validWager,
     wagerError, submitError, agreeError, submit, agree, covers, canStart, split, potKey, formPot, outcome, plan, resultText };

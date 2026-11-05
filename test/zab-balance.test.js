@@ -2,10 +2,10 @@
 const Z = require("../zab-balance.js");
 const R = [];
 const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
-// rates + floor
-check("9 reps = 0", Z.zabFor("pushups", 9) === 0);
+// rates (push-ups: 0.1 each; others floor)
+check("9 reps = 0.9", Z.zabFor("pushups", 9) === 0.9);
 check("10 reps = 1", Z.zabFor("pushups", 10) === 1);
-check("39 reps = 3", Z.zabFor("pushups", 39) === 3);
+check("39 reps = 3.9", Z.zabFor("pushups", 39) === 3.9);
 check("plank 59 s = 0", Z.zabFor("plank", Z.qtyFrom("plank", 59999)) === 0);
 check("plank 60 s = 1", Z.zabFor("plank", Z.qtyFrom("plank", 60000)) === 1);
 check("plank 2m59 = 2", Z.zabFor("plank", Z.qtyFrom("plank", 179000)) === 2);
@@ -18,8 +18,8 @@ check("negative = 0", Z.zabFor("pushups", -50) === 0);
 check("over max clamps", Z.zabFor("pushups", 99999) === 500);
 // buildEarn
 const e = Z.buildEarn("u1", "pushups", 25, "abc");
-check("earn shape", e && e.id === "pushups-abc" && e.tx.amount === 2 && e.tx.units === "reps" && e.tx.qty === 25 && e.tx.type === "earn");
-check("no earn under rate", Z.buildEarn("u1", "pushups", 5, "x") === null);
+check("earn shape", e && e.id === "pushups-abc" && e.tx.amount === 2.5 && e.tx.units === "reps" && e.tx.qty === 25 && e.tx.type === "earn");
+check("no earn under rate", Z.buildEarn("u1", "pushups", 0, "x") === null);
 check("no earn without uid/id", Z.buildEarn("", "plank", 600, "x") === null && Z.buildEarn("u", "plank", 600, "") === null);
 check("id sanitized", Z.buildEarn("u", "plank", 60, "a/b..c").id === "plank-abc");
 check("validEarn ok", Z.validEarn(e.tx));

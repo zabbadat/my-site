@@ -11,7 +11,7 @@ ok(sec.includes('Sign in to start earning.')&&sec.includes('href="#play"'),'sign
 ok(sec.includes('id="ztBalance"')&&sec.includes('id="ztRates"')&&sec.includes('id="ztTxBody"'),'balance/rates/tx targets');
 // rates match constants
 const lines=ZT.rateLines();
-ok(lines[0]===ZT.RATES.pushups.per+' push-ups = 1 ZAB'&&lines[0]==='10 push-ups = 1 ZAB','pushups rate');
+ok(lines[0]==='1 push-up = 0.1 ZAB'&&ZT.RATES.pushups.per===1&&ZT.RATES.pushups.zab===0.1,'pushups rate');
 ok(lines[1]==='1 minute of plank = 1 ZAB'&&ZT.RATES.plank.per===60,'plank rate');
 ok(lines[2]==='1 minute of TUT = 1 ZAB'&&ZT.RATES.tut.per===60,'tut rate');
 ok(lines[3]==='10 minutes of walking = 1 ZAB'&&ZT.RATES.walk.per===10,'walk rate');
@@ -28,7 +28,7 @@ ok(/No ZAB earned yet/.test(ZT.txRowsHtml([],esc))&&/No ZAB earned yet/.test(ZT.
 // wiring
 ok(/paintZab\(n\)[^\n]*paintZabSection\(n\)/.test(html),'balance paints section+badge');
 ok(/collection\(db, "users", u\.uid, "zabLedger"\), orderBy\("createdAt", "desc"\), limit\(10\)/.test(html),'recent tx query');
-ok(html.includes('id="zabBalanceRow"')&&html.includes('" ZAB." : ""'),'legacy line + status note intact');
+ok(html.includes('id="zabBalanceRow"')&&html.includes('function zabNote')&&html.includes('fmtZab')&&html.includes('" ZAB."'),'legacy line + status note intact');
 // no one-B user text
 const text=html.replace(/<script[\s\S]*?<\/script>/g,'').replace(/<style[\s\S]*?<\/style>/g,'').replace(/<[^>]+>/g,' ');
 ok(!/\bZaba\b/.test(text),'no one-B Zaba in page text');
