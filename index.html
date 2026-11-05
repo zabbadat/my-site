@@ -248,6 +248,11 @@
     .promo-banner strong { display: block; font-size: clamp(1.15rem, 4.5vw, 1.5rem); letter-spacing: .02em; }
     .promo-banner .btn { background: #0b1410; color: var(--accent-2); border-color: #0b1410; }
     .promo-banner .btn.promo-ghost { background: transparent; color: #0b1410; border: 2px solid #0b1410; }
+    .promo-cloud { position: relative; display: block; padding: .9rem 1.4rem 1rem; margin: 0 auto .5rem; max-width: 30rem; isolation: isolate; }
+    .promo-cloud::before { content: ""; position: absolute; inset: -.2rem -.6rem; z-index: -1; border-radius: 999px; background: radial-gradient(circle at 18% 60%, rgba(255,255,255,.75) 0 22%, transparent 23%), radial-gradient(circle at 40% 35%, rgba(255,255,255,.8) 0 26%, transparent 27%), radial-gradient(circle at 63% 40%, rgba(255,255,255,.75) 0 24%, transparent 25%), radial-gradient(circle at 84% 62%, rgba(255,255,255,.7) 0 20%, transparent 21%), radial-gradient(ellipse at 50% 72%, rgba(255,255,255,.8) 0 45%, transparent 46%); filter: blur(6px); opacity: .55; animation: cloud-drift 9s ease-in-out infinite; }
+    @keyframes cloud-drift { 0%,100% { transform: translateX(-4px); } 50% { transform: translateX(4px); } }
+    @media (prefers-reduced-motion: reduce) { .promo-cloud::before { animation: none; } }
+    .promo-tag { display: inline-block; margin-top: .45rem; padding: .2rem .8rem; border-radius: 999px; background: #0b1410; color: var(--accent-2); font-size: .72rem; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; }
     .walk-bubble { flex-basis: 100%; max-width: max-content; margin: 0 auto; display: inline-flex; align-items: center; gap: .45rem; padding: .4rem .95rem; border-radius: 999px; background: rgba(11,20,16,.14); color: #0b1410; font-weight: 700; font-size: .95rem; text-decoration: none; }
     .walk-dot { width: .55rem; height: .55rem; border-radius: 50%; background: #0b1410; animation: walk-breathe 4s ease-in-out infinite; }
     @keyframes walk-breathe { 0%,100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
@@ -584,7 +589,7 @@ function f(){var m=n.scrollWidth-n.clientWidth;n.classList.toggle("fade-l",n.scr
 n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f);f();})();
 </script>
   <aside class="promo-banner" id="promoBanner" aria-label="Giveaway">
-    <p><strong>Get a free Zabba Washers starter pack.</strong> Three washers and a box, on us. Breathe in, pitch washers, walk your steps, and claim yours.</p>
+    <p><span class="promo-cloud"><strong>Get a free Zabba Washers starter pack.</strong><span class="promo-tag">While supplies last</span></span> Three washers and a box, on us. Breathe in, pitch washers, walk your steps, and claim yours.</p>
     <a class="btn" href="#claim">Claim my free set</a>
     <a class="btn promo-ghost" href="#play" onclick="var b=document.getElementById('ztBadge');if(b){b.click();}">Start game, challenge a friend</a>
     <a class="walk-bubble" href="#steps"><span class="walk-dot" aria-hidden="true"></span>Pitch, push &amp; step - earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a>
