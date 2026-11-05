@@ -248,8 +248,8 @@
     .promo-banner strong { display: block; font-size: clamp(1.15rem, 4.5vw, 1.5rem); letter-spacing: .02em; }
     .promo-banner .btn { background: #0b1410; color: var(--accent-2); border-color: #0b1410; }
     .promo-banner .btn.promo-ghost { background: transparent; color: #0b1410; border: 2px solid #0b1410; }
-    .claim-wrap { position: relative; display: inline-block; }
-    .promo-cloud { position: absolute; top: -1.15rem; right: -2.4rem; transform: rotate(8deg); isolation: isolate; white-space: nowrap; }
+    .claim-wrap { position: relative; display: inline-block; margin-top: 1.1rem; }
+    .promo-cloud { position: absolute; top: -1.35rem; right: -2.6rem; transform: rotate(9deg); isolation: isolate; white-space: nowrap; }
     .promo-cloud::before { content: ""; position: absolute; inset: -.55rem -.9rem; z-index: -1; border-radius: 999px; background: radial-gradient(circle at 22% 62%, rgba(255,255,255,.9) 0 30%, transparent 31%), radial-gradient(circle at 48% 38%, rgba(255,255,255,.95) 0 34%, transparent 35%), radial-gradient(circle at 76% 58%, rgba(255,255,255,.9) 0 30%, transparent 31%), radial-gradient(ellipse at 50% 70%, rgba(255,255,255,.9) 0 48%, transparent 49%); filter: blur(3px); opacity: .7; animation: cloud-drift 9s ease-in-out infinite; }
     @keyframes cloud-drift { 0%,100% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
     @media (prefers-reduced-motion: reduce) { .promo-cloud::before { animation: none; } }
