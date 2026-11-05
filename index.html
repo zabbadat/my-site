@@ -243,7 +243,12 @@
     @media (max-width: 700px) {
       .hero-top { flex-direction: column; align-items: flex-start; }
       .hero-side { width: 140px; margin: 1rem auto 0; } 
-      .hero { padding-top: 6.2rem; }
+      .promo-banner { margin-top: 4.6rem; padding: 1rem 1.2rem; background: var(--accent); color: #0b1410; text-align: center; display: flex; flex-wrap: wrap; gap: .6rem 1.2rem; align-items: center; justify-content: center; }
+    .promo-banner p { margin: 0; font-weight: 700; line-height: 1.35; }
+    .promo-banner strong { display: block; font-size: clamp(1.15rem, 4.5vw, 1.5rem); letter-spacing: .02em; }
+    .promo-banner .btn { background: #0b1410; color: var(--accent-2); border-color: #0b1410; }
+    .promo-banner + .hero { padding-top: 2rem; }
+    .hero { padding-top: 6.2rem; }
       .hero-mark { width: 56px; height: 56px; margin-bottom: .8rem; }
       .hero h1 { margin-bottom: .9rem; }
     }
@@ -567,6 +572,10 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 function f(){var m=n.scrollWidth-n.clientWidth;n.classList.toggle("fade-l",n.scrollLeft>2);n.classList.toggle("fade-r",m>2&&n.scrollLeft<m-2);}
 n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f);f();})();
 </script>
+  <aside class="promo-banner" id="promoBanner" aria-label="Giveaway">
+    <p><strong>Free Zabba Washers starter pack.</strong> Three washers and a box, on us. Breathe in, claim yours.</p>
+    <a class="btn" href="#claim">Claim my free set</a>
+  </aside>
   <section class="hero">
     <div class="hero-top">
       <div class="hero-copy">
@@ -601,6 +610,26 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <img class="hero-side" src="/zd-v2-lockup.svg" width="240" height="300" alt="Zabbadat">
       </div>
     </div>
+  </section>
+  <section class="washers" id="claim">
+    <h2>Claim your free starter pack</h2>
+    <p class="lead">Three Zabba washers and a box. Sign up and take part to enter: that's all it takes.</p>
+    <form class="signup" id="claimForm" action="https://formspree.io/f/xwlpenlp" method="POST">
+      <label for="claimName">Name</label>
+      <input id="claimName" name="name" type="text" required maxlength="80" autocomplete="name">
+      <label for="claimEmail">Email</label>
+      <input id="claimEmail" name="email" type="email" required maxlength="120" autocomplete="email">
+      <label for="claimHandle">Zabbadat name (if you've signed in)</label>
+      <input id="claimHandle" name="zabbadat_name" type="text" maxlength="60">
+      <label for="claimCity">City and state or country</label>
+      <input id="claimCity" name="location" type="text" maxlength="120">
+      <label for="claimHow">How you'll take part</label>
+      <input id="claimHow" name="participation" type="text" maxlength="200" placeholder="Pitching washers, walking, push-ups, plank...">
+      <label><input type="checkbox" name="agree" value="yes" required> I'm signing up and will take part in the movement</label>
+      <input type="hidden" name="_subject" value="Zabbadat free starter pack claim">
+      <button class="btn" type="submit">Claim my free set</button>
+    </form>
+    <p class="fine">Sign-up and participation only. No purchase needed. We'll email you about next steps and shipping.</p>
   </section>
   <section id="approach">
     <h2>The practice</h2>

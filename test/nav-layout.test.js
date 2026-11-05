@@ -10,7 +10,7 @@ check("nav: Zabba Washers link immediately follows The Practice", /<a href="#app
 check("nav: TUT Battles link absent", !/href="#tutbattles"/.test(nav) && !/TUT Battles<\/a>/.test(nav));
 check("TUT battles section still present with its buttons", /<section id="tutbattles">/.test(html) && /id="tbCreate"/.test(html) && /id="tbJoin"/.test(html) && /id="tbReady"/.test(html));
 const sections = [...html.matchAll(/<section[^>]*id="([^"]+)"/g)].map((m) => m[1]);
-const SECT = ["approach", "washers", "play", "board", "cooling-box", "push", "battles-hub", "zab", "washerbattle", "tutbattles", "tut-board", "plank", "battles", "steps", "league", "corporate", "order", "membership"];
+const SECT = ["claim", "approach", "washers", "play", "board", "cooling-box", "push", "battles-hub", "zab", "washerbattle", "tutbattles", "tut-board", "plank", "battles", "steps", "league", "corporate", "order", "membership"];
 check("section order: ZAB, then Washer Battle, then TUT Battles (+ TUT board), then Plank; matches the hub card order", JSON.stringify(sections) === JSON.stringify(SECT));
 // Battles hub: between #push (TUT set-push-up) and #tutbattles; lists every battle section; anchors exist.
 { const i = html.indexOf('<section id="battles-hub">'), hub = html.slice(i, html.indexOf("</section>", i));
