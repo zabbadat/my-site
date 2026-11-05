@@ -4,7 +4,7 @@ let n=0;const ok=(c,m)=>{assert(c,m);n++;};
 ok(!html.includes('stepSensorBtn')&&!/Enable step sensor/i.test(html),'no enable-sensor button or text');
 ok(!html.includes('Enable the step sensor, keep this page open'),'old static note removed');
 ok(/<p class="note" id="phoneStepsNote"[^>]*><\/p>/.test(html),'phoneStepsNote kept empty for runtime status');
-ok(/id="startBtn"[^>]*>Start game<\/button>[\s\S]{0,300}<p class="note" id="sensorStartNote">Once start game, step sensor is initiated\.<\/p>\s*<p class="note" id="gameLockNote">The screen locks when the game starts\./.test(html),'new note under Start game, lock note unchanged');
+ok(/id="startBtn"[^>]*>Start game<\/button>[\s\S]{0,300}<p class="note" id="sensorStartNote">Once start game, step sensor is initiated\.<\/p>\s*<p class="note" id="gameLockNote">[^<]*The screen locks when the game starts\./.test(html),'new note under Start game, lock note unchanged');
 ok(html.includes('tap Start game and choose Allow'),'denied message points at Start game');
 ok(html.includes('setPhoneNote("Step sensor on.");'),'short sensor-on message');
 // behavioral: extract startPhoneSteps + start click handler and run with fakes

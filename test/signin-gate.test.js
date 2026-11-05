@@ -67,7 +67,7 @@ for (const [name, snip, practice, n] of INV) {
   check("walk hold handler has no gate", !/requireSignIn/.test(bh)); }
 // Behavioral washers handler: signed out -> not started; signed in -> started; running tap (lock hint) never gates.
 { const clk = html.slice(html.indexOf('$("startBtn").onclick = () => {'), html.indexOf("const holdGuard"));
-  const mk = (ok) => { const log = []; const f = new Function("log", "ok", `let gated=0; const requireSignIn=()=>{gated++;return ok;}; let gameHoldDone=false,pocketOn=false; const state={running:false,finished:false,elapsed:0};
+  const mk = (ok) => { const log = []; const f = new Function("log", "ok", `const window={}; let gated=0; const requireSignIn=()=>{gated++;return ok;}; let gameHoldDone=false,pocketOn=false; const state={running:false,finished:false,elapsed:0};
     const stepDetector={reset(){}},stepVerifier={reset(){},resume(){}}; const performance={now:()=>1}; const setInterval=()=>0; const render=()=>{}; const setStatus=(m)=>log.push(m);
     const startPhoneSteps=()=>log.push('steps'); const gameWake={start(){log.push('wake');return Promise.resolve();}}; const setPocket=(v)=>{pocketOn=v;log.push('pocket:'+v);};
     const $=()=>btn; const btn={}; ${clk.replace('$("startBtn").onclick', "btn.onclick")}; return {btn,state,g:()=>gated};`); return { ...f(log, ok), log }; };
