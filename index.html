@@ -2958,7 +2958,7 @@ function onPhoneGisCredential(response) {
 }
 function phoneGisPopup(win, nav) {
   const ua = String((nav && nav.userAgent) || "");
-  if (/CriOS|FxiOS|EdgiOS/.test(ua)) return false;
+  if (/iPhone|iPad|iPod|CriOS|FxiOS|EdgiOS/.test(ua)) return false;
   return !!(win && win.chrome);
 }
 function mountPhoneGis() {

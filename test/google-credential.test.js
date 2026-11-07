@@ -91,9 +91,12 @@ check("edge function uses the same client id", edgeSrc.indexOf(pageId) > 0);
   check("GIS button is not script-clicked", gisFn.indexOf(".click(") < 0);
   const gisPopup = new Function("win", "nav", grab("phoneGisPopup") + "\nreturn phoneGisPopup(win, nav);");
   const iphoneUa = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1";
-  check("Chromium with an iPhone UA uses popup", gisPopup({ chrome: {} }, { userAgent: iphoneUa }) === true);
+  const androidUa = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
+  check("Chromium with an iPhone UA uses redirect", gisPopup({ chrome: {} }, { userAgent: iphoneUa }) === false);
   check("iPhone Safari uses redirect", gisPopup({}, { userAgent: iphoneUa }) === false);
+  check("iPad and iPod with chrome use redirect", gisPopup({ chrome: {} }, { userAgent: iphoneUa.replace("iPhone", "iPad") }) === false && gisPopup({ chrome: {} }, { userAgent: iphoneUa.replace("iPhone", "iPod") }) === false);
   check("CriOS uses redirect", gisPopup({ chrome: {} }, { userAgent: iphoneUa.replace("Version/18.5", "CriOS/131.0") }) === false);
+  check("Android Chrome uses popup", gisPopup({ chrome: {} }, { userAgent: androidUa }) === true);
   check("desktop popup call is still present", /await signInWithPopup\(auth, provider\)/.test(html));
   check("netlify runs the handler edge function", /\[\[edge_functions\]\][\s\S]*function = "google-credential"[\s\S]*path = "\/__\/auth\/handler"/.test(toml));
 
