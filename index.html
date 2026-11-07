@@ -1282,8 +1282,11 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/app-bridge.js" defer></script>
   <script type="module">
     const PHONE_GIS_HASH = (typeof location !== "undefined" && location.hash) || "";
+    const PHONE_GIS_SEARCH = (typeof location !== "undefined" && location.search) || "";
     const PHONE_GIS_STORE = "zabba-gis-return";
+    const phoneGoogleGate = { ready: false, applied: false };
     try { if (PHONE_GIS_HASH.length > 1) sessionStorage.setItem(PHONE_GIS_STORE, PHONE_GIS_HASH); } catch (e) {}
+    window.addEventListener("pageshow", function () { if (phoneGoogleGate.ready) consumePhoneGoogleReturn(); });
     const firebaseConfig = {
       apiKey: "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4",
       authDomain: "www.zabbadat.com",
@@ -2931,9 +2934,16 @@ function readPhoneGoogleHash(hash) {
 function takePhoneGoogleHash() {
   let saved = "";
   try { saved = sessionStorage.getItem(PHONE_GIS_STORE) || ""; } catch (e) {}
-  const hash = PHONE_GIS_HASH || saved || location.hash || "";
-  try { sessionStorage.removeItem(PHONE_GIS_STORE); } catch (e) {}
-  return hash;
+  return PHONE_GIS_HASH || saved || location.hash || "";
+}
+function phoneGoogleCameBack(search) {
+  return /(?:^|[?&])zab_in=1(?:&|$)/.test(String(search || ""));
+}
+function phoneGoogleRemainSearch(search) {
+  const q = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+  q.delete("zab_in");
+  const s = q.toString();
+  return s ? "?" + s : "";
 }
 async function applyPhoneGoogleCred(cred, err, missing) {
   const c = cred || "";
@@ -2943,19 +2953,29 @@ async function applyPhoneGoogleCred(cred, err, missing) {
   if (e || missing || !c) showSignInError({ message: e || "no credential was returned" }, "Google sign-in");
   else if (!phoneGoogleCredOk(c, GOOGLE_CLIENT_ID, Date.now())) showSignInError({ message: "Google returned a credential this site cannot use." }, "Google sign-in");
   else {
-    try { await signInWithCredential(auth, GoogleAuthProvider.credential(c)); }
-    catch (ex) { showSignInError(ex, "Google sign-in"); }
+    try {
+      await signInWithCredential(auth, GoogleAuthProvider.credential(c));
+      if (auth.currentUser) showUser(auth.currentUser);
+    } catch (ex) { showSignInError(ex, "Google sign-in"); }
   }
 }
-{
-  const fromCookie = readPhoneGoogleCookie(document.cookie);
+async function consumePhoneGoogleReturn() {
+  if (!phoneGoogleGate.ready || phoneGoogleGate.applied) return;
   const back = readPhoneGoogleHash(takePhoneGoogleHash());
+  const fromCookie = readPhoneGoogleCookie(document.cookie);
   const cred = fromCookie || (back && back.cred) || "";
   const err = (back && back.err) || "";
-  const missing = !cred && !err && phoneGooglePending(document.cookie);
-  if (back) history.replaceState(null, "", location.pathname + location.search);
+  const search = PHONE_GIS_SEARCH || location.search || "";
+  const cameBack = phoneGoogleCameBack(search);
+  const missing = !cred && !err && (phoneGooglePending(document.cookie) || cameBack);
+  if (!cred && !err && !missing) return;
+  phoneGoogleGate.applied = true;
+  try { sessionStorage.removeItem(PHONE_GIS_STORE); } catch (e) {}
+  if (back || cameBack) history.replaceState(null, "", location.pathname + phoneGoogleRemainSearch(location.search));
   await applyPhoneGoogleCred(cred, err, missing);
 }
+phoneGoogleGate.ready = true;
+await consumePhoneGoogleReturn();
 function showSignInError(e, label) {
   const msg = (label || "Sign-in") + " failed: " + ((e && (e.message || e.code)) || "try again");
   setStatus(msg);

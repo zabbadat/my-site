@@ -90,8 +90,9 @@ export function errorHtml(message) {
 
 // Send the credential to the homepage. Do not sign in on this bounce page.
 export function handOffHtml(hash) {
-  const dest = "/#" + hash;
-  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><script>location.replace(" + JSON.stringify(dest) + ");</script></body></html>";
+  const stored = "#" + hash;
+  const dest = "/?zab_in=1#" + hash;
+  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><script>try{sessionStorage.setItem(\"zabba-gis-return\"," + JSON.stringify(stored) + ");}catch(e){}location.replace(" + JSON.stringify(dest) + ");</script></body></html>";
 }
 
 export function credHash(cred) {
@@ -104,7 +105,7 @@ export function errorHash(message) {
 
 // Bare handler loads (credential in the fragment, which the server cannot see).
 export function fragmentPage() {
-  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Signing in</title></head><body><p id=\"msg\">Signing in…</p><script>\n(function () {\n  var legacy = \"id_\" + \"tok\" + \"en\";\n  var hash = new URLSearchParams((location.hash || \"\").replace(/^#/, \"\"));\n  var query = new URLSearchParams(location.search || \"\");\n  var cred = hash.get(\"zab_gis\") || query.get(\"zab_gis\") || hash.get(legacy) || query.get(legacy) || hash.get(\"credential\") || query.get(\"credential\") || \"\";\n  var err = hash.get(\"error_description\") || query.get(\"error_description\") || hash.get(\"error\") || query.get(\"error\") || \"\";\n  if (/^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(cred)) {\n    location.replace(\"/#zab_gis=\" + encodeURIComponent(cred));\n    return;\n  }\n  if (err) {\n    location.replace(\"/#gsi_err=\" + encodeURIComponent(err));\n    return;\n  }\n  document.getElementById(\"msg\").textContent = \"Google sign-in failed: no credential was returned.\";\n})();\n</script></body></html>";
+  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Signing in</title></head><body><p id=\"msg\">Signing in…</p><script>\n(function () {\n  var legacy = \"id_\" + \"tok\" + \"en\";\n  var hash = new URLSearchParams((location.hash || \"\").replace(/^#/, \"\"));\n  var query = new URLSearchParams(location.search || \"\");\n  var cred = hash.get(\"zab_gis\") || query.get(\"zab_gis\") || hash.get(legacy) || query.get(legacy) || hash.get(\"credential\") || query.get(\"credential\") || \"\";\n  var err = hash.get(\"error_description\") || query.get(\"error_description\") || hash.get(\"error\") || query.get(\"error\") || \"\";\n  if (/^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(cred)) {\n    var next = \"#zab_gis=\" + encodeURIComponent(cred);\n    try { sessionStorage.setItem(\"zabba-gis-return\", next); } catch (e) {}\n    location.replace(\"/?zab_in=1\" + next);\n    return;\n  }\n  if (err) {\n    var bad = \"#gsi_err=\" + encodeURIComponent(err);\n    try { sessionStorage.setItem(\"zabba-gis-return\", bad); } catch (e2) {}\n    location.replace(\"/?zab_in=1\" + bad);\n    return;\n  }\n  document.getElementById(\"msg\").textContent = \"Google sign-in failed: no credential was returned.\";\n})();\n</script></body></html>";
 }
 
 export function routeHandler(method, search) {
