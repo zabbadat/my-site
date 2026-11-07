@@ -2976,7 +2976,8 @@ function mountPhoneGis() {
         ux_mode: popup ? "popup" : "redirect",
         login_uri: "https://www.zabbadat.com/__/auth/handler",
         itp_support: true,
-        auto_select: false
+        auto_select: false,
+        use_fedcm_for_button: popup
       });
       const host = $("googleBtnHost");
       if (!host) return;
