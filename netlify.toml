@@ -9,3 +9,14 @@
 # Legacy (CommonJS) functions ignore `exports.config`, so the cron schedule must be declared here (UTC).
 [functions."wager-sweep"]
   schedule = "*/5 * * * *"
+
+# Firebase Auth helper, same origin as the site (Safari 16.1+ / storage partitioning).
+# signInWithRedirect loads /__/auth/handler from authDomain. That helper must be served here,
+# not by a 301/302 to zabbadat-5f132.firebaseapp.com, or sessionStorage is blocked and Google
+# sign-in dies with "missing initial state". status 200 is Netlify's transparent reverse proxy.
+# https://firebase.google.com/docs/auth/web/redirect-best-practices (option 3).
+[[redirects]]
+  from = "/__/auth/*"
+  to = "https://zabbadat-5f132.firebaseapp.com/__/auth/:splat"
+  status = 200
+  force = true

@@ -208,7 +208,7 @@
     function show(s, d, uid, mine) { state = s; docs = d || []; me = uid || null; setMine(mine); $("bankSignIn").style.display = s === "signedout" ? "" : "none"; const was = signedIn; signedIn = s !== "signedout"; render(); paintNames(); $("bankSend").hidden = s === "signedout"; if (signedIn) $("bankSendSignIn").hidden = true; if (signedIn && !was && location.hash === "#bankSend") openSend(); }
     const firebaseConfig = {
       apiKey: "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4",
-      authDomain: "zabbadat-5f132.firebaseapp.com",
+      authDomain: "www.zabbadat.com",
       projectId: "zabbadat-5f132",
       storageBucket: "zabbadat-5f132.firebasestorage.app",
       messagingSenderId: "918223497843",
