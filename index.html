@@ -2930,22 +2930,36 @@ function readPhoneGoogleHash(hash) {
   if (!cred && !err) return null;
   return { cred: cred, err: err };
 }
+async function applyPhoneGoogleCred(cred, err, missing) {
+  const c = cred || "";
+  const e = err || "";
+  if (!c && !e && !missing) return;
+  clearPhoneGoogleCarry();
+  if (e || missing || !c) showSignInError({ message: e || "no credential was returned" }, "Google sign-in");
+  else if (!phoneGoogleCredOk(c, GOOGLE_CLIENT_ID, Date.now())) showSignInError({ message: "Google returned a credential this site cannot use." }, "Google sign-in");
+  else {
+    try { await signInWithCredential(auth, GoogleAuthProvider.credential(c)); }
+    catch (ex) { showSignInError(ex, "Google sign-in"); }
+  }
+}
+function onPhoneGisCredential(response) {
+  const cred = (response && response.credential) || "";
+  const err = (response && (response.error_description || response.error)) || "";
+  applyPhoneGoogleCred(cred, err, false);
+}
 {
   const fromCookie = readPhoneGoogleCookie(document.cookie);
   const back = readPhoneGoogleHash(location.hash);
   const cred = fromCookie || (back && back.cred) || "";
   const err = (back && back.err) || "";
   const missing = !cred && !err && phoneGooglePending(document.cookie);
-  if (cred || err || missing) {
-    if (back) history.replaceState(null, "", location.pathname + location.search);
-    clearPhoneGoogleCarry();
-    if (err || missing || !cred) showSignInError({ message: err || "no credential was returned" }, "Google sign-in");
-    else if (!phoneGoogleCredOk(cred, GOOGLE_CLIENT_ID, Date.now())) showSignInError({ message: "Google returned a credential this site cannot use." }, "Google sign-in");
-    else {
-      try { await signInWithCredential(auth, GoogleAuthProvider.credential(cred)); }
-      catch (e) { showSignInError(e, "Google sign-in"); }
-    }
-  }
+  if (back) history.replaceState(null, "", location.pathname + location.search);
+  await applyPhoneGoogleCred(cred, err, missing);
+}
+function phoneGisPopup(win, nav) {
+  const ua = String((nav && nav.userAgent) || "");
+  if (/CriOS|FxiOS|EdgiOS/.test(ua)) return false;
+  return !!(win && win.chrome);
 }
 function mountPhoneGis() {
   if (!preferPhoneGoogle(navigator)) return;
@@ -2955,24 +2969,20 @@ function mountPhoneGis() {
   s.onload = function () {
     try {
       if (!window.google || !google.accounts || !google.accounts.id) return;
+      const popup = phoneGisPopup(window, navigator);
       google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
-        ux_mode: "redirect",
+        callback: onPhoneGisCredential,
+        ux_mode: popup ? "popup" : "redirect",
         login_uri: "https://www.zabbadat.com/__/auth/handler",
         itp_support: true,
         auto_select: false
       });
       const host = $("googleBtnHost");
       if (!host) return;
-      google.accounts.id.renderButton(host, {
-        type: "standard",
-        theme: "outline",
-        size: "large",
-        text: "signin_with",
-        shape: "rectangular",
-        width: 240,
-        click_listener: markPhoneGooglePending
-      });
+      const opts = { type: "standard", theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: 240 };
+      if (!popup) opts.click_listener = markPhoneGooglePending;
+      google.accounts.id.renderButton(host, opts);
       host.dataset.on = "1";
       host.hidden = false;
       $("signInBtn").hidden = true;

@@ -27,3 +27,9 @@
 [[edge_functions]]
   function = "google-credential"
   path = "/__/auth/handler"
+
+# If Google posts the phone credential to / instead of the handler, hand it
+# to the homepage hash. Every other request continues to the site.
+[[edge_functions]]
+  function = "home-google-post"
+  path = "/"

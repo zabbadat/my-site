@@ -2,7 +2,7 @@
 // using the redirect URI that is already authorized. Firebase's /__/auth
 // sessionStorage handshake is not involved. Every other request is proxied.
 
-const CLIENT_ID = "918223497843-85hu45udu6orsllnmnj1n5k8tc6l9os1.apps.googleusercontent.com";
+export const CLIENT_ID = "918223497843-85hu45udu6orsllnmnj1n5k8tc6l9os1.apps.googleusercontent.com";
 const FIREBASE_HOST = "zabbadat-5f132.firebaseapp.com";
 const JWT = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const ID_FIELD = "id_" + "tok" + "en";
@@ -103,10 +103,17 @@ export function credCookie(cred) {
   return "zabba_gis_cred=" + encodeURIComponent(cred) + "; Path=/; Max-Age=120; Secure; SameSite=Lax";
 }
 
-function htmlResponse(html, status, cookies) {
+export function htmlResponse(html, status, cookies) {
   const headers = new Headers({ "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
   (cookies || []).forEach((c) => headers.append("set-cookie", c));
   return new Response(html, { status: status, headers: headers });
+}
+
+export function handOffResponse(decision) {
+  if (!decision || decision.action === "proxy") return null;
+  if (decision.action === "sign-in") return htmlResponse(handOffHtml(credHash(decision.cred)), 200, [credCookie(decision.cred)]);
+  if (decision.action === "error") return htmlResponse(handOffHtml(errorHash(decision.message)), 200);
+  return null;
 }
 
 export async function proxyToFirebase(request) {
