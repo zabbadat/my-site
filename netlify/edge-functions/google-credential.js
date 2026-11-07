@@ -43,7 +43,7 @@ function fieldsFromBody(bodyText) {
         cred: j.credential || j[ID_FIELD] || "",
         err: j.error_description || j.error || "",
         csrf: j[CSRF_FIELD] || "",
-        looksGis: !!(j.credential || j.clientId || j.client_id || j[ID_FIELD] || j.code || j.scope || j.session_state || j.error)
+        looksGis: !!(j.credential || j.clientId || j.client_id || j[ID_FIELD])
       };
     } catch (e) { return null; }
   }
@@ -53,7 +53,7 @@ function fieldsFromBody(bodyText) {
     cred: params.get(ID_FIELD) || params.get("credential") || "",
     err: params.get("error_description") || params.get("error") || "",
     csrf: params.get(CSRF_FIELD) || "",
-    looksGis: params.has("credential") || params.has("clientId") || params.has("client_id") || params.has(ID_FIELD) || params.has("code") || params.has("scope") || params.has("session_state") || params.has("error")
+    looksGis: params.has("credential") || params.has("clientId") || params.has("client_id") || params.has(ID_FIELD)
   };
 }
 
@@ -110,10 +110,11 @@ export function fragmentPage() {
 
 export function routeHandler(method, search) {
   const q = new URLSearchParams(String(search || "").replace(/^\?/, ""));
-  if (q.has("apiKey") || q.has("authType")) return "proxy";
-  if (method === "GET" || method === "HEAD") {
-    if (method === "GET" && (q.get(ID_FIELD) || q.get("credential"))) return "query-cred";
-    if (method === "GET" && (q.get("error") || q.get("error_description"))) return "query-error";
+  const firebase = q.has("apiKey") || q.has("authType") || q.has("code") || q.has("state") || q.has("providerId") || q.has("mode");
+  if (method === "HEAD" || firebase) return "proxy";
+  if (method === "GET") {
+    if (q.get(ID_FIELD) || q.get("credential")) return "query-cred";
+    if (q.get("error") || q.get("error_description")) return "query-error";
     return "fragment";
   }
   if (method === "POST") return "post";
