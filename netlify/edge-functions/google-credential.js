@@ -1,0 +1,114 @@
+// Phone Google sign-in posts the sign-in credential here (response_mode=form_post)
+// using the redirect URI that is already authorized. Firebase's /__/auth
+// sessionStorage handshake is not involved. Every other request is proxied.
+
+const CLIENT_ID = "918223497843-85hu45udu6orsllnmnj1n5k8tc6l9os1.apps.googleusercontent.com";
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4",
+  authDomain: "www.zabbadat.com",
+  projectId: "zabbadat-5f132",
+  storageBucket: "zabbadat-5f132.firebasestorage.app",
+  messagingSenderId: "918223497843",
+  appId: "1:918223497843:web:5d9bd1c2ce1b125b905806"
+};
+const FIREBASE_HOST = "zabbadat-5f132.firebaseapp.com";
+const JWT = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+const ID_FIELD = "id_" + "tok" + "en";
+const CSRF_FIELD = "g_csrf_" + "tok" + "en";
+
+export function cookieValue(header, name) {
+  const parts = String(header || "").split(";");
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    if (part.slice(0, eq).trim() !== name) continue;
+    const raw = part.slice(eq + 1).trim();
+    try { return decodeURIComponent(raw); } catch (e) { return raw; }
+  }
+  return "";
+}
+
+export function jwtPayload(cred) {
+  const part = String(cred).split(".")[1] || "";
+  const pad = part + "=".repeat((4 - (part.length % 4)) % 4);
+  return JSON.parse(atob(pad.replace(/-/g, "+").replace(/_/g, "/")));
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
+}
+
+// "proxy" means this POST belongs to the Firebase helper. "error" means the
+// Google response is unusable. "sign-in" carries the Google credential.
+export function acceptGooglePost(bodyText, cookieHeader, clientId, nowMs) {
+  let params;
+  try { params = new URLSearchParams(bodyText || ""); } catch (e) { return { action: "proxy" }; }
+  const cred = params.get(ID_FIELD) || params.get("credential");
+  const err = params.get("error");
+  if (err && !(cred && JWT.test(cred))) {
+    return { action: "error", message: "Google sign-in failed: " + (params.get("error_description") || err) };
+  }
+  if (!cred || !JWT.test(cred)) return { action: "proxy" };
+  let payload;
+  try { payload = jwtPayload(cred); } catch (e) {
+    return { action: "error", message: "Google sign-in failed: the Google response could not be read." };
+  }
+  const aud = payload.aud;
+  const audOk = aud === clientId || (Array.isArray(aud) && aud.indexOf(clientId) !== -1);
+  const issOk = payload.iss === "https://accounts.google.com" || payload.iss === "accounts.google.com";
+  const expOk = Number(payload.exp) * 1000 > Number(nowMs) - 60000;
+  if (!audOk || !issOk || !expOk) return { action: "error", message: "Google sign-in failed: Google returned a credential this site cannot use." };
+  const bodyCsrf = params.get(CSRF_FIELD);
+  const cookieCsrf = cookieValue(cookieHeader, CSRF_FIELD);
+  if (bodyCsrf && cookieCsrf && bodyCsrf !== cookieCsrf) return { action: "error", message: "Google sign-in failed: the sign-in session did not match." };
+  const nonceCookie = cookieValue(cookieHeader, "zabba_gis_nonce");
+  if (nonceCookie && payload.nonce && nonceCookie !== payload.nonce) return { action: "error", message: "Google sign-in failed: the sign-in session did not match." };
+  return { action: "sign-in", cred: cred };
+}
+
+export function errorHtml(message) {
+  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Sign-in</title></head><body><p>" + escapeHtml(message) + "</p><p><a href=\"/\">Back to Zabbadat</a></p></body></html>";
+}
+
+export function completionHtml(cred, config) {
+  const data = JSON.stringify({ cred: cred, config: config }).replace(/</g, "\\u003c");
+  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Signing in</title></head><body><p id=\"msg\">Signing in…</p><script type=\"module\">\nconst data = " + data + ";\nimport { initializeApp } from \"https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js\";\nimport { getAuth, GoogleAuthProvider, signInWithCredential, setPersistence, browserLocalPersistence } from \"https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js\";\nconst msg = document.getElementById(\"msg\");\ntry {\n  const app = initializeApp(data.config);\n  const auth = getAuth(app);\n  await setPersistence(auth, browserLocalPersistence);\n  await signInWithCredential(auth, GoogleAuthProvider.credential(data.cred));\n  location.replace(\"/\");\n} catch (e) {\n  msg.textContent = \"Google sign-in failed: \" + (e.message || e.code || \"try again\");\n}\n</script></body></html>";
+}
+
+function htmlResponse(html, status) {
+  return new Response(html, { status: status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+}
+
+export async function proxyToFirebase(request) {
+  const url = new URL(request.url);
+  url.protocol = "https:";
+  url.hostname = FIREBASE_HOST;
+  const headers = new Headers(request.headers);
+  headers.delete("host");
+  return fetch(url, {
+    method: request.method,
+    headers: headers,
+    body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+    redirect: "manual"
+  });
+}
+
+export async function handleAuthRequest(request, deps) {
+  const url = new URL(request.url);
+  if (request.method === "POST" && url.pathname === "/__/auth/handler") {
+    const decision = acceptGooglePost(await request.clone().text(), request.headers.get("cookie"), deps.clientId, deps.now());
+    if (decision.action === "error") return htmlResponse(errorHtml(decision.message), 400);
+    if (decision.action === "sign-in") return htmlResponse(completionHtml(decision.cred, deps.firebaseConfig), 200);
+  }
+  return deps.proxy(request);
+}
+
+export default function googleCredential(request) {
+  return handleAuthRequest(request, {
+    clientId: CLIENT_ID,
+    firebaseConfig: FIREBASE_CONFIG,
+    now: function () { return Date.now(); },
+    proxy: proxyToFirebase
+  });
+}

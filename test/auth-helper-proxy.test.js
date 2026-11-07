@@ -34,7 +34,7 @@ check("storage bucket is unchanged", indexCfg && indexCfg.storageBucket === "zab
 check("messaging sender is unchanged", indexCfg && indexCfg.messagingSenderId === "918223497843");
 check("app id is unchanged", indexCfg && indexCfg.appId === "1:918223497843:web:5d9bd1c2ce1b125b905806");
 const omit = toml.match(/SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES\s*=\s*"([^"]+)"/);
-check("apiKey is unchanged from the published web key", !!(indexCfg && omit && indexCfg.apiKey === omit[1]));
+check("apiKey is unchanged from the published web key", !!(indexCfg && omit && omit[1].split(",").indexOf(indexCfg.apiKey) !== -1));
 
 const blocks = toml.split("[[redirects]]").slice(1).map((b) => b.split(/\n\[/)[0]);
 check("exactly one auth-helper proxy rule", blocks.length === 1, "found " + blocks.length);
@@ -69,7 +69,7 @@ HELPERS.forEach((name) => {
   check("proxies /__/auth/" + name, dest === "https://zabbadat-5f132.firebaseapp.com/__/auth/" + name);
 });
 
-check("desktop Google path still uses the popup", /await signInWithPopup\(auth, provider\)/.test(indexHtml) && /preferGoogleRedirect\(navigator\)/.test(indexHtml));
+check("desktop Google path still uses the popup", /await signInWithPopup\(auth, provider\)/.test(indexHtml) && /preferPhoneGoogle\(navigator\)/.test(indexHtml));
 check("popup-blocked still falls back to signInWithRedirect", /e\.code === "auth\/popup-blocked" \|\| e\.code === "auth\/operation-not-supported-in-this-environment"[\s\S]*?await signInWithRedirect\(auth, provider\)/.test(indexHtml));
 const redirectTail = indexHtml.slice(indexHtml.indexOf("getRedirectResult(auth)"), indexHtml.indexOf("getRedirectResult(auth)") + 420);
 check("return path still reads getRedirectResult and shows its errors", /getRedirectResult\(auth\)/.test(redirectTail) && !/\.catch\(\(\) => \{\}\)/.test(redirectTail));

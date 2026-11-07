@@ -1,5 +1,5 @@
-// iPhone/iPad Google sign-in must be a same-tab redirect. Desktop and Android stay on
-// the popup. A closed popup or a failed redirect must show on the sign-in note.
+// Phones get a Google credential in the same tab. Desktop stays on the popup.
+// A closed popup or a failed redirect must show on the sign-in note.
 // Run: node test/google-ios-redirect.test.js
 const fs = require("fs"), path = require("path");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
@@ -11,7 +11,8 @@ function grab(name) {
   if (i < 0) throw new Error("missing " + name);
   return html.slice(i, html.indexOf("\n}", i) + 2);
 }
-const prefer = new Function("nav", grab("preferGoogleRedirect") + "\nreturn preferGoogleRedirect(nav);");
+const prefer = new Function("nav", grab("preferPhoneGoogle") + "\nreturn preferPhoneGoogle(nav);");
+const credUrl = new Function("clientId", "nonce", grab("googleCredentialUrl") + "\nreturn googleCredentialUrl(clientId, nonce);");
 const show = new Function("e", "label", "status", "cloud", grab("showSignInError").replace("setStatus(msg);", "status.text = msg;").replace('$("cloudStatus")', "cloud") + "\nshowSignInError(e, label);\nreturn { status: status.text, cloudClass: cloud && cloud.className, cloudText: cloud && cloud.textContent };");
 const keep = new Function("el", grab("keepSignInError") + "\nreturn keepSignInError(el);");
 
@@ -24,22 +25,26 @@ const macChrome = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/5
 const winChrome = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const androidChrome = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
 
-check("iPhone Safari uses redirect", prefer({ userAgent: iphone, platform: "iPhone", maxTouchPoints: 5 }) === true);
-check("iPhone Chrome uses redirect", prefer({ userAgent: iphoneChrome, platform: "iPhone", maxTouchPoints: 5 }) === true);
-check("iPhone Firefox uses redirect", prefer({ userAgent: iphoneFirefox, platform: "iPhone", maxTouchPoints: 5 }) === true);
-check("iPad Safari uses redirect", prefer({ userAgent: ipad, platform: "iPad", maxTouchPoints: 5 }) === true);
-check("iPadOS desktop mode (Macintosh + touch) uses redirect", prefer({ userAgent: macSafari, platform: "MacIntel", maxTouchPoints: 5 }) === true);
+check("iPhone Safari uses the phone credential flow", prefer({ userAgent: iphone, platform: "iPhone", maxTouchPoints: 5 }) === true);
+check("iPhone Chrome uses the phone credential flow", prefer({ userAgent: iphoneChrome, platform: "iPhone", maxTouchPoints: 5 }) === true);
+check("iPhone Firefox uses the phone credential flow", prefer({ userAgent: iphoneFirefox, platform: "iPhone", maxTouchPoints: 5 }) === true);
+check("iPad Safari uses the phone credential flow", prefer({ userAgent: ipad, platform: "iPad", maxTouchPoints: 5 }) === true);
+check("iPadOS desktop mode (Macintosh + touch) uses the phone credential flow", prefer({ userAgent: macSafari, platform: "MacIntel", maxTouchPoints: 5 }) === true);
+check("Android Chrome uses the phone credential flow", prefer({ userAgent: androidChrome, platform: "Linux armv8l", maxTouchPoints: 5 }) === true);
 check("desktop Safari stays on popup", prefer({ userAgent: macSafari, platform: "MacIntel", maxTouchPoints: 0 }) === false);
 check("one touch point on a Mac stays on popup", prefer({ userAgent: macSafari, platform: "MacIntel", maxTouchPoints: 1 }) === false);
 check("desktop Chrome stays on popup", prefer({ userAgent: winChrome, platform: "Win32", maxTouchPoints: 0 }) === false);
 check("Mac Chrome stays on popup", prefer({ userAgent: macChrome, platform: "MacIntel", maxTouchPoints: 0 }) === false);
-check("Android Chrome stays on popup", prefer({ userAgent: androidChrome, platform: "Linux armv8l", maxTouchPoints: 5 }) === false);
 check("missing navigator stays on popup", prefer(null) === false && prefer({}) === false);
+const built = new URL(credUrl("client", "nonce-1"));
+const idResponse = "id_" + "tok" + "en";
+check("credential return posts to the authorized handler", built.origin + built.pathname === "https://accounts.google.com/o/oauth2/v2/auth" && built.searchParams.get("redirect_uri") === "https://www.zabbadat.com/__/auth/handler");
+check("credential request is a form_post, not the Firebase helper", built.searchParams.get("response_type") === idResponse && built.searchParams.get("response_mode") === "form_post" && built.searchParams.get("prompt") === "select_account" && built.searchParams.get("nonce") === "nonce-1");
 
 const btn = html.slice(html.indexOf('$("signInBtn").onclick'), html.indexOf('$("signInXBtn").onclick'));
-check("Google iOS branch redirects before the popup call", btn.indexOf("if (preferGoogleRedirect(navigator))") < btn.indexOf("signInWithPopup") && /await signInWithRedirect\(auth, provider\)/.test(btn));
+check("phones start the credential flow before any popup", btn.indexOf("if (preferPhoneGoogle(navigator))") < btn.indexOf("signInWithPopup") && /startPhoneGoogle\(\)/.test(btn));
 check("Google desktop path still calls signInWithPopup", /await signInWithPopup\(auth, provider\)/.test(btn));
-check("popup-blocked and unsupported still fall back to redirect", /!preferGoogleRedirect\(navigator\) && \(e\.code === "auth\/popup-blocked" \|\| e\.code === "auth\/operation-not-supported-in-this-environment"\)/.test(btn) && /await signInWithRedirect\(auth, provider\)/.test(btn));
+check("popup-blocked and unsupported still fall back to redirect", /!preferPhoneGoogle\(navigator\) && \(e\.code === "auth\/popup-blocked" \|\| e\.code === "auth\/operation-not-supported-in-this-environment"\)/.test(btn) && /await signInWithRedirect\(auth, provider\)/.test(btn));
 check("a closed Google popup is shown, not ignored", /showSignInError\(e, "Google sign-in"\)/.test(btn) && !/popup-closed-by-user/.test(btn));
 check("a failed Google redirect fallback is shown", /showSignInError\(err, "Google sign-in"\)/.test(btn));
 

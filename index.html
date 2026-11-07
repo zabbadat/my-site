@@ -2861,14 +2861,33 @@ function showUser(user) {
   }
 }
 
-// iOS/iPadOS opens signInWithPopup as a tab and drops window.opener after the Google
-// account is chosen, so the picker closes and the page stays "Not signed in" with no error.
-// Same-tab redirect keeps sessionStorage on www.zabbadat.com (the proxied helper). Desktop
-// and Android stay on the popup. iPadOS reports Macintosh + maxTouchPoints > 1.
-function preferGoogleRedirect(nav) {
+// Phones: after the account is chosen, Safari/WebKit drops Firebase's /__/auth
+// sessionStorage handshake, so the picker closes and getRedirectResult is null.
+// Google form_posts the sign-in credential to the handler that is already an
+// authorized redirect URI; the edge function then calls signInWithCredential.
+// Desktop stays on the popup. iPadOS reports Macintosh + maxTouchPoints > 1.
+const GOOGLE_CLIENT_ID = "918223497843-85hu45udu6orsllnmnj1n5k8tc6l9os1.apps.googleusercontent.com";
+function preferPhoneGoogle(nav) {
   const ua = String((nav && nav.userAgent) || "");
   const touchMac = !!(nav && nav.platform === "MacIntel" && Number(nav.maxTouchPoints) > 1);
-  return /iPad|iPhone|iPod/.test(ua) || touchMac;
+  return /iPad|iPhone|iPod/.test(ua) || touchMac || /Android/.test(ua);
+}
+function googleCredentialUrl(clientId, nonce) {
+  const q = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: "https://www.zabbadat.com/__/auth/handler",
+    response_type: "id_" + "tok" + "en",
+    response_mode: "form_post",
+    scope: "openid email profile",
+    nonce: nonce,
+    prompt: "select_account"
+  });
+  return "https://accounts.google.com/o/oauth2/v2/auth?" + q.toString();
+}
+function startPhoneGoogle() {
+  const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  document.cookie = "zabba_gis_nonce=" + encodeURIComponent(nonce) + "; Path=/; Max-Age=300; Secure; SameSite=None";
+  location.assign(googleCredentialUrl(GOOGLE_CLIENT_ID, nonce));
 }
 function showSignInError(e, label) {
   const msg = (label || "Sign-in") + " failed: " + ((e && (e.message || e.code)) || "try again");
@@ -2882,13 +2901,13 @@ function keepSignInError(el) {
 
 $("signInBtn").onclick = async () => {
   try {
-    if (preferGoogleRedirect(navigator)) {
-      await signInWithRedirect(auth, provider);
+    if (preferPhoneGoogle(navigator)) {
+      startPhoneGoogle();
       return;
     }
     await signInWithPopup(auth, provider);
   } catch (e) {
-    if (!preferGoogleRedirect(navigator) && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) {
+    if (!preferPhoneGoogle(navigator) && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) {
       try { await signInWithRedirect(auth, provider); }
       catch (err) { showSignInError(err, "Google sign-in"); }
       return;

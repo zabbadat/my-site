@@ -3,7 +3,7 @@
 # detection to ignore it so builds don't fail. The real secret
 # (FIREBASE_SERVICE_ACCOUNT) is only a Netlify env var, never in the repo.
 [build.environment]
-  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4"
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4,918223497843-85hu45udu6orsllnmnj1n5k8tc6l9os1.apps.googleusercontent.com"
 
 # wager-sweep settles / refunds open ZAB wagers nobody settled (silent players, rooms that never started).
 # Legacy (CommonJS) functions ignore `exports.config`, so the cron schedule must be declared here (UTC).
@@ -20,3 +20,10 @@
   to = "https://zabbadat-5f132.firebaseapp.com/__/auth/:splat"
   status = 200
   force = true
+
+# Phone Google sign-in: Google form_posts the sign-in credential to the
+# already-authorized handler. This function exchanges it for a Firebase session.
+# Other handler traffic is still proxied to Firebase.
+[[edge_functions]]
+  function = "google-credential"
+  path = "/__/auth/handler"
