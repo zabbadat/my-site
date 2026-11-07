@@ -42,11 +42,8 @@ check("credential return posts to the authorized handler", built.origin + built.
 check("credential request is a form_post, not the Firebase helper", built.searchParams.get("response_type") === idResponse && built.searchParams.get("response_mode") === "form_post" && built.searchParams.get("prompt") === "select_account" && built.searchParams.get("nonce") === "nonce-1");
 
 const btn = html.slice(html.indexOf('$("signInBtn").onclick'), html.indexOf('$("signInXBtn").onclick'));
-check("phones start the credential flow before any popup", btn.indexOf("if (preferPhoneGoogle(navigator))") < btn.indexOf("signInWithPopup") && /startPhoneGoogle\(\)/.test(btn));
-check("Google desktop path still calls signInWithPopup", /await signInWithPopup\(auth, provider\)/.test(btn));
-check("popup-blocked and unsupported still fall back to redirect", /!preferPhoneGoogle\(navigator\) && \(e\.code === "auth\/popup-blocked" \|\| e\.code === "auth\/operation-not-supported-in-this-environment"\)/.test(btn) && /await signInWithRedirect\(auth, provider\)/.test(btn));
-check("a closed Google popup is shown, not ignored", /showSignInError\(e, "Google sign-in"\)/.test(btn) && !/popup-closed-by-user/.test(btn));
-check("a failed Google redirect fallback is shown", /showSignInError\(err, "Google sign-in"\)/.test(btn));
+check("Google uses the same-tab credential flow", /startPhoneGoogle\(\)/.test(btn) && !/signInWithPopup/.test(btn) && !/signInWithRedirect/.test(btn));
+check("a Google start failure is shown", /showSignInError\(e, "Google sign-in"\)/.test(btn));
 
 const xbtn = html.slice(html.indexOf('$("signInXBtn").onclick'), html.indexOf("let eaMode"));
 check("a closed X popup is shown", /showSignInError\(e, "X sign-in"\)/.test(xbtn) && !/return;\s*\}\s*setStatus\("X sign-in failed/.test(xbtn));

@@ -69,8 +69,8 @@ HELPERS.forEach((name) => {
   check("proxies /__/auth/" + name, dest === "https://zabbadat-5f132.firebaseapp.com/__/auth/" + name);
 });
 
-check("desktop Google path still uses the popup", /await signInWithPopup\(auth, provider\)/.test(indexHtml) && /preferPhoneGoogle\(navigator\)/.test(indexHtml));
-check("popup-blocked still falls back to signInWithRedirect", /e\.code === "auth\/popup-blocked" \|\| e\.code === "auth\/operation-not-supported-in-this-environment"[\s\S]*?await signInWithRedirect\(auth, provider\)/.test(indexHtml));
+check("Google sign-in uses the same-tab credential return", /startPhoneGoogle\(\)/.test(indexHtml) && !/signInWithPopup\(auth, provider\)/.test(indexHtml));
+check("X popup-blocked still falls back to signInWithRedirect", /e\.code === "auth\/popup-blocked" \|\| e\.code === "auth\/operation-not-supported-in-this-environment"[\s\S]*?await signInWithRedirect\(auth, xProvider\)/.test(indexHtml));
 const redirectTail = indexHtml.slice(indexHtml.indexOf("getRedirectResult(auth)"), indexHtml.indexOf("getRedirectResult(auth)") + 420);
 check("return path still reads getRedirectResult and shows its errors", /getRedirectResult\(auth\)/.test(redirectTail) && !/\.catch\(\(\) => \{\}\)/.test(redirectTail));
 

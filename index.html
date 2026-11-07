@@ -2988,17 +2988,8 @@ function keepSignInError(el) {
 
 $("signInBtn").onclick = async () => {
   try {
-    if (preferPhoneGoogle(navigator)) {
-      startPhoneGoogle();
-      return;
-    }
-    await signInWithPopup(auth, provider);
+    startPhoneGoogle();
   } catch (e) {
-    if (!preferPhoneGoogle(navigator) && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) {
-      try { await signInWithRedirect(auth, provider); }
-      catch (err) { showSignInError(err, "Google sign-in"); }
-      return;
-    }
     showSignInError(e, "Google sign-in");
   }
 };
