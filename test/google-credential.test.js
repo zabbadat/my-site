@@ -91,7 +91,7 @@ check("edge function uses the same client id", edgeSrc.indexOf(pageId) > 0);
   check("pending phone return with no credential is an error", pending("zabba_gis_pending=1") === true && pending("") === false && /no credential was returned/.test(html));
   check("homepage can read the credential cookie", readCookie("zabba_gis_cred=" + encodeURIComponent(cred)) === cred);
   check("the site button is unchanged and phones use it", /<button class="btn" id="signInBtn" type="button">Sign in with Google<\/button>/.test(html) && !/googleBtnHost/.test(html) && !/renderButton/.test(html) && /if \(preferPhoneGoogle\(navigator\)\) \{\s*startPhoneGoogle\(\);/.test(html));
-  check("site sends same-origin-allow-popups and not COEP", /\[\[headers\]\][\s\S]*for = "\/\*"[\s\S]*Cross-Origin-Opener-Policy = "same-origin-allow-popups"/.test(toml) && !/Cross-Origin-Embedder-Policy/.test(toml) && !/Cross-Origin-Opener-Policy = "same-origin"\s*$/m.test(toml));
+  check("site does not send an opener or embedder policy", !/Cross-Origin-Opener-Policy/.test(toml) && !/Cross-Origin-Embedder-Policy/.test(toml));
   check("desktop popup call is still present", /await signInWithPopup\(auth, provider\)/.test(html));
   check("netlify runs the handler edge function", /\[\[edge_functions\]\][\s\S]*function = "google-credential"[\s\S]*path = "\/__\/auth\/handler"/.test(toml));
 

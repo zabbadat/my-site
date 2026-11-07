@@ -33,10 +33,3 @@
 [[edge_functions]]
   function = "home-google-post"
   path = "/"
-
-# GIS popup postMessage is blocked unless the opener allows popups.
-# same-origin-allow-popups only. Do not set same-origin or COEP.
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
