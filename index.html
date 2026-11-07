@@ -688,7 +688,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="note" id="zabBalanceRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Balance: <span id="zabaBal" style="color:var(--accent-2)">0</span> <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></div>
         <div class="note" style="margin:0">Google or X sign-in keeps your board name consistent.</div>
       </div>
-      <span id="googleBtnHost" hidden></span>
       <button class="btn" id="signInBtn" type="button">Sign in with Google</button>
       <button class="btn ghost" id="signInXBtn" type="button">Sign in with X</button>
       <button class="btn ghost" id="signOutBtn" type="button" hidden>Sign out</button>
@@ -1282,6 +1281,9 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/washers-arcade.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
+    const PHONE_GIS_HASH = (typeof location !== "undefined" && location.hash) || "";
+    const PHONE_GIS_STORE = "zabba-gis-return";
+    try { if (PHONE_GIS_HASH.length > 1) sessionStorage.setItem(PHONE_GIS_STORE, PHONE_GIS_HASH); } catch (e) {}
     const firebaseConfig = {
       apiKey: "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4",
       authDomain: "www.zabbadat.com",
@@ -2823,7 +2825,6 @@ function showUser(user) {
     $("player").disabled = false;
     if (!$("player").value.trim()) $("player").value = displayNameOf(user);
     $("signInBtn").hidden = true;
-    if ($("googleBtnHost")) $("googleBtnHost").hidden = true;
     $("signInXBtn").hidden = true;
     $("emailAuth").hidden = true;
     $("playSignInLead").hidden = true;
@@ -2848,10 +2849,7 @@ function showUser(user) {
     $("whoName").textContent = "Not signed in";
             $("player").value = "";
     $("player").disabled = true;
-    const gisHost = $("googleBtnHost");
-    const gisOn = !!(gisHost && gisHost.dataset.on === "1");
-    $("signInBtn").hidden = gisOn;
-    if (gisHost) gisHost.hidden = !gisOn;
+    $("signInBtn").hidden = false;
     $("signInXBtn").hidden = false;
     $("emailAuth").hidden = false;
     $("playSignInLead").hidden = false;
@@ -2923,12 +2921,19 @@ function phoneGoogleCredOk(cred, clientId, nowMs) {
   } catch (e) { return false; }
 }
 function readPhoneGoogleHash(hash) {
-  const field = "id_" + "tok" + "en";
+  const legacy = "id_" + "tok" + "en";
   const params = new URLSearchParams(String(hash || "").replace(/^#/, ""));
-  const cred = params.get(field) || params.get("credential") || "";
+  const cred = params.get("zab_gis") || params.get(legacy) || params.get("credential") || "";
   const err = params.get("gsi_err") || "";
   if (!cred && !err) return null;
   return { cred: cred, err: err };
+}
+function takePhoneGoogleHash() {
+  let saved = "";
+  try { saved = sessionStorage.getItem(PHONE_GIS_STORE) || ""; } catch (e) {}
+  const hash = PHONE_GIS_HASH || saved || location.hash || "";
+  try { sessionStorage.removeItem(PHONE_GIS_STORE); } catch (e) {}
+  return hash;
 }
 async function applyPhoneGoogleCred(cred, err, missing) {
   const c = cred || "";
@@ -2942,56 +2947,15 @@ async function applyPhoneGoogleCred(cred, err, missing) {
     catch (ex) { showSignInError(ex, "Google sign-in"); }
   }
 }
-function onPhoneGisCredential(response) {
-  const cred = (response && response.credential) || "";
-  const err = (response && (response.error_description || response.error)) || "";
-  applyPhoneGoogleCred(cred, err, false);
-}
 {
   const fromCookie = readPhoneGoogleCookie(document.cookie);
-  const back = readPhoneGoogleHash(location.hash);
+  const back = readPhoneGoogleHash(takePhoneGoogleHash());
   const cred = fromCookie || (back && back.cred) || "";
   const err = (back && back.err) || "";
   const missing = !cred && !err && phoneGooglePending(document.cookie);
   if (back) history.replaceState(null, "", location.pathname + location.search);
   await applyPhoneGoogleCred(cred, err, missing);
 }
-function phoneGisPopup(win, nav) {
-  const ua = String((nav && nav.userAgent) || "");
-  if (/iPhone|iPad|iPod|CriOS|FxiOS|EdgiOS/.test(ua)) return false;
-  return !!(win && win.chrome);
-}
-function mountPhoneGis() {
-  if (!preferPhoneGoogle(navigator)) return;
-  const s = document.createElement("script");
-  s.src = "https://accounts.google.com/gsi/client";
-  s.async = true;
-  s.onload = function () {
-    try {
-      if (!window.google || !google.accounts || !google.accounts.id) return;
-      const popup = phoneGisPopup(window, navigator);
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: onPhoneGisCredential,
-        ux_mode: popup ? "popup" : "redirect",
-        login_uri: "https://www.zabbadat.com/__/auth/handler",
-        itp_support: true,
-        auto_select: false,
-        use_fedcm_for_button: popup
-      });
-      const host = $("googleBtnHost");
-      if (!host) return;
-      const opts = { type: "standard", theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: 240 };
-      if (!popup) opts.click_listener = markPhoneGooglePending;
-      google.accounts.id.renderButton(host, opts);
-      host.dataset.on = "1";
-      host.hidden = false;
-      $("signInBtn").hidden = true;
-    } catch (e) {}
-  };
-  document.head.appendChild(s);
-}
-mountPhoneGis();
 function showSignInError(e, label) {
   const msg = (label || "Sign-in") + " failed: " + ((e && (e.message || e.code)) || "try again");
   setStatus(msg);

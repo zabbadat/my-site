@@ -6,6 +6,7 @@ export const CLIENT_ID = "918223497843-85hu45udu6orsllnmnj1n5k8tc6l9os1.apps.goo
 const FIREBASE_HOST = "zabbadat-5f132.firebaseapp.com";
 const JWT = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const ID_FIELD = "id_" + "tok" + "en";
+const HANDOFF_FIELD = "zab_gis";
 const CSRF_FIELD = "g_csrf_" + "tok" + "en";
 
 export function cookieValue(header, name) {
@@ -33,18 +34,38 @@ function escapeHtml(s) {
 
 // "proxy" means this POST belongs to the Firebase helper. "error" means the
 // Google response is unusable. "sign-in" carries the Google credential.
-export function acceptGooglePost(bodyText, cookieHeader, clientId, nowMs) {
+function fieldsFromBody(bodyText) {
+  const raw = String(bodyText || "").trim();
+  if (raw.charAt(0) === "{") {
+    try {
+      const j = JSON.parse(raw);
+      return {
+        cred: j.credential || j[ID_FIELD] || "",
+        err: j.error_description || j.error || "",
+        csrf: j[CSRF_FIELD] || "",
+        looksGis: !!(j.credential || j.clientId || j.client_id || j[ID_FIELD] || j.code || j.scope || j.session_state || j.error)
+      };
+    } catch (e) { return null; }
+  }
   let params;
-  try { params = new URLSearchParams(bodyText || ""); } catch (e) { return { action: "proxy" }; }
-  const cred = params.get(ID_FIELD) || params.get("credential");
-  const err = params.get("error");
-  if (err && !(cred && JWT.test(cred))) {
-    return { action: "error", message: "Google sign-in failed: " + (params.get("error_description") || err) };
+  try { params = new URLSearchParams(raw); } catch (e) { return null; }
+  return {
+    cred: params.get(ID_FIELD) || params.get("credential") || "",
+    err: params.get("error_description") || params.get("error") || "",
+    csrf: params.get(CSRF_FIELD) || "",
+    looksGis: params.has("credential") || params.has("clientId") || params.has("client_id") || params.has(ID_FIELD) || params.has("code") || params.has("scope") || params.has("session_state") || params.has("error")
+  };
+}
+
+export function acceptGooglePost(bodyText, cookieHeader, clientId, nowMs) {
+  const fields = fieldsFromBody(bodyText);
+  if (!fields) return { action: "proxy" };
+  const cred = fields.cred;
+  if (fields.err && !(cred && JWT.test(cred))) {
+    return { action: "error", message: "Google sign-in failed: " + fields.err };
   }
   if (!cred || !JWT.test(cred)) {
-    if (params.has("code") || params.has("scope") || params.has("session_state") || params.has("error")) {
-      return { action: "error", message: "no credential was returned" };
-    }
+    if (fields.looksGis) return { action: "error", message: "no credential was returned" };
     return { action: "proxy" };
   }
   let payload;
@@ -56,9 +77,8 @@ export function acceptGooglePost(bodyText, cookieHeader, clientId, nowMs) {
   const issOk = payload.iss === "https://accounts.google.com" || payload.iss === "accounts.google.com";
   const expOk = Number(payload.exp) * 1000 > Number(nowMs) - 60000;
   if (!audOk || !issOk || !expOk) return { action: "error", message: "Google sign-in failed: Google returned a credential this site cannot use." };
-  const bodyCsrf = params.get(CSRF_FIELD);
   const cookieCsrf = cookieValue(cookieHeader, CSRF_FIELD);
-  if (bodyCsrf && cookieCsrf && bodyCsrf !== cookieCsrf) return { action: "error", message: "Google sign-in failed: the sign-in session did not match." };
+  if (fields.csrf && cookieCsrf && fields.csrf !== cookieCsrf) return { action: "error", message: "Google sign-in failed: the sign-in session did not match." };
   const nonceCookie = cookieValue(cookieHeader, "zabba_gis_nonce");
   if (nonceCookie && payload.nonce && nonceCookie !== payload.nonce) return { action: "error", message: "Google sign-in failed: the sign-in session did not match." };
   return { action: "sign-in", cred: cred };
@@ -75,7 +95,7 @@ export function handOffHtml(hash) {
 }
 
 export function credHash(cred) {
-  return ID_FIELD + "=" + encodeURIComponent(cred);
+  return HANDOFF_FIELD + "=" + encodeURIComponent(cred);
 }
 
 export function errorHash(message) {
@@ -84,7 +104,7 @@ export function errorHash(message) {
 
 // Bare handler loads (credential in the fragment, which the server cannot see).
 export function fragmentPage() {
-  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Signing in</title></head><body><p id=\"msg\">Signing in…</p><script>\n(function () {\n  var field = \"id_\" + \"tok\" + \"en\";\n  var hash = new URLSearchParams((location.hash || \"\").replace(/^#/, \"\"));\n  var query = new URLSearchParams(location.search || \"\");\n  var cred = hash.get(field) || query.get(field) || hash.get(\"credential\") || query.get(\"credential\") || \"\";\n  var err = hash.get(\"error_description\") || query.get(\"error_description\") || hash.get(\"error\") || query.get(\"error\") || \"\";\n  if (/^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(cred)) {\n    location.replace(\"/#\" + field + \"=\" + encodeURIComponent(cred));\n    return;\n  }\n  if (err) {\n    location.replace(\"/#gsi_err=\" + encodeURIComponent(err));\n    return;\n  }\n  document.getElementById(\"msg\").textContent = \"Google sign-in failed: no credential was returned.\";\n})();\n</script></body></html>";
+  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Signing in</title></head><body><p id=\"msg\">Signing in…</p><script>\n(function () {\n  var legacy = \"id_\" + \"tok\" + \"en\";\n  var hash = new URLSearchParams((location.hash || \"\").replace(/^#/, \"\"));\n  var query = new URLSearchParams(location.search || \"\");\n  var cred = hash.get(\"zab_gis\") || query.get(\"zab_gis\") || hash.get(legacy) || query.get(legacy) || hash.get(\"credential\") || query.get(\"credential\") || \"\";\n  var err = hash.get(\"error_description\") || query.get(\"error_description\") || hash.get(\"error\") || query.get(\"error\") || \"\";\n  if (/^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(cred)) {\n    location.replace(\"/#zab_gis=\" + encodeURIComponent(cred));\n    return;\n  }\n  if (err) {\n    location.replace(\"/#gsi_err=\" + encodeURIComponent(err));\n    return;\n  }\n  document.getElementById(\"msg\").textContent = \"Google sign-in failed: no credential was returned.\";\n})();\n</script></body></html>";
 }
 
 export function routeHandler(method, search) {
