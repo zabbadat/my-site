@@ -12,7 +12,7 @@ const zab = cb.indexOf("zabOnUser(u)");
 const snap = cb.indexOf("onSnapshot(");
 check("auth listener calls showUser before zabOnUser and before any snapshot", cb.startsWith("onAuthStateChanged(auth, (u) => { showUser(u); zabOnUser(u);") && show < zab && zab < snap, "show " + show + " zab " + zab + " snap " + snap);
 check("that listener calls showUser once", cb.split("showUser(u)").length === 2);
-check("Google popup handler is unchanged: one signInWithPopup, errors go to setStatus", /\$\("signInBtn"\)\.onclick = async \(\) => \{\s*try \{\s*await signInWithPopup\(auth, provider\);/.test(html) && /setStatus\("Google sign-in failed: "/.test(html));
+check("Google sign-in failures are shown beside the button", /\$\("signInBtn"\)\.onclick = async \(\) => \{/.test(html) && /showSignInError\(e, "Google sign-in"\)/.test(html));
 check("hidden controls stay hidden against .btn display", /\[hidden\] \{ display: none !important; \}/.test(html));
 
 // Offline order check: a synchronous throw after showUser cannot undo the session flag.

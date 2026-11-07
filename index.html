@@ -681,7 +681,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="play">
     <h2>Play pitch and post solo Zabba washers</h2>
     <p class="lead" id="playSignInLead">Sign in to post. You can still practice a game without signing in; it stays on this device only.</p>
-      <p class="note" id="cloudStatus">Play on this device. Sign in to post to the live board.</p>
+      <p class="note" id="cloudStatus" aria-live="polite">Play on this device. Sign in to post to the live board.</p>
     <div class="who" id="who">
       <div>
         <strong id="whoName">Not signed in</strong>
@@ -2853,21 +2853,47 @@ function showUser(user) {
     $("signOutBtn").hidden = true;
     const img = document.getElementById("avatar");
     if (img) img.remove();
-    $("cloudStatus").className = "note";
-    $("cloudStatus").textContent = "Live board is on. Pitch & post your legacy.";
+    if (!keepSignInError($("cloudStatus"))) {
+      $("cloudStatus").className = "note";
+      $("cloudStatus").textContent = "Live board is on. Pitch & post your legacy.";
+    }
     if ($("status").textContent === "Ready. Press start.") $("status").textContent = "Ready. Sign in, then press start.";
   }
 }
 
+// iOS/iPadOS opens signInWithPopup as a tab and drops window.opener after the Google
+// account is chosen, so the picker closes and the page stays "Not signed in" with no error.
+// Same-tab redirect keeps sessionStorage on www.zabbadat.com (the proxied helper). Desktop
+// and Android stay on the popup. iPadOS reports Macintosh + maxTouchPoints > 1.
+function preferGoogleRedirect(nav) {
+  const ua = String((nav && nav.userAgent) || "");
+  const touchMac = !!(nav && nav.platform === "MacIntel" && Number(nav.maxTouchPoints) > 1);
+  return /iPad|iPhone|iPod/.test(ua) || touchMac;
+}
+function showSignInError(e, label) {
+  const msg = (label || "Sign-in") + " failed: " + ((e && (e.message || e.code)) || "try again");
+  setStatus(msg);
+  const c = $("cloudStatus");
+  if (c) { c.className = "note err"; c.textContent = msg; }
+}
+function keepSignInError(el) {
+  return !!(el && String(el.className || "").indexOf("err") !== -1 && /sign-in failed/i.test(el.textContent || ""));
+}
+
 $("signInBtn").onclick = async () => {
   try {
-    await signInWithPopup(auth, provider);
-  } catch (e) {
-    if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
+    if (preferGoogleRedirect(navigator)) {
       await signInWithRedirect(auth, provider);
       return;
     }
-    setStatus("Google sign-in failed: " + (e.message || e.code));
+    await signInWithPopup(auth, provider);
+  } catch (e) {
+    if (!preferGoogleRedirect(navigator) && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) {
+      try { await signInWithRedirect(auth, provider); }
+      catch (err) { showSignInError(err, "Google sign-in"); }
+      return;
+    }
+    showSignInError(e, "Google sign-in");
   }
 };
 $("signInXBtn").onclick = async () => {
@@ -2880,13 +2906,11 @@ $("signInXBtn").onclick = async () => {
       return;
     }
     if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
-      await signInWithRedirect(auth, xProvider);
+      try { await signInWithRedirect(auth, xProvider); }
+      catch (err) { showSignInError(err, "X sign-in"); }
       return;
     }
-    if (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request") {
-      return;
-    }
-    setStatus("X sign-in failed: " + (e.code || "") + " " + (e.message || e));
+    showSignInError(e, "X sign-in");
   }
 };
 let eaMode = "signup";
@@ -3803,9 +3827,10 @@ $("signOutBtn").onclick = () => {
 };
 getRedirectResult(auth)
   .then((res) => {
-    if (res && res.user) setStatus("Signed in with X.");
+    if (!(res && res.user)) return;
+    setStatus(res.providerId === "twitter.com" ? "Signed in with X." : "Signed in with Google.");
   })
-  .catch(() => {});
+  .catch((e) => { showSignInError(e); });
 let dailySyncOff = null, liveWalkOff = null;
 onAuthStateChanged(auth, (u) => { showUser(u); zabOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); if (!u && wbCodeCur) wbExit(); else if (u) wbResume(u); if (!u && waCodeCur) waExit(); else if (u) waResume(u); wbPaint(); bbOnUser(u); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 $("boardAllBtn").onclick = () => {
