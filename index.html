@@ -2662,7 +2662,7 @@ if (WS && daily) {
 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js");
 const {
   getAuth, GoogleAuthProvider,TwitterAuthProvider, signInWithPopup, signInWithRedirect,
-      getRedirectResult, signOut, onAuthStateChanged,
+      signInWithCredential, getRedirectResult, signOut, onAuthStateChanged,
       createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile,
       setPersistence, browserLocalPersistence
     } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js");
@@ -2861,11 +2861,10 @@ function showUser(user) {
   }
 }
 
-// Phones: after the account is chosen, Safari/WebKit drops Firebase's /__/auth
-// sessionStorage handshake, so the picker closes and getRedirectResult is null.
-// Google form_posts the sign-in credential to the handler that is already an
-// authorized redirect URI; the edge function then calls signInWithCredential.
-// Desktop stays on the popup. iPadOS reports Macintosh + maxTouchPoints > 1.
+// Phones: after the account is chosen, Safari drops the handler page's storage,
+// so signing in on that bounce and leaving it does not stick. The handler only
+// forwards the Google credential to this page, which is where Sign in was tapped.
+// iPadOS reports Macintosh + maxTouchPoints > 1.
 const GOOGLE_CLIENT_ID = "918223497843-85hu45udu6orsllnmnj1n5k8tc6l9os1.apps.googleusercontent.com";
 function preferPhoneGoogle(nav) {
   const ua = String((nav && nav.userAgent) || "");
@@ -2888,6 +2887,39 @@ function startPhoneGoogle() {
   const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
   document.cookie = "zabba_gis_nonce=" + encodeURIComponent(nonce) + "; Path=/; Max-Age=300; Secure; SameSite=None";
   location.assign(googleCredentialUrl(GOOGLE_CLIENT_ID, nonce));
+}
+function phoneGooglePayload(cred) {
+  const part = String(cred).split(".")[1] || "";
+  const pad = part + "=".repeat((4 - (part.length % 4)) % 4);
+  return JSON.parse(atob(pad.replace(/-/g, "+").replace(/_/g, "/")));
+}
+function phoneGoogleCredOk(cred, clientId, nowMs) {
+  try {
+    const p = phoneGooglePayload(cred);
+    const audOk = p.aud === clientId || (Array.isArray(p.aud) && p.aud.indexOf(clientId) !== -1);
+    const issOk = p.iss === "https://accounts.google.com" || p.iss === "accounts.google.com";
+    return !!(audOk && issOk && Number(p.exp) * 1000 > Number(nowMs) - 60000);
+  } catch (e) { return false; }
+}
+function readPhoneGoogleHash(hash) {
+  const field = "id_" + "tok" + "en";
+  const params = new URLSearchParams(String(hash || "").replace(/^#/, ""));
+  const cred = params.get(field) || params.get("credential") || "";
+  const err = params.get("gsi_err") || "";
+  if (!cred && !err) return null;
+  return { cred: cred, err: err };
+}
+{
+  const back = readPhoneGoogleHash(location.hash);
+  if (back) {
+    history.replaceState(null, "", location.pathname + location.search);
+    if (back.err || !back.cred) showSignInError({ message: back.err || "no credential was returned" }, "Google sign-in");
+    else if (!phoneGoogleCredOk(back.cred, GOOGLE_CLIENT_ID, Date.now())) showSignInError({ message: "Google returned a credential this site cannot use." }, "Google sign-in");
+    else {
+      try { await signInWithCredential(auth, GoogleAuthProvider.credential(back.cred)); }
+      catch (e) { showSignInError(e, "Google sign-in"); }
+    }
+  }
 }
 function showSignInError(e, label) {
   const msg = (label || "Sign-in") + " failed: " + ((e && (e.message || e.code)) || "try again");

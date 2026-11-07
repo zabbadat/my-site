@@ -3,14 +3,6 @@
 // sessionStorage handshake is not involved. Every other request is proxied.
 
 const CLIENT_ID = "918223497843-85hu45udu6orsllnmnj1n5k8tc6l9os1.apps.googleusercontent.com";
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAFUns8hTulLfXvgvL4enUWRjwZCqUWqY4",
-  authDomain: "www.zabbadat.com",
-  projectId: "zabbadat-5f132",
-  storageBucket: "zabbadat-5f132.firebasestorage.app",
-  messagingSenderId: "918223497843",
-  appId: "1:918223497843:web:5d9bd1c2ce1b125b905806"
-};
 const FIREBASE_HOST = "zabbadat-5f132.firebaseapp.com";
 const JWT = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const ID_FIELD = "id_" + "tok" + "en";
@@ -71,9 +63,37 @@ export function errorHtml(message) {
   return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Sign-in</title></head><body><p>" + escapeHtml(message) + "</p><p><a href=\"/\">Back to Zabbadat</a></p></body></html>";
 }
 
-export function completionHtml(cred, config) {
-  const data = JSON.stringify({ cred: cred, config: config }).replace(/</g, "\\u003c");
-  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Signing in</title></head><body><p id=\"msg\">Signing in…</p><script type=\"module\">\nconst data = " + data + ";\nimport { initializeApp } from \"https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js\";\nimport { getAuth, GoogleAuthProvider, signInWithCredential, setPersistence, browserLocalPersistence } from \"https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js\";\nconst msg = document.getElementById(\"msg\");\ntry {\n  const app = initializeApp(data.config);\n  const auth = getAuth(app);\n  await setPersistence(auth, browserLocalPersistence);\n  await signInWithCredential(auth, GoogleAuthProvider.credential(data.cred));\n  location.replace(\"/\");\n} catch (e) {\n  msg.textContent = \"Google sign-in failed: \" + (e.message || e.code || \"try again\");\n}\n</script></body></html>";
+// Send the credential to the homepage. Do not sign in on this bounce page.
+export function handOffHtml(hash) {
+  const dest = "/#" + hash;
+  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><script>location.replace(" + JSON.stringify(dest) + ");</script></body></html>";
+}
+
+export function credHash(cred) {
+  return ID_FIELD + "=" + encodeURIComponent(cred);
+}
+
+export function errorHash(message) {
+  return "gsi_err=" + encodeURIComponent(message);
+}
+
+// Bare handler loads (credential in the fragment, which the server cannot see).
+export function fragmentPage() {
+  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Signing in</title></head><body><p id=\"msg\">Signing in…</p><script>\n(function () {\n  var field = \"id_\" + \"tok\" + \"en\";\n  var hash = new URLSearchParams((location.hash || \"\").replace(/^#/, \"\"));\n  var query = new URLSearchParams(location.search || \"\");\n  var cred = hash.get(field) || query.get(field) || hash.get(\"credential\") || query.get(\"credential\") || \"\";\n  var err = hash.get(\"error_description\") || query.get(\"error_description\") || hash.get(\"error\") || query.get(\"error\") || \"\";\n  if (/^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(cred)) {\n    location.replace(\"/#\" + field + \"=\" + encodeURIComponent(cred));\n    return;\n  }\n  if (err) {\n    location.replace(\"/#gsi_err=\" + encodeURIComponent(err));\n    return;\n  }\n  document.getElementById(\"msg\").textContent = \"Google sign-in failed: no credential was returned.\";\n})();\n</script></body></html>";
+}
+
+export function routeHandler(method, search) {
+  const q = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+  const firebase = q.has("apiKey") || q.has("authType") || q.has("code") || q.has("state") || q.has("providerId") || q.has("mode");
+  if (method === "HEAD" || firebase) return "proxy";
+  if (method === "GET") {
+    if (q.get(ID_FIELD) || q.get("credential")) return "query-cred";
+    if (q.get("error") || q.get("error_description")) return "query-error";
+    if ([...q.keys()].length === 0) return "fragment";
+    return "proxy";
+  }
+  if (method === "POST") return "post";
+  return "proxy";
 }
 
 function htmlResponse(html, status) {
@@ -96,10 +116,17 @@ export async function proxyToFirebase(request) {
 
 export async function handleAuthRequest(request, deps) {
   const url = new URL(request.url);
-  if (request.method === "POST" && url.pathname === "/__/auth/handler") {
-    const decision = acceptGooglePost(await request.clone().text(), request.headers.get("cookie"), deps.clientId, deps.now());
-    if (decision.action === "error") return htmlResponse(errorHtml(decision.message), 400);
-    if (decision.action === "sign-in") return htmlResponse(completionHtml(decision.cred, deps.firebaseConfig), 200);
+  if (url.pathname !== "/__/auth/handler") return deps.proxy(request);
+  const route = routeHandler(request.method, url.search);
+  if (route === "fragment") return htmlResponse(fragmentPage(), 200);
+  if (route === "query-error") {
+    return htmlResponse(handOffHtml(errorHash(url.searchParams.get("error_description") || url.searchParams.get("error") || "Google sign-in failed")), 200);
+  }
+  if (route === "query-cred" || route === "post") {
+    const body = route === "post" ? await request.clone().text() : url.search.replace(/^\?/, "");
+    const decision = acceptGooglePost(body, request.headers.get("cookie"), deps.clientId, deps.now());
+    if (decision.action === "error") return htmlResponse(handOffHtml(errorHash(decision.message)), 200);
+    if (decision.action === "sign-in") return htmlResponse(handOffHtml(credHash(decision.cred)), 200);
   }
   return deps.proxy(request);
 }
@@ -107,7 +134,6 @@ export async function handleAuthRequest(request, deps) {
 export default function googleCredential(request) {
   return handleAuthRequest(request, {
     clientId: CLIENT_ID,
-    firebaseConfig: FIREBASE_CONFIG,
     now: function () { return Date.now(); },
     proxy: proxyToFirebase
   });
