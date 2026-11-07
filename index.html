@@ -688,6 +688,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="note" id="zabBalanceRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Balance: <span id="zabaBal" style="color:var(--accent-2)">0</span> <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></div>
         <div class="note" style="margin:0">Google or X sign-in keeps your board name consistent.</div>
       </div>
+      <span id="googleBtnHost" hidden></span>
       <button class="btn" id="signInBtn" type="button">Sign in with Google</button>
       <button class="btn ghost" id="signInXBtn" type="button">Sign in with X</button>
       <button class="btn ghost" id="signOutBtn" type="button" hidden>Sign out</button>
@@ -2822,6 +2823,7 @@ function showUser(user) {
     $("player").disabled = false;
     if (!$("player").value.trim()) $("player").value = displayNameOf(user);
     $("signInBtn").hidden = true;
+    if ($("googleBtnHost")) $("googleBtnHost").hidden = true;
     $("signInXBtn").hidden = true;
     $("emailAuth").hidden = true;
     $("playSignInLead").hidden = true;
@@ -2846,7 +2848,10 @@ function showUser(user) {
     $("whoName").textContent = "Not signed in";
             $("player").value = "";
     $("player").disabled = true;
-    $("signInBtn").hidden = false;
+    const gisHost = $("googleBtnHost");
+    const gisOn = !!(gisHost && gisHost.dataset.on === "1");
+    $("signInBtn").hidden = gisOn;
+    if (gisHost) gisHost.hidden = !gisOn;
     $("signInXBtn").hidden = false;
     $("emailAuth").hidden = false;
     $("playSignInLead").hidden = false;
@@ -2885,8 +2890,24 @@ function googleCredentialUrl(clientId, nonce) {
 }
 function startPhoneGoogle() {
   const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  markPhoneGooglePending();
   document.cookie = "zabba_gis_nonce=" + encodeURIComponent(nonce) + "; Path=/; Max-Age=300; Secure; SameSite=None";
   location.assign(googleCredentialUrl(GOOGLE_CLIENT_ID, nonce));
+}
+function markPhoneGooglePending() {
+  document.cookie = "zabba_gis_pending=1; Path=/; Max-Age=300; Secure; SameSite=None";
+}
+function clearPhoneGoogleCarry() {
+  document.cookie = "zabba_gis_pending=; Path=/; Max-Age=0; Secure; SameSite=None";
+  document.cookie = "zabba_gis_cred=; Path=/; Max-Age=0; Secure; SameSite=Lax";
+}
+function phoneGooglePending(cookie) {
+  return /(?:^|; )zabba_gis_pending=1(?:;|$)/.test(String(cookie || ""));
+}
+function readPhoneGoogleCookie(cookie) {
+  const m = String(cookie || "").match(/(?:^|; )zabba_gis_cred=([^;]*)/);
+  if (!m) return "";
+  try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
 }
 function phoneGooglePayload(cred) {
   const part = String(cred).split(".")[1] || "";
@@ -2910,17 +2931,56 @@ function readPhoneGoogleHash(hash) {
   return { cred: cred, err: err };
 }
 {
+  const fromCookie = readPhoneGoogleCookie(document.cookie);
   const back = readPhoneGoogleHash(location.hash);
-  if (back) {
-    history.replaceState(null, "", location.pathname + location.search);
-    if (back.err || !back.cred) showSignInError({ message: back.err || "no credential was returned" }, "Google sign-in");
-    else if (!phoneGoogleCredOk(back.cred, GOOGLE_CLIENT_ID, Date.now())) showSignInError({ message: "Google returned a credential this site cannot use." }, "Google sign-in");
+  const cred = fromCookie || (back && back.cred) || "";
+  const err = (back && back.err) || "";
+  const missing = !cred && !err && phoneGooglePending(document.cookie);
+  if (cred || err || missing) {
+    if (back) history.replaceState(null, "", location.pathname + location.search);
+    clearPhoneGoogleCarry();
+    if (err || missing || !cred) showSignInError({ message: err || "no credential was returned" }, "Google sign-in");
+    else if (!phoneGoogleCredOk(cred, GOOGLE_CLIENT_ID, Date.now())) showSignInError({ message: "Google returned a credential this site cannot use." }, "Google sign-in");
     else {
-      try { await signInWithCredential(auth, GoogleAuthProvider.credential(back.cred)); }
+      try { await signInWithCredential(auth, GoogleAuthProvider.credential(cred)); }
       catch (e) { showSignInError(e, "Google sign-in"); }
     }
   }
 }
+function mountPhoneGis() {
+  if (!preferPhoneGoogle(navigator)) return;
+  const s = document.createElement("script");
+  s.src = "https://accounts.google.com/gsi/client";
+  s.async = true;
+  s.onload = function () {
+    try {
+      if (!window.google || !google.accounts || !google.accounts.id) return;
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        ux_mode: "redirect",
+        login_uri: "https://www.zabbadat.com/__/auth/handler",
+        itp_support: true,
+        auto_select: false
+      });
+      const host = $("googleBtnHost");
+      if (!host) return;
+      google.accounts.id.renderButton(host, {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        shape: "rectangular",
+        width: 240,
+        click_listener: markPhoneGooglePending
+      });
+      host.dataset.on = "1";
+      host.hidden = false;
+      $("signInBtn").hidden = true;
+    } catch (e) {}
+  };
+  document.head.appendChild(s);
+}
+mountPhoneGis();
 function showSignInError(e, label) {
   const msg = (label || "Sign-in") + " failed: " + ((e && (e.message || e.code)) || "try again");
   setStatus(msg);

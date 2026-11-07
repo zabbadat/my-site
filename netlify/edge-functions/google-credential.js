@@ -41,7 +41,12 @@ export function acceptGooglePost(bodyText, cookieHeader, clientId, nowMs) {
   if (err && !(cred && JWT.test(cred))) {
     return { action: "error", message: "Google sign-in failed: " + (params.get("error_description") || err) };
   }
-  if (!cred || !JWT.test(cred)) return { action: "proxy" };
+  if (!cred || !JWT.test(cred)) {
+    if (params.has("code") || params.has("scope") || params.has("session_state") || params.has("error")) {
+      return { action: "error", message: "no credential was returned" };
+    }
+    return { action: "proxy" };
+  }
   let payload;
   try { payload = jwtPayload(cred); } catch (e) {
     return { action: "error", message: "Google sign-in failed: the Google response could not be read." };
@@ -84,20 +89,24 @@ export function fragmentPage() {
 
 export function routeHandler(method, search) {
   const q = new URLSearchParams(String(search || "").replace(/^\?/, ""));
-  const firebase = q.has("apiKey") || q.has("authType") || q.has("code") || q.has("state") || q.has("providerId") || q.has("mode");
-  if (method === "HEAD" || firebase) return "proxy";
-  if (method === "GET") {
-    if (q.get(ID_FIELD) || q.get("credential")) return "query-cred";
-    if (q.get("error") || q.get("error_description")) return "query-error";
-    if ([...q.keys()].length === 0) return "fragment";
-    return "proxy";
+  if (q.has("apiKey") || q.has("authType")) return "proxy";
+  if (method === "GET" || method === "HEAD") {
+    if (method === "GET" && (q.get(ID_FIELD) || q.get("credential"))) return "query-cred";
+    if (method === "GET" && (q.get("error") || q.get("error_description"))) return "query-error";
+    return "fragment";
   }
   if (method === "POST") return "post";
   return "proxy";
 }
 
-function htmlResponse(html, status) {
-  return new Response(html, { status: status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+export function credCookie(cred) {
+  return "zabba_gis_cred=" + encodeURIComponent(cred) + "; Path=/; Max-Age=120; Secure; SameSite=Lax";
+}
+
+function htmlResponse(html, status, cookies) {
+  const headers = new Headers({ "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+  (cookies || []).forEach((c) => headers.append("set-cookie", c));
+  return new Response(html, { status: status, headers: headers });
 }
 
 export async function proxyToFirebase(request) {
@@ -126,7 +135,7 @@ export async function handleAuthRequest(request, deps) {
     const body = route === "post" ? await request.clone().text() : url.search.replace(/^\?/, "");
     const decision = acceptGooglePost(body, request.headers.get("cookie"), deps.clientId, deps.now());
     if (decision.action === "error") return htmlResponse(handOffHtml(errorHash(decision.message)), 200);
-    if (decision.action === "sign-in") return htmlResponse(handOffHtml(credHash(decision.cred)), 200);
+    if (decision.action === "sign-in") return htmlResponse(handOffHtml(credHash(decision.cred)), 200, [credCookie(decision.cred)]);
   }
   return deps.proxy(request);
 }

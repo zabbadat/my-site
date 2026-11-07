@@ -44,8 +44,9 @@ check("edge function uses the same client id", edgeSrc.indexOf(pageId) > 0);
   check("handler source does not sign in on the bounce page", edgeSrc.indexOf("signInWithCredential") < 0);
   check("error page escapes markup", mod.errorHtml("<b>").indexOf("<b>") === -1 && mod.errorHtml("<b>").indexOf("&lt;b&gt;") > 0);
   check("apiKey query stays proxied", mod.routeHandler("GET", "?apiKey=1&authType=signInViaPopup") === "proxy");
-  check("code and state stay proxied", mod.routeHandler("GET", "?code=abc&state=xyz") === "proxy");
+  check("code and state are not treated as Firebase", mod.routeHandler("GET", "?code=abc&state=xyz") === "fragment");
   check("bare GET is the fragment reader", mod.routeHandler("GET", "") === "fragment");
+  check("oauth code post is a visible error", mod.acceptGooglePost("code=abc&scope=email&session_state=s", "", pageId, now).action === "error");
   check("query credential is not proxied", mod.routeHandler("GET", "?" + ID_FIELD + "=abc.def.ghi") === "query-cred");
 
   let proxied = 0;
@@ -59,7 +60,7 @@ check("edge function uses the same client id", edgeSrc.indexOf(pageId) > 0);
   check("non-credential POST is proxied", postHelper.status === 200 && proxied === 2);
   const postCred = await mod.handleAuthRequest(new Request("https://www.zabbadat.com/__/auth/handler", { method: "POST", body: ID_FIELD + "=" + cred, headers: { cookie: "zabba_gis_nonce=n1" } }), deps);
   const postBody = await postCred.text();
-  check("credential POST redirects home and does not sign in here", postCred.status === 200 && postBody.indexOf("location.replace") > 0 && postBody.indexOf(cred) > 0 && postBody.indexOf("signInWithCredential") < 0 && proxied === 2);
+  check("credential POST redirects home and does not sign in here", postCred.status === 200 && postBody.indexOf("location.replace") > 0 && postBody.indexOf(cred) > 0 && postBody.indexOf("signInWithCredential") < 0 && proxied === 2 && (postCred.headers.get("set-cookie") || "").indexOf("zabba_gis_cred=") === 0);
   const queryCred = await mod.handleAuthRequest(new Request("https://www.zabbadat.com/__/auth/handler?" + ID_FIELD + "=" + cred), deps);
   const queryBody = await queryCred.text();
   check("query credential redirects home", queryCred.status === 200 && queryBody.indexOf(cred) > 0 && proxied === 2);
@@ -74,12 +75,20 @@ check("edge function uses the same client id", edgeSrc.indexOf(pageId) > 0);
   }
   const readHash = new Function("hash", grab("readPhoneGoogleHash") + "\nreturn readPhoneGoogleHash(hash);");
   const credOk = new Function("cred", "clientId", "nowMs", grab("phoneGooglePayload") + "\n" + grab("phoneGoogleCredOk") + "\nreturn phoneGoogleCredOk(cred, clientId, nowMs);");
+  const pending = new Function("cookie", grab("phoneGooglePending") + "\nreturn phoneGooglePending(cookie);");
+  const readCookie = new Function("cookie", grab("readPhoneGoogleCookie") + "\nreturn readPhoneGoogleCookie(cookie);");
   check("homepage ignores a normal hash", readHash("#play") === null);
   check("homepage reads the forwarded credential", (readHash("#" + ID_FIELD + "=" + cred) || {}).cred === cred);
   check("homepage reads a returned error", (readHash("#gsi_err=access_denied") || {}).err === "access_denied");
   check("homepage accepts this project's credential", credOk(cred, pageId, now) === true);
   check("homepage rejects a foreign credential", credOk(jwt({ ...good, aud: "other.apps.googleusercontent.com" }), pageId, now) === false);
-  check("homepage clears the hash and signs in there", /readPhoneGoogleHash\(location\.hash\)/.test(html) && /history\.replaceState\(null, "", location\.pathname \+ location\.search\)/.test(html) && /signInWithCredential\(auth, GoogleAuthProvider\.credential\(back\.cred\)\)/.test(html));
+  check("homepage clears the hash and signs in there", /readPhoneGoogleHash\(location\.hash\)/.test(html) && /history\.replaceState\(null, "", location\.pathname \+ location\.search\)/.test(html) && /signInWithCredential\(auth, GoogleAuthProvider\.credential\(cred\)\)/.test(html));
+  check("pending phone return with no credential is an error", pending("zabba_gis_pending=1") === true && pending("") === false && /no credential was returned/.test(html));
+  check("homepage can read the credential cookie", readCookie("zabba_gis_cred=" + encodeURIComponent(cred)) === cred);
+  check("phones render the GIS redirect button", /ux_mode:\s*"redirect"/.test(html) && /itp_support:\s*true/.test(html) && /login_uri:\s*"https:\/\/www\.zabbadat\.com\/__\/auth\/handler"/.test(html) && /google\.accounts\.id\.renderButton\(/.test(html) && /click_listener:\s*markPhoneGooglePending/.test(html));
+  const gisFn = html.slice(html.indexOf("function mountPhoneGis"), html.indexOf("function showSignInError"));
+  check("GIS button is not script-clicked", gisFn.indexOf(".click(") < 0);
+  check("desktop popup call is still present", /await signInWithPopup\(auth, provider\)/.test(html));
   check("netlify runs the handler edge function", /\[\[edge_functions\]\][\s\S]*function = "google-credential"[\s\S]*path = "\/__\/auth\/handler"/.test(toml));
 
   function runFragment(loc) {
