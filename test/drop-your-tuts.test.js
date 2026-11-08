@@ -20,7 +20,7 @@ check("shared board preserves recorded order; no ranking by duration or reps; ex
 store["zabbadat-push-sessions"] = JSON.stringify(rows.map((r) => Object.assign({ who: "u1" }, r)).concat([{ category: "tut-set", reps: 999, holdMs: 9000, who: "other" }]));
 vm.runInContext("renderTutHistory()", ctx);
 check("personal recent list filters category and owner, newest first, reps + hold only", els.tutSessBody.innerHTML === '<tr><td>55</td><td>2s</td></tr><tr><td>3</td><td>7s</td></tr>');
-check("visible title drop your tuts, existing holding rule retained, board no rankTut", /<h2>Drop your tuts<\/h2>/.test(html) && html.includes("You can't fail just by holding.") && !/rankTut|sort\(/.test(fn("paintTutRows")));
+check("visible title drop your tuts, scoreboard description and holding rule retained, board no rankTut", /<h2>Drop your tuts<\/h2>/.test(html) && html.includes("The scoreboard for drop your tuts") && html.includes("drop your tuts plus a 120-second hold") && html.includes("You can't fail just by holding.") && !/rankTut|sort\(/.test(fn("paintTutRows")));
 check("Firestore board requests recorded order, not longest ms", /boardSnap\("tutBoardBody", query\(collection\(db, "pushups"\), orderBy\("createdAt", "desc"\)/.test(html));
 (async () => {
   let saved;
