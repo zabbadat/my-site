@@ -250,7 +250,7 @@
     .promo-banner { margin-top: calc(var(--navh, 4.6rem) + .2rem); padding: 1rem 1.2rem; background: var(--accent); color: #0b1410; text-align: center; display: flex; flex-wrap: wrap; gap: .6rem 1.2rem; align-items: center; justify-content: center; }
     .promo-banner p { margin: 0; font-weight: 700; line-height: 1.35; }
     .promo-banner strong { display: block; font-size: clamp(1.55rem, 6.2vw, 2.3rem); line-height: 1.12; letter-spacing: .01em; }
-    .promo-fall { display: block; width: 3.2rem; height: 2.13rem; margin: 0 auto .4rem; }
+    .promo-fall { display: block; width: 9.5rem; max-width: 100%; height: auto; margin: 0 auto .4rem; }
     .promo-banner .btn { background: #0b1410; color: var(--accent-2); border-color: #0b1410; }
     .promo-banner .btn.promo-ghost { background: transparent; color: #0b1410; border: 2px solid #0b1410; }
     .claim-wrap { position: relative; display: inline-block; margin-bottom: 2.4rem; }
@@ -265,9 +265,11 @@
     .hero {
       min-height: 80vh; display: flex; flex-direction: column; justify-content: center;
       padding: 8rem 8% 4rem;
-      background:
+      background-image:
+        repeating-linear-gradient(135deg, rgba(215,232,222,.045) 0 1px, transparent 1px 12px),
         radial-gradient(ellipse at 75% 0%, rgba(143,191,168,.14), transparent 48%),
-        radial-gradient(ellipse at 0% 100%, rgba(143,191,168,.06), transparent 42%);
+        radial-gradient(ellipse at 0% 100%, rgba(143,191,168,.06), transparent 42%),
+        linear-gradient(180deg, rgba(143,191,168,.025), transparent 75%);
     }
     .eyebrow { letter-spacing: .32em; text-transform: uppercase; font-size: .72rem; color: var(--accent); margin-bottom: 1.2rem; }
     .aka { color: var(--muted); font-size: .85rem; margin: .6rem 0 0; }
@@ -314,7 +316,14 @@
     }
     .btn.ghost { background: transparent; color: var(--text); border: 1px solid rgba(239,244,241,.22); }
     .btn.danger { background: transparent; color: var(--warn); border: 1px solid rgba(226,179,106,.4); }
-    section { padding: 4.4rem 8%; }
+    /* Texture is the top background layer, never an overlay over content. */
+    section {
+      padding: 4.4rem 8%;
+      background-image:
+        repeating-linear-gradient(135deg, rgba(215,232,222,.045) 0 1px, transparent 1px 12px),
+        radial-gradient(ellipse at 15% 15%, rgba(143,191,168,.075), transparent 62%),
+        linear-gradient(180deg, rgba(143,191,168,.025), transparent 75%);
+    }
     /* anchor jumps (#battles etc.) land below the fixed header instead of under it */
     /* --navh is the live nav height (set by JS; 120px on wrapped phone nav) */
     html { scroll-padding-top: calc(var(--navh, 4.5rem) + .5rem); }
@@ -334,7 +343,14 @@
     .plank-outline.run { opacity: .3; }
     .ok { color: var(--accent); }
     .bad { color: var(--warn); }
-    .washers { background: var(--bg-2); }
+    .washers {
+      background-color: var(--bg-2);
+      background-image:
+        repeating-linear-gradient(135deg, rgba(215,232,222,.045) 0 1px, transparent 1px 12px),
+        radial-gradient(ellipse at 85% 20%, rgba(143,191,168,.085), transparent 60%),
+        radial-gradient(ellipse at 10% 90%, rgba(226,179,106,.025), transparent 55%),
+        linear-gradient(180deg, rgba(143,191,168,.02), rgba(14,20,18,.08));
+    }
     .zt-bal-row { display: inline-flex; flex-direction: column; align-items: flex-end; gap: .3rem; } /* Send Zab tab sits directly under the ring */
     .stat .zt-bal-row { color: inherit; font-size: inherit; letter-spacing: normal; text-transform: none; }
     .stat .zt-send-tab span { color: inherit; font-size: inherit; letter-spacing: .06em; text-transform: none; }
@@ -599,7 +615,71 @@ function f(){var m=n.scrollWidth-n.clientWidth;n.classList.toggle("fade-l",n.scr
 n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f);f();})();
 </script>
   <aside class="promo-banner" id="promoBanner" aria-label="Giveaway">
-    <p><svg class="promo-fall" viewBox="0 0 96 64" width="48" height="32" aria-hidden="true" focusable="false"><g fill="none" stroke="#c4922a" stroke-linecap="round"><path stroke-width="1.15" d="M46 30 C48 18 52 10 56 6"/><path stroke-width="1.05" d="M48 31 C51 20 57 12 62 8"/><path stroke-width="1.05" d="M44 32 C44 22 46 14 48 8"/></g><g fill="#d8a43a"><ellipse cx="56" cy="7" rx="1.7" ry="2.6" transform="rotate(-18 56 7)"/><ellipse cx="53.6" cy="10.2" rx="1.5" ry="2.3" transform="rotate(-22 53.6 10.2)"/><ellipse cx="58.4" cy="10.6" rx="1.5" ry="2.3" transform="rotate(-8 58.4 10.6)"/><ellipse cx="62" cy="9" rx="1.6" ry="2.5" transform="rotate(-12 62 9)"/><ellipse cx="59.6" cy="12.4" rx="1.4" ry="2.2" transform="rotate(-6 59.6 12.4)"/><ellipse cx="48" cy="9" rx="1.5" ry="2.3" transform="rotate(-8 48 9)"/><ellipse cx="46.4" cy="12.2" rx="1.4" ry="2.1" transform="rotate(-14 46.4 12.2)"/></g><path fill="#8a2c1a" d="M64 22c6.2-7.4 14-9.2 18.6-6.2-3.2 1.1-5.2 1-7.4 2.6 4.8-.2 9.6 1.6 12.2 4.8-3.4-.4-6.2.2-8.8 1.8 4.2 1.2 7.4 3.8 8.6 6.6-5.2-1.6-9.6-1-13.4.6 2.8 2 4.2 4.6 4.4 7.2-4.6-3.2-8.2-3.8-14.2-3.4 1.6-4.4 1.2-9.2 0-14z"/><path fill="none" stroke="#5c1c10" stroke-width=".7" stroke-linecap="round" d="M64 26 C70 24 76 22 82 20"/><path fill="#5a2e10" d="M22 20C12 8 3 12 5 20c1.4 5.6-1 10 2 16 4.2 8.4 6 18 18 25 9.4 5.5 22.6 6.4 32.6 0.6 2.2-1.3 4-3.2 5.2-5.6C60.6 30 50 18.8 38 16.4 32.4 15.3 27.4 16.6 22 20Z"/><path fill="#7a4518" d="M22.6 21.6C14.2 11.8 6.8 15.2 8.4 21.8c1.3 5.2-.4 9.2 2.2 14.4 3.8 7.6 6 16 16.4 22.2 8.2 4.8 19.8 5.6 28.6.6 1.6-1 2.9-2.4 3.8-4.2C57.4 31.6 47.6 22 36.8 19.8c-5.2-1-9.6.2-14.2 1.8Z"/><path fill="#5a2e10" d="M14.2 16.2c-6.2-1.6-9.2 3.6-6.4 8.2 2.2 3.6 1.2 7.2-1.4 8.6 3.8 1.2 8.2-1.4 9.4-6.2 1.2-4.6-1.6-9.2-1.6-10.6z"/><path fill="#7a4518" d="M13.6 17.8c-4.2-1-6.2 2.4-4.2 5.6 1.6 2.6.8 5.2-1 6.2 2.8.6 5.8-1.4 6.6-4.8.8-3.4-1.2-6.4-1.4-7z"/><path fill="none" stroke="#c4923a" stroke-width="1.15" stroke-linecap="round" d="M18 30c8 1.6 16.8.4 26.6-3.6"/><path fill="none" stroke="#c4923a" stroke-width="1" stroke-linecap="round" d="M20 38c8.2 2 17 1.4 26.6-2.2"/><path fill="none" stroke="#a36c22" stroke-width=".9" stroke-linecap="round" d="M24 46c7.2 2 15 1.6 23.2-1.4"/><ellipse cx="54.6" cy="36.4" rx="11.2" ry="17.2" fill="#3a1c0a"/><ellipse cx="56.4" cy="36.4" rx="8.2" ry="14" fill="#241208"/><path fill="none" stroke="#d4a04a" stroke-width="1.35" d="M54.6 19.4a11.2 17.2 0 0 1 0 34.4"/><g fill="#6b1d3a"><circle cx="52.2" cy="38.2" r="2.15"/><circle cx="55.4" cy="37.2" r="2.2"/><circle cx="53.6" cy="41.2" r="2.1"/><circle cx="56.8" cy="40.4" r="2.05"/><circle cx="54.8" cy="44" r="1.95"/></g><circle cx="54.2" cy="35.4" r=".45" fill="#3d0e1c"/><ellipse cx="61.4" cy="27.2" rx="5.2" ry="5.6" fill="#8b1e2d"/><ellipse cx="60.2" cy="26.2" rx="2.1" ry="2.4" fill="#a52a3a" opacity=".55"/><path fill="#2f5530" d="M61.2 21.2c1.6-2.6 3.8-3.4 5.4-3.2-1.1 1.8-1.4 3.2-1.2 4.8-1.6.1-3.2-.4-4.2-1.6z"/><path fill="none" stroke="#4a2a10" stroke-width="1" stroke-linecap="round" d="M61.6 22.2v-3.2"/><ellipse cx="63.6" cy="50.6" rx="6.4" ry="4.6" fill="#d08a20"/><ellipse cx="63.6" cy="50.6" rx="3.4" ry="4.2" fill="#e09a28"/><path fill="#c47a18" d="M61.4 46.2c1.1-3.2 2.6-4.6 4.4-5 0 2.2-.4 3.8-1.2 5.4-.9.1-2.2.1-3.2-.4z"/><path fill="none" stroke="#8a5010" stroke-width=".7" stroke-linecap="round" d="M59.4 48.6c1.6 1.4 2.6 2.8 2.6 4.6"/><path fill="none" stroke="#8a5010" stroke-width=".7" stroke-linecap="round" d="M67.8 48.6c-1.6 1.4-2.6 2.8-2.6 4.6"/><path fill="#2f5530" d="M78.6 26.2c4.2 1.4 7.4 4.4 8.2 8.2-3.8-1.4-6.8-4.2-8.2-8.2z"/><path fill="#3d6b3a" d="M76.4 29.6c.5-5.2 2.4-8.8 5.4-9.8 1 3.6.2 7-1.8 9.4-1 .3-2.5.4-3.6.4z"/><ellipse cx="76.2" cy="44.4" rx="16.4" ry="13.2" fill="#b85a1c"/><ellipse cx="76.2" cy="44.4" rx="12.2" ry="12.6" fill="#c96620"/><ellipse cx="76.2" cy="44.4" rx="7" ry="12.2" fill="#d27228"/><ellipse cx="76.2" cy="44.4" rx="3" ry="11.8" fill="#dc7d30"/><path fill="none" stroke="#8a3c12" stroke-width=".95" stroke-linecap="round" d="M68.4 34.6c-2.6 3.2-3.9 6.4-3.9 9.8s1.3 6.6 3.9 9.8"/><path fill="none" stroke="#8a3c12" stroke-width=".95" stroke-linecap="round" d="M84 34.6c2.6 3.2 3.9 6.4 3.9 9.8s-1.3 6.6-3.9 9.8"/><path fill="none" stroke="#7a3510" stroke-width="1" stroke-linecap="round" d="M76.2 32.2c-2.3 3.8-3.5 7.6-3.5 12.2s1.2 8.4 3.5 12.2"/><path fill="none" stroke="#7a3510" stroke-width="1" stroke-linecap="round" d="M76.2 32.2c2.3 3.8 3.5 7.6 3.5 12.2s-1.2 8.4-3.5 12.2"/></svg><strong>Fall Frenzy: Get a free Zabba Washers starter pack.</strong> Three washers and a box, on us. Breathe in, pitch washers, walk your steps, and claim yours.</p>
+    <p><svg class="promo-fall" viewBox="0 0 240 96" width="240" height="96" aria-hidden="true" focusable="false">
+      <!-- An open, two-level harvest: breathing room between each silhouette. -->
+      <g data-harvest="wheat" stroke="#b18430" stroke-width="1.3" fill="#e0b653" stroke-linecap="round">
+        <path fill="none" d="M44 48Q42 26 33 10M52 46Q54 24 58 6M58 48Q65 30 76 20"/>
+        <path d="M34 13q-8-1-7-7 7 0 7 7Zm3 7q-8 0-8-6 7-1 8 6Zm3 8q-8 0-8-6 7-1 8 6Zm-5-12q0-8 6-9 2 6-6 9Zm4 8q0-8 6-9 2 6-6 9ZM57 12q-6-4-3-9 6 3 3 9Zm-2 8q-7-3-5-8 7 2 5 8Zm-1 9q-7-3-5-8 7 2 5 8Zm4-14q2-8 8-7 0 6-8 7Zm-2 9q2-8 8-7 0 6-8 7ZM72 25q-3-7 2-10 5 5-2 10Zm-5 7q-4-7 1-10 5 5-1 10Zm4-4q7-5 11-1-3 5-11 1Z"/>
+      </g>
+      <g data-harvest="horn">
+        <path fill="#603716" d="M12 37C-1 18 5 17 14 25c9 8 18 8 31 6 16-3 29 0 35 10l4 37C58 92 34 87 21 73 9 61 13 49 12 37Z"/>
+        <path fill="#98632e" d="M13 32c10 12 21 9 34 6 13-3 23 0 28 6l3 30C57 85 37 79 26 68 16 58 19 44 13 32Z"/>
+        <g fill="none" stroke="#d0a058" stroke-width="1.5">
+          <path d="M20 43q20 7 46-4M22 54q20 8 48-5M27 66q19 7 45-6M38 76q18 2 36-7"/>
+          <path stroke="#6f421d" d="M29 38q-5 17 8 36M43 36q-5 20 8 43M57 36q-4 22 7 41"/>
+        </g>
+        <ellipse cx="78" cy="56" rx="13" ry="25" fill="#d0a058" transform="rotate(-8 78 56)"/>
+        <ellipse cx="79" cy="56" rx="9.5" ry="21" fill="#392110" transform="rotate(-8 79 56)"/>
+        <path d="M76 38q10 16 5 35" fill="none" stroke="#6f421d" stroke-width="2"/>
+      </g>
+      <g data-harvest="apple">
+        <path fill="#912d36" d="M109 22c-16-6-19 9-12 20 4 6 8 6 12 4 5 2 10 1 14-5 7-12 1-24-14-19Z"/>
+        <path d="M101 26q-6 4-2 11" fill="none" stroke="#c76566" stroke-width="3" stroke-linecap="round"/>
+        <path d="M109 24q-2-8 2-12" fill="none" stroke="#56351c" stroke-width="2.5"/>
+        <path fill="#42643a" d="M111 18q2-11 14-9-2 11-14 9Z"/>
+      </g>
+      <g data-harvest="grapes" fill="#694368" stroke="#4a2b4f" stroke-width=".8">
+        <path d="M99 57q0-6 7-8" fill="none" stroke="#4c663b" stroke-width="2"/>
+        <circle cx="96" cy="60" r="5"/><circle cx="105" cy="60" r="5"/>
+        <circle cx="92" cy="68" r="5"/><circle cx="101" cy="68" r="5"/><circle cx="110" cy="68" r="5"/>
+        <circle cx="96" cy="76" r="5"/><circle cx="105" cy="76" r="5"/><circle cx="101" cy="83" r="4.5"/>
+        <path d="m94 58 2-1m7 9 2-1m-9 8 2-1" stroke="#ac80a0" stroke-width="1.5" stroke-linecap="round"/>
+      </g>
+      <g data-harvest="pear">
+        <path fill="#bba44e" d="M143 14c-7 0-5 10-10 16-12 16 13 23 20 12 6-9-4-15-5-22-1-4-2-6-5-6Z"/>
+        <path d="M141 22q-1 8-5 13" fill="none" stroke="#ddc979" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M144 16q-2-6 2-10" fill="none" stroke="#694a27" stroke-width="2"/>
+        <path fill="#527044" d="M146 11q3-8 12-5-4 8-12 5Z"/>
+      </g>
+      <g data-harvest="gourd">
+        <path fill="#b78732" d="M128 59c-2-7 1-11 5-12l3 2c-4 4-3 8 1 12 14 14 7 23-4 23-13 0-18-13-5-25Z"/>
+        <path d="M131 59c-11 15-8 20 2 22 8-3 7-12-1-19" fill="#d6ac52"/>
+        <path d="M130 64q-6 10-1 15m5-15q6 10 2 15" fill="none" stroke="#8a6a2e" stroke-width="1.3"/>
+      </g>
+      <g data-harvest="oak-leaf">
+        <path fill="#a6602f" d="M202 23q-5-9 1-10l7 2q-4-9 2-10l7 7q4-10 8-5l-1 10q11-3 11 3l-10 6q8 4 4 8l-12-1q1 8-4 7l-5-10Z"/>
+        <path d="m207 35 19-21m-13 14-6-7m11 1 8 1" fill="none" stroke="#714322" stroke-width="1.3" stroke-linecap="round"/>
+      </g>
+      <!-- The largest, individually ribbed pumpkin anchors the right half. -->
+      <g data-harvest="pumpkin">
+        <path fill="#59633b" d="m179 38-1-13 7-3 2 15Z"/>
+        <path fill="#3d6338" d="M187 31q6-15 17-9-4 13-17 9Z"/>
+        <ellipse cx="183" cy="62" rx="29" ry="25" fill="#b85a1c"/>
+        <ellipse cx="183" cy="62" rx="22" ry="25" fill="#c96620"/>
+        <ellipse cx="183" cy="62" rx="14" ry="24" fill="#d27228"/>
+        <ellipse cx="183" cy="62" rx="6" ry="23" fill="#dc7d30"/>
+        <g fill="none" stroke="#934615" stroke-width="1.2">
+          <path d="M170 42q-13 20 0 40M196 42q13 20 0 40M180 39q-11 23 0 46M186 39q11 23 0 46"/>
+        </g>
+        <path d="M160 57q1-7 5-10" fill="none" stroke="#e39847" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      <g data-harvest="cranberries" fill="#912d36" stroke="#682a30" stroke-width=".7">
+        <path d="m220 69 12-13m-8 8-5-6" fill="none" stroke="#54683b" stroke-width="1.5"/>
+        <path d="M227 60q-1-10 8-10 2 8-8 10Z" fill="#42643a" stroke="none"/>
+        <circle cx="221" cy="73" r="4"/><circle cx="231" cy="70" r="4"/><circle cx="229" cy="80" r="4"/>
+        <path d="m220 71 1-1m9-2 1-1m-3 11 1-1" stroke="#d08080" stroke-width="1.2" stroke-linecap="round"/>
+      </g>
+    </svg><strong>Fall Frenzy: Get a free Zabba Washers starter pack.</strong> Three washers and a box, on us. Breathe in, pitch washers, walk your steps, and claim yours.</p>
     <span class="claim-wrap"><a class="btn" href="#claim">Claim my free set</a><span class="promo-cloud" aria-hidden="false"><span class="promo-tag">While supplies last</span></span></span>
     <a class="btn promo-ghost" href="#play" onclick="var b=document.getElementById('ztBadge');if(b){b.click();}">Start game, challenge a friend</a>
     <a class="walk-bubble" href="#steps"><span class="walk-dot" aria-hidden="true"></span>Pitch, push &amp; step - earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a>
