@@ -60,8 +60,8 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   const INTRO = (k) => [C[k].place, C[k].criteria];
   const NOINTRO = (e, from) => !SAID(e).slice(from || 0).some((x) => [].concat(INTRO("pushups"), INTRO("tut"), INTRO("plank")).includes(x.w));
   const FULL = (k, t0) => [C[k].place + "@" + t0, C[k].criteria + "@" + (t0 + 1000), "Ready@" + (t0 + 3000), "get set@" + (t0 + 5000), "three@" + (t0 + 7000), "two@" + (t0 + 8000), "one@" + (t0 + 9000), "Go@" + (t0 + 10000)].concat(k === "plank" ? [C.plank.rules + "@" + (t0 + 10000)] : []).join(","); // a fresh plank start also speaks the what-ends-the-hold line right after Go
-  // Plank: no pre-loop countdown any more (3, 2, 1, Hold runs at the plank lock-in, see plank-cue.test.js): fresh = place, criteria, rules line; restart = nothing spoken before the loop.
-  const FULLP = (t0) => [C.plank.place + "@" + t0, C.plank.criteria + "@" + (t0 + 1000), C.plank.rules + "@" + (t0 + 3000)].join(",");
+  // Plank: no pre-loop countdown any more (3, 2, 1, Hold runs at the plank lock-in, see plank-cue.test.js): fresh = place, criteria, clock, rules; restart = short next-set intro.
+  const FULLP = (t0) => [C.plank.place + "@" + t0, C.plank.criteria + "@" + (t0 + 1000), C.plank.clock + "@" + (t0 + 3000), C.plank.rules + "@" + (t0 + 3000)].join(",");
   const QUICK = (t0) => ["Ready@" + t0, "set@" + (t0 + 1200), "Go@" + (t0 + 2400)].join(",");
   // ---- get-set.js: quick countdown
   { const said = [], shown = [], q = []; const g = GS.makeQuickCountdown({ speak: (w) => said.push(w), unlock() {}, schedule: (f, d) => q.push([f, d]) });
@@ -135,10 +135,10 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     e.$("plankCamBtn").onclick();
     check("plank restart tap: no placement line, wake + unlock inside the tap", SAID(e).length === n && e.log.slice(-3).join(",") === "plankWake:start,speech:cancel,speech:unlock" && e.$("plankStatus").textContent !== C.plank.place);
     await e.advance(2500);
-    check("plank restart: no coaching, no pre-loop countdown (3-2-1-Hold comes at lock-in)", words(e, n) === "" && NOINTRO(e, n));
-    check("plank restart: hold armed + status exactly as a first start", e.run("plankLoop") === true && e.$("plankStatus").textContent === "Whole body in the outline, side-on. Hold a straight plank, and the clock starts. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.");
+    check("plank restart: short next-set intro, no first-time coaching or pre-loop countdown (3-2-1-Hold comes at lock-in)", words(e, n) === C.plank.next + "@" + t0 && NOINTRO(e, n));
+    check("plank restart: hold armed + status exactly as a first start", e.run("plankLoop") === true && e.$("plankStatus").textContent === "Whole body in the outline, side-on. Clock starts when you start a proper plank. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.");
     e.run("plankHold = null; stopPlankCam();"); n = SAID(e).length; t0 = e.now(); e.$("plankCamBtn").onclick(); await e.advance(2500);
-    check("plank: third start is quick too", words(e, n) === "" && e.run("plankLoop") === true);
+    check("plank: third start is quick too", words(e, n) === C.plank.next + "@" + t0 && e.run("plankLoop") === true);
     /* switch exercise: push-ups after plank is a new session, and plank after push-ups is new again */
     e.run("plankHold = null; stopPlankCam();"); n = SAID(e).length; t0 = e.now(); e.$("pushStartBtn").onclick(); await e.advance(10100);
     check("plank -> push-ups: full push-ups intro", words(e, n) === FULL("pushups", t0));

@@ -186,7 +186,7 @@
   var COACH = {
     pushups: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Go all the way down and back up." },
     tut: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up." },
-    plank: { place: "Prop your phone on the floor, off to your side, sideways or upright. Turn so the camera sees your side.", criteria: "Step back until the outline shows your whole body, head to heels.", rules: "Keep it steady. Hips sagging, hips piking up, knees down, standing up, or leaving the frame for a second, ends the hold." }
+    plank: { clock: "Clock starts when you start a proper plank.", next: "Get ready for another set. Clock starts when you start a proper plank.", place: "Prop your phone on the floor, off to your side, sideways or upright. Turn so the camera sees your side.", criteria: "Step back until the outline shows your whole body, head to heels.", rules: "Keep it steady. Hips sagging, hips piking up, knees down, standing up, or leaving the frame for a second, ends the hold." }
   };
   function coachLines(kind) { return COACH[kind] || COACH.pushups; }
   function positionPrompt(kind) { return (POSITION[kind] || POSITION.pushups).join("\n"); }

@@ -1190,7 +1190,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="plank">
     <h2>Plank House</h2>
     <p class="lead">Longest good plank in the House wins. The camera times your hold. Same login as washers and pushups. Honor system. Not a form judge and not medical treatment.</p>
-    <p class="note" id="plankSetup"><b>Set up:</b> Prop your phone on the floor, off to your side, sideways or upright. Step back until the dashed outline shows your whole body, head to heels, and turn so the camera sees your side.<br>Get into plank and hold still, and the clock starts.</p>
+    <p class="note" id="plankSetup"><b>Set up:</b> Prop your phone on the floor, off to your side, sideways or upright. Step back until the dashed outline shows your whole body, head to heels, and turn so the camera sees your side.<br>Clock starts when you start a proper plank.</p>
     <div class="stats duo">
       <div class="stat"><b id="plankCount" hidden aria-live="assertive" style="display:block;font-size:4rem;line-height:1"></b><b id="plankClock">0:00</b><span>This hold</span></div>
       <div class="stat"><b id="plankBest">—</b><span>Your best</span></div>
@@ -1210,7 +1210,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <video id="plankVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1);display:block"></video>
       <div id="plankOutline" class="plank-outline" aria-hidden="true"><span>head to heels</span></div>
     </div>
-    <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. Hold still and the clock starts.<br>Hips sagging, hips piking up, dropping to your knees, standing up, or leaving the frame for more than a second ends the hold. A framing tip only delays the start; it never ends a hold.</p>
+    <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. Clock starts when you start a proper plank.<br>Hips sagging, hips piking up, dropping to your knees, standing up, or leaving the frame for more than a second ends the hold. A framing tip only delays the start; it never ends a hold.</p>
     <p class="fine">Every camera hold of 10 seconds or more counts as one set. New hold starts the next set without stopping the camera. Signed-in holds post to the Plank House board and today's sets board. Unsigned stays on this phone. Video never uploads.</p>
     <h3 style="margin-top:1.6rem">Plank House board</h3>
     <p class="lead">Longest hold first.</p>
@@ -2238,7 +2238,7 @@ async function startPush() {
   const fail = (msg) => { if (!live()) return; cancelPushStart(msg); };
   try {
     const coachKind = pushMode === "long" ? "tut" : "pushups";
-    const restart = sessionPlan(coachKind) === "restart"; /* restart: no intro, quick Ready, set, Go */
+    const restart = sessionPlan(coachKind) === "restart"; /* restart: short next-set intro, no first-time coaching */
     const placed = restart ? true : showPositioning(coachKind, $("pushStatus"), () => !live(), "place"); // spoken inside the tap
     if (restart && !camOn) $("pushStatus").textContent = "Starting camera…";
     if (!camOn) { const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail("Camera or pose blocked."); }
@@ -2613,6 +2613,7 @@ async function plankTick(id = plankLoopId) {
   if (plankLoop && id === plankLoopId) requestAnimationFrame(() => plankTick(id));
 }
 function newPlankHold() {
+  plankLeadUntil = performance.now() + PLANK_LEAD_MS;
   plankHold = window.ZabbadatPlank.createPlankHold({ cue: true, cueMaxMs: 20000 }); if (typeof plankCount !== "undefined" && plankCount) plankCount.cancel(); if (typeof plankCountShow === "function") plankCountShow(""); plankSaved = false; plankCueSeq = 0;
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.reset();
   $("plankClock").textContent = "0:00"; $("plankMsg").textContent = "Get into plank";
@@ -2629,7 +2630,7 @@ async function startPlankCam() {
     if (camOn) stopCam();
     if (pushStarting) cancelPushStart();
     $("plankCamBtn").textContent = "Stop camera";
-    const restart = sessionPlan("plank") === "restart"; /* restart: no intro, quick Ready, set, Go */
+    const restart = sessionPlan("plank") === "restart"; /* restart: short next-set intro, no first-time coaching */
     const placed = restart ? true : showPositioning("plank", $("plankStatus"), () => !live(), "place"); // spoken inside the tap
     if (restart) $("plankStatus").textContent = "Starting camera…";
     if ($("plankStatus").style) $("plankStatus").style.whiteSpace = "pre-line";
@@ -2647,13 +2648,13 @@ async function startPlankCam() {
     if (!live()) return;
     if (!restart && !(await showPositioning("plank", $("plankStatus"), () => !live(), "criteria"))) return;
     if (!live()) return;
-    plankLeadUntil = performance.now() + PLANK_LEAD_MS; // get-into-plank lead-in before 3, 2, 1, Hold
     // no pre-countdown here: 3, 2, 1, Hold runs once the plank is locked in (plankCue); the clock starts at "Hold"
     sessionCommit("plank");
     plankStarting = false;
     plankSessionStartedAt = Date.now();
     newPlankHold();
-    $("plankStatus").textContent = "Whole body in the outline, side-on. Hold a straight plank, and the clock starts. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.";
+    if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(restart ? window.ZabbadatGetSet.COACH.plank.next : window.ZabbadatGetSet.COACH.plank.clock);
+    $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts when you start a proper plank. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.";
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once after Go on a fresh start */
     plankLoop = true; plankTick(++plankLoopId);
   } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = "Camera or pose blocked."; } }
@@ -2680,7 +2681,7 @@ function stopPlankCam() {
 }
 $("plankCamBtn").onclick = () => (plankLoop ? stopPlankCam() : plankStarting ? cancelPlankStart() : startPlankCam());
 $("plankStopBtn").onclick = () => { if (plankLoop && plankHold && !plankSaved) plankEnded(plankHold.stop(performance.now())); };
-$("plankAgainBtn").onclick = () => { if (plankLoop) newPlankHold(); };
+$("plankAgainBtn").onclick = () => { if (plankLoop) { newPlankHold(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts when you start a proper plank. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold."; } };
 renderPlankBest();
 renderPlankDays();
 paintPlankRows(localPlanks());
