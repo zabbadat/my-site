@@ -13,6 +13,9 @@ const judge = () => { const j = TB.createJudge(createPostureGuard({ holdMs: TB.R
 function play(j, segs) { let t = 0, out = null, at = null; for (const [kps, ms, rep] of segs) { for (let e = 0; e < ms; e += 33) { t += 33; const c = rep && Math.floor(t / rep) !== Math.floor((t - 33) / rep); const r = j.update(kps, t, TOP, c); if (r && !out) { out = r; at = t; } } } return { out, at }; }
 check("good plank with reps: no loss in 20s", play(judge(), [[plank, 20000, 2000]]).out === null);
 let r = play(judge(), [[plank, 3000, 1500], [away, 2000, 1500]]); check("stood up / shoulders shrink (long top hold from a leaned-up camera) never loses", r.out == null);
+{ const shift = (dx) => K({ left_shoulder: [220 + dx, 240], right_shoulder: [420 + dx, 240], left_wrist: [200 + dx, 400], right_wrist: [440 + dx, 400] });
+  const j = judge(); const picked = play(j, [[shift(0), 800], [shift(180), 1200]]);
+  check("phone picked up (whole view shifts) loses as left", picked.out === "left"); }
 check("brief 0.5s stand blip is ignored", play(judge(), [[plank, 3000, 1500], [away, 500, 1500], [plank, 3000, 1500]]).out === null);
 r = play(judge(), [[plank, 3000, 1500], [kneesDown, 2000, 1500]]); check("knee down -> knees ~0.75s", r.out === "knees" && r.at - 3000 < 900);
 r = play(judge(), [[plank, 3000, 1500], [[], 11000, 1500]]); check("out of frame -> frame after ~10s", r.out === "frame" && r.at - 3000 >= 9950 && r.at - 3000 < 10100);

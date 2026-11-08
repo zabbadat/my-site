@@ -80,29 +80,118 @@
     }
     return { update: update, reset: reset, state: function () { return g; } };
   }
-  // Failure watch for the TUT modes (One long set, 3:00 challenge): the set is over (and voided by the page) when the camera sees
-  //  - "knees": hip-knee-ankle bent like kneeling (needs the legs in view),
-  //  - "standing": upright line or the shoulders moved far from the camera (shoulders-only, works from a leaned-up front camera),
-  //  - "frame": no shoulder confidently visible for frameMs.
-  // Same rule as Plank (a bad pose must last badMs = 1 s; any good or uncertain frame restarts that); Plank also ends on 1 s missing,
-  // here it is 2 s (the same out-of-frame time the TUT Battle judge uses; a front camera drops tracking more often than a side one).
-  // A normal rep (bottom, pause, top hold) never produces these. Once failed it stays failed until reset().
-  // Holding the top (press / plank) position must NEVER end a set, however long. Only knees down (legs in view, bent like kneeling,
-  // held badMs) or leaving the frame for frameMs (10 s, a give-up) ends it; "standing" (shoulders shrink / upright line) is only a flag,
-  // because a leaned-up front camera reads a long top hold that way. Knees out of frame never trigger.
-  var FAIL = { badMs: 1000, frameMs: 10000, minScore: 0.3, endOn: { knees: true, frame: true, standing: false } };
+  // The camera view of a leaned-up phone (upright or flipped). A push-up moves the shoulders and leaves the hands
+  // planted, so the wrists stay put. Picking the phone up moves the whole picture together, or tilts the shoulder
+  // line. Standing up raises the shoulders off the plank, or brings the hands up off the floor. None of these is a
+  // long hold at the top: a hold keeps the same picture. Shoulder WIDTH shrinking is not one of these (a front
+  // camera does that on a long press) and is not read here.
+  var VIEW = { minScore: 0.3, lockMs: 350, liftMs: 450, badMs: 1000, deadFrac: 0.045, moveFrac: 0.18, agreeFrac: 0.11, rotDeg: 34, riseFrac: 0.12, handFrac: 0.16 };
+  function angDiff(a, b) { var d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
+  function lineDiff(a, b) { var d = Math.abs(angDiff(a, b)); return d > Math.PI / 2 ? Math.PI - d : d; } // a shoulder line has no direction: left/right swap is not a tilt
+  function createViewWatch(opts) {
+    var o = Object.assign({}, VIEW, opts || {}), s;
+    function reset() { s = { base: null, warm: null, pend: null, riseY: null, seen: null }; }
+    reset();
+    function shoulders(kps) {
+      var ls = pt(kps, "left_shoulder", o.minScore), rs = pt(kps, "right_shoulder", o.minScore);
+      if (!ls || !rs) return null;
+      var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y);
+      if (!(sw > 1)) return null;
+      return { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2, sw: sw, ang: Math.atan2(rs.y - ls.y, rs.x - ls.x) };
+    }
+    function wrists(kps) {
+      var lw = pt(kps, "left_wrist", o.minScore), rw = pt(kps, "right_wrist", o.minScore), n = (lw ? 1 : 0) + (rw ? 1 : 0);
+      if (!n) return null;
+      return { x: ((lw ? lw.x : 0) + (rw ? rw.x : 0)) / n, y: ((lw ? lw.y : 0) + (rw ? rw.y : 0)) / n, n: n };
+    }
+    function update(kps, t, frameW) {
+      var W = frameW > 1 ? frameW : 640, sh = shoulders(kps);
+      if (!sh) { if (!(s.seen != null && t - s.seen < 200)) s.pend = null; return null; }
+      s.seen = t;
+      var wr = wrists(kps);
+      var sample = { x: sh.x, y: sh.y, ang: sh.ang, sw: sh.sw, wx: wr && wr.x, wy: wr && wr.y, n: wr ? wr.n : 0 };
+      if (!s.base) {
+        if (!s.warm) { s.warm = { x: sample.x, y: sample.y, ang: sample.ang, wx: sample.wx, wy: sample.wy, n: sample.n, t: t, once: false }; s.riseY = sample.y; return null; }
+        if (!s.warm.once && t - s.warm.t < 100 && Math.hypot(sample.x - s.warm.x, sample.y - s.warm.y) > o.deadFrac * W) { s.warm = { x: sample.x, y: sample.y, ang: sample.ang, wx: sample.wx, wy: sample.wy, n: sample.n, t: t, once: true }; s.riseY = sample.y; return null; }
+        if (t - s.warm.t < o.lockMs) { if (sample.y < s.riseY) s.riseY = sample.y; return null; }
+        s.base = { x: s.warm.x, y: s.warm.y, ang: s.warm.ang, wx: s.warm.wx, wy: s.warm.wy, hasW: s.warm.n > 0 };
+        if (s.riseY == null) s.riseY = s.warm.y;
+      }
+      if (sample.n > 0 && !s.base.hasW) { s.base.wx = sample.wx; s.base.wy = sample.wy; s.base.hasW = true; }
+      var dx = sample.x - s.base.x, dy = sample.y - s.base.y, dist = Math.hypot(dx, dy);
+      var wdx = 0, wdy = 0, wd = 0;
+      if (sample.n > 0 && s.base.hasW) { wdx = sample.wx - s.base.wx; wdy = sample.wy - s.base.wy; wd = Math.hypot(wdx, wdy); }
+      // Creep only while the picture is still the rested lean, so a slow settle does not become a false pickup
+      // and a real move is not followed away.
+      if (dist < o.deadFrac * W && wd < o.deadFrac * W && lineDiff(sample.ang, s.base.ang) < 5 * Math.PI / 180) {
+        var a = 0.02;
+        s.base.x += a * dx; s.base.y += a * dy; s.base.ang += a * angDiff(sample.ang, s.base.ang);
+        if (s.base.hasW && sample.n > 0) { s.base.wx += a * wdx; s.base.wy += a * wdy; }
+        dx = sample.x - s.base.x; dy = sample.y - s.base.y; dist = Math.hypot(dx, dy);
+        if (sample.n > 0 && s.base.hasW) { wdx = sample.wx - s.base.wx; wdy = sample.wy - s.base.wy; wd = Math.hypot(wdx, wdy); }
+      }
+      var rose = s.riseY == null ? 0 : s.riseY - sample.y;
+      if (rose > 0 && rose < o.deadFrac * W) s.riseY -= Math.min(rose, 0.4);
+      var kind = null;
+      if (sample.n > 0 && s.base.hasW && dist > o.moveFrac * W && wd > o.moveFrac * W && Math.hypot(dx - wdx, dy - wdy) < o.agreeFrac * W) kind = "lifted";
+      if (!kind && lineDiff(sample.ang, s.base.ang) * 180 / Math.PI > o.rotDeg) kind = "lifted";
+      if (!kind && rose > o.riseFrac * W) kind = "standing";
+      if (!kind && sample.n >= 2 && s.base.hasW && s.base.wy - sample.wy > o.handFrac * W) kind = "standing";
+      if (!kind && sample.n >= 2 && sample.y > sample.wy + 0.12 * sample.sw) kind = "collapse";
+      if (!kind) { s.pend = null; return null; }
+      if (!s.pend || s.pend.kind !== kind) s.pend = { kind: kind, since: t };
+      if (t - s.pend.since >= (kind === "lifted" ? o.liftMs : o.badMs)) return kind;
+      return null;
+    }
+    return { update: update, reset: reset, options: o };
+  }
+  // Straight legs running down the frame (a real stand-up). Needs the legs in view, and the shoulders narrower
+  // than the plank, same rule classify() uses. A long press does not end on this while the counter says atTop.
+  function isUpright(kps, topWidth, minScore) {
+    var min = minScore == null ? GUARD.minScore : minScore, ls = pt(kps, "left_shoulder", min), rs = pt(kps, "right_shoulder", min), upright = false, sides = ["left", "right"];
+    for (var i = 0; i < 2; i++) {
+      var s = sides[i], sh = pt(kps, s + "_shoulder", min), hip = pt(kps, s + "_hip", min), kn = pt(kps, s + "_knee", min), an = pt(kps, s + "_ankle", min);
+      if (!(sh && hip && kn && an)) continue;
+      var a = angle(hip, kn, an), dy = Math.abs(an.y - sh.y), dx = Math.abs(an.x - sh.x);
+      if (dy > GUARD.upright * dx && a != null && a >= GUARD.kneeAngle) upright = true;
+    }
+    var w = ls && rs ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : null;
+    return !!(upright && (!(w && topWidth > 0) || w < 0.8 * topWidth));
+  }
+  // Failure watch (One long set, 3:00 challenge, Sets): the set ends when the camera sees
+  //  - "knees": hip-knee-ankle bent like kneeling or a collapse (softer than the on-screen flag, still needs the legs),
+  //  - "collapse": shoulders dropped through the hands,
+  //  - "standing": stood up or took the hands off the floor (shoulders rose, or the hands came up), or an upright body when not held at the top,
+  //  - "lifted": the phone was picked up (the whole view shifted together, or the shoulder line tilted off the rested lean),
+  //  - "frame": no shoulder confidently visible for frameMs (10 s).
+  // A bad pose must last badMs (1 s); a pickup latches a little sooner. Any good frame restarts that wait.
+  // Holding the top must never end a set. Shoulder-width shrink is only a flag (endOn.standing is off): a leaned-up
+  // front camera reads a long press that way. Knees that are out of frame or below minScore never trigger.
+  // update(kps, t, topWidth, extra). extra may be a frame width, or { frameW, atTop }.
+  var FAIL = { badMs: 1000, frameMs: 10000, minScore: 0.3, kneeAngle: 140, endOn: { knees: true, frame: true, standing: false, lifted: true, left: true, upright: true } };
   function createFailureWatch(opts) {
-    var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed;
-    function reset(t0) { guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs })); seen = t0 == null ? null : t0; failed = null; }
+    var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed, view, upSince;
+    function reset(t0) {
+      guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs, minScore: o.minScore, kneeAngle: o.kneeAngle }));
+      seen = t0 == null ? null : t0; failed = null; upSince = null; view = createViewWatch({ minScore: o.minScore, badMs: o.badMs }); view.reset();
+    }
     reset(null);
     function upper(kps) { for (var i = 0; i < (kps || []).length; i++) { var k = kps[i]; if (k && /shoulder$/.test(k.name) && (k.score == null || k.score >= o.minScore)) return true; } return false; }
-    function update(kps, t, topWidth) {
+    function update(kps, t, topWidth, extra) {
       if (failed) return failed;
+      var frameW = 640, atTop = false;
+      if (typeof extra === "number" && isFinite(extra)) frameW = extra;
+      else if (extra && typeof extra === "object") { if (extra.frameW > 1) frameW = extra.frameW; atTop = extra.atTop === true; }
       if (seen == null) seen = t;
       if (upper(kps)) seen = t; else if (o.endOn.frame && t - seen >= o.frameMs) return (failed = "frame");
       var g = guard.update(kps, t, topWidth);
       if (g.event === "knees" && o.endOn.knees) return (failed = "knees");
-      if (g.event === "standing" && o.endOn.standing) return (failed = "standing");
+      var v = view.update(kps, t, frameW);
+      if (v === "lifted" && o.endOn.lifted) return (failed = "lifted");
+      if (v === "standing" && o.endOn.left) return (failed = "standing");
+      if (v === "collapse" && o.endOn.knees) return (failed = "collapse");
+      if (!atTop && o.endOn.upright && isUpright(kps, topWidth, o.minScore)) { if (upSince == null) upSince = t; if (t - upSince >= o.badMs) return (failed = "standing"); }
+      else upSince = null;
       return null;
     }
     return { update: update, reset: reset, failed: function () { return failed; } };
@@ -124,7 +213,7 @@
     }
     return { update: update, reset: reset, options: o, state: function () { return s; } };
   }
-  var FAIL_TEXT = { knees: "Knees down", standing: "Stood up / left plank", frame: "Out of frame", gaveup: "Gave up" };
+  var FAIL_TEXT = { knees: "Knees down", collapse: "Collapsed", standing: "Stood up / left plank", frame: "Out of frame", gaveup: "Gave up", lifted: "Phone picked up" };
   // Personal history from localStorage entries [[key, value], ...]: per-day time under tension
   // (tutPrefix, e.g. "zabbadat-push-tut-guest-") and reps (repsPrefix, "zabbadat-push-total-guest-").
   // Returns today, best day (by time), all-time totals and days (newest first).
@@ -159,7 +248,7 @@
       .sort(function (a, b) { return Number(b.ms) - Number(a.ms); }).slice(0, n || 50);
   }
 
-  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD };
+  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

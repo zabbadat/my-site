@@ -34,7 +34,7 @@ function normal(segs, cfg) {
   const c = Object.assign({}, S.BASE, cfg || {}), ctr = PC.createCounter(), w = SS.createFailureWatch(); w.reset(0); let out = null, n = 0;
   for (let t = 0; t <= S.total(segs); t += 1000 / c.fps) {
     const kps = S.frameFor(S.fracAt(segs, t), c, t); ctr.update(kps, t, c.W);
-    const st = ctr.state(), f = w.update(kps, t, st.topSize ? st.topSize * c.W : 0); if (f && !out) out = f; n++;
+    const st = ctr.state(), f = w.update(kps, t, st.topSize ? st.topSize * c.W : 0, { frameW: c.W, atTop: require("../push-challenge.js").atTopFrom(st) }); if (f && !out) out = f; n++;
   }
   return { out, reps: ctr.state().reps };
 }

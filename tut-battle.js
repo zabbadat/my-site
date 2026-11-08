@@ -5,6 +5,7 @@
  */
 (function (root) {
   const PR = typeof module !== "undefined" && module.exports ? require("./battle-presence.js") : root && root.ZabbaPresence;
+  const SS = typeof module !== "undefined" && module.exports ? require("./push-session.js") : root && root.ZabbadatSession;
   // 3:00 head-to-head: clock = room startAt (end of the shared countdown) + durationMs, same on both phones.
   // Top rests are allowed (no "stop repping" loss); each continuous top hold credits at most topCapMs of TUT.
   // settleMs: wait after 3:00 so both phones' final reps/TUT reach the room before the time-up result is decided.
@@ -21,15 +22,24 @@
   // guard = createPostureGuard({holdMs: 750}) instance from push-session.js (separate from solo game's).
   function createJudge(guard, opts) {
     const o = Object.assign({}, RULES, opts || {});
+    const view = SS && SS.createViewWatch ? SS.createViewWatch() : null;
     let st;
-    function reset(t0) { st = { t0, lastSeen: t0, lost: null }; if (guard) guard.reset(); }
+    function reset(t0) { st = { t0, lastSeen: t0, lost: null }; if (guard) guard.reset(); if (view) view.reset(); }
     reset(0);
-    // kps: pose keypoints; t: ms; topWidth: counter's calibrated top width (px) or 0. No time-without-reps rule.
-    function update(kps, t, topWidth) {
+    // kps: pose keypoints; t: ms; topWidth: counter's calibrated top width (px) or 0. frameW (optional) sizes the
+    // pickup check. No time-without-reps rule. Shoulder-width shrink is not a loss (a long top hold looks like that).
+    // Picking the phone up is "left" (the only published loss value that fits a camera that left its lean).
+    function update(kps, t, topWidth, frameW) {
       if (st.lost) return st.lost;
       if (hasUpperBody(kps, o.minScore)) st.lastSeen = t;
       if (t - st.lastSeen >= o.outOfFrameMs) return (st.lost = "frame");
-      if (guard) { const g = guard.update(kps, t, topWidth); if (g.event === "knees") return (st.lost = g.event); /* holding the top never loses: "standing" is not a loss */ }
+      if (guard) { const g = guard.update(kps, t, topWidth); if (g.event === "knees") return (st.lost = g.event); /* holding the top never loses: shoulder-shrink "standing" is not a loss */ }
+      if (view) {
+        const v = view.update(kps, t, typeof frameW === "number" ? frameW : 640);
+        if (v === "lifted") return (st.lost = "left");
+        if (v === "standing") return (st.lost = "standing");
+        if (v === "collapse") return (st.lost = "knees");
+      }
       return null;
     }
     return { update, reset, state: () => st };
