@@ -1,4 +1,4 @@
-// "Hold plank." cue: spoken at the ready lock-in, THEN the hold clock starts (cue first, count after). Run: node test/plank-cue.test.js
+// Lock-in cue: after a good plank is held 1.5 s the page speaks Three / Two / One / Hold, THEN the hold clock starts. Run: node test/plank-cue.test.js
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const P = require("../plank-session.js"), G = require("../get-set.js");
 const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
@@ -9,7 +9,7 @@ const sag = () => K({ left_shoulder: [90, 240], left_hip: [270, 300], left_knee:
 const D = { w: 640, h: 480 };
 const seq = (from, to, f, dt = 33) => { const a = []; for (let t = from; t < to; t += dt) a.push([t, f(t)]); return a; };
 
-check("exact cue text", G.COACH.plank.cue === "Hold plank." && G.COACH.plank.cue !== "Okay, hold plank.");
+check("no leftover unspoken Hold plank cue", !G.COACH.plank.cue && !/Hold plank/.test(JSON.stringify(G.COACH.plank)));
 // ---- logic order
 { const h = P.createPlankHold({ cue: true }); let r, lock = null;
   for (const [t, k] of seq(0, 4000, pose)) { r = h.update(k, t, D); if (r.phase === "cue" && lock == null) lock = t; }

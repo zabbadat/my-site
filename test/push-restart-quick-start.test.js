@@ -136,7 +136,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     check("plank restart tap: no placement line, wake + unlock inside the tap", SAID(e).length === n && e.log.slice(-3).join(",") === "plankWake:start,speech:cancel,speech:unlock" && e.$("plankStatus").textContent !== C.plank.place);
     await e.advance(2500);
     check("plank restart: no coaching, no pre-loop countdown (3-2-1-Hold comes at lock-in)", words(e, n) === "" && NOINTRO(e, n));
-    check("plank restart: hold armed + status exactly as a first start", e.run("plankLoop") === true && e.$("plankStatus").textContent === "Whole body in the outline, side-on. Hold a straight plank: 3, 2, 1, Hold, and the clock starts. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.");
+    check("plank restart: hold armed + status exactly as a first start", e.run("plankLoop") === true && e.$("plankStatus").textContent === "Whole body in the outline, side-on. Hold a straight plank, and the clock starts. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.");
     e.run("plankHold = null; stopPlankCam();"); n = SAID(e).length; t0 = e.now(); e.$("plankCamBtn").onclick(); await e.advance(2500);
     check("plank: third start is quick too", words(e, n) === "" && e.run("plankLoop") === true);
     /* switch exercise: push-ups after plank is a new session, and plank after push-ups is new again */

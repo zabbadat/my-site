@@ -22,7 +22,7 @@
     flat: 1.0,          // shoulder->ankle rise must be <= flat * run (else standing/upright)
     readyMs: 1500,      // good plank (and good framing) before the clock starts
     readyGraceMs: 250,  // a bad stretch shorter than this does not reset the ready countdown
-    cue: false,         // true: when ready is satisfied the hold goes ready -> "cue" (the page speaks "Hold plank.") -> begin(t) starts the clock
+    cue: false,         // true: when ready is satisfied the hold goes ready -> "cue" (the page then speaks Three / Two / One / Hold) -> begin(t) starts the clock
     cueMaxMs: 8000,     // safety: the clock starts by itself this long after the cue phase began (speech stuck / never ended)
     badMs: 1000,        // bad form longer than this ends the hold
     missMs: 1000,       // body missing longer than this ends the hold
@@ -242,7 +242,7 @@
         if (t - h.frIssueSince >= o.frameShowMs) h.fr = { ok: false, issue: g.issue, msg: g.msg };
       }
     }
-    // The clock starts here (cue mode): called by the page right after "Hold plank." has been spoken.
+    // The clock starts here (cue mode): called by the page right after the lock-in countdown has been spoken.
     function begin(t) {
       if (h.phase !== "cue") return false;
       h.phase = "holding"; h.startT = t; h.ms = 0; h.badSince = null; h.missSince = null; live.reset();

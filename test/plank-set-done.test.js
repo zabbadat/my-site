@@ -66,8 +66,8 @@ check("stopPlankCam and the Stop button also end via hold.stop (silent)", /const
 // single speaking site for plank failure, no per-failure lines
 check("plankEnded is the only plank place that speaks the failure line; guarded by reason !== 'stopped' after plankSaved = true", (html.match(/PLANK_SET_DONE_LINE/g) || []).length === 1 && /plankSaved = true;[\s\S]{0,400}r\.reason !== "stopped"\) \{ const GS = window\.ZabbadatGetSet; if \(GS && GS\.plankSpeak\) GS\.plankSpeak\(GS\.PLANK_SET_DONE_LINE\)/.test(html));
 check("no other spoken failure text in plank code ('Set done' never in plank-session.js / plank.html)", !/Set done/.test(fs.readFileSync(path.join(__dirname, "../plank-session.js"), "utf8")) && !/Set done/.test(fs.readFileSync(path.join(__dirname, "../plank.html"), "utf8")));
-// Hold plank cue is unaffected (a failure only happens during a hold, after the cue) and cancelled() stops a late cue
-check("'Hold plank.' cue untouched and its begin is cancelled once the hold is saved", G.COACH.plank.cue === "Hold plank." && /cancelled = \(\) => hold !== plankHold \|\| !plankLoop \|\| plankSaved/.test(html));
+// The lock-in countdown is unaffected (a failure only happens during a hold, after the cue) and cancelled() stops a late cue
+check("no leftover Hold plank cue; begin is cancelled once the hold is saved", !G.COACH.plank.cue && /cancelled = \(\) => hold !== plankHold \|\| !plankLoop \|\| plankSaved/.test(html));
 // Plank Battle: no camera-detected failure there
 const battleSeg = html.slice(html.indexOf("let battleRoom = null, battleCode = null;"), html.indexOf("$(\"battleLeave\").onclick"));
 check("Plank Battle has no camera failure path (hold ends by Drop/Forfeit buttons, never plankEnded/plankHold), so it speaks nothing", !/plankEnded|plankHold|plankTick/.test(battleSeg));
