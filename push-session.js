@@ -233,16 +233,18 @@
   }
   // 30-second top-hold reward: one continuous hold at the top (press / plank) for holdMs earns the bonus ONCE per set.
   // update(atTop, t, kneesDown) -> { holdMs, awarded (true only on the frame it is earned), done }. Leaving the top or knees down
-  // restarts the hold; reset() at each new set. Holding never ends the set.
+  // restarts the hold; bestMs retains the longest measured continuous hold, including beyond the bonus.
+  // reset() at each new set. Holding never ends the set.
   var HOLD_REWARD = { holdMs: 30000, zab: 0.5 };
   function createHoldReward(opts) {
     var o = Object.assign({}, HOLD_REWARD, opts || {}), s;
-    function reset() { s = { since: null, done: false }; }
+    function reset() { s = { since: null, done: false, bestMs: 0 }; }
     reset();
     function update(atTop, t, kneesDown) {
       if (!atTop || kneesDown) { s.since = null; return { holdMs: 0, awarded: false, done: s.done }; }
       if (s.since == null) s.since = t;
       var h = t - s.since, aw = !s.done && h >= o.holdMs;
+      s.bestMs = Math.max(s.bestMs, h);
       if (aw) s.done = true;
       return { holdMs: h, awarded: aw, done: s.done };
     }

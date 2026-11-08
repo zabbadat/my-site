@@ -1160,14 +1160,14 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </section>
 
   <section class="washers" id="tut-board">
-    <h2>TUTS</h2>
-    <p class="eyebrow" style="margin:-.4rem 0 .8rem">Time Under Tension Scoreboard</p>
+    <h2>Drop your tuts</h2>
+    <p class="eyebrow" style="margin:-.4rem 0 .8rem">drop your tuts</p>
     <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
-    <p class="lead">Longest time under tension. Sets count their set time; a Time under tension set counts the whole session.</p>
-    <h3>TUTS leaderboard</h3>
+    <p class="lead">You can't fail just by holding.</p>
+    <h3>drop your tuts</h3>
     <table>
-      <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Reps</th><th>When</th></tr></thead>
-      <tbody id="tutBoardBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
+      <thead><tr><th>Push-ups</th><th>Hold</th></tr></thead>
+      <tbody id="tutBoardBody"><tr><td colspan="2">Waiting for sets…</td></tr></tbody>
     </table>
     <h3 style="margin-top:1.6rem">Your time under tension</h3>
     <p class="fine">Saved on this phone for the signed-in player (or guest).</p>
@@ -1180,10 +1180,10 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <thead><tr><th>Day</th><th>Time</th><th>Reps</th></tr></thead>
       <tbody id="tutDaysBody"><tr><td colspan="3">No sets yet.</td></tr></tbody>
     </table>
-    <h3 style="margin-top:1.6rem">Recent Time Under Tension Sets</h3>
+    <h3 style="margin-top:1.6rem">Your recent drop your tuts</h3>
     <table>
-      <thead><tr><th>When</th><th>Time</th><th>Reps</th><th>Rule breaks</th></tr></thead>
-      <tbody id="tutSessBody"><tr><td colspan="4">No sessions yet.</td></tr></tbody>
+      <thead><tr><th>Push-ups</th><th>Hold</th></tr></thead>
+      <tbody id="tutSessBody"><tr><td colspan="2">No sessions yet.</td></tr></tbody>
     </table>
   </section>
 
@@ -2089,18 +2089,18 @@ function renderTutHistory() {
     : `<tr><td colspan="3">No sets yet.</td></tr>`;
   let sess = [];
   try { sess = JSON.parse(localStorage.getItem("zabbadat-push-sessions") || "[]"); } catch {}
-  sess = sess.filter((x) => (x.who || "guest") === who).slice(-10).reverse();
+  sess = sess.filter((x) => (x.who || "guest") === who && x.category === "tut-set").slice(-10).reverse();
   $("tutSessBody").innerHTML = sess.length
-    ? sess.map((x) => `<tr><td>${escapeHtml(x.when || "")}</td><td>${formatTut(x.ms)}</td><td>${Number(x.reps) || 0}</td><td>${Number(x.violations) || 0}</td></tr>`).join("")
-    : `<tr><td colspan="4">No sessions yet.</td></tr>`;
+    ? sess.map((x) => `<tr><td>${Number(x.reps) || 0}</td><td>${formatTut(x.holdMs)}</td></tr>`).join("")
+    : `<tr><td colspan="2">No sessions yet.</td></tr>`;
 }
 function paintTutRows(rows) {
   const body = $("tutBoardBody");
   if (!body) return;
-  const ranked = window.ZabbadatSession.rankTut(rows, 50);
-  body.innerHTML = ranked.length
-    ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${formatTut(r.ms)}</td><td>${Number(r.reps)}</td><td>${escapeHtml(r.when || "")}</td></tr>`).join("")
-    : `<tr><td colspan="5">No timed sets with reps yet.</td></tr>`;
+  const sets = (rows || []).filter((r) => r.category === "tut-set" && Number(r.reps) > 0).slice(0, 50);
+  body.innerHTML = sets.length
+    ? sets.map((r) => `<tr><td>${Number(r.reps)}</td><td>${formatTut(r.holdMs)}</td></tr>`).join("")
+    : `<tr><td colspan="2">No finished sets yet.</td></tr>`;
 }
 function paintPushRows(rows) {
   const sorted = [...(rows || [])].sort((a, b) => b.reps - a.reps || a.ms - b.ms).slice(0, 50);
@@ -2129,22 +2129,26 @@ function finishPushSet(endedBy) {
   const typed = ($("player").value || "").trim().slice(0, 20);
   const name = currentUser ? (typed || displayNameOf(currentUser)) : (typed || "Player");
   const handle = ($("xHandle").value || "").trim().replace(/^@/, "");
-  const record = { name, xHandle: handle ? "@" + handle : "", reps: pushState.reps, ms, when: new Date().toLocaleString() };
+  const unbroken = pushState.reps > 0 && (!endedBy || endedBy === "Camera stopped") && (!postureGuard || postureGuard.state().count === 0);
+  const category = pushMode === "long" ? (unbroken ? "tut-set" : "long") : pushMode === "challenge" ? "challenge" : "set";
+  // Longest measured continuous top hold, not session elapsed time or the 30-second bonus count.
+  const holdMs = pushMode === "long" && typeof holdReward !== "undefined" && holdReward ? Math.round(holdReward.state().bestMs || 0) : 0;
+  const record = { name, xHandle: handle ? "@" + handle : "", reps: pushState.reps, ms, when: new Date().toLocaleString(), category, holdMs };
   const local = localPush();
   local.push(record);
   localStorage.setItem("zabbadat-pushups", JSON.stringify(local));
   localStorage.setItem(pushTotalKey(), String(savedPushTotal() + record.reps));
   localStorage.setItem(pushSetsKey(), String(savedPushSets() + window.ZabbadatSession.setsToAdd(record.reps)));
   localStorage.setItem(pushTutKey(), String(savedPushTut() + window.ZabbadatSession.tutToAdd(pushMode, ms, pushState.tut)));
-  if ((pushMode === "long" || pushMode === "challenge") && postureGuard) {
-    const v = postureGuard.state().count;
+  if (category === "tut-set") {
+    const v = postureGuard ? postureGuard.state().count : 0;
     try {
       const log = JSON.parse(localStorage.getItem("zabbadat-push-sessions") || "[]");
-      log.push({ reps: record.reps, ms, violations: v, when: record.when, who: currentUser ? currentUser.uid : "guest" });
+      log.push({ reps: record.reps, ms, violations: v, when: record.when, category, holdMs, mode: pushMode, who: currentUser ? currentUser.uid : "guest" });
       localStorage.setItem("zabbadat-push-sessions", JSON.stringify(log.slice(-100)));
     } catch {}
-    if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
   }
+  if ((pushMode === "long" || pushMode === "challenge") && $("pushViolFlag")) $("pushViolFlag").hidden = true;
   paintPushRows(local);
   const viol = (pushMode === "long" || pushMode === "challenge") && postureGuard ? " Rule breaks: " + postureGuard.state().count + "." : "";
   const doneTut = pushState.tut;
@@ -2904,6 +2908,8 @@ saveRemotePush = async (record) => {
     uid: auth.currentUser.uid,
     reps: Number(record.reps),
     ms: Number(record.ms),
+    category: record.category,
+    holdMs: Math.max(0, Math.min(Math.round(Number(record.holdMs) || 0), Math.round(Number(record.ms) || 0))),
     tutMs: Math.max(0, Math.min(Math.round(Number(record.tutMs) || 0), Math.round(Number(record.ms) || 0))),
     holds: Math.max(0, Math.floor(Number(record.holds) || 0)),
     createdAt: serverTimestamp()
@@ -4191,17 +4197,13 @@ boardSnap("pushBoardBody", pq, (snap) => {
   }
 }, () => paintPushRows(localPush()));
 
-// Time Under Tension board: longest ms first (fallback: recent docs, sorted on this page).
+// drop your tuts: recorded order, newest first; never ranked by time or reps.
 const tutRowsOf = (snap) => snap.docs.map((d) => {
   const x = d.data();
   const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "";
-  return { name: x.name, xHandle: x.xHandle || "", reps: x.reps, ms: x.ms, when };
+  return { name: x.name, xHandle: x.xHandle || "", reps: x.reps, ms: x.ms, category: x.category, holdMs: x.holdMs, when };
 });
-boardSnap("tutBoardBody", query(collection(db, "pushups"), orderBy("ms", "desc"), limit(80)), (snap) => paintTutRows(tutRowsOf(snap)), () => {
-  if (!auth.currentUser) return;
-  boardOffs.push(onSnapshot(query(collection(db, "pushups"), orderBy("createdAt", "desc"), limit(300)), (snap) => paintTutRows(tutRowsOf(snap)),
-    () => paintTutRows(localPush())));
-});
+boardSnap("tutBoardBody", query(collection(db, "pushups"), orderBy("createdAt", "desc"), limit(300)), (snap) => paintTutRows(tutRowsOf(snap)), () => paintTutRows(localPush().slice().reverse()));
 // Plank board: longest hold first.
 const plankRowsOf = (snap) => snap.docs.map((d) => { const x = d.data(); return { name: x.name, xHandle: x.xHandle || "", ms: x.ms, when: x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "" }; });
 boardSnap("plankBoardBody", query(collection(db, "planks"), orderBy("ms", "desc"), limit(80)), (snap) => paintPlankRows(plankRowsOf(snap)), () => paintPlankRows(localPlanks()));

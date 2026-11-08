@@ -1,0 +1,36 @@
+// Dedicated TUT category: recorded order, two values, measured continuous hold (not session time or bonus count).
+const fs = require("fs"), vm = require("vm"), path = require("path"), S = require("../push-session.js");
+const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
+let pass = 0, fail = 0;
+const check = (n, ok) => { ok ? pass++ : fail++; console.log((ok ? "PASS " : "FAIL ") + n); };
+const fn = (n) => html.match(new RegExp("function " + n + "\\([^]*?\\n\\}"))[0];
+const hold = S.createHoldReward();
+hold.update(true, 1000, false); hold.update(true, 121000, false);
+check("hold continues measuring past 30-second bonus, with no 120-second gate", hold.state().bestMs === 120000 && hold.state().done);
+hold.update(false, 121001, false); hold.update(true, 122000, false); hold.update(true, 123000, false);
+check("shorter later holds do not overwrite completed continuous hold or sum separate holds", hold.state().bestMs === 120000);
+hold.reset(); hold.update(true, 0, false); hold.update(true, 12345, false);
+check("actual sub-30-second hold is recorded, no bonus or minimum required", hold.state().bestMs === 12345 && !hold.state().done);
+hold.reset(); check("new set resets measured hold", hold.state().bestMs === 0);
+const els = {}, store = {}, ctx = { $: (id) => els[id] || (els[id] = {}), Number, Date, JSON, Math, currentUser: { uid: "u1" }, formatTut: (ms) => Math.floor((Number(ms) || 0) / 1000) + "s", escapeHtml: String, localStorage: { length: 0, getItem: (k) => store[k] || null }, window: { ZabbadatSession: S } };
+vm.createContext(ctx); vm.runInContext(fn("paintTutRows") + "\n" + fn("renderTutHistory"), ctx);
+const rows = [{ category: "tut-set", reps: 3, holdMs: 7000, ms: 40000 }, { category: "set", reps: 999, holdMs: 200000 }, { category: "challenge", reps: 888 }, { tutMs: 90000, reps: 777 }, { category: "tut-set", reps: 55, holdMs: 2000, ms: 80000 }];
+ctx.rows = rows; vm.runInContext("paintTutRows(rows)", ctx);
+check("shared board preserves recorded order; no ranking by duration or reps; exactly two cells", els.tutBoardBody.innerHTML === '<tr><td>3</td><td>7s</td></tr><tr><td>55</td><td>2s</td></tr>');
+store["zabbadat-push-sessions"] = JSON.stringify(rows.map((r) => Object.assign({ who: "u1" }, r)).concat([{ category: "tut-set", reps: 999, holdMs: 9000, who: "other" }]));
+vm.runInContext("renderTutHistory()", ctx);
+check("personal recent list filters category and owner, newest first, reps + hold only", els.tutSessBody.innerHTML === '<tr><td>55</td><td>2s</td></tr><tr><td>3</td><td>7s</td></tr>');
+check("visible title drop your tuts, existing holding rule retained, board no rankTut", /<h2>Drop your tuts<\/h2>/.test(html) && html.includes("You can't fail just by holding.") && !/rankTut|sort\(/.test(fn("paintTutRows")));
+check("Firestore board requests recorded order, not longest ms", /boardSnap\("tutBoardBody", query\(collection\(db, "pushups"\), orderBy\("createdAt", "desc"\)/.test(html));
+(async () => {
+  let saved;
+  Object.assign(ctx, { auth: { currentUser: { uid: "u1" } }, db: {}, collection: (db, col) => col, addDoc: async (col, r) => { saved = r; return { id: "id1" }; }, serverTimestamp: () => "now" });
+  vm.runInContext(html.match(/saveRemotePush = async \(record\) => \{[^]*?\n\};/)[0], ctx);
+  await ctx.saveRemotePush({ name: "Z", reps: 12, ms: 80000, tutMs: 70000, holds: 1, category: "tut-set", holdMs: 34567 });
+  check("Firestore saves category, measured hold, reps and unchanged reward fields", saved.category === "tut-set" && saved.holdMs === 34567 && saved.reps === 12 && saved.tutMs === 70000 && saved.holds === 1);
+  vm.runInContext(html.match(/const tutRowsOf = \(snap\) =>[^]*?\n\}\);/)[0], ctx);
+  ctx.snap = { docs: [{ data: () => saved }] };
+  const mapped = vm.runInContext("tutRowsOf(snap)", ctx)[0];
+  check("Firestore read mapper preserves category and hold time for shared rendering", mapped.category === "tut-set" && mapped.holdMs === 34567 && mapped.reps === 12);
+  console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
+})();
