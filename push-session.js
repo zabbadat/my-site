@@ -82,10 +82,11 @@
   }
   // The camera view of a leaned-up phone (upright or flipped). A push-up moves the shoulders and leaves the hands
   // planted, so the wrists stay put. Picking the phone up moves the whole picture together, or tilts the shoulder
-  // line. Standing up raises the shoulders off the plank, or brings the hands up off the floor. None of these is a
-  // long hold at the top: a hold keeps the same picture. Shoulder WIDTH shrinking is not one of these (a front
-  // camera does that on a long press) and is not read here.
-  var VIEW = { minScore: 0.3, lockMs: 350, liftMs: 450, badMs: 1000, deadFrac: 0.045, moveFrac: 0.18, agreeFrac: 0.11, rotDeg: 34, riseFrac: 0.12, handFrac: 0.16 };
+  // line. Standing up raises the shoulders off the plank, or brings the hands up off the floor. A clean hold at the
+  // top (press plank, elbows up) is allowed a larger rise and hand-jitter than that, so locking out or a front
+  // camera wobbling the wrists is not read as standing up. A clear stand-up or hands leaving the floor still is.
+  // Shoulder WIDTH shrinking is not one of these (a front camera does that on a long press) and is not read here.
+  var VIEW = { minScore: 0.3, lockMs: 350, liftMs: 450, badMs: 1000, deadFrac: 0.045, moveFrac: 0.18, agreeFrac: 0.11, rotDeg: 34, riseFrac: 0.12, handFrac: 0.16, holdRiseFrac: 0.20, holdHandFrac: 0.24 };
   function angDiff(a, b) { var d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
   function lineDiff(a, b) { var d = Math.abs(angDiff(a, b)); return d > Math.PI / 2 ? Math.PI - d : d; } // a shoulder line has no direction: left/right swap is not a tilt
   function createViewWatch(opts) {
@@ -104,8 +105,9 @@
       if (!n) return null;
       return { x: ((lw ? lw.x : 0) + (rw ? rw.x : 0)) / n, y: ((lw ? lw.y : 0) + (rw ? rw.y : 0)) / n, n: n };
     }
-    function update(kps, t, frameW) {
+    function update(kps, t, frameW, atTop) {
       var W = frameW > 1 ? frameW : 640, sh = shoulders(kps);
+      var riseN = atTop ? o.holdRiseFrac : o.riseFrac, handN = atTop ? o.holdHandFrac : o.handFrac;
       if (!sh) { if (!(s.seen != null && t - s.seen < 200)) s.pend = null; return null; }
       s.seen = t;
       var wr = wrists(kps);
@@ -135,8 +137,8 @@
       var kind = null;
       if (sample.n > 0 && s.base.hasW && dist > o.moveFrac * W && wd > o.moveFrac * W && Math.hypot(dx - wdx, dy - wdy) < o.agreeFrac * W) kind = "lifted";
       if (!kind && lineDiff(sample.ang, s.base.ang) * 180 / Math.PI > o.rotDeg) kind = "lifted";
-      if (!kind && rose > o.riseFrac * W) kind = "standing";
-      if (!kind && sample.n >= 2 && s.base.hasW && s.base.wy - sample.wy > o.handFrac * W) kind = "standing";
+      if (!kind && rose > riseN * W) kind = "standing";
+      if (!kind && sample.n >= 2 && s.base.hasW && s.base.wy - sample.wy > handN * W) kind = "standing";
       if (!kind && sample.n >= 2 && sample.y > sample.wy + 0.12 * sample.sw) kind = "collapse";
       if (!kind) { s.pend = null; return null; }
       if (!s.pend || s.pend.kind !== kind) s.pend = { kind: kind, since: t };
@@ -177,7 +179,7 @@
   // Failure watch (One long set, 3:00 challenge, Sets): the set ends when the camera sees
   //  - "knees": hip-knee-ankle bent like kneeling or a collapse (softer than the on-screen flag, still needs the legs),
   //  - "collapse": shoulders dropped through the hands,
-  //  - "standing": stood up or took the hands off the floor (shoulders rose, or the hands came up), or an upright body when not held at the top,
+  //  - "standing": stood up or took the hands off the floor (shoulders rose, or the hands came up; a clean top hold uses a wider allowance so lockout / wrist jitter is not a stand-up), or an upright body when not held at the top,
   //  - "elbows": the arms gave out, elbows down at wrist / floor height (not a normal bend, never while atTop),
   //  - "form": a clear break against the first-rep baseline (body line / hips sag or pike, or knees bend well past rep 1),
   //  - "frame": no shoulder confidently visible for frameMs (10 s).
@@ -206,7 +208,7 @@
       if (upper(kps)) seen = t; else if (o.endOn.frame && t - seen >= o.frameMs) return (failed = "frame");
       var g = guard.update(kps, t, topWidth);
       if (g.event === "knees" && o.endOn.knees) return (failed = "knees");
-      var v = view.update(kps, t, frameW);
+      var v = view.update(kps, t, frameW, atTop);
       // v === "lifted" (phone picked up / camera moved) is deliberately ignored: only form breaks end the set.
       var reps = extra && typeof extra === "object" && typeof extra.reps === "number" ? extra.reps : null;
       var f = formFeats(kps, o.minScore);

@@ -60,6 +60,31 @@ check("rested upright lean (stable) is not a pickup", run(seq(0, 8000, () => pla
   const r = run(seq(0, 4000, upright), { frameW: W, atTop: false });
   check("upright body when not at the top ends as standing", r.out === "standing", r.out); }
 
+{ // clean press-plank lockout: shoulders rise 90 px (above the default 0.12*640=77, under holdRiseFrac 0.20*640=128), hands stay, elbows up
+  const lock = () => plank({ left_shoulder: [256, 80], right_shoulder: [384, 80], nose: [320, 50] });
+  const r = run(seq(0, 500, () => plank()).concat(seq(500, 4000, lock)), { frameW: W, atTop: true });
+  check("clean lockout at the top (shoulders rise a bit, hands planted) does not end the set", r.out === null, String(r.out)); }
+{ // wrist jitter 110 px while held at the top (above default 0.16*640=102, under holdHandFrac 0.24*640=154)
+  const jit = () => plank({ left_wrist: [240, 260], right_wrist: [400, 260] });
+  const r = run(seq(0, 500, () => plank()).concat(seq(500, 4000, jit)), { frameW: W, atTop: true });
+  check("hand jitter during a top hold does not end the set", r.out === null, String(r.out)); }
+{ const up = () => plank({ left_shoulder: [256, 30], right_shoulder: [384, 30], nose: [320, 0] });
+  const r = run(seq(0, 500, () => plank()).concat(seq(500, 2500, up)), { frameW: W, atTop: true });
+  check("stood up while held at the top still ends as standing", r.out === "standing", r.out + "@" + r.at); }
+{ const hands = () => plank({ left_wrist: [250, 150], right_wrist: [390, 150] });
+  const r = run(seq(0, 500, () => plank()).concat(seq(500, 2500, hands)), { frameW: W, atTop: true });
+  check("hands leave the floor while held at the top still ends as standing", r.out === "standing", r.out + "@" + r.at); }
+{ const lock = () => plank({ left_shoulder: [256, 80], right_shoulder: [384, 80], nose: [320, 50] });
+  const w = SS.createFailureWatch(), hr = SS.createHoldReward(); w.reset(0);
+  let out = null, awarded = 0, maxHold = 0;
+  for (let t = 0; t <= 35000; t += 33) {
+    const f = w.update(t < 500 ? plank() : lock(), t, 128, { frameW: W, atTop: true });
+    if (f && !out) out = f;
+    const h = hr.update(true, t, false); maxHold = Math.max(maxHold, h.holdMs); if (h.awarded) awarded++;
+  }
+  check("lockout hold still measures past 30 s and earns the bonus once, without ending", out === null && awarded === 1 && maxHold >= 30000, "out=" + out + " awards=" + awarded + " max=" + maxHold); }
+check("at-top hold uses a wider rise/hand allowance than a clear stand-up", SS.VIEW.holdRiseFrac === 0.20 && SS.VIEW.holdHandFrac === 0.24 && SS.VIEW.holdRiseFrac > SS.VIEW.riseFrac && SS.VIEW.holdHandFrac > SS.VIEW.handFrac);
+
 // Reps, a long press, then more reps: the counter path, same as a real set.
 { const segs = [...S.reps(6, 1500), [20000, 0, 0], ...S.reps(4, 1500)];
   const c = Object.assign({}, S.BASE), ctr = PC.createCounter(), w = SS.createFailureWatch(); w.reset(0); let out = null;
