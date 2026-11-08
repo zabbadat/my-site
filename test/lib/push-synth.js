@@ -24,8 +24,15 @@ function frameFor(frac, c, t) {
   const nose = { x: cx, y: midY - 0.25 * sw + 0.25 * drop };
   const follow = c.followAfter != null && t >= c.followAfter, wy = follow ? midY + c.armLen * c.sw * W : top + c.armLen * c.sw * W + shift; // hands planted (unless 'follow')
   const wl = { x: ls.x - 0.1 * sw, y: wy }, wr = { x: rs.x + 0.1 * sw, y: wy };
+  const eyeY = nose.y - 0.08 * sw;
   const kps = [{ name: "left_shoulder", ...jit(ls), score: sc() }, { name: "right_shoulder", ...jit(rs), score: sc() }];
-  if (c.nose) kps.push({ name: "nose", ...jit(nose), score: sc() });
+  if (c.nose) {
+    kps.push({ name: "nose", ...jit(nose), score: sc() });
+    if (c.eyes !== false) {
+      kps.push({ name: "left_eye", ...jit({ x: cx - 0.12 * sw, y: eyeY }), score: sc() });
+      kps.push({ name: "right_eye", ...jit({ x: cx + 0.12 * sw, y: eyeY }), score: sc() });
+    }
+  }
   if (c.wrists >= 1) kps.push({ name: "left_wrist", ...jit(wl), score: sc() });
   if (c.wrists >= 2) kps.push({ name: "right_wrist", ...jit(wr), score: sc() });
   return kps;

@@ -38,6 +38,14 @@ check("hat: low-confidence nose (0.35) all set", drive(NEW.createCounter, set, {
 const brim = (k, t, f) => (f > 0.5 ? k.map((p) => (p.name === "nose" ? { ...p, y: p.y - 0.9 * 128, score: 0.8 } : p)) : k);
 check("brim misread as the nose (jumps up near the bottom)", drive(NEW.createCounter, set, {}, brim).reps === 10);
 check("hood / face down: no nose the whole set", drive(NEW.createCounter, set, { nose: false }).reps === 10);
+const fakeCrown = (k) => {
+  const n = k.find((p) => p.name === "nose");
+  return k.filter((p) => p.name !== "nose" && p.name !== "left_eye" && p.name !== "right_eye" && p.name !== "left_ear" && p.name !== "right_ear")
+    .concat(n ? [{ ...n, y: n.y - 0.9 * 128, score: 0.85 }] : []);
+};
+check("hood: confident fake nose on the crown, no eyes", drive(NEW.createCounter, set, {}, fakeCrown).reps === 10);
+const brimAboveEyes = (k) => k.map((p) => (p.name === "nose" ? { ...p, y: p.y - 0.9 * 128, score: 0.85 } : p));
+check("hat: confident brim nose above the eyes", drive(NEW.createCounter, set, {}, brimAboveEyes).reps === 10);
 check("hood + noise 0.3% + 10% low-score frames", drive(NEW.createCounter, set, { noise: 0.003, drop: 0.1 }, (k, t) => (t > 3000 ? noNose(k) : k)).reps === 10);
 const shallow = [...cal, ...reps(3, 1500), ...Array.from({ length: 5 }, () => half(1500, 0.4)).flat(), ...reps(2, 1500), ...end];
 check("hat: shallow 40% reps still rejected (nose gone after rep 2)", drive(NEW.createCounter, shallow, {}, (k, t) => (t > 1200 + 3000 ? noNose(k) : k)).reps === 5);

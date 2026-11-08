@@ -37,9 +37,12 @@
     reachReturn: 0.35,    // ...and open back up at least 35% of it before the rep is credited
     topFollowMs: 400,     // the top follows upward movement of the body this fast
     topWinMs: 7000,       // window (longer than maxRepMs) with no return to the top = the body moved, re-base
-    // Shoulders-only fallback (hats, hoods, face down): the nose is used only when confident and not jumping.
+    // Shoulders-only fallback (hats, hoods, face down): the nose is used only when it belongs to a
+    // visible face — confident, not jumping, and near an eye or ear. A brim or hoodie crown often
+    // shows up as a confident lone "nose"; that is ignored so depth comes from the shoulders.
     noseMin: 0.5,         // nose confidence needed to use the head share (below = shoulders-only)
     noseJump: 0.5,        // a nose offset this far (shoulder widths) from its running value = brim/hood misread, ignored
+    faceCluster: 0.55,    // an eye/ear farther than this (shoulder widths) from the nose is not the same face
     learnRate: 0.05,      // how fast the face->shoulders mapping learns while the face is visible
     handBackMs: 600       // when the face returns, the leftover offset fades over this long
   };
@@ -103,6 +106,21 @@
       return h && t - h.t <= o.holdMs ? h : null;
     }
 
+    // A lone high-scoring "nose" on a brim or hoodie crown is not a face. Need an eye or ear
+    // near the nose (MoveNet has no forehead point). A nose sitting well above the eyes is a brim.
+    function faceOk(kps, nose, swPx) {
+      var near = false, aboveEye = false, i, p;
+      for (i = 0; i < kps.length; i++) {
+        p = kps[i];
+        if (!p || (p.name !== "left_eye" && p.name !== "right_eye" && p.name !== "left_ear" && p.name !== "right_ear")) continue;
+        if (p.score != null && p.score < o.minScore) continue;
+        if (dist(p, nose) > o.faceCluster * swPx) continue;
+        near = true;
+        if ((p.name === "left_eye" || p.name === "right_eye") && (p.y - nose.y) > 0.12 * swPx) aboveEye = true;
+      }
+      return near && !aboveEye;
+    }
+
     // Running linear fit nose offset ~ shoulders-only height (exponentially weighted), used by the shoulders-only fallback.
     function learn(x, yv) {
       var m = s.map, a = o.learnRate;
@@ -125,6 +143,7 @@
       for (var j = 0; j < kps.length; j++) if (kps[j].name === "nose") { n = kps[j]; break; }
       if (n && !(n.score == null || n.score >= o.noseMin)) n = null;
       if (n && s.noseOff != null && Math.abs((n.y - midY) / swPx - s.noseOff) > o.noseJump) n = null;
+      if (n && !faceOk(kps, n, swPx)) n = null;
       if (n) {
         // Face visible and confident: exactly the original head + shoulder signal.
         var off = (n.y - midY) / swPx;
