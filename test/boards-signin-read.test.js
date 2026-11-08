@@ -11,8 +11,22 @@ check("page: every board is registered through boardSnap (no top-level public on
   && !/^onSnapshot\(query\(collection\(db, "(games|pushups|planks|plankDaily|dailySteps|walkSessions|tutBattleStats)"/m.test(html) && !/^onSnapshot\((q|pq), /m.test(html));
 check("page: boardsOnUser registered after the boards; season board gated on sign-in", html.lastIndexOf("onAuthStateChanged(auth, boardsOnUser)") > html.lastIndexOf('boardSnap("walkBoardBody"')
   && /function bbStart\(\) \{\s*if \(!BT \|\| !\$\("bbBody"\)\) return;\s*if \(!auth\.currentUser\)/.test(html) && /if \(!auth\.currentUser\) \{ signedOutRow\("bbBody"\); return; \}/.test(html));
+const decl = html.indexOf("const boardSubs = [];");
+const firstCall = html.indexOf('boardSnap("');
+check("page: boardSubs is initialized before any boardSnap call", decl !== -1 && decl < firstCall);
+check("page: ZAB auth listener is after boardSubs, so a boardSnap call cannot skip it", html.indexOf("onAuthStateChanged(auth, (u) => { showUser(u); zabOnUser(u);") > decl);
 // run the helpers: signed out -> prompt in each board, no subscription; signed in -> subscribe; sign out again -> unsubscribe
-const src = html.slice(html.indexOf("const boardSubs = [];"), html.indexOf('const q = query(collection(db, "games")'));
+const fnAt = html.indexOf("function boardsOnUser(u)", decl);
+const src = html.slice(decl, html.indexOf("\n}", fnAt) + 2);
+const callEnd = html.indexOf("}, () => {});", firstCall) + "}, () => {});".length;
+let bootErr = "";
+try {
+  vm.runInContext(html.slice(decl, callEnd), vm.createContext({
+    $: () => ({ innerHTML: "" }),
+    query: () => "q", collection: () => "c", db: {}, orderBy: () => "o", limit: () => 1, onSnapshot: () => () => {}
+  }));
+} catch (e) { bootErr = e.name + ": " + e.message; }
+check("page: first boardSnap runs after boardSubs exists", bootErr === "");
 const els = {}; const mk = (id) => (els[id] = els[id] || { innerHTML: "", closest: () => ({ querySelectorAll: () => [1, 2, 3, 4] }) });
 let live = 0, offs = 0;
 const ctx = { $: mk, onSnapshot: () => { live++; return () => { offs++; }; } };

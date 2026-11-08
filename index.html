@@ -3912,6 +3912,17 @@ $("tbLeave").onclick = async () => {
   if (u && r && r.status === "live" && !tbLostSent) await TBm.reportLoss(tbFs, c, u.uid, "left", tbMine).catch(() => {});
   tbExit(); tbStat("You left the room."); if (u && c) tb.leave(c, u).catch(() => {});
 };
+// Public boards need sign-in to read (firestore.rules). boardSnap registers a board; boardsOnUser subscribes them while
+// signed in and, signed out, shows a sign-in prompt in each board instead of an error or stale rows.
+// Keep this above every boardSnap() call. boardSubs is a const, so a call above it throws and the module
+// stops before the auth listener, the ZAB header, and the activity-board subscriptions.
+const boardSubs = []; let boardOffs = [];
+function signedOutRow(id) { const el = $(id); if (!el) return; const t = el.closest ? el.closest("table") : null, n = t ? t.querySelectorAll("thead th").length || 1 : 1; el.innerHTML = '<tr><td colspan="' + n + '">Sign in to see this board.</td></tr>'; }
+function boardSnap(bodyId, q, next, fail) { boardSubs.push({ bodyId, q, next, fail }); }
+function boardsOnUser(u) {
+  boardOffs.forEach((off) => off()); boardOffs = [];
+  boardSubs.forEach((b) => { if (u) boardOffs.push(onSnapshot(typeof b.q === "function" ? b.q() : b.q, b.next, b.fail)); else signedOutRow(b.bodyId); });
+}
 boardSnap("tbRankBody", query(collection(db, "tutBattleStats"), orderBy("wins", "desc"), limit(20)), (snap) => {
   const rows = []; snap.forEach((d) => rows.push(d.data()));
   const list = TBm.rankStats(rows), body = $("tbRankBody");
@@ -3943,15 +3954,6 @@ $("boardTonightBtn").onclick = () => {
   paintRows(lastBoardRows);
 };
 
-// Public boards need sign-in to read (firestore.rules). boardSnap registers a board; boardsOnUser subscribes them while
-// signed in and, signed out, shows a sign-in prompt in each board instead of an error or stale rows.
-const boardSubs = []; let boardOffs = [];
-function signedOutRow(id) { const el = $(id); if (!el) return; const t = el.closest ? el.closest("table") : null, n = t ? t.querySelectorAll("thead th").length || 1 : 1; el.innerHTML = '<tr><td colspan="' + n + '">Sign in to see this board.</td></tr>'; }
-function boardSnap(bodyId, q, next, fail) { boardSubs.push({ bodyId, q, next, fail }); }
-function boardsOnUser(u) {
-  boardOffs.forEach((off) => off()); boardOffs = [];
-  boardSubs.forEach((b) => { if (u) boardOffs.push(onSnapshot(typeof b.q === "function" ? b.q() : b.q, b.next, b.fail)); else signedOutRow(b.bodyId); });
-}
 const q = query(collection(db, "games"), orderBy("steps", "asc"), limit(200));  
 
 boardSnap("boardBody", q, (snap) => {
