@@ -352,6 +352,34 @@
         linear-gradient(180deg, rgba(143,191,168,.02), rgba(14,20,18,.08));
     }
     /* Drop your tuts: arcade cabinet / neon high-score board. This section only. */
+    @keyframes tut-cabinet-pulse {
+      0%, 100% {
+        box-shadow:
+          0 0 0 2px var(--arcade-gold),
+          0 0 28px rgba(45,226,230,.55),
+          0 0 72px rgba(255,45,149,.42),
+          0 0 140px rgba(255,45,149,.2),
+          inset 0 0 0 3px var(--arcade-cyan),
+          inset 0 0 0 8px #080612,
+          inset 0 0 0 11px var(--arcade-pink),
+          inset 0 0 90px rgba(255,45,149,.1);
+      }
+      50% {
+        box-shadow:
+          0 0 0 2px #fff1a8,
+          0 0 42px rgba(45,226,230,.85),
+          0 0 96px rgba(255,45,149,.62),
+          0 0 180px rgba(255,45,149,.32),
+          inset 0 0 0 3px var(--arcade-cyan),
+          inset 0 0 0 8px #080612,
+          inset 0 0 0 11px var(--arcade-pink),
+          inset 0 0 110px rgba(255,45,149,.16);
+      }
+    }
+    @keyframes tut-marquee {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .35; }
+    }
     #tut-board {
       --arcade-pink: #ff2d95;
       --arcade-cyan: #2de2e6;
@@ -360,21 +388,37 @@
       color: #efe7ff;
       background-color: #080612;
       background-image:
-        repeating-linear-gradient(180deg, rgba(255,255,255,.04) 0 1px, transparent 1px 4px),
-        radial-gradient(ellipse at 50% -10%, rgba(255,45,149,.22), transparent 52%),
-        radial-gradient(ellipse at 100% 110%, rgba(45,226,230,.16), transparent 46%),
-        linear-gradient(180deg, #160b24, #080612 55%, #05040c);
-      box-shadow: inset 0 0 0 3px var(--arcade-cyan), inset 0 0 0 8px #080612, inset 0 0 0 10px var(--arcade-pink);
+        repeating-linear-gradient(180deg, rgba(255,255,255,.055) 0 1px, transparent 1px 3px),
+        radial-gradient(ellipse at 50% -10%, rgba(255,45,149,.34), transparent 52%),
+        radial-gradient(ellipse at 100% 110%, rgba(45,226,230,.26), transparent 46%),
+        linear-gradient(180deg, #1c0e2e, #080612 55%, #05040c);
+      box-shadow:
+        0 0 0 2px var(--arcade-gold),
+        0 0 28px rgba(45,226,230,.55),
+        0 0 72px rgba(255,45,149,.42),
+        0 0 140px rgba(255,45,149,.2),
+        inset 0 0 0 3px var(--arcade-cyan),
+        inset 0 0 0 8px #080612,
+        inset 0 0 0 11px var(--arcade-pink),
+        inset 0 0 90px rgba(255,45,149,.1);
+      animation: tut-cabinet-pulse 2.2s ease-in-out infinite;
+      position: relative;
+      z-index: 1;
     }
     #tut-board h2 {
       font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
-      font-size: clamp(0.92rem, 3.1vw, 1.55rem);
+      font-size: clamp(1.05rem, 3.6vw, 1.85rem);
       line-height: 1.45;
       letter-spacing: .06em;
       text-transform: uppercase;
       text-align: center;
       color: var(--arcade-gold);
-      text-shadow: 0 0 8px var(--arcade-pink), 0 0 18px rgba(255,45,149,.8), 2px 2px 0 #3a1030;
+      text-shadow:
+        0 0 6px #fff6a8,
+        0 0 16px var(--arcade-gold),
+        0 0 28px var(--arcade-pink),
+        0 0 48px rgba(255,45,149,.9),
+        3px 3px 0 #3a1030;
       margin-bottom: 1rem;
     }
     #tut-board .eyebrow,
@@ -385,13 +429,18 @@
       letter-spacing: .14em;
       text-transform: uppercase;
       color: var(--arcade-cyan);
-      text-shadow: 0 0 10px rgba(45,226,230,.65);
+      text-shadow: 0 0 10px rgba(45,226,230,.65), 0 0 22px rgba(45,226,230,.4);
       text-align: center;
+    }
+    #tut-board .eyebrow {
+      color: var(--arcade-gold);
+      text-shadow: 0 0 8px var(--arcade-gold), 0 0 18px rgba(255,45,149,.8);
+      animation: tut-marquee 1.15s step-end infinite;
     }
     #tut-board .motto {
       color: var(--arcade-pink);
       text-align: center;
-      text-shadow: 0 0 10px rgba(255,45,149,.45);
+      text-shadow: 0 0 12px rgba(255,45,149,.75), 0 0 28px rgba(255,45,149,.4);
     }
     #tut-board .lead,
     #tut-board .fine {
@@ -404,7 +453,7 @@
     #tut-board table {
       background: rgba(6, 4, 14, .72);
       border: 3px solid var(--arcade-cyan);
-      box-shadow: 0 0 0 3px #140c22, 0 0 28px rgba(45,226,230,.28), inset 0 0 40px rgba(255,45,149,.08);
+      box-shadow: 0 0 0 3px #140c22, 0 0 36px rgba(45,226,230,.45), 0 0 64px rgba(255,45,149,.2), inset 0 0 40px rgba(255,45,149,.08);
       margin-top: 1.1rem;
     }
     #tut-board th,
@@ -420,22 +469,25 @@
       font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
       font-size: clamp(.58rem, 2.2vw, .78rem);
       color: var(--arcade-lime);
-      text-shadow: 0 0 8px rgba(125,255,179,.45);
+      text-shadow: 0 0 8px rgba(125,255,179,.7), 0 0 18px rgba(125,255,179,.4);
       padding: .8rem .4rem;
     }
     #tut-board .stat {
       background: #120818;
       border: 2px solid var(--arcade-pink);
       border-radius: 4px;
-      box-shadow: 0 0 16px rgba(255,45,149,.22);
+      box-shadow: 0 0 22px rgba(255,45,149,.4), 0 0 40px rgba(45,226,230,.15);
     }
     #tut-board .stat b {
       font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
       font-size: clamp(.9rem, 3.4vw, 1.25rem);
       color: var(--arcade-gold);
-      text-shadow: 0 0 10px rgba(255,229,102,.4);
+      text-shadow: 0 0 10px rgba(255,229,102,.7), 0 0 22px rgba(255,45,149,.45);
     }
     #tut-board .stat span { color: var(--arcade-cyan); }
+    @media (prefers-reduced-motion: reduce) {
+      #tut-board, #tut-board .eyebrow { animation: none; }
+    }
     .zt-bal-row { display: inline-flex; flex-direction: column; align-items: flex-end; gap: .3rem; } /* Send Zab tab sits directly under the ring */
     .stat .zt-bal-row { color: inherit; font-size: inherit; letter-spacing: normal; text-transform: none; }
     .stat .zt-send-tab span { color: inherit; font-size: inherit; letter-spacing: .06em; text-transform: none; }
@@ -1053,6 +1105,34 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="lead">Quick version: mouth in 4, hold 4, nose out 4, hold empty 4. Full steps, timing, and the Bariboshi minute are in <a href="#sitkari-how">How to sitkari</a> above.</p>
     <p class="fine">Sit upright. Stop if you get dizzy. This is a settling drill before a Bariboshi, not a medical treatment.</p>
   </section>
+  <section class="washers" id="tut-board">
+    <h2>Drop your tuts</h2>
+    <p class="eyebrow" style="margin:-.4rem 0 .8rem">drop your tuts</p>
+    <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
+    <p class="lead">You can't fail just by holding.</p>
+    <h3>drop your tuts</h3>
+    <table>
+      <thead><tr><th>Push-ups</th><th>Hold</th></tr></thead>
+      <tbody id="tutBoardBody"><tr><td colspan="2">Waiting for sets…</td></tr></tbody>
+    </table>
+    <h3 style="margin-top:1.6rem">Your time under tension</h3>
+    <p class="fine">Saved on this phone for the signed-in player (or guest).</p>
+    <div class="stats">
+      <div class="stat"><b id="tutToday">0:00</b><span id="tutTodayReps">Today · 0 reps</span></div>
+      <div class="stat"><b id="tutBestDay">—</b><span id="tutBestDayInfo">Best day</span></div>
+      <div class="stat"><b id="tutAll">0:00</b><span id="tutAllReps">All time · 0 reps</span></div>
+    </div>
+    <table>
+      <thead><tr><th>Day</th><th>Time</th><th>Reps</th></tr></thead>
+      <tbody id="tutDaysBody"><tr><td colspan="3">No sets yet.</td></tr></tbody>
+    </table>
+    <h3 style="margin-top:1.6rem">Your recent drop your tuts</h3>
+    <table>
+      <thead><tr><th>Push-ups</th><th>Hold</th></tr></thead>
+      <tbody id="tutSessBody"><tr><td colspan="2">No sessions yet.</td></tr></tbody>
+    </table>
+  </section>
+
 <section id="push">
     <h2>TUT set-push-up</h2>
     <ul class="lead push-rules">
@@ -1107,34 +1187,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Reps</th><th>Time</th><th>When</th></tr></thead>
       <tbody id="pushBoardBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
-    </table>
-  </section>
-
-  <section class="washers" id="tut-board">
-    <h2>Drop your tuts</h2>
-    <p class="eyebrow" style="margin:-.4rem 0 .8rem">drop your tuts</p>
-    <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
-    <p class="lead">You can't fail just by holding.</p>
-    <h3>drop your tuts</h3>
-    <table>
-      <thead><tr><th>Push-ups</th><th>Hold</th></tr></thead>
-      <tbody id="tutBoardBody"><tr><td colspan="2">Waiting for sets…</td></tr></tbody>
-    </table>
-    <h3 style="margin-top:1.6rem">Your time under tension</h3>
-    <p class="fine">Saved on this phone for the signed-in player (or guest).</p>
-    <div class="stats">
-      <div class="stat"><b id="tutToday">0:00</b><span id="tutTodayReps">Today · 0 reps</span></div>
-      <div class="stat"><b id="tutBestDay">—</b><span id="tutBestDayInfo">Best day</span></div>
-      <div class="stat"><b id="tutAll">0:00</b><span id="tutAllReps">All time · 0 reps</span></div>
-    </div>
-    <table>
-      <thead><tr><th>Day</th><th>Time</th><th>Reps</th></tr></thead>
-      <tbody id="tutDaysBody"><tr><td colspan="3">No sets yet.</td></tr></tbody>
-    </table>
-    <h3 style="margin-top:1.6rem">Your recent drop your tuts</h3>
-    <table>
-      <thead><tr><th>Push-ups</th><th>Hold</th></tr></thead>
-      <tbody id="tutSessBody"><tr><td colspan="2">No sessions yet.</td></tr></tbody>
     </table>
   </section>
 
