@@ -248,9 +248,9 @@
       .hero h1 { margin-bottom: .9rem; }
     }
     .promo-banner { margin-top: calc(var(--navh, 4.6rem) + .2rem); padding: 1rem 1.2rem; background: var(--accent); color: #0b1410; text-align: center; display: flex; flex-wrap: wrap; gap: .6rem 1.2rem; align-items: center; justify-content: center; }
-    .promo-banner p { margin: 0; font-weight: 700; line-height: 1.35; }
+    .promo-banner p { margin: 0; font-weight: 700; line-height: 1.35; flex: 1 1 100%; width: 100%; }
     .promo-banner strong { display: block; font-size: clamp(1.55rem, 6.2vw, 2.3rem); line-height: 1.12; letter-spacing: .01em; }
-    .promo-fall { display: block; width: 11rem; max-width: 100%; height: auto; margin: 0 auto .4rem; }
+    .promo-fall { display: block; flex: 1 1 100%; width: 100%; max-width: 70rem; height: auto; margin: 0 auto .4rem; }
     .promo-banner .btn { background: #0b1410; color: var(--accent-2); border-color: #0b1410; }
     .promo-banner .btn.promo-ghost { background: transparent; color: #0b1410; border: 2px solid #0b1410; }
     .claim-wrap { position: relative; display: inline-block; margin-bottom: 2.4rem; }
@@ -615,13 +615,13 @@ function f(){var m=n.scrollWidth-n.clientWidth;n.classList.toggle("fade-l",n.scr
 n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f);f();})();
 </script>
   <aside class="promo-banner" id="promoBanner" aria-label="Giveaway">
-    <p><svg class="promo-fall" viewBox="0 0 268 100" width="268" height="100" aria-hidden="true" focusable="false">
-      <!-- An open, two-level harvest: breathing room between each silhouette. -->
-      <g data-harvest="wheat" stroke="#b18430" stroke-width="1.3" fill="#e0b653" stroke-linecap="round">
+    <svg class="promo-fall" viewBox="0 0 920 155" width="920" height="155" aria-hidden="true" focusable="false">
+      <!-- A wide harvest frieze across the top, above the Fall Frenzy headline. -->
+      <g data-harvest="wheat" transform="translate(20 28)" stroke="#b18430" stroke-width="1.3" fill="#e0b653" stroke-linecap="round">
         <path fill="none" d="M44 48Q42 26 33 10M52 46Q54 24 58 6M58 48Q65 30 76 20"/>
         <path d="M34 13q-8-1-7-7 7 0 7 7Zm3 7q-8 0-8-6 7-1 8 6Zm3 8q-8 0-8-6 7-1 8 6Zm-5-12q0-8 6-9 2 6-6 9Zm4 8q0-8 6-9 2 6-6 9ZM57 12q-6-4-3-9 6 3 3 9Zm-2 8q-7-3-5-8 7 2 5 8Zm-1 9q-7-3-5-8 7 2 5 8Zm4-14q2-8 8-7 0 6-8 7Zm-2 9q2-8 8-7 0 6-8 7ZM72 25q-3-7 2-10 5 5-2 10Zm-5 7q-4-7 1-10 5 5-1 10Zm4-4q7-5 11-1-3 5-11 1Z"/>
       </g>
-      <g data-harvest="horn">
+      <g data-harvest="horn" transform="translate(20 38)">
         <path fill="#603716" d="M12 37C-1 18 5 17 14 25c9 8 18 8 31 6 16-3 29 0 35 10l4 37C58 92 34 87 21 73 9 61 13 49 12 37Z"/>
         <path fill="#98632e" d="M13 32c10 12 21 9 34 6 13-3 23 0 28 6l3 30C57 85 37 79 26 68 16 58 19 44 13 32Z"/>
         <g fill="none" stroke="#d0a058" stroke-width="1.5">
@@ -632,13 +632,13 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <ellipse cx="79" cy="56" rx="9.5" ry="21" fill="#392110" transform="rotate(-8 79 56)"/>
         <path d="M76 38q10 16 5 35" fill="none" stroke="#6f421d" stroke-width="2"/>
       </g>
-      <g data-harvest="vine" fill="none" stroke="#54683b" stroke-width="1.6" stroke-linecap="round">
+      <g data-harvest="vine" transform="translate(55 18)" fill="none" stroke="#54683b" stroke-width="1.6" stroke-linecap="round">
         <path d="M72 42C82 26 98 22 112 32"/>
         <path d="M90 30c6-10 16-12 22-4"/>
         <path fill="#4e6a3d" stroke="#3d5530" stroke-width=".8" d="M92 24q4-9 12-5-3 9-12 5Z"/>
         <path fill="#5a7444" stroke="#3d5530" stroke-width=".8" d="M108 26q5-10 13-4-5 9-13 4Z"/>
       </g>
-      <g data-harvest="corn">
+      <g data-harvest="corn" transform="translate(58 28)">
         <path fill="#6a8a3e" d="M79 16l7 5-3 18-9-4 5-19Z"/>
         <path fill="#e6c453" stroke="#c9a33a" stroke-width=".6" d="M82 23c-4 1-6 15-1 20 6 5 11 1 10-8 0-8-4-13-9-12Z"/>
         <g fill="#f0d56a">
@@ -648,51 +648,51 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         </g>
         <path fill="#7b9548" d="M78 19q-3 11 3 18 3-9 0-18Zm11 3q5 11 1 18-5-7-1-18Z"/>
       </g>
-      <g data-harvest="apple">
+      <g data-harvest="apple" transform="translate(115 10)">
         <path fill="#912d36" d="M109 22c-16-6-19 9-12 20 4 6 8 6 12 4 5 2 10 1 14-5 7-12 1-24-14-19Z"/>
         <path d="M101 26q-6 4-2 11" fill="none" stroke="#c76566" stroke-width="3" stroke-linecap="round"/>
         <path d="M109 24q-2-8 2-12" fill="none" stroke="#56351c" stroke-width="2.5"/>
         <path fill="#42643a" d="M111 18q2-11 14-9-2 11-14 9Z"/>
       </g>
-      <g data-harvest="grapes" fill="#694368" stroke="#4a2b4f" stroke-width=".8">
+      <g data-harvest="grapes" transform="translate(110 42)" fill="#694368" stroke="#4a2b4f" stroke-width=".8">
         <path d="M99 57q0-6 7-8" fill="none" stroke="#4c663b" stroke-width="2"/>
         <circle cx="96" cy="60" r="5"/><circle cx="105" cy="60" r="5"/>
         <circle cx="92" cy="68" r="5"/><circle cx="101" cy="68" r="5"/><circle cx="110" cy="68" r="5"/>
         <circle cx="96" cy="76" r="5"/><circle cx="105" cy="76" r="5"/><circle cx="101" cy="83" r="4.5"/>
         <path d="m94 58 2-1m7 9 2-1m-9 8 2-1" stroke="#ac80a0" stroke-width="1.5" stroke-linecap="round"/>
       </g>
-      <g data-harvest="pear">
+      <g data-harvest="pear" transform="translate(210 8)">
         <path fill="#bba44e" d="M143 14c-7 0-5 10-10 16-12 16 13 23 20 12 6-9-4-15-5-22-1-4-2-6-5-6Z"/>
         <path d="M141 22q-1 8-5 13" fill="none" stroke="#ddc979" stroke-width="2.5" stroke-linecap="round"/>
         <path d="M144 16q-2-6 2-10" fill="none" stroke="#694a27" stroke-width="2"/>
         <path fill="#527044" d="M146 11q3-8 12-5-4 8-12 5Z"/>
       </g>
-      <g data-harvest="gourd">
+      <g data-harvest="gourd" transform="translate(205 42)">
         <path fill="#b78732" d="M128 59c-2-7 1-11 5-12l3 2c-4 4-3 8 1 12 14 14 7 23-4 23-13 0-18-13-5-25Z"/>
         <path d="M131 59c-11 15-8 20 2 22 8-3 7-12-1-19" fill="#d6ac52"/>
         <path d="M130 64q-6 10-1 15m5-15q6 10 2 15" fill="none" stroke="#8a6a2e" stroke-width="1.3"/>
       </g>
-      <g data-harvest="squash">
+      <g data-harvest="squash" transform="translate(280 42)">
         <ellipse cx="147" cy="78" rx="11" ry="8.5" fill="#738c3e"/>
         <ellipse cx="147" cy="78" rx="7" ry="8.5" fill="#84994a"/>
         <path d="M147 70q-2-6 3-8" fill="none" stroke="#5a6e30" stroke-width="2"/>
         <path d="M139 76q8 2 16 0M140 81q7 2 14 0" fill="none" stroke="#5c7034" stroke-width="1"/>
       </g>
-      <g data-harvest="maple-leaf">
+      <g data-harvest="maple-leaf" transform="translate(330 2)">
         <path fill="#c45a28" d="M166 30 156 26l4-7-10-1 3-8 10 3-2-10 8 7 4-11 4 11 8-7-2 10 10-3 3 8-10 1 4 7-10 4Z"/>
         <path d="M170 10v22" fill="none" stroke="#8a3d18" stroke-width="1.3" stroke-linecap="round"/>
       </g>
-      <g data-harvest="oak-leaf">
+      <g data-harvest="oak-leaf" transform="translate(455 0)">
         <path fill="#a6602f" d="M202 23q-5-9 1-10l7 2q-4-9 2-10l7 7q4-10 8-5l-1 10q11-3 11 3l-10 6q8 4 4 8l-12-1q1 8-4 7l-5-10Z"/>
         <path d="m207 35 19-21m-13 14-6-7m11 1 8 1" fill="none" stroke="#714322" stroke-width="1.3" stroke-linecap="round"/>
       </g>
-      <g data-harvest="acorn">
+      <g data-harvest="acorn" transform="translate(470 8)">
         <ellipse cx="216" cy="48" rx="5.5" ry="7" fill="#b07a32"/>
         <path fill="#7a4f22" d="M209.5 44q6.5-8 13 0-6.5 4-13 0Z"/>
         <path d="M216 37v-5" fill="none" stroke="#5a3a18" stroke-width="1.6" stroke-linecap="round"/>
       </g>
       <!-- The largest, individually ribbed pumpkin anchors the right half. -->
-      <g data-harvest="pumpkin">
+      <g data-harvest="pumpkin" transform="translate(400 38)">
         <path fill="#59633b" d="m179 38-1-13 7-3 2 15Z"/>
         <path fill="#3d6338" d="M187 31q6-15 17-9-4 13-17 9Z"/>
         <ellipse cx="183" cy="62" rx="29" ry="25" fill="#b85a1c"/>
@@ -704,17 +704,17 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         </g>
         <path d="M160 57q1-7 5-10" fill="none" stroke="#e39847" stroke-width="2" stroke-linecap="round"/>
       </g>
-      <g data-harvest="cranberries" fill="#912d36" stroke="#682a30" stroke-width=".7">
+      <g data-harvest="cranberries" transform="translate(530 35)" fill="#912d36" stroke="#682a30" stroke-width=".7">
         <path d="m220 69 12-13m-8 8-5-6" fill="none" stroke="#54683b" stroke-width="1.5"/>
         <path d="M227 60q-1-10 8-10 2 8-8 10Z" fill="#42643a" stroke="none"/>
         <circle cx="221" cy="73" r="4"/><circle cx="231" cy="70" r="4"/><circle cx="229" cy="80" r="4"/>
         <path d="m220 71 1-1m9-2 1-1m-3 11 1-1" stroke="#d08080" stroke-width="1.2" stroke-linecap="round"/>
       </g>
-      <g data-harvest="end-leaf">
+      <g data-harvest="end-leaf" transform="translate(600 32)">
         <path fill="#a6602f" d="M244 78q6-12 14-6-4 10-12 10-4 1-6-1 1-6 4-3Z"/>
         <path d="M246 80q6-8 12-6" fill="none" stroke="#714322" stroke-width="1.1" stroke-linecap="round"/>
       </g>
-      <g data-harvest="baby-pumpkin">
+      <g data-harvest="baby-pumpkin" transform="translate(640 35)">
         <path fill="#59633b" d="m250 46 0-8 5-2 1 10Z"/>
         <ellipse cx="252" cy="64" rx="14" ry="13" fill="#c25f1c"/>
         <ellipse cx="252" cy="64" rx="9" ry="13" fill="#d07024"/>
@@ -723,7 +723,67 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
           <path d="M246 54q-6 10 0 20M258 54q6 10 0 20"/>
         </g>
       </g>
-    </svg><strong>Fall Frenzy: Get a free Zabba Washers starter pack.</strong> Three washers and a box, on us. Breathe in, pitch washers, walk your steps, and claim yours.</p>
+
+      <g data-harvest="sky-wheat-mid" stroke="#b18430" stroke-width="1.3" fill="#e0b653" stroke-linecap="round" transform="translate(300 -2)">
+        <path fill="none" d="M44 48Q42 26 33 10M52 46Q54 24 58 6"/>
+        <path d="M34 13q-8-1-7-7 7 0 7 7Zm3 7q-8 0-8-6 7-1 8 6Zm-5-12q0-8 6-9 2 6-6 9Zm4 8q0-8 6-9 2 6-6 9ZM57 12q-6-4-3-9 6 3 3 9Zm-2 8q-7-3-5-8 7 2 5 8Zm4-14q2-8 8-7 0 6-8 7Z"/>
+      </g>
+      <g data-harvest="sky-leaf-mid">
+        <path fill="#c45a28" d="M390 36 380 32l4-7-10-1 3-8 10 3-2-9 8 6 3-10 4 10 8-6-2 9 10-3 3 8-10 1 4 7-10 4Z"/>
+        <path d="M394 16v20" fill="none" stroke="#8a3d18" stroke-width="1.3" stroke-linecap="round"/>
+      </g>
+      <g data-harvest="sky-oak-right">
+        <path fill="#a6602f" d="M742 28q-5-9 1-10l7 2q-4-9 2-10l7 7q4-10 8-5l-1 10q11-3 11 3l-10 6q8 4 4 8l-12-1q1 8-4 7l-5-10Z"/>
+        <path d="m747 40 19-21m-13 14-6-7m11 1 8 1" fill="none" stroke="#714322" stroke-width="1.3" stroke-linecap="round"/>
+      </g>
+      <g data-harvest="sky-wheat-right" stroke="#b18430" stroke-width="1.3" fill="#e0b653" stroke-linecap="round" transform="translate(790 4)">
+        <path fill="none" d="M44 48Q42 26 33 10M52 46Q54 24 58 6M58 48Q65 30 76 20"/>
+        <path d="M34 13q-8-1-7-7 7 0 7 7Zm3 7q-8 0-8-6 7-1 8 6Zm3 8q-8 0-8-6 7-1 8 6Zm-5-12q0-8 6-9 2 6-6 9ZM57 12q-6-4-3-9 6 3 3 9Zm-2 8q-7-3-5-8 7 2 5 8Zm4-14q2-8 8-7 0 6-8 7Zm-2 9q2-8 8-7 0 6-8 7ZM72 25q-3-7 2-10 5 5-2 10Z"/>
+      </g>
+      <g data-harvest="high-apple">
+        <path fill="#912d36" d="M612 26c-16-6-19 9-12 20 4 6 8 6 12 4 5 2 10 1 14-5 7-12 1-24-14-19Z"/>
+        <path d="M604 30q-6 4-2 11" fill="none" stroke="#c76566" stroke-width="3" stroke-linecap="round"/>
+        <path d="M612 28q-2-8 2-12" fill="none" stroke="#56351c" stroke-width="2.5"/>
+        <path fill="#42643a" d="M614 22q2-11 14-9-2 11-14 9Z"/>
+      </g>
+      <g data-harvest="high-pear">
+        <path fill="#bba44e" d="M848 20c-7 0-5 10-10 16-12 16 13 23 20 12 6-9-4-15-5-22-1-4-2-6-5-6Z"/>
+        <path d="M846 28q-1 8-5 13" fill="none" stroke="#ddc979" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M849 22q-2-6 2-10" fill="none" stroke="#694a27" stroke-width="2"/>
+        <path fill="#527044" d="M851 17q3-8 12-5-4 8-12 5Z"/>
+      </g>
+      <g data-harvest="mid-acorn">
+        <ellipse cx="370" cy="58" rx="5.5" ry="7" fill="#b07a32"/>
+        <path fill="#7a4f22" d="M363.5 54q6.5-8 13 0-6.5 4-13 0Z"/>
+        <path d="M370 47v-5" fill="none" stroke="#5a3a18" stroke-width="1.6" stroke-linecap="round"/>
+      </g>
+      <g data-harvest="far-squash">
+        <ellipse cx="890" cy="118" rx="12" ry="9" fill="#738c3e"/>
+        <ellipse cx="890" cy="118" rx="7.5" ry="9" fill="#84994a"/>
+        <path d="M890 109q-2-6 3-8" fill="none" stroke="#5a6e30" stroke-width="2"/>
+      </g>
+      <g data-harvest="sky-berries" fill="#912d36" stroke="#682a30" stroke-width=".7">
+        <path d="m505 22 12-13m-8 8-5-6" fill="none" stroke="#54683b" stroke-width="1.5"/>
+        <path d="M512 13q-1-10 8-10 2 8-8 10Z" fill="#42643a" stroke="none"/>
+        <circle cx="506" cy="26" r="4"/><circle cx="516" cy="23" r="4"/><circle cx="514" cy="33" r="4"/>
+      </g>
+
+      <g data-harvest="gap-leaf">
+        <path fill="#a6602f" d="M268 128q6-12 14-6-4 10-12 10-4 1-6-1 1-6 4-3Z"/>
+        <path d="M270 130q6-8 12-6" fill="none" stroke="#714322" stroke-width="1.1" stroke-linecap="round"/>
+      </g>
+      <g data-harvest="gap-gourd">
+        <path fill="#b78732" d="M468 109c-2-7 1-11 5-12l3 2c-4 4-3 8 1 12 14 14 7 23-4 23-13 0-18-13-5-25Z"/>
+        <path d="M471 109c-11 15-8 20 2 22 8-3 7-12-1-19" fill="#d6ac52"/>
+      </g>
+      <g data-harvest="gap-grapes" fill="#694368" stroke="#4a2b4f" stroke-width=".8">
+        <path d="M678 105q0-6 7-8" fill="none" stroke="#4c663b" stroke-width="2"/>
+        <circle cx="675" cy="108" r="5"/><circle cx="684" cy="108" r="5"/>
+        <circle cx="671" cy="116" r="5"/><circle cx="680" cy="116" r="5"/><circle cx="689" cy="116" r="5"/>
+        <circle cx="675" cy="124" r="5"/><circle cx="684" cy="124" r="5"/>
+      </g>
+    </svg>
+    <p><strong>Fall Frenzy: Get a free Zabba Washers starter pack.</strong> Three washers and a box, on us. Breathe in, pitch washers, walk your steps, and claim yours.</p>
     <span class="claim-wrap"><a class="btn" href="#claim">Claim my free set</a><span class="promo-cloud" aria-hidden="false"><span class="promo-tag">While supplies last</span></span></span>
     <a class="btn promo-ghost" href="#play" onclick="var b=document.getElementById('ztBadge');if(b){b.click();}">Start game, challenge a friend</a>
     <a class="walk-bubble" href="#steps"><span class="walk-dot" aria-hidden="true"></span>Pitch, push &amp; step - earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a>
