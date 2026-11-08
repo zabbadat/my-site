@@ -145,6 +145,22 @@
     }
     return { update: update, reset: reset, options: o };
   }
+  // Form features for the failure watch. line: shoulder-hip-ankle angle (180 = straight plank), knee: hip-knee-ankle,
+  // elbowsDown: an elbow at wrist / floor height (forearm flat), i.e. the arms gave out. Normal bending keeps the
+  // elbows clearly above the planted hands. Joints below minScore are ignored.
+  function formFeatures(kps, minScore, elbowFrac) {
+    var min = minScore == null ? 0.3 : minScore, ef = elbowFrac == null ? 0.12 : elbowFrac, ls = pt(kps, "left_shoulder", min), rs = pt(kps, "right_shoulder", min);
+    if (!ls && !rs) return null;
+    var sw = ls && rs ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : null, out = { line: null, knee: null, elbowsDown: false }, sides = ["left", "right"];
+    for (var i = 0; i < 2; i++) {
+      var sd = sides[i], sh = pt(kps, sd + "_shoulder", min), hip = pt(kps, sd + "_hip", min), kn = pt(kps, sd + "_knee", min), an = pt(kps, sd + "_ankle", min), el = pt(kps, sd + "_elbow", min), wr = pt(kps, sd + "_wrist", min);
+      if (sh && hip && an) { var l = angle(sh, hip, an); if (l != null && (out.line == null || l < out.line)) out.line = l; }
+      if (hip && kn && an) { var k = angle(hip, kn, an); if (k != null && (out.knee == null || k < out.knee)) out.knee = k; }
+      if (el && wr && sh) { var scale = sw || Math.abs(wr.y - sh.y) || 1; if (el.y >= wr.y - ef * scale && sh.y > el.y - 0.6 * scale) out.elbowsDown = true; }
+    }
+    return out;
+  }
+  function elbowsDown(kps, minScore) { var f = formFeatures(kps, minScore); return !!(f && f.elbowsDown); }
   // Straight legs running down the frame (a real stand-up). Needs the legs in view, and the shoulders narrower
   // than the plank, same rule classify() uses. A long press does not end on this while the counter says atTop.
   function isUpright(kps, topWidth, minScore) {
@@ -162,18 +178,22 @@
   //  - "knees": hip-knee-ankle bent like kneeling or a collapse (softer than the on-screen flag, still needs the legs),
   //  - "collapse": shoulders dropped through the hands,
   //  - "standing": stood up or took the hands off the floor (shoulders rose, or the hands came up), or an upright body when not held at the top,
-  //  - "lifted": the phone was picked up (the whole view shifted together, or the shoulder line tilted off the rested lean),
+  //  - "elbows": the arms gave out, elbows down at wrist / floor height (not a normal bend, never while atTop),
+  //  - "form": a clear break against the first-rep baseline (body line / hips sag or pike, or knees bend well past rep 1),
   //  - "frame": no shoulder confidently visible for frameMs (10 s).
-  // A bad pose must last badMs (1 s); a pickup latches a little sooner. Any good frame restarts that wait.
+  // A bad pose must last badMs (1 s). Picking the phone up is NOT a fail: a view shift or tilt never ends the set. Any good frame restarts that wait.
   // Holding the top must never end a set. Shoulder-width shrink is only a flag (endOn.standing is off): a leaned-up
   // front camera reads a long press that way. Knees that are out of frame or below minScore never trigger.
   // update(kps, t, topWidth, extra). extra may be a frame width, or { frameW, atTop }.
-  var FAIL = { badMs: 1000, frameMs: 10000, minScore: 0.3, kneeAngle: 140, endOn: { knees: true, frame: true, standing: false, lifted: true, left: true, upright: true } };
+  var FAIL = { badMs: 1000, frameMs: 10000, minScore: 0.3, kneeAngle: 140, endOn: { knees: true, frame: true, standing: false, lifted: false, left: true, upright: true, elbows: true, form: true }, elbowFrac: 0.12, lineDeg: 30, kneeDeg: 35, baseSamples: 8 };
   function createFailureWatch(opts) {
-    var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed, view, upSince;
+    var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed, view, upSince, base, acc, badSince;
+    o.endOn = Object.assign({}, FAIL.endOn, (opts && opts.endOn) || {});
+    function formFeats(kps, min) { return formFeatures(kps, min, o.elbowFrac); }
+    function avgFeats(a) { var r = {}; ["line", "knee"].forEach(function (k) { var n = 0, v = 0; a.forEach(function (x) { if (x[k] != null) { n++; v += x[k]; } }); r[k] = n ? v / n : null; }); r.samples = a.length; return r; }
     function reset(t0) {
       guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs, minScore: o.minScore, kneeAngle: o.kneeAngle }));
-      seen = t0 == null ? null : t0; failed = null; upSince = null; view = createViewWatch({ minScore: o.minScore, badMs: o.badMs }); view.reset();
+      seen = t0 == null ? null : t0; failed = null; upSince = null; base = null; acc = []; badSince = null; view = createViewWatch({ minScore: o.minScore, badMs: o.badMs }); view.reset();
     }
     reset(null);
     function upper(kps) { for (var i = 0; i < (kps || []).length; i++) { var k = kps[i]; if (k && /shoulder$/.test(k.name) && (k.score == null || k.score >= o.minScore)) return true; } return false; }
@@ -187,14 +207,29 @@
       var g = guard.update(kps, t, topWidth);
       if (g.event === "knees" && o.endOn.knees) return (failed = "knees");
       var v = view.update(kps, t, frameW);
-      if (v === "lifted" && o.endOn.lifted) return (failed = "lifted");
+      // v === "lifted" (phone picked up / camera moved) is deliberately ignored: only form breaks end the set.
+      var reps = extra && typeof extra === "object" && typeof extra.reps === "number" ? extra.reps : null;
+      var f = formFeats(kps, o.minScore);
+      // First-rep baseline: average the top frames once rep 1 has counted, lock at rep 2 or baseSamples frames.
+      if (!base && reps != null && reps >= 1 && f) {
+        if (atTop || reps >= 2) { acc.push(f); }
+        if (acc.length >= o.baseSamples || (reps >= 2 && acc.length)) base = avgFeats(acc);
+      }
+      var bad = null;
+      if (!atTop && o.endOn.elbows && f && f.elbowsDown) bad = "elbows";
+      else if (base && f && o.endOn.form) {
+        if (base.line != null && f.line != null && base.line - f.line > o.lineDeg) bad = "form";
+        else if (base.knee != null && f.knee != null && base.knee - f.knee > o.kneeDeg) bad = "form";
+      }
+      if (bad) { if (!badSince || badSince.kind !== bad) badSince = { kind: bad, t: t }; if (t - badSince.t >= o.badMs) return (failed = bad); }
+      else badSince = null;
       if (v === "standing" && o.endOn.left) return (failed = "standing");
       if (v === "collapse" && o.endOn.knees) return (failed = "collapse");
       if (!atTop && o.endOn.upright && isUpright(kps, topWidth, o.minScore)) { if (upSince == null) upSince = t; if (t - upSince >= o.badMs) return (failed = "standing"); }
       else upSince = null;
       return null;
     }
-    return { update: update, reset: reset, failed: function () { return failed; } };
+    return { update: update, reset: reset, failed: function () { return failed; }, baseline: function () { return base; } };
   }
   // 30-second top-hold reward: one continuous hold at the top (press / plank) for holdMs earns the bonus ONCE per set.
   // update(atTop, t, kneesDown) -> { holdMs, awarded (true only on the frame it is earned), done }. Leaving the top or knees down
@@ -213,7 +248,7 @@
     }
     return { update: update, reset: reset, options: o, state: function () { return s; } };
   }
-  var FAIL_TEXT = { knees: "Knees down", collapse: "Collapsed", standing: "Stood up / left plank", frame: "Out of frame", gaveup: "Gave up", lifted: "Phone picked up" };
+  var FAIL_TEXT = { knees: "Knees down", collapse: "Collapsed", standing: "Stood up / left plank", frame: "Out of frame", gaveup: "Gave up", elbows: "Elbows down", form: "Form broke" };
   // Personal history from localStorage entries [[key, value], ...]: per-day time under tension
   // (tutPrefix, e.g. "zabbadat-push-tut-guest-") and reps (repsPrefix, "zabbadat-push-total-guest-").
   // Returns today, best day (by time), all-time totals and days (newest first).
@@ -248,7 +283,7 @@
       .sort(function (a, b) { return Number(b.ms) - Number(a.ms); }).slice(0, n || 50);
   }
 
-  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
+  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

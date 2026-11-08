@@ -28,15 +28,16 @@
     reset(0);
     // kps: pose keypoints; t: ms; topWidth: counter's calibrated top width (px) or 0. frameW (optional) sizes the
     // pickup check. No time-without-reps rule. Shoulder-width shrink is not a loss (a long top hold looks like that).
-    // Picking the phone up is "left" (the only published loss value that fits a camera that left its lean).
+    // Picking the phone up is not a loss. Elbows down (arms gave out) loses as knees, like a collapse.
     function update(kps, t, topWidth, frameW) {
       if (st.lost) return st.lost;
       if (hasUpperBody(kps, o.minScore)) st.lastSeen = t;
       if (t - st.lastSeen >= o.outOfFrameMs) return (st.lost = "frame");
       if (guard) { const g = guard.update(kps, t, topWidth); if (g.event === "knees") return (st.lost = g.event); /* holding the top never loses: shoulder-shrink "standing" is not a loss */ }
+      if (SS && SS.elbowsDown && SS.elbowsDown(kps, o.minScore)) { if (st.elbowSince == null) st.elbowSince = t; if (t - st.elbowSince >= 1000) return (st.lost = "knees"); } else st.elbowSince = null;
       if (view) {
         const v = view.update(kps, t, typeof frameW === "number" ? frameW : 640);
-        if (v === "lifted") return (st.lost = "left");
+        // "lifted" (phone picked up) is not a loss: only form breaks lose.
         if (v === "standing") return (st.lost = "standing");
         if (v === "collapse") return (st.lost = "knees");
       }

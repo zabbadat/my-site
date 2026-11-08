@@ -15,7 +15,9 @@ check("good plank with reps: no loss in 20s", play(judge(), [[plank, 20000, 2000
 let r = play(judge(), [[plank, 3000, 1500], [away, 2000, 1500]]); check("stood up / shoulders shrink (long top hold from a leaned-up camera) never loses", r.out == null);
 { const shift = (dx) => K({ left_shoulder: [220 + dx, 240], right_shoulder: [420 + dx, 240], left_wrist: [200 + dx, 400], right_wrist: [440 + dx, 400] });
   const j = judge(); const picked = play(j, [[shift(0), 800], [shift(180), 1200]]);
-  check("phone picked up (whole view shifts) loses as left", picked.out === "left"); }
+  check("phone picked up (whole view shifts) does not lose", picked.out === null); }
+{ const el = (sy, ey) => K({ left_shoulder: [220, sy], right_shoulder: [420, sy], left_elbow: [180, ey], right_elbow: [460, ey], left_wrist: [200, 400], right_wrist: [440, 400] });
+  const r2 = play(judge(), [[el(240, 320), 2000], [el(360, 395), 2000]]); check("elbows down loses as knees", r2.out === "knees"); }
 check("brief 0.5s stand blip is ignored", play(judge(), [[plank, 3000, 1500], [away, 500, 1500], [plank, 3000, 1500]]).out === null);
 r = play(judge(), [[plank, 3000, 1500], [kneesDown, 2000, 1500]]); check("knee down -> knees ~0.75s", r.out === "knees" && r.at - 3000 < 900);
 r = play(judge(), [[plank, 3000, 1500], [[], 11000, 1500]]); check("out of frame -> frame after ~10s", r.out === "frame" && r.at - 3000 >= 9950 && r.at - 3000 < 10100);
