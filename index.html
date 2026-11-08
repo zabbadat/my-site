@@ -122,8 +122,8 @@
   }
 ]
   </script>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Outfit:wght@300;400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"></noscript>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Outfit:wght@300;400;500;600&family=Press+Start+2P&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Outfit:wght@300;400;500;600&family=Press+Start+2P&display=swap" rel="stylesheet"></noscript>
   <style>
     /* base links: low specificity so classed links keep their look */
     :where(a):link, :where(a):visited { color: var(--accent); text-decoration: none; }
@@ -351,6 +351,91 @@
         radial-gradient(ellipse at 10% 90%, rgba(226,179,106,.025), transparent 55%),
         linear-gradient(180deg, rgba(143,191,168,.02), rgba(14,20,18,.08));
     }
+    /* Drop your tuts: arcade cabinet / neon high-score board. This section only. */
+    #tut-board {
+      --arcade-pink: #ff2d95;
+      --arcade-cyan: #2de2e6;
+      --arcade-gold: #ffe566;
+      --arcade-lime: #7dffb3;
+      color: #efe7ff;
+      background-color: #080612;
+      background-image:
+        repeating-linear-gradient(180deg, rgba(255,255,255,.04) 0 1px, transparent 1px 4px),
+        radial-gradient(ellipse at 50% -10%, rgba(255,45,149,.22), transparent 52%),
+        radial-gradient(ellipse at 100% 110%, rgba(45,226,230,.16), transparent 46%),
+        linear-gradient(180deg, #160b24, #080612 55%, #05040c);
+      box-shadow: inset 0 0 0 3px var(--arcade-cyan), inset 0 0 0 8px #080612, inset 0 0 0 10px var(--arcade-pink);
+    }
+    #tut-board h2 {
+      font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
+      font-size: clamp(0.92rem, 3.1vw, 1.55rem);
+      line-height: 1.45;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      text-align: center;
+      color: var(--arcade-gold);
+      text-shadow: 0 0 8px var(--arcade-pink), 0 0 18px rgba(255,45,149,.8), 2px 2px 0 #3a1030;
+      margin-bottom: 1rem;
+    }
+    #tut-board .eyebrow,
+    #tut-board h3 {
+      font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
+      font-size: clamp(.48rem, 1.6vw, .62rem);
+      line-height: 1.6;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--arcade-cyan);
+      text-shadow: 0 0 10px rgba(45,226,230,.65);
+      text-align: center;
+    }
+    #tut-board .motto {
+      color: var(--arcade-pink);
+      text-align: center;
+      text-shadow: 0 0 10px rgba(255,45,149,.45);
+    }
+    #tut-board .lead,
+    #tut-board .fine {
+      color: #d5cce8;
+      text-align: center;
+      max-width: 36rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    #tut-board table {
+      background: rgba(6, 4, 14, .72);
+      border: 3px solid var(--arcade-cyan);
+      box-shadow: 0 0 0 3px #140c22, 0 0 28px rgba(45,226,230,.28), inset 0 0 40px rgba(255,45,149,.08);
+      margin-top: 1.1rem;
+    }
+    #tut-board th,
+    #tut-board td { border-bottom: 1px solid rgba(45,226,230,.22); text-align: center; }
+    #tut-board th {
+      font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
+      font-size: .55rem;
+      letter-spacing: .12em;
+      color: var(--arcade-gold);
+      padding: .85rem .4rem .7rem;
+    }
+    #tut-board td {
+      font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
+      font-size: clamp(.58rem, 2.2vw, .78rem);
+      color: var(--arcade-lime);
+      text-shadow: 0 0 8px rgba(125,255,179,.45);
+      padding: .8rem .4rem;
+    }
+    #tut-board .stat {
+      background: #120818;
+      border: 2px solid var(--arcade-pink);
+      border-radius: 4px;
+      box-shadow: 0 0 16px rgba(255,45,149,.22);
+    }
+    #tut-board .stat b {
+      font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
+      font-size: clamp(.9rem, 3.4vw, 1.25rem);
+      color: var(--arcade-gold);
+      text-shadow: 0 0 10px rgba(255,229,102,.4);
+    }
+    #tut-board .stat span { color: var(--arcade-cyan); }
     .zt-bal-row { display: inline-flex; flex-direction: column; align-items: flex-end; gap: .3rem; } /* Send Zab tab sits directly under the ring */
     .stat .zt-bal-row { color: inherit; font-size: inherit; letter-spacing: normal; text-transform: none; }
     .stat .zt-send-tab span { color: inherit; font-size: inherit; letter-spacing: .06em; text-transform: none; }
