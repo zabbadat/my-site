@@ -7,9 +7,10 @@ check("badge parts: grouped number, name never an email", ZT.badgeParts("Zab", 1
 check("long names truncated with an ellipsis (board entries)", ZT.badgeParts("Bartholomew Montgomery-Smith", 3).name === "Bartholomew Mon\u2026" && ZT.badgeParts("Bartholomew Montgomery-Smith", 3).name.length === 16);
 function env(user) {
   const attrs = {}, log = []; const els = { ztBadge: { textContent: "Sign in", innerHTML: "", title: "", attrs, setAttribute(k, v) { attrs[k] = v; } }, ztBalance: { innerHTML: "" }, ztSignedOut: { hidden: false },
+    zabBalanceRow: { hidden: true }, zabaBal: { textContent: "0" },
     play: { scrollIntoView: (o) => log.push("scroll:" + o.block) }, signInBtn: { focus: () => log.push("focus") } };
   const ctx = { $: (id) => els[id] || null, ZT, window: { ZabCurrency: ZC }, escapeHtml: (x) => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;"), auth: { currentUser: user }, setTimeout: (f) => f(), log, Number, String, document: {} };
-  vm.createContext(ctx); vm.runInContext([fn("publicName"), fn("displayNameOf"), fn("paintZabSection"), fn("ztBadgeClick")].join("\n"), ctx); return { ctx, g: els.ztBadge, log };
+  vm.createContext(ctx); vm.runInContext([fn("publicName"), fn("displayNameOf"), fn("cornerIdentity"), fn("paintZab"), fn("paintZabSection"), fn("ztBadgeClick")].join("\n"), ctx); return { ctx, g: els.ztBadge, els, log };
 }
 { const e = env({ displayName: "Zab", email: "z@x.com" }); e.ctx.paintZabSection(12);
   check("signed in: '<name> \u00b7 <n> ZAB' + ring, no email", /^<span class="zt-name">Zab<\/span> \u00b7 <span class="zab">12 ZAB<svg class="zab-ring"[\s\S]*<\/svg><\/span>$/.test(e.g.innerHTML) && !/@|Zabba Bag/.test(e.g.innerHTML)); }
@@ -18,11 +19,19 @@ function env(user) {
 { const e = env({ displayName: "<b>x</b>" }); e.ctx.paintZabSection(1); check("name is escaped", !/<b>/.test(e.g.innerHTML)); }
 { const e = env(null); e.ctx.paintZabSection(null); check("signed out unchanged: 'Sign in'", e.g.textContent === "Sign in" && e.g.attrs["aria-label"] === "Sign in"); }
 { const e = env({ displayName: "Zab" }); e.ctx.paintZabSection(3); let pd = 0; e.ctx.ztBadgeClick({ preventDefault: () => pd++ });
-  check("signed in: badge links to #zab, click not intercepted", e.g.attrs.href === "#zab" && e.g.attrs["aria-label"] === "ZAB balance" && pd === 0 && !e.log.length); }
+  check("signed in: badge links to #zab, title and name carry the same amount", e.g.attrs.href === "#zab" && e.g.title === "Zab · 3 ZAB" && e.g.attrs["aria-label"] === e.g.title && pd === 0 && !e.log.length); }
+{ const e = env({ displayName: "Zabbadat" }); e.ctx.paintZab(43);
+  check("corner bubble amount matches the play-card balance and the ZAB bag", e.g.title === "Zabbadat · " + ZC.amountText(43) && e.g.attrs["aria-label"] === e.g.title && e.g.innerHTML.includes(">Zabbadat<") && e.g.innerHTML.includes(ZC.amountHtml(43)) && e.els.zabaBal.textContent === ZC.fmtZab(43) && e.els.ztBalance.innerHTML === ZC.amountHtml(43) && e.els.zabBalanceRow.hidden === false); }
+{ const e = env({ displayName: "Zabbadat" }); e.ctx.paintZabSection(null);
+  check("signed in before the balance arrives: corner shows the name, not Sign in, and no invented amount", e.g.innerHTML.includes(">Zabbadat<") && e.g.title === "Zabbadat" && !/ZAB/.test(e.g.innerHTML) && e.g.attrs["aria-label"] === "Zabbadat"); }
 { const e = env(null); e.ctx.paintZabSection(null); let pd = 0; e.ctx.ztBadgeClick({ preventDefault: () => pd++ });
   check("signed out: badge links to #play, scrolls to the sign-in box and focuses the Google button", e.g.attrs.href === "#play" && pd === 1 && e.log.join(",") === "scroll:start,focus"); }
 check("static: badge defaults to #play / Sign in; click handler wired", html.includes('<a class="zt-badge" id="ztBadge" href="#play" aria-label="Sign in">Sign in</a>') && html.includes('$("ztBadge").onclick = ztBadgeClick;'));
 check("the ZAB page label stays above #ztBalance, styled like the stat labels", html.includes('<div class="stat"><span class="zt-bag-label" id="ztBagLabel">ZAB bag</span><span class="zt-bal-row"><b id="ztBalance">') && /\.stat \.zt-bag-label \{ display:/.test(html));
 check("header badge no longer says 'Zabba Bag:' and the name has a CSS ellipsis", !/Zabba Bag:/.test(html) && /\.zt-badge \.zt-name\{[^}]*text-overflow:ellipsis/.test(html));
+check("desktop header keeps the status bubble at the right corner", /@media \(min-width: 701px\) \{\s*nav > div \{ order: 2; margin-left: auto; \}\s*nav > \.zt-badge \{ order: 3; \}/.test(html));
+const zabFn = html.slice(html.indexOf("function zabOnUser(u)"), html.indexOf("function showUser(user)"));
+check("a signed-in session does not paint the corner bubble back to Sign in", zabFn.indexOf("if (!u || !ZT)") !== -1 && zabFn.indexOf("paintZab(null)") > zabFn.indexOf("if (!u || !ZT)"));
+check("same-tab Google sign-in shows the session and subscribes ZAB", /if \(auth\.currentUser\) \{ showUser\(auth\.currentUser\); zabOnUser\(auth\.currentUser\); \}/.test(html) && /startPhoneGoogle\(\)/.test(html) && !/signInWithPopup\(auth, provider\)/.test(html));
 check("user-facing spelling Zabba", !/Zaba Bag|Zaba ZAB/.test(html + fs.readFileSync(path.join(__dirname, "..", "zab-balance.js"), "utf8")));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
