@@ -250,7 +250,7 @@
     .promo-banner { margin-top: calc(var(--navh, 4.6rem) + .2rem); padding: 1rem 1.2rem; background: var(--accent); color: #0b1410; text-align: center; display: flex; flex-wrap: wrap; gap: .6rem 1.2rem; align-items: center; justify-content: center; }
     .promo-banner p { margin: 0; font-weight: 700; line-height: 1.35; }
     .promo-banner strong { display: block; font-size: clamp(1.55rem, 6.2vw, 2.3rem); line-height: 1.12; letter-spacing: .01em; }
-    .promo-fall { display: block; width: 9.5rem; max-width: 100%; height: auto; margin: 0 auto .4rem; }
+    .promo-fall { display: block; width: 11rem; max-width: 100%; height: auto; margin: 0 auto .4rem; }
     .promo-banner .btn { background: #0b1410; color: var(--accent-2); border-color: #0b1410; }
     .promo-banner .btn.promo-ghost { background: transparent; color: #0b1410; border: 2px solid #0b1410; }
     .claim-wrap { position: relative; display: inline-block; margin-bottom: 2.4rem; }
@@ -615,7 +615,7 @@ function f(){var m=n.scrollWidth-n.clientWidth;n.classList.toggle("fade-l",n.scr
 n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f);f();})();
 </script>
   <aside class="promo-banner" id="promoBanner" aria-label="Giveaway">
-    <p><svg class="promo-fall" viewBox="0 0 240 96" width="240" height="96" aria-hidden="true" focusable="false">
+    <p><svg class="promo-fall" viewBox="0 0 268 100" width="268" height="100" aria-hidden="true" focusable="false">
       <!-- An open, two-level harvest: breathing room between each silhouette. -->
       <g data-harvest="wheat" stroke="#b18430" stroke-width="1.3" fill="#e0b653" stroke-linecap="round">
         <path fill="none" d="M44 48Q42 26 33 10M52 46Q54 24 58 6M58 48Q65 30 76 20"/>
@@ -631,6 +631,22 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <ellipse cx="78" cy="56" rx="13" ry="25" fill="#d0a058" transform="rotate(-8 78 56)"/>
         <ellipse cx="79" cy="56" rx="9.5" ry="21" fill="#392110" transform="rotate(-8 79 56)"/>
         <path d="M76 38q10 16 5 35" fill="none" stroke="#6f421d" stroke-width="2"/>
+      </g>
+      <g data-harvest="vine" fill="none" stroke="#54683b" stroke-width="1.6" stroke-linecap="round">
+        <path d="M72 42C82 26 98 22 112 32"/>
+        <path d="M90 30c6-10 16-12 22-4"/>
+        <path fill="#4e6a3d" stroke="#3d5530" stroke-width=".8" d="M92 24q4-9 12-5-3 9-12 5Z"/>
+        <path fill="#5a7444" stroke="#3d5530" stroke-width=".8" d="M108 26q5-10 13-4-5 9-13 4Z"/>
+      </g>
+      <g data-harvest="corn">
+        <path fill="#6a8a3e" d="M79 16l7 5-3 18-9-4 5-19Z"/>
+        <path fill="#e6c453" stroke="#c9a33a" stroke-width=".6" d="M82 23c-4 1-6 15-1 20 6 5 11 1 10-8 0-8-4-13-9-12Z"/>
+        <g fill="#f0d56a">
+          <circle cx="83" cy="30" r="1.15"/><circle cx="87" cy="30" r="1.15"/>
+          <circle cx="82" cy="34" r="1.15"/><circle cx="85.5" cy="34" r="1.15"/><circle cx="89" cy="34" r="1.15"/>
+          <circle cx="83" cy="38" r="1.15"/><circle cx="87" cy="38" r="1.15"/>
+        </g>
+        <path fill="#7b9548" d="M78 19q-3 11 3 18 3-9 0-18Zm11 3q5 11 1 18-5-7-1-18Z"/>
       </g>
       <g data-harvest="apple">
         <path fill="#912d36" d="M109 22c-16-6-19 9-12 20 4 6 8 6 12 4 5 2 10 1 14-5 7-12 1-24-14-19Z"/>
@@ -656,9 +672,24 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <path d="M131 59c-11 15-8 20 2 22 8-3 7-12-1-19" fill="#d6ac52"/>
         <path d="M130 64q-6 10-1 15m5-15q6 10 2 15" fill="none" stroke="#8a6a2e" stroke-width="1.3"/>
       </g>
+      <g data-harvest="squash">
+        <ellipse cx="147" cy="78" rx="11" ry="8.5" fill="#738c3e"/>
+        <ellipse cx="147" cy="78" rx="7" ry="8.5" fill="#84994a"/>
+        <path d="M147 70q-2-6 3-8" fill="none" stroke="#5a6e30" stroke-width="2"/>
+        <path d="M139 76q8 2 16 0M140 81q7 2 14 0" fill="none" stroke="#5c7034" stroke-width="1"/>
+      </g>
+      <g data-harvest="maple-leaf">
+        <path fill="#c45a28" d="M166 30 156 26l4-7-10-1 3-8 10 3-2-10 8 7 4-11 4 11 8-7-2 10 10-3 3 8-10 1 4 7-10 4Z"/>
+        <path d="M170 10v22" fill="none" stroke="#8a3d18" stroke-width="1.3" stroke-linecap="round"/>
+      </g>
       <g data-harvest="oak-leaf">
         <path fill="#a6602f" d="M202 23q-5-9 1-10l7 2q-4-9 2-10l7 7q4-10 8-5l-1 10q11-3 11 3l-10 6q8 4 4 8l-12-1q1 8-4 7l-5-10Z"/>
         <path d="m207 35 19-21m-13 14-6-7m11 1 8 1" fill="none" stroke="#714322" stroke-width="1.3" stroke-linecap="round"/>
+      </g>
+      <g data-harvest="acorn">
+        <ellipse cx="216" cy="48" rx="5.5" ry="7" fill="#b07a32"/>
+        <path fill="#7a4f22" d="M209.5 44q6.5-8 13 0-6.5 4-13 0Z"/>
+        <path d="M216 37v-5" fill="none" stroke="#5a3a18" stroke-width="1.6" stroke-linecap="round"/>
       </g>
       <!-- The largest, individually ribbed pumpkin anchors the right half. -->
       <g data-harvest="pumpkin">
@@ -678,6 +709,19 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <path d="M227 60q-1-10 8-10 2 8-8 10Z" fill="#42643a" stroke="none"/>
         <circle cx="221" cy="73" r="4"/><circle cx="231" cy="70" r="4"/><circle cx="229" cy="80" r="4"/>
         <path d="m220 71 1-1m9-2 1-1m-3 11 1-1" stroke="#d08080" stroke-width="1.2" stroke-linecap="round"/>
+      </g>
+      <g data-harvest="end-leaf">
+        <path fill="#a6602f" d="M244 78q6-12 14-6-4 10-12 10-4 1-6-1 1-6 4-3Z"/>
+        <path d="M246 80q6-8 12-6" fill="none" stroke="#714322" stroke-width="1.1" stroke-linecap="round"/>
+      </g>
+      <g data-harvest="baby-pumpkin">
+        <path fill="#59633b" d="m250 46 0-8 5-2 1 10Z"/>
+        <ellipse cx="252" cy="64" rx="14" ry="13" fill="#c25f1c"/>
+        <ellipse cx="252" cy="64" rx="9" ry="13" fill="#d07024"/>
+        <ellipse cx="252" cy="64" rx="4" ry="12" fill="#dc7d30"/>
+        <g fill="none" stroke="#934615" stroke-width="1">
+          <path d="M246 54q-6 10 0 20M258 54q6 10 0 20"/>
+        </g>
       </g>
     </svg><strong>Fall Frenzy: Get a free Zabba Washers starter pack.</strong> Three washers and a box, on us. Breathe in, pitch washers, walk your steps, and claim yours.</p>
     <span class="claim-wrap"><a class="btn" href="#claim">Claim my free set</a><span class="promo-cloud" aria-hidden="false"><span class="promo-tag">While supplies last</span></span></span>
