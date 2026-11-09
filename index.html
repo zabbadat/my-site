@@ -2243,7 +2243,7 @@ function paintTutRows(rows) {
     ? shown.map((r) => `<tr><td>${Number(r.reps)}</td><td>${formatTut(r.holdMs)}</td></tr>`).join("")
     : `<tr><td colspan="2">No finished sets yet.</td></tr>`;
   const peopleEl = $("tutPeopleCount"), timesEl = $("tutTimesCount");
-  if (peopleEl) { const seen = {}; sets.forEach((r) => { const k = r.uid || r.name || ""; if (k) seen[k] = 1; }); peopleEl.textContent = String(Object.keys(seen).length); }
+  if (peopleEl) { const seen = {}; sets.forEach((r) => { const k = r.uid || ""; if (k) seen[k] = 1; }); peopleEl.textContent = String(Object.keys(seen).length); }
   if (timesEl) timesEl.textContent = String(sets.length);
 }
 function paintPushRows(rows) {

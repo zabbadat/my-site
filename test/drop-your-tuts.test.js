@@ -25,6 +25,8 @@ check("shared board still two cells after people counts", els.tutBoardBody.inner
 check("people and times: unique people by uid, every qualifying set counts as a time", els.tutPeopleCount.textContent === "1" && els.tutTimesCount.textContent === "2");
 ctx.paintTutRows([{ category: "tut-set", reps: 1, holdMs: 1000, uid: "a", name: "Ann" }, { category: "tut-set", reps: 2, holdMs: 2000, uid: "a", name: "Ann" }, { category: "tut-set", reps: 3, holdMs: 3000, uid: "b", name: "Bea" }, { category: "set", reps: 9, uid: "c", name: "Skip" }]);
 check("two people and three times; non TUT sets are ignored", els.tutPeopleCount.textContent === "2" && els.tutTimesCount.textContent === "3");
+ctx.paintTutRows([{ category: "tut-set", reps: 4, holdMs: 5000, name: "Guest" }, { category: "tut-set", reps: 5, holdMs: 6000, name: "Also Guest" }, { category: "tut-set", reps: 6, holdMs: 7000, uid: "signed", name: "Pat" }]);
+check("people counts only signed-in uids; times still include every finished TUT set", els.tutPeopleCount.textContent === "1" && els.tutTimesCount.textContent === "3");
 ctx.paintTutRows([]);
 check("empty board shows zero people and zero times", els.tutPeopleCount.textContent === "0" && els.tutTimesCount.textContent === "0");
 check("visible title drop your tuts, scoreboard description and holding rule retained, board no rankTut", /<h2>Drop your tuts<\/h2>/.test(html) && html.includes("The scoreboard for drop your tuts") && html.includes("drop your tuts plus a 120-second hold") && html.includes("You can't fail just by holding.") && !/rankTut|sort\(/.test(fn("paintTutRows")));
