@@ -21,6 +21,9 @@ r = run(seq(0, 3000, () => upper()).concat(seq(3000, 3900, () => upper(60)), seq
 check("shrink for 0.9 s then back: no failure", r.out === null);
 r = run(seq(0, 3000, () => upper()).concat(seq(3000, 14000, () => [])));
 check(`out of frame for 10 s fails as 'frame' (at ${r.at - 3000 + 33} ms)`, r.out === "frame" && r.at - 3000 >= 9950 && r.at - 3000 < 10100);
+{ const w = SS.createFailureWatch(); w.reset(0); let out = null;
+  for (const [t, k] of seq(0, 3000, () => upper()).concat(seq(3000, 14000, () => []))) { const f = w.update(k, t, 128, { frameW: 640, skipFrame: true }); if (f && !out) out = f; }
+  check("TUT skipFrame: 10 s out of frame does not end the set", out === null && w.failed() === null); }
 r = run(seq(0, 3000, () => upper()).concat(seq(3000, 4900, () => []), seq(4900, 8000, () => upper())));
 check("out of frame 1.9 s then back: no failure", r.out === null);
 r = run(seq(0, 3000, () => upper()).concat(seq(3000, 8000, (t) => (Math.floor(t / 400) % 2 ? [] : upper()))));
@@ -74,6 +77,10 @@ check("the end-of-set line is exactly 'Set complete.'", G.SET_DONE_LINE === "Set
 // ---- page wiring pins
 const pt = html.slice(html.indexOf("async function poseTick(id = poseLoopId)"), html.indexOf("async function openCam()"));
 check("failure check: TUT block voids via voidTutSet; Sets block ends only via finishPushSet (knees / 10 s out of frame)", /if \(\(pushMode === "long" \|\| pushMode === "challenge"\) && postureGuard && pushState\.running && !pushState\.finished\) \{[\s\S]*failWatch\.update\([\s\S]*voidTutSet\(failed\)/.test(pt) && /pushMode === "sets" && pushState\.running[\s\S]*failWatch\.update\([\s\S]*finishPushSet\(why\)/.test(pt) && pt.split("failWatch.update(").length === 3);
+check("TUT camera skips the 10 s out-of-frame end; Sets path does not", /Object\.assign\(pwOpt\(st, w\), \{ skipFrame: true \}\)/.test(pt) && !/pushMode === "sets"[\s\S]{0,400}skipFrame/.test(pt));
+const longNote = (html.match(/id="longNote"[^>]*>([\s\S]*?)<\/p>/) || [])[1] || "";
+const challengeNote = (html.match(/id="challengeNote"[^>]*>([\s\S]*?)<\/p>/) || [])[1] || "";
+check("longNote and challengeNote no longer end on 10 seconds out of frame", /Ends only on knees down, or End session/.test(longNote) && !/10 seconds out of frame/.test(longNote) && /Ends at 3:00, on knees down, or I give up/.test(challengeNote) && !/10 seconds out of frame/.test(challengeNote));
 check("voidTutSet only acts in long/challenge; its only save/post route is finishPushSet (no direct saveRemotePush / awardZab / localStorage)", /\(pushMode !== "long" && pushMode !== "challenge"\)\) return;/.test(fnSrc) && !/saveRemotePush|awardZab|localStorage|paintPushRows/.test(fnSrc) && fnSrc.split("finishPushSet(").length === 2);
 check("failWatch resets on each clock start and on every fresh set", /failWatch\.reset\(performance\.now\(\)\);[\s\S]{0,600}pushState\.running = true;/.test(html) && /clearPushPrompts\(\);\n  if \(typeof failWatch !== "undefined" && failWatch\) failWatch\.reset\(null\);/.test(html));
 check("the old 'clock keeps running' wording is gone from TUT copy (index.html, tut.html)", !/clock keeps running/i.test(html) && !/clock keeps running/i.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));

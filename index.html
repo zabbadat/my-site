@@ -1127,8 +1127,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button type="button" id="modeChallengeBtn" aria-pressed="false">Three-minute challenge</button>
     </div>
     <div class="olt-banner" id="oltBanner"><span>TIME UNDER TENSION SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
-    <p class="note" id="longNote" hidden>Time under tension set: the clock runs nonstop from Start.<br>Ends only on knees down, 10 seconds out of frame, or End session. Time and reps so far still post.<br>Rule breaks: <span class="vcount" id="pushViol">0</span></p>
-    <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock, no pause. Reps and top holds both count.<br>Ends at 3:00, on knees down, 10 seconds out of frame, or I give up. Time and reps so far still post.<br>Each top hold counts up to 10 seconds. Score: reps plus seconds under tension.</p>
+    <p class="note" id="longNote" hidden>Time under tension set: the clock runs nonstop from Start.<br>Ends only on knees down, or End session. Time and reps so far still post.<br>Rule breaks: <span class="vcount" id="pushViol">0</span></p>
+    <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock, no pause. Reps and top holds both count.<br>Ends at 3:00, on knees down, or I give up. Time and reps so far still post.<br>Each top hold counts up to 10 seconds. Score: reps plus seconds under tension.</p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Reps today</span></div>
       <div class="stat"><b id="pushSets">0</b><span>Sets today</span></div>
@@ -1656,7 +1656,7 @@ let pushMode = (function (m) { return m === "sets" || m === "challenge" ? m : "l
 const pushChallenge = window.ZabbadatChallenge ? window.ZabbadatChallenge.createChallenge({ durationMs: 180000, topCapMs: 10000 }) : null;
 let challengeFlags = { standing: 0, knees: 0 };
 const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostureGuard() : null;
-// TUT failure watch (One long set + 3:00 challenge only; regular Sets never use it): knees / stood up / out of frame ends and VOIDS the set.
+// TUT failure watch (One long set + 3:00 challenge only): knees / stood up / form ends the set. Out of frame does not (skipFrame). Regular Sets still end on 10 s out of frame.
 const failWatch = window.ZabbadatSession && window.ZabbadatSession.createFailureWatch ? window.ZabbadatSession.createFailureWatch() : null;
 function pwOpt(st, w) { const C = window.ZabbadatChallenge; return { frameW: w, atTop: !!(C && C.atTopFrom(st)), reps: st && typeof st.reps === "number" ? st.reps : null }; }
 let lastViolFlag = 0;
@@ -2527,7 +2527,7 @@ async function poseTick(id = poseLoopId) {
       const g = postureGuard.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0);
       if (g.event && pushMode === "challenge") challengeFlags[g.event] = (challengeFlags[g.event] || 0) + 1;
       if (g.event) $("pushStatus").textContent = (g.event === "knees" ? "Knees down" : "Stood up / left plank") + " flagged: fix it now or the set ends.";
-      const failed = typeof failWatch !== "undefined" && failWatch ? failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, pwOpt(st, w)) : null;
+      const failed = typeof failWatch !== "undefined" && failWatch ? failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, Object.assign(pwOpt(st, w), { skipFrame: true })) : null;
       if (failed) voidTutSet(failed); // clock stops here; the checks below see finished and skip
       const f = $("pushViolFlag");
       if (f) { f.hidden = !g.active; if (g.active) f.textContent = (g.active === "knees" ? "Knees down" : "Standing") + " · " + g.count; }

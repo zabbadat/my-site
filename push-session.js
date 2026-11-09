@@ -182,7 +182,7 @@
   //  - "standing": stood up or took the hands off the floor (shoulders rose, or the hands came up; a clean top hold uses a wider allowance so lockout / wrist jitter is not a stand-up), or an upright body when not held at the top,
   //  - "elbows": the arms gave out, elbows down at wrist / floor height (not a normal bend, never while atTop),
   //  - "form": a clear break against the first-rep baseline (body line / hips sag or pike, or knees bend well past rep 1),
-  //  - "frame": no shoulder confidently visible for frameMs (10 s).
+  //  - "frame": no shoulder confidently visible for frameMs (10 s). extra.skipFrame (TUT sets) turns this off so being out of frame does not end the set.
   // A bad pose must last badMs (1 s). Picking the phone up is NOT a fail: a view shift or tilt never ends the set. Any good frame restarts that wait.
   // Holding the top must never end a set. Shoulder-width shrink is only a flag (endOn.standing is off): a leaned-up
   // front camera reads a long press that way. Knees that are out of frame or below minScore never trigger.
@@ -202,10 +202,11 @@
     function update(kps, t, topWidth, extra) {
       if (failed) return failed;
       var frameW = 640, atTop = false;
+      var skipFrame = false;
       if (typeof extra === "number" && isFinite(extra)) frameW = extra;
-      else if (extra && typeof extra === "object") { if (extra.frameW > 1) frameW = extra.frameW; atTop = extra.atTop === true; }
+      else if (extra && typeof extra === "object") { if (extra.frameW > 1) frameW = extra.frameW; atTop = extra.atTop === true; skipFrame = extra.skipFrame === true; }
       if (seen == null) seen = t;
-      if (upper(kps)) seen = t; else if (o.endOn.frame && t - seen >= o.frameMs) return (failed = "frame");
+      if (upper(kps)) seen = t; else if (o.endOn.frame && !skipFrame && t - seen >= o.frameMs) return (failed = "frame");
       var g = guard.update(kps, t, topWidth);
       if (g.event === "knees" && o.endOn.knees) return (failed = "knees");
       var v = view.update(kps, t, frameW, atTop);
