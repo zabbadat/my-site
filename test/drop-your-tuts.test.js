@@ -28,7 +28,7 @@ check("two people and three times; non TUT sets are ignored", els.tutPeopleCount
 ctx.paintTutRows([]);
 check("empty board shows zero people and zero times", els.tutPeopleCount.textContent === "0" && els.tutTimesCount.textContent === "0");
 check("visible title drop your tuts, scoreboard description and holding rule retained, board no rankTut", /<h2>Drop your tuts<\/h2>/.test(html) && html.includes("The scoreboard for drop your tuts") && html.includes("drop your tuts plus a 120-second hold") && html.includes("You can't fail just by holding.") && !/rankTut|sort\(/.test(fn("paintTutRows")));
-check("bottom section is people and times done, not recent sessions", html.includes("Who's done a TUT") && html.includes('id="tutPeopleCount"') && html.includes('id="tutTimesCount"') && html.includes("Times done") && !html.includes("Your recent drop your tuts") && !html.includes("tutSessBody"));
+check("bottom section is people and times done, not recent sessions", html.includes("Tuts dropped") && html.includes('id="tutPeopleCount"') && html.includes('id="tutTimesCount"') && html.includes("Times done") && !html.includes("Your recent drop your tuts") && !html.includes("tutSessBody"));
 check("Firestore board requests recorded order, not longest ms", /boardSnap\("tutBoardBody", query\(collection\(db, "pushups"\), orderBy\("createdAt", "desc"\)/.test(html));
 (async () => {
   let saved;
