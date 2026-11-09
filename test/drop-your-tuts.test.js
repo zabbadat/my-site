@@ -19,8 +19,16 @@ ctx.rows = rows; vm.runInContext("paintTutRows(rows)", ctx);
 check("shared board preserves recorded order; no ranking by duration or reps; exactly two cells", els.tutBoardBody.innerHTML === '<tr><td>3</td><td>7s</td></tr><tr><td>55</td><td>2s</td></tr>');
 store["zabbadat-push-sessions"] = JSON.stringify(rows.map((r) => Object.assign({ who: "u1" }, r)).concat([{ category: "tut-set", reps: 999, holdMs: 9000, who: "other" }]));
 vm.runInContext("renderTutHistory()", ctx);
-check("personal recent list filters category and owner, newest first, reps + hold only", els.tutSessBody.innerHTML === '<tr><td>55</td><td>2s</td></tr><tr><td>3</td><td>7s</td></tr>');
+const rowsNamed = rows.map((r, i) => Object.assign({}, r, r.category === "tut-set" ? { uid: "u1", name: "Ada" } : {}));
+ctx.rows = rowsNamed; vm.runInContext("paintTutRows(rows)", ctx);
+check("shared board still two cells after people counts", els.tutBoardBody.innerHTML === '<tr><td>3</td><td>7s</td></tr><tr><td>55</td><td>2s</td></tr>');
+check("people and times: unique people by uid, every qualifying set counts as a time", els.tutPeopleCount.textContent === "1" && els.tutTimesCount.textContent === "2");
+ctx.paintTutRows([{ category: "tut-set", reps: 1, holdMs: 1000, uid: "a", name: "Ann" }, { category: "tut-set", reps: 2, holdMs: 2000, uid: "a", name: "Ann" }, { category: "tut-set", reps: 3, holdMs: 3000, uid: "b", name: "Bea" }, { category: "set", reps: 9, uid: "c", name: "Skip" }]);
+check("two people and three times; non TUT sets are ignored", els.tutPeopleCount.textContent === "2" && els.tutTimesCount.textContent === "3");
+ctx.paintTutRows([]);
+check("empty board shows zero people and zero times", els.tutPeopleCount.textContent === "0" && els.tutTimesCount.textContent === "0");
 check("visible title drop your tuts, scoreboard description and holding rule retained, board no rankTut", /<h2>Drop your tuts<\/h2>/.test(html) && html.includes("The scoreboard for drop your tuts") && html.includes("drop your tuts plus a 120-second hold") && html.includes("You can't fail just by holding.") && !/rankTut|sort\(/.test(fn("paintTutRows")));
+check("bottom section is people and times done, not recent sessions", html.includes("Who's done a TUT") && html.includes('id="tutPeopleCount"') && html.includes('id="tutTimesCount"') && html.includes("Times done") && !html.includes("Your recent drop your tuts") && !html.includes("tutSessBody"));
 check("Firestore board requests recorded order, not longest ms", /boardSnap\("tutBoardBody", query\(collection\(db, "pushups"\), orderBy\("createdAt", "desc"\)/.test(html));
 (async () => {
   let saved;
@@ -31,6 +39,6 @@ check("Firestore board requests recorded order, not longest ms", /boardSnap\("tu
   vm.runInContext(html.match(/const tutRowsOf = \(snap\) =>[^]*?\n\}\);/)[0], ctx);
   ctx.snap = { docs: [{ data: () => saved }] };
   const mapped = vm.runInContext("tutRowsOf(snap)", ctx)[0];
-  check("Firestore read mapper preserves category and hold time for shared rendering", mapped.category === "tut-set" && mapped.holdMs === 34567 && mapped.reps === 12);
+  check("Firestore read mapper preserves category and hold time for shared rendering", mapped.category === "tut-set" && mapped.holdMs === 34567 && mapped.reps === 12 && mapped.uid === "u1");
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
 })();

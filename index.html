@@ -1183,11 +1183,12 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <thead><tr><th>Day</th><th>Time</th><th>Reps</th></tr></thead>
       <tbody id="tutDaysBody"><tr><td colspan="3">No sets yet.</td></tr></tbody>
     </table>
-    <h3 style="margin-top:1.6rem">Your recent drop your tuts</h3>
-    <table>
-      <thead><tr><th>Push-ups</th><th>Hold</th></tr></thead>
-      <tbody id="tutSessBody"><tr><td colspan="2">No sessions yet.</td></tr></tbody>
-    </table>
+    <h3 style="margin-top:1.6rem">Who's done a TUT</h3>
+    <p class="fine">People who finished a TUT set — push-ups and or a 120-second hold.</p>
+    <div class="stats">
+      <div class="stat"><b id="tutPeopleCount">0</b><span>People</span></div>
+      <div class="stat"><b id="tutTimesCount">0</b><span>Times done</span></div>
+    </div>
   </section>
 
     <h3 style="margin-top:1.6rem">Push board</h3>
@@ -2232,20 +2233,18 @@ function renderTutHistory() {
   $("tutDaysBody").innerHTML = h.days.length
     ? h.days.slice(0, 14).map((x) => `<tr><td>${escapeHtml(dayName(x))}</td><td>${formatTut(x.ms)}</td><td>${Number(x.reps)}</td></tr>`).join("")
     : `<tr><td colspan="3">No sets yet.</td></tr>`;
-  let sess = [];
-  try { sess = JSON.parse(localStorage.getItem("zabbadat-push-sessions") || "[]"); } catch {}
-  sess = sess.filter((x) => (x.who || "guest") === who && x.category === "tut-set").slice(-10).reverse();
-  $("tutSessBody").innerHTML = sess.length
-    ? sess.map((x) => `<tr><td>${Number(x.reps) || 0}</td><td>${formatTut(x.holdMs)}</td></tr>`).join("")
-    : `<tr><td colspan="2">No sessions yet.</td></tr>`;
 }
 function paintTutRows(rows) {
   const body = $("tutBoardBody");
   if (!body) return;
-  const sets = (rows || []).filter((r) => r.category === "tut-set" && Number(r.reps) > 0).slice(0, 50);
-  body.innerHTML = sets.length
-    ? sets.map((r) => `<tr><td>${Number(r.reps)}</td><td>${formatTut(r.holdMs)}</td></tr>`).join("")
+  const sets = (rows || []).filter((r) => r.category === "tut-set" && Number(r.reps) > 0);
+  const shown = sets.slice(0, 50);
+  body.innerHTML = shown.length
+    ? shown.map((r) => `<tr><td>${Number(r.reps)}</td><td>${formatTut(r.holdMs)}</td></tr>`).join("")
     : `<tr><td colspan="2">No finished sets yet.</td></tr>`;
+  const peopleEl = $("tutPeopleCount"), timesEl = $("tutTimesCount");
+  if (peopleEl) { const seen = {}; sets.forEach((r) => { const k = r.uid || r.name || ""; if (k) seen[k] = 1; }); peopleEl.textContent = String(Object.keys(seen).length); }
+  if (timesEl) timesEl.textContent = String(sets.length);
 }
 function paintPushRows(rows) {
   const sorted = [...(rows || [])].sort((a, b) => b.reps - a.reps || a.ms - b.ms).slice(0, 50);
@@ -4345,7 +4344,7 @@ boardSnap("pushBoardBody", pq, (snap) => {
 const tutRowsOf = (snap) => snap.docs.map((d) => {
   const x = d.data();
   const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "";
-  return { name: x.name, xHandle: x.xHandle || "", reps: x.reps, ms: x.ms, category: x.category, holdMs: x.holdMs, when };
+  return { name: x.name, xHandle: x.xHandle || "", uid: x.uid || "", reps: x.reps, ms: x.ms, category: x.category, holdMs: x.holdMs, when };
 });
 boardSnap("tutBoardBody", query(collection(db, "pushups"), orderBy("createdAt", "desc"), limit(300)), (snap) => paintTutRows(tutRowsOf(snap)), () => paintTutRows(localPush().slice().reverse()));
 // Plank board: longest hold first.
