@@ -55,7 +55,7 @@ const complete = (p) => p.log.filter((x) => x === "say:Set complete.").length;
   p = page("long", { ms: 75000, signedIn: false }); p.fail("knees"); await tick();
   check("signed out: failure saves on this device with the reason, no remote post", p.posts().length === 0 && p.log.includes("local:zabbadat-push-total-u1-d") && /^Set failed: 35 reps, 75s\. Ready for the next set\. Saved on this device\. Sign in to post\. Ended: Knees down\./.test(p.els.pushStatus.textContent));
   check("wiring: End session still calls finishPushSet in long mode; poseTick still calls voidTutSet(failed)", /pushEndBtn"\)\.onclick = \(\) => \{ if \(pushMode === "long"\) finishPushSet\(\); \}/.test(html) && /if \(failed\) voidTutSet\(failed\);/.test(html));
-  check("copy: longNote, challengeNote and tut.html say the time and reps so far still post", (html.match(/Time and reps so far still post/g) || []).length === 2 && /ends the set, and your time under tension and reps so far still post/.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
+  check("copy: longNote, challengeNote and tut.html say time reps and tut sets will post", (html.match(/Time reps and tut sets will post/g) || []).length === 2 && /ends the set, and time reps and tut sets will post/.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
   for (const mode of ["long", "sets", "challenge"]) {
     const q = page(mode, { ms: 75000 }); q.end(); await tick();
     const cat = mode === "long" ? "tut-set" : mode === "sets" ? "set" : "challenge";
