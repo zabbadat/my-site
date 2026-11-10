@@ -2607,19 +2607,26 @@ function attachCam(vid, stream) {
 }
 async function openCam() {
   if (camOn && poseLoopOn) return true; // already running: never a second stream or loop
+  const my = openCam.seq = (openCam.seq || 0) + 1, current = () => my === openCam.seq; // each openCam / stopCam bumps it: a superseded open drops its own stream, never the newer one
   if (camWake) camWake.start().catch(() => {});
+  let stream = null;
   try {
     if (camStream) { stopCamTracks(camStream); camStream = null; }
     $("camNote").textContent = "Starting camera…";
-    camStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+    stream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+    if (!current()) { stopCamTracks(stream); return false; }
+    camStream = stream;
     const vid = $("camVid");
     await attachCam(vid, camStream);
+    if (!current()) return false;
     $("camWrap").hidden = false;
     $("camStopBtn").hidden = false;
     $("camNote").textContent = "Loading camera counter…";
     await loadCamLibs();
+    if (!current()) return false;
     $("camNote").textContent = "Loading pose model…";
     await ensurePose();
+    if (!current()) return false;
     camOn = true;
     poseLoopOn = true;
     resetPoseBaseline();
@@ -2627,6 +2634,7 @@ async function openCam() {
     poseTick(++poseLoopId);
     return true;
   } catch (e) {
+    if (!current()) { if (stream && stream !== camStream) stopCamTracks(stream); return false; }
     stopCamTracks(camStream);
     camStream = null;
     if ($("camVid")) $("camVid").srcObject = null;
@@ -2640,6 +2648,7 @@ async function openCam() {
 function stopCam() {
   if (typeof endPushOnCameraStop === "function") endPushOnCameraStop();
   cancelPushStart("Start cancelled.");
+  if (typeof openCam === "function") openCam.seq = (openCam.seq || 0) + 1; // a camera still opening is dropped
   poseLoopOn = false; poseLoopId += 1;
   camOn = false;
   if (camStream) camStream.getTracks().forEach((t) => t.stop());
@@ -3695,18 +3704,25 @@ function tbGoLive(r) {
   tbStat(tbStream ? "Go! Keep repping." : "Camera is off: turn it on to stay in the battle.");
 }
 async function tbCamOn(placed) {
+  const my = tbCamOn.seq = (tbCamOn.seq || 0) + 1, current = () => my === tbCamOn.seq; // each tap / tbCamOff bumps it: a double tap or a stop while opening never leaves a second stream
+  let stream = null;
   try {
     if (!placed) $("tbCamNote").textContent = "Starting camera…";
     if (tbStream) { stopCamTracks(tbStream); tbStream = null; }
-    tbStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+    stream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+    if (!current()) { stopCamTracks(stream); return; }
+    tbStream = stream;
     const v = $("tbVid"); await attachCam(v, tbStream);
+    if (!current()) return;
     $("tbCamWrap").hidden = false;
     await loadCamLibs();
     await ensurePose();
+    if (!current()) return;
     tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
     tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
     if (placed) { tbCoaching = true; await placed; await showPositioning("tut", $("tbCamNote"), () => !tbLoop, "criteria"); tbCoaching = false; }
   } catch (e) {
+    if (!current()) { if (stream && stream !== tbStream) stopCamTracks(stream); return; }
     stopCamTracks(tbStream);
     tbStream = null;
     if ($("tbVid")) $("tbVid").srcObject = null;
@@ -3715,7 +3731,7 @@ async function tbCamOn(placed) {
     tbPaint();
   }
 }
-function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; }
+function tbCamOff() { if (typeof tbCamOn === "function") tbCamOn.seq = (tbCamOn.seq || 0) + 1; tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; }
 async function tbPose() {
   if (!tbLoop) return;
   try {
