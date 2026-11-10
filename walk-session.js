@@ -43,6 +43,20 @@
       result: function () { return ended; }
     };
   }
+  // App (native step counter) session steps: today's phone total minus the total at Start. Never negative. If the total drops
+  // (midnight rollover: the phone counter restarts at 0), the steps walked so far are carried and the new day's total counts on top.
+  function createNativeCounter(base) {
+    var b = Math.max(0, Math.floor(Number(base) || 0)), last = b, carry = 0;
+    function update(total) {
+      if (total != null && isFinite(Number(total))) {
+        var t = Math.max(0, Math.floor(Number(total)));
+        if (t < last) { carry += Math.max(0, last - b); b = 0; }
+        last = t;
+      }
+      return Math.max(0, Math.min(MAX_STEPS, carry + Math.max(0, last - b)));
+    }
+    return { update: update, steps: function () { return update(null); }, base: function () { return b; } };
+  }
   function qualifies(r) {
     if (!r) return { ok: false, why: "no session" };
     if (!(r.ms >= MIN_MS)) return { ok: false, why: "Sessions under 10 minutes don't count." };
@@ -76,7 +90,7 @@
       .slice(0, n || 20);
   }
   var api = { MIN_MS: MIN_MS, MAX_MS: MAX_MS, MIN_SPM: MIN_SPM, MIN_STEPS: MIN_STEPS, MAX_STEPS: MAX_STEPS, MAX_HIDDEN_MS: MAX_HIDDEN_MS,
-              formatClock: formatClock, createSession: createSession, qualifies: qualifies, buildRecord: buildRecord,
+              formatClock: formatClock, createSession: createSession, createNativeCounter: createNativeCounter, qualifies: qualifies, buildRecord: buildRecord,
               validateRecord: validateRecord, rankSessions: rankSessions };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatWalk = api;

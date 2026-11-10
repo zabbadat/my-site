@@ -1,6 +1,6 @@
 // Player-to-player ZAB sends (server only: netlify/functions/zab-send.js, admin SDK). One atomic transaction:
 // debit the sender, credit the recipient, matching zabLedger entries on both sides, board mirrors kept equal.
-// Rules: tenths (one decimal) >= 0.1, max MAX_SEND per send, max DAILY_SENDS sends and DAILY_ZAB per UTC day, no overdraft,
+// Rules: tenths (one decimal) >= 0.1, max MAX_SEND per send, max DAILY_SENDS sends and DAILY_ZAB per Eastern (America/New_York) day, no overdraft,
 // no self-send, recipient must be on the zabBoard (picked by name; uids only, never emails). `key` = idempotency key.
 (function () {
   const MIN_SEND = 0.1, MAX_SEND = 1000, DAILY_SENDS = 20, DAILY_ZAB = 5000;
@@ -8,7 +8,8 @@
   const err = (status, message) => Object.assign(new Error(message), { status });
   const ZC = typeof module !== "undefined" && module.exports ? require("./zab-currency.js") : window.ZabCurrency;
   const isAmt = (n) => ZC.isZab(n) && n >= MIN_SEND, bal = (v) => (ZC.isZab(v) ? ZC.roundZab(v) : 0), R = ZC.roundZab;
-  const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+  const ETD = typeof module !== "undefined" && module.exports ? require("./et-day.js") : window.ZabbadatEtDay;
+  const day = (ms) => (ETD ? ETD.key(ms) : new Date(ms).toISOString().slice(0, 10)); // Eastern day: send limits reset at Eastern midnight
   function check(from, body) {
     body = body || {};
     if (!from) throw err(401, "Sign in to send ZAB.");

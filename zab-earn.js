@@ -21,7 +21,7 @@
 const ZC = require("./zab-currency.js");
 const ZB = require("./zab-balance.js");
 
-// ---- OWNER DECISION: caps (ZAB). Per claim and per source per UTC day. ----
+// ---- OWNER DECISION: caps (ZAB). Per claim and per source per America/New_York day (resets at Eastern midnight, see capDay). ----
 const CLAIM_CAP = 500;
 const DAY_CAP = { pushups: 50, tut: 30, hold: 10, plank: 30, walk: 24, washers: 20 };
 const MAX_AGE_MS = 48 * 3600000;          // a session can be claimed for 48 h after it was recorded
@@ -40,7 +40,11 @@ const ID = /^[A-Za-z0-9_-]{1,60}$/;
 const err = (status, message) => Object.assign(new Error(message), { status });
 const isInt = (v) => typeof v === "number" && Number.isInteger(v);
 const num = (v) => (typeof v === "number" && isFinite(v) ? v : NaN);
-const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+// Cap day for every source: the America/New_York calendar date (et-day.js; Eastern midnight, DST-safe via Intl).
+// Same "YYYY-MM-DD" format, so zabEarnDay/{uid}_{day} doc ids are unchanged.
+const ETD = require("./et-day.js");
+const etDay = (ms) => ETD.key(ms);
+const capDay = (src, ms) => etDay(ms);
 
 // Session doc -> { qty, amount } or throws 422 (implausible / not earnable). Pure (tested in test/zab-earn.test.js).
 function measure(kind, d, uid, nowMs) {
@@ -103,7 +107,7 @@ function claim(fs, uid, body, nowMs, sinceMs) {
   const K = Object.prototype.hasOwnProperty.call(KINDS, kind) ? KINDS[kind] : null;
   if (!K) return Promise.reject(err(400, "Unknown source."));
   if (!ID.test(id)) return Promise.reject(err(400, "Bad session id."));
-  const now = nowMs || Date.now(), today = day(now), src = K.source;
+  const now = nowMs || Date.now(), src = K.source, today = capDay(src, now);
   return fs.tx((t) => t.get([K.col, id]).then((d) => {
     if (!d) throw err(404, "No such session.");
     const created = fs.toMs(d.createdAt);
@@ -131,4 +135,4 @@ function claim(fs, uid, body, nowMs, sinceMs) {
     });
   }));
 }
-module.exports = { CLAIM_CAP, DAY_CAP, MAX_AGE_MS, KINDS, measure, claim };
+module.exports = { CLAIM_CAP, DAY_CAP, MAX_AGE_MS, KINDS, measure, claim, capDay, etDay };

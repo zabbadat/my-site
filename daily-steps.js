@@ -12,7 +12,9 @@
   var MAX_STEPS = 60000, NAME_MAX = 40, HANDLE_MAX = 21, KEY = "zabbadat-daily-steps-";
 
   function pad(n) { return (n < 10 ? "0" : "") + n; }
-  function localDateKey(d) { d = d || new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  // Day key = the America/New_York date (et-day.js): the day resets at Eastern midnight for everyone. Device-local date only if et-day.js is missing.
+  var ET = typeof module !== "undefined" && module.exports ? require("./et-day.js") : root && root.ZabbadatEtDay;
+  function localDateKey(d) { if (ET) return ET.key(d || Date.now()); d = d || new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function docId(uid, date) { return uid + "_" + date; }
   function clampSteps(n) { n = Math.floor(Number(n)); if (!isFinite(n) || n < 0) return 0; return Math.min(n, MAX_STEPS); }
   // Web adds walk steps to the day; native reports the day's total. Never go down.
@@ -62,7 +64,7 @@
   // Browser controller. hooks: { onChange(state), isLocked(), detectorFactory() }
   function createController(win, hooks) {
     hooks = hooks || {};
-    var src = pickSource(win), store = win.localStorage, walking = false, det = null, onMotion = null;
+    var src = pickSource(win), store = win.localStorage, walking = false, det = null, onMotion = null, nativeOk = false;
     var st = { date: localDateKey(), steps: 0, source: src.kind === "native" ? "native" : "web", kind: src.kind, walking: false, msg: "" };
     st.steps = readLocal(store, st.date);
     function emit() { st.walking = walking; hooks.onChange && hooks.onChange(st); }
@@ -73,12 +75,18 @@
       try {
         if (typeof src.plugin.requestPermissions === "function") await src.plugin.requestPermissions();
         var r = await src.plugin.getTodaySteps();
-        rollDay(); setSteps(mergeNative(st.steps, r && r.steps)); st.msg = "Phone step counter: today's total.";
-      } catch (e) { st.msg = "Couldn't read the phone step counter. Check motion/activity permission in Settings."; }
+        rollDay(); setSteps(mergeNative(st.steps, r && r.steps)); st.msg = "Phone step counter: today's total."; nativeOk = true;
+      } catch (e) { nativeOk = false; st.msg = "Couldn't read the phone step counter. Check motion/activity permission in Settings."; }
       emit(); return st.steps;
     }
     async function startWalk() { // call from a user gesture (iOS permission)
       if (walking) return true;
+      if (src.kind === "native") {
+        // App: the phone's step counter owns the total. No DeviceMotion, no addWeb (no double counting): read the phone first, then time the session.
+        await refreshNative();
+        if (!nativeOk) { emit(); return false; } // no baseline without a phone reading; the permission message stays up
+        walking = true; st.source = "native"; st.msg = "Walk on. The phone's step counter keeps counting: lock your phone or use other apps, steps still count."; emit(); return true;
+      }
       if (typeof win.DeviceMotionEvent === "undefined") { st.msg = "This browser has no motion sensor."; emit(); return false; }
       try {
         if (typeof win.DeviceMotionEvent.requestPermission === "function") {

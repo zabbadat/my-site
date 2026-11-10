@@ -1413,7 +1413,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="steps">
     <h2>Step Equity</h2>
-    <p class="lead">Step Equity: stopping posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk, put the phone in your pocket and walk: the page keeps the screen awake and locked, and steps count from the pocket. Same login as washers.</p>
+    <p class="lead" id="stepsLead">Step Equity: stopping posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk, put the phone in your pocket and walk: the page keeps the screen awake and locked, and steps count from the pocket. Same login as washers.</p>
     <div class="stats duo">
       <div class="stat"><b id="dailyCount">0</b><span>Steps today</span></div>
       <div class="stat"><b id="walkClock">00:00</b><span>Session time</span></div>
@@ -1427,7 +1427,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="card" id="tenKBonus" style="margin-top:1rem"><h3>Ten thousand steps. Breathe, stride, collect.</h3><p>Hit 10K in a day and stack a 4 <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> bonus on top of every step you've earned.</p></div>
     <p class="note" id="dailyStatus" aria-live="polite">Signed-in totals post to the daily board. Unsigned stays on this phone.</p>
     <h3 style="margin-top:1.6rem">Live walk sessions</h3>
-    <p class="lead">Start a live walk and the session clock runs. Stop it to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap. Hiding the page pauses the clock; hidden over 2 minutes ends the session.</p>
+    <p class="lead" id="walkLead">Start a live walk and the session clock runs. Stop it to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap. Hiding the page pauses the clock; hidden over 2 minutes ends the session.</p>
     <div class="stats">
       <div class="stat"><b id="dailySource">—</b><span>Source</span></div>
     </div>
@@ -1610,6 +1610,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/push-challenge.js"></script>
   <script src="/get-set.js"></script>
   <script src="/plank-session.js"></script>
+  <script src="/et-day.js"></script>
   <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>
   <script src="/walk-session.js"></script>
@@ -1764,6 +1765,7 @@ function publicName(s) {
 function isTonight(when, created) {
   const d = created instanceof Date ? created : (when ? new Date(when) : null);
   if (!d || Number.isNaN(d.getTime())) return false;
+  if (window.ZabbadatEtDay) return window.ZabbadatEtDay.key(d) === window.ZabbadatEtDay.key(); // same Eastern day
   const now = new Date();
   return d.getFullYear() === now.getFullYear() &&
     d.getMonth() === now.getMonth() &&
@@ -2048,7 +2050,7 @@ function localPush() {
 function pushTotalKey() {
   const d = new Date();
   const who = currentUser ? currentUser.uid : "guest";
-  return "zabbadat-push-total-" + who + "-" + d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  return "zabbadat-push-total-" + who + "-" + (typeof window !== "undefined" && window.ZabbadatEtDay ? window.ZabbadatEtDay.shortKey(d) : d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate()); // Eastern day (et-day.js), same unpadded Y-M-D key format
 }
 function savedPushTotal() {
   return Number(localStorage.getItem(pushTotalKey())) || 0;
@@ -2230,7 +2232,7 @@ function renderTutHistory() {
   const who = currentUser ? currentUser.uid : "guest", d = new Date();
   const entries = [];
   for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); entries.push([k, localStorage.getItem(k)]); }
-  const h = window.ZabbadatSession.tutHistory(entries, "zabbadat-push-tut-" + who + "-", d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(), "zabbadat-push-total-" + who + "-");
+  const h = window.ZabbadatSession.tutHistory(entries, "zabbadat-push-tut-" + who + "-", (typeof window !== "undefined" && window.ZabbadatEtDay ? window.ZabbadatEtDay.shortKey(d) : d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate()), "zabbadat-push-total-" + who + "-");
   const sig = JSON.stringify([who, h.total, h.totalReps, h.days.length, localStorage.getItem("zabbadat-push-sessions") || ""]);
   // live part (today) updates every tick; tables only when data changes
   $("tutToday").textContent = $("pushTut") ? $("pushTut").textContent : formatTut(h.today);
@@ -2389,6 +2391,7 @@ async function startPush() {
   else if (typeof clearPushPrompts === "function") clearPushPrompts(); // before this tap's own coaching line is spoken
 
   if (!requireSignIn("pushups", () => startPush(), { practice: true })) return;
+  const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
   if (pushWake) pushWake.start().catch(() => {}); // inside the tap, before any await or timer
   unlockGetSet(); // iOS: silent utterance inside the tap so the coaching lines and countdown can speak
   if (typeof plankLoop !== "undefined" && plankLoop) stopPlankCam();
@@ -2400,7 +2403,7 @@ async function startPush() {
     const restart = sessionPlan(coachKind) === "restart"; /* restart: short next-set intro, no first-time coaching */
     const placed = restart ? true : showPositioning(coachKind, $("pushStatus"), () => !live(), "place"); // spoken inside the tap
     if (restart && !camOn) $("pushStatus").textContent = "Starting camera…";
-    if (!camOn) { const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail("Camera or pose blocked."); }
+    if (!camOn) { const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail(native ? (($("camNote") && $("camNote").textContent) || camErrorText()) : "Camera or pose blocked."); }
     if (!live()) return;
     if (!(await placed)) return;
     if (!live()) return;
@@ -2414,7 +2417,7 @@ async function startPush() {
     pushStarting = false;
     beginPushClock();
     syncPushStartBtn();
-  } catch (e) { fail("Camera or pose blocked."); }
+  } catch (e) { fail(native ? camErrorText(e) : "Camera or pose blocked."); }
 }
 function beginPushClock() {
   if (pushState.finished || pushState.running) return;
@@ -2494,6 +2497,13 @@ function loadCamLibs() {
   }
   return camLibsPromise;
 }
+function prefetchCamLibs() { // app only: browsers load the pose libraries on the Start tap, as before
+  if (!(typeof window !== "undefined" && window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform())) return;
+  const go = () => { loadCamLibs().catch(() => {}); };
+  if (typeof requestIdleCallback === "function") requestIdleCallback(go, { timeout: 4000 });
+  else setTimeout(go, 1500);
+}
+prefetchCamLibs();
 let lastCamStatus = "";
 
 function setCamStatus(text) {
@@ -2583,34 +2593,83 @@ async function poseTick(id = poseLoopId) {
   if (poseLoopOn && id === poseLoopId) requestAnimationFrame(() => poseTick(id));
 }
 
+const CAM_CONSTRAINTS = { video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false };
+function camErrorText(e) {
+  const name = e && e.name ? String(e.name) : "", msg = e && e.message ? String(e.message) : "";
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") return "Camera blocked. Enable Camera in Settings > ZabbaDat.";
+  return "Camera or pose blocked (" + (name || "Error") + ")" + (msg && msg !== name ? ": " + msg : "") + (msg && /[.!?]$/.test(msg) ? "" : ".");
+}
+function stopCamTracks(stream) {
+  if (stream && stream.getTracks) stream.getTracks().forEach((t) => t.stop());
+}
+function attachCam(vid, stream) {
+  if (!vid) return Promise.resolve();
+  vid.srcObject = stream;
+  if (vid.setAttribute) { vid.setAttribute("playsinline", ""); vid.setAttribute("muted", ""); }
+  vid.muted = true;
+  return vid.play ? Promise.resolve(vid.play()) : Promise.resolve();
+}
 async function openCam() {
+  const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
+  if (!native) { // browser: unchanged (dffac32)
+    if (camOn && poseLoopOn) return true; // already running: never a second stream or loop
+    if (camWake) camWake.start().catch(() => {});
+    try {
+      $("camNote").textContent = "Loading camera counter…";
+      await loadCamLibs();
+      $("camNote").textContent = "Loading pose model…";
+      if (camStream) camStream.getTracks().forEach((t) => t.stop());
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
+      const vid = $("camVid");
+      vid.srcObject = camStream;
+      vid.setAttribute("playsinline", "");
+      await vid.play();
+      await ensurePose();
+      camOn = true;
+      poseLoopOn = true;
+      resetPoseBaseline();
+      $("camWrap").hidden = false;
+      $("camStopBtn").hidden = false;
+      $("camNote").textContent = "Get into a push-press plank. After Go, your first full push-up counts.";
+      poseTick(++poseLoopId);
+      return true;
+    } catch (e) {
+      if (camWake && !camOn) camWake.stop().catch(() => {});
+      $("camNote").textContent = "Camera or pose blocked.";
+      return false;
+    }
+  }
   if (camOn && poseLoopOn) return true; // already running: never a second stream or loop
   if (camWake) camWake.start().catch(() => {});
   try {
+    if (camStream) { stopCamTracks(camStream); camStream = null; }
+    $("camNote").textContent = "Starting camera…";
+    camStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+    const vid = $("camVid");
+    await attachCam(vid, camStream);
+    $("camWrap").hidden = false;
+    $("camStopBtn").hidden = false;
     $("camNote").textContent = "Loading camera counter…";
     await loadCamLibs();
     $("camNote").textContent = "Loading pose model…";
-    if (camStream) camStream.getTracks().forEach((t) => t.stop());
-    camStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-      audio: false
-    });
-    const vid = $("camVid");
-    vid.srcObject = camStream;
-    vid.setAttribute("playsinline", "");
-    await vid.play();
     await ensurePose();
     camOn = true;
     poseLoopOn = true;
     resetPoseBaseline();
-    $("camWrap").hidden = false;
-    $("camStopBtn").hidden = false;
     $("camNote").textContent = "Get into a push-press plank. After Go, your first full push-up counts.";
     poseTick(++poseLoopId);
     return true;
   } catch (e) {
+    stopCamTracks(camStream);
+    camStream = null;
+    if ($("camVid")) $("camVid").srcObject = null;
+    $("camWrap").hidden = true;
+    $("camStopBtn").hidden = true;
     if (camWake && !camOn) camWake.stop().catch(() => {});
-    $("camNote").textContent = "Camera or pose blocked.";
+    $("camNote").textContent = camErrorText(e);
     return false;
   }
 }
@@ -2781,6 +2840,7 @@ function newPlankHold() {
 async function startPlankCam() {
   if (plankLoop || plankStarting) return; // idempotent: a running or starting camera ignores the tap
   if (!requireSignIn("plank", () => startPlankCam(), { practice: true })) return;
+  const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
   if (plankWake) plankWake.start().catch(() => {}); // inside the tap, before any await or timer
   unlockGetSet(); // iOS: silent utterance inside the tap so the coaching lines and countdown can speak
   const my = ++plankStartSeq; const live = () => my === plankStartSeq;
@@ -2793,16 +2853,29 @@ async function startPlankCam() {
     const placed = restart ? true : showPositioning("plank", $("plankStatus"), () => !live(), "place"); // spoken inside the tap
     if (restart) $("plankStatus").textContent = "Starting camera…";
     if ($("plankStatus").style) $("plankStatus").style.whiteSpace = "pre-line";
-    await loadCamLibs();
-    if (!live()) return;
-    if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
-    if (!live()) { stream.getTracks().forEach((t) => t.stop()); return; }
-    plankStream = stream;
-    const vid = $("plankVid"); vid.srcObject = plankStream; await vid.play();
-    await ensurePose();
-    if (!live()) return;
-    $("plankWrap").hidden = false;
+    if (native) { // app: camera first, inside the tap, then the pose libraries
+      if (plankStream) { stopCamTracks(plankStream); plankStream = null; }
+      const stream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+      if (!live()) { stopCamTracks(stream); return; }
+      plankStream = stream;
+      const vid = $("plankVid"); await attachCam(vid, plankStream);
+      $("plankWrap").hidden = false;
+      await loadCamLibs();
+      if (!live()) return;
+      await ensurePose();
+      if (!live()) return;
+    } else { // browser: unchanged (dffac32)
+      await loadCamLibs();
+      if (!live()) return;
+      if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      if (!live()) { stream.getTracks().forEach((t) => t.stop()); return; }
+      plankStream = stream;
+      const vid = $("plankVid"); vid.srcObject = plankStream; await vid.play();
+      await ensurePose();
+      if (!live()) return;
+      $("plankWrap").hidden = false;
+    }
     if (!(await placed)) return;
     if (!live()) return;
     if (!restart && !(await showPositioning("plank", $("plankStatus"), () => !live(), "criteria"))) return;
@@ -2816,7 +2889,7 @@ async function startPlankCam() {
     $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts when you start a proper plank. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.";
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once after Go on a fresh start */
     plankLoop = true; plankTick(++plankLoopId);
-  } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = "Camera or pose blocked."; } }
+  } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = native ? camErrorText(e) : "Camera or pose blocked."; } }
 }
 let plankStarting = false, plankStartSeq = 0;
 function cancelPlankStart() {
@@ -2846,15 +2919,17 @@ renderPlankDays();
 paintPlankRows(localPlanks());
 // ---- Daily steps (shared module daily-steps.js; native plugin in the app, live walk on web) ----
 let saveRemoteDaily = async () => { throw new Error("Daily board is not connected"); };
+let dailyRepaint = null; // set by the live walk section: repaint the session readout whenever today's total changes (app: phone counter stream)
 let dailyPosted = 0, dailyLiveTimer = null, dailyRetryTimer = null, dailyRetries = 0; // live walk saves within ~3 s of a step so other devices update in real time
 const DS = window.ZabbadatDaily;
 const daily = DS ? DS.createController(window, { onChange: (s) => {
   $("dailyCount").textContent = s.steps.toLocaleString();
   $("dailySource").textContent = s.kind === "native" ? "Phone" : s.kind === "web" ? "Live walk" : "None";
-  $("dailyWalkBtn").textContent = s.walking ? "Hold to stop" : "Start live walk";
+  $("dailyWalkBtn").textContent = s.walking ? "Hold to stop" : (s.kind === "native" ? "Start walk" : "Start live walk");
   if (s.msg) $("dailyStatus").textContent = s.msg;
   if (s.walking && currentUser && s.steps > dailyPosted && !dailyLiveTimer) dailyLiveTimer = setTimeout(() => { dailyLiveTimer = null; postDaily(true); }, 3000);
   if (s.steps >= 10000) tenKBonus(s);
+  if (dailyRepaint) dailyRepaint();
 } }) : null;
 // 10K steps bonus: 4 ZAB once per user per local day, on top of the walk earn (zab-balance.js steps10k; ledger id steps10k-YYYY-MM-DD).
 const TEN_K_LINE = "Ten thousand steps. Four ZAB bonus. Breathe easy, and keep striding.";
@@ -2901,8 +2976,13 @@ function paintDailyRows(rows) {
 }
 const dailyFg = daily ? DS.createForegroundRefresh(daily, { afterRefresh: () => postDaily(true) }) : null;
 if (daily) {
-  if (daily.source.kind === "native") { $("dailyWalkBtn").hidden = true; $("dailyResetBtn").hidden = true; $("dailyRefreshBtn").hidden = false; dailyFg.run(); } // phone counter owns the all-day total: no session to reset
-  $("dailyRefreshBtn").onclick = () => { if (walkLockOn) { $("dailyStatus").textContent = "Hold to stop first."; return; } daily.refreshNative().then(() => postDaily(true)); };
+  if (daily.source.kind === "native") { // app: the phone counter owns the all-day total; Start walk only times a session on top of it (Reset stays hidden)
+    $("dailyWalkBtn").hidden = false; $("dailyResetBtn").hidden = true; $("dailyRefreshBtn").hidden = false;
+    $("stepsLead").innerHTML = 'Step Equity: in the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone\'s step counter keeps your all-day total automatically, even when the app is closed. Tap Start walk to time a session: lock your phone or use other apps, steps still count. Refresh from phone pulls the latest total; today\'s total never goes down. Same login as washers.';
+    $("walkLead").textContent = "Tap Start walk and the session clock runs on the phone's step counter. Lock your phone or use other apps; the session clock doesn't pause and steps still count. Hold to stop to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap.";
+    dailyFg.run();
+  }
+  $("dailyRefreshBtn").onclick = () => { if (walkLockOn && daily.source.kind !== "native") { $("dailyStatus").textContent = "Hold to stop first."; return; } daily.refreshNative().then(() => postDaily(true)); };
   $("dailyWalkBtn").onclick = async () => {
     if (daily.state().walking) { daily.stopWalk(); postDaily(true); } else { if (!requireSignIn("walk", () => $("dailyWalkBtn").onclick(), { practice: true })) return; await daily.startWalk(); }
   };
@@ -2914,12 +2994,18 @@ if (daily) {
 const WS = window.ZabbadatWalk;
 let saveRemoteWalk = async () => { throw new Error("Walk board is not connected"); };
 let walkSession = null, walkTick = null, walkRows = [], walkView = "all";
+// App (native step counter): the session clock runs on wall-clock time and never pauses when the app is hidden or the screen locks
+// (the phone keeps counting). Session steps = phone total now - phone total at Start (WS.createNativeCounter). Web: performance.now + DeviceMotion, unchanged.
+const NATIVE_WALK = !!(daily && daily.source.kind === "native");
+let walkCtr = null;
+const walkNow = () => (NATIVE_WALK ? Date.now() : performance.now());
+const walkTotal = () => { const st = daily.state().steps; return walkCtr ? walkCtr.update(st) : st; };
 // Live mirror (live-walk.js): the walking device writes liveWalk/{uid}; other signed-in devices show it.
 const LW = window.ZabbadatLiveWalk;
 let writeLiveWalk = async () => {}, liveLast = null, walkStartedAt = 0, liveRemote = null, liveShown = false, liveTick = null;
 function liveSync(force) {
   if (!LW || !currentUser || !walkSession || !daily) return;
-  const now = performance.now(), st = daily.state().steps, t = Date.now();
+  const now = walkNow(), st = walkTotal(), t = Date.now();
   const rec = LW.record(currentUser.uid, walkStartedAt, walkSession.elapsed(now), walkSession.steps(st), walkSession.isPaused(), true);
   if (!force && !LW.shouldPush(liveLast, rec, t)) return;
   liveLast = { ...rec, at: t }; writeLiveWalk(rec).catch(() => {});
@@ -2942,7 +3028,7 @@ function paintLiveRemote() {
 }
 function paintWalk() {
   if (!walkSession || !daily) return;
-  const now = performance.now(), st = daily.state().steps;
+  const now = walkNow(), st = walkTotal();
   const capped = walkSession.tick(now, st);
   $("walkClock").textContent = WS.formatClock(walkSession.elapsed(now)) + (walkSession.isPaused() ? " ⏸" : "");
   $("walkSteps").textContent = walkSession.steps(st).toLocaleString();
@@ -2950,11 +3036,12 @@ function paintWalk() {
 }
 function beginWalk() {
   if (!WS || !daily) return;
-  walkSession = WS.createSession(performance.now(), daily.state().steps);
+  if (NATIVE_WALK) { walkCtr = WS.createNativeCounter(daily.state().steps); walkSession = WS.createSession(walkNow(), 0); }
+  else { walkCtr = null; walkSession = WS.createSession(performance.now(), daily.state().steps); }
   walkStartedAt = Date.now(); liveLast = null;
   if (liveShown) { liveShown = false; clearInterval(liveTick); liveTick = null; }
-  $("walkStatus").textContent = "Session clock running.";
-  if (walkWake) walkWake.start().catch(() => {});
+  $("walkStatus").textContent = NATIVE_WALK ? "Session clock running. Lock your phone or use other apps; the phone keeps counting." : "Session clock running.";
+  if (walkWake && !NATIVE_WALK) walkWake.start().catch(() => {}); // app: let the phone lock, the step counter keeps going
   clearInterval(walkTick); walkTick = setInterval(paintWalk, 500); paintWalk();
 }
 // Shared screen wake (wake-lock.js): keep the screen awake during a live walk; one-time note if unsupported.
@@ -2962,7 +3049,7 @@ const walkWake = window.WakeLock ? window.WakeLock.createWakeLock({ onNote: (m) 
 async function endWalk(r) {
   clearInterval(walkTick); walkTick = null;
   if (!walkSession) return;
-  walkSession = null;
+  walkSession = null; walkCtr = null;
   setWalkLock(false);
   if (walkWake) walkWake.stop().catch(() => {});
   liveEnd(r);
@@ -2978,7 +3065,8 @@ function paintWalkRows(rows) {
   if (!WS) return;
   if (rows) walkRows = rows;
   const d = new Date(); d.setHours(0, 0, 0, 0);
-  const ranked = WS.rankSessions(walkRows, 20, walkView === "today" ? d.getTime() : 0);
+  const dayStart = window.ZabbadatEtDay ? window.ZabbadatEtDay.startMs() : d.getTime(); // "Today" = since Eastern midnight
+  const ranked = WS.rankSessions(walkRows, 20, walkView === "today" ? dayStart : 0);
   $("walkBoardBody").innerHTML = ranked.length
     ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${WS.formatClock(r.ms)}</td><td>${Number(r.steps).toLocaleString()}</td></tr>`).join("")
     : `<tr><td colspan="4">${walkView === "today" ? "No sessions logged today yet." : "No sessions logged yet."}</td></tr>`;
@@ -2999,7 +3087,8 @@ if (WS && daily) {
   const dailyClick = $("dailyWalkBtn").onclick;
   const toggleWalk = async () => {
     const was = daily.state().walking;
-    const stopAt = performance.now(), stepsNow = daily.state().steps;
+    if (was && NATIVE_WALK) { try { await daily.refreshNative(); } catch (e) {} } // app: final phone read before the session is closed
+    const stopAt = walkNow(), stepsNow = walkSession ? walkTotal() : daily.state().steps;
     await dailyClick();
     const is = daily.state().walking;
     if (!was && is) { beginWalk(); setWalkLock(true); if (window.ZabbadatGetSet && window.ZabbadatGetSet.pocketCue) window.ZabbadatGetSet.pocketCue(); }
@@ -3014,8 +3103,10 @@ if (WS && daily) {
     await toggleWalk();
   };
   bindHold($("dailyWalkBtn"), { label: "Hold to stop", active: () => daily.state().walking, done: () => { walkHoldDone = true; setTimeout(() => { walkHoldDone = false; }, 600); setWalkLock(false); toggleWalk(); } });
+  dailyRepaint = () => { if (walkSession && NATIVE_WALK) paintWalk(); }; // app: live session steps as the phone total streams in (web repaints on its 500 ms tick)
   document.addEventListener("visibilitychange", () => {
     if (!walkSession) return;
+    if (NATIVE_WALK) { if (document.hidden) liveSync(true); else { paintWalk(); if (dailyFg) dailyFg.run(); } return; } // app: never pause or end on hide; refresh on return
     if (document.hidden) { walkSession.hide(performance.now()); liveSync(true); }
     else { const r = walkSession.show(performance.now()); if (r) { daily.stopWalk(); endWalk(r); postDaily(true); } else paintWalk(); }
   });
@@ -3672,14 +3763,37 @@ function tbGoLive(r) {
   tbStat(tbStream ? "Go! Keep repping." : "Camera is off: turn it on to stay in the battle.");
 }
 async function tbCamOn(placed) {
+  const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
+  if (!native) { // browser: unchanged (dffac32)
+    try {
+      if (!placed) $("tbCamNote").textContent = "Loading camera counter…"; await loadCamLibs();
+      tbStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      const v = $("tbVid"); v.srcObject = tbStream; await v.play(); await ensurePose();
+      tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
+      $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
+      if (placed) { tbCoaching = true; await placed; await showPositioning("tut", $("tbCamNote"), () => !tbLoop, "criteria"); tbCoaching = false; }
+    } catch (e) { $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
+    return;
+  }
   try {
-    if (!placed) $("tbCamNote").textContent = "Loading camera counter…"; await loadCamLibs();
-    tbStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
-    const v = $("tbVid"); v.srcObject = tbStream; await v.play(); await ensurePose();
+    if (!placed) $("tbCamNote").textContent = "Starting camera…";
+    if (tbStream) { stopCamTracks(tbStream); tbStream = null; }
+    tbStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+    const v = $("tbVid"); await attachCam(v, tbStream);
+    $("tbCamWrap").hidden = false;
+    await loadCamLibs();
+    await ensurePose();
     tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
-    $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
+    tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
     if (placed) { tbCoaching = true; await placed; await showPositioning("tut", $("tbCamNote"), () => !tbLoop, "criteria"); tbCoaching = false; }
-  } catch (e) { $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
+  } catch (e) {
+    stopCamTracks(tbStream);
+    tbStream = null;
+    if ($("tbVid")) $("tbVid").srcObject = null;
+    $("tbCamWrap").hidden = true;
+    $("tbCamNote").textContent = camErrorText(e);
+    tbPaint();
+  }
 }
 function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; }
 async function tbPose() {

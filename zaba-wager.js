@@ -27,6 +27,7 @@
   const MIN_WASHERS_MS = 60000;        // legacy constant (unused)
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
   const ZC = NODE ? require("./zab-currency.js") : root && root.ZabCurrency;
+  const ETD = NODE ? require("./et-day.js") : root && root.ZabbadatEtDay; // same-pair day = Eastern day
   const balOf = (u) => (u && ZC.isZab(u.zabBalance) ? ZC.roundZab(u.zabBalance) : 0); // balances and stakes are tenths (zab-currency.js)
   function validStake(n) { return ZC.isZab(n) && n >= MIN_STAKE && (MAX_STAKE == null || n <= MAX_STAKE); }
   function stakeError(n) {
@@ -182,13 +183,13 @@
           if (why) p = { action: "refund", reason: "implausible", flag: "implausible", detail: why,
             refunds: stakers(w).map((u) => ({ uid: u, amount: w.players[u].amount })).filter((x) => x.amount > 0) };
         }
-        const played = NOT_PLAYED.indexOf(p.reason) < 0, pairKey = pairKeyOf(w), today = new Date(nowMs).toISOString().slice(0, 10);
+        const played = NOT_PLAYED.indexOf(p.reason) < 0, pairKey = pairKeyOf(w), today = ETD ? ETD.key(nowMs) : new Date(nowMs).toISOString().slice(0, 10);
         const credits = [];
         if (p.action === "payout") (p.payouts || [{ uid: p.winner, amount: p.amount }]).forEach((x) => credits.push({ uid: x.uid, type: "payout", amount: x.amount }));
         (p.refunds || []).forEach((r) => credits.push({ uid: r.uid, type: "refund", amount: r.amount }));
         const reads = credits.map((c) => Promise.all([t.get(["users", c.uid]), t.get(["users", c.uid, "zabLedger", c.type + "-" + key])]));
         return Promise.all([Promise.all(reads), played && pairKey ? t.get(["wagerPairs", pairKey]) : null]).then(([got, pair]) => {
-          // Same-pair flag: count settled, played wagers per set of players per UTC day; flag (not block) from PAIR_FLAG on.
+          // Same-pair flag: count settled, played wagers per set of players per Eastern day; flag (not block) from PAIR_FLAG on.
           if (played && pairKey) {
             const n = (pair && pair.day === today ? pair.count : 0) + 1;
             t.set(["wagerPairs", pairKey], { players: pairKey.split("_"), day: today, count: n, lastWager: key, updatedAt: fs.ts() });
