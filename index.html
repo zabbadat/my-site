@@ -523,6 +523,10 @@
       border-radius: 14px; padding: 1rem 1.1rem; margin-bottom: 1rem;
     }
     .who img { width: 40px; height: 40px; border-radius: 50%; }
+    /* Delete my account: shown only while signed in (Sign out visible). Request by email; nothing is deleted in the browser. */
+    #signOutBtn[hidden] ~ #deleteAcctBtn, #signOutBtn[hidden] ~ #deleteAcctPanel { display: none !important; }
+    .del-acct { flex-basis: 100%; border-top: 1px solid rgba(143,191,168,.12); padding-top: .7rem; }
+    .del-acct a:not(.btn) { color: var(--accent); }
     table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: .92rem; }
     th, td { text-align: left; padding: .55rem .4rem; border-bottom: 1px solid rgba(143,191,168,.12); }
     th { color: var(--muted); font-weight: 500; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
@@ -1028,6 +1032,12 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn" id="signInBtn" type="button">Sign in with Google</button>
       <button class="btn ghost" id="signInXBtn" type="button">Sign in with X</button>
       <button class="btn ghost" id="signOutBtn" type="button" hidden>Sign out</button>
+      <button class="btn danger" id="deleteAcctBtn" type="button" aria-controls="deleteAcctPanel" aria-expanded="false">Delete my account</button>
+      <div class="del-acct" id="deleteAcctPanel" role="region" aria-label="Delete my account" hidden>
+        <p class="note" style="margin:0 0 .4rem"><strong>Delete your Zabbadat account?</strong> This asks us to delete your sign-in account, board name, X handle, scores, step records, and battle and ZAB data. ZAB has no cash value and cannot be restored. We finish within 30 days and reply by email.</p>
+        <p class="note" style="margin:0 0 .6rem">Tap below to open an email to <a href="mailto:zabbadat@mail.grokbot.com">zabbadat@mail.grokbot.com</a> with your account id filled in, then send it. <a href="/delete-account">How account deletion works</a></p>
+        <div class="row"><a class="btn danger" id="deleteAcctMail" href="mailto:zabbadat@mail.grokbot.com?subject=Delete%20my%20Zabbadat%20account">Email my deletion request</a> <button class="btn ghost" id="deleteAcctCancel" type="button">Cancel</button></div>
+      </div>
     </div>
     <form class="email-auth" id="emailAuth" novalidate>
       <p class="note" style="margin:0 0 .2rem"><strong id="emailAuthTitle">Or create an account with email</strong></p>
@@ -1584,6 +1594,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <a href="/about">About</a>
       <a href="/how-it-works">How it works</a>
       <a href="/privacy">Privacy</a>
+      <a href="/delete-account">Delete account</a>
     </div>
     <div class="footer-social"><span class="footer-social-label">Find us on</span>
       <a class="social-btn" href="https://x.com/ZabbaDat" target="_blank" rel="me noopener" aria-label="Zabbadat on X" data-brand="x"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M18.2 2.3h3.4l-7.4 8.4 8.7 11.5h-6.8l-5.3-7-6.1 7H1.3l7.9-9L.9 2.3h7l4.8 6.4 5.5-6.4Zm-1.2 17.9h1.9L7.1 4.2H5.1l11.9 16Z"/></svg></a>
@@ -4285,6 +4296,25 @@ $("signOutBtn").onclick = () => {
   if (currentUser) clearPushTotals();
   signOut(auth);
 };
+// Delete my account (Google Play account deletion): a request by email, never a client-side delete
+// (Firestore rules forbid it). The mailto is a main-frame link, which Capacitor hands to the phone's mail app.
+function deleteAcctMailto(user) {
+  const name = user ? displayNameOf(user) : "";
+  const body = "Please delete my Zabbadat account and its data.\n\nAccount id (uid): " + (user ? user.uid : "") + "\nDisplay name: " + name + "\n\nHow deletion works: https://www.zabbadat.com/delete-account\n";
+  return "mailto:zabbadat@mail.grokbot.com?subject=" + encodeURIComponent("Delete my Zabbadat account") + "&body=" + encodeURIComponent(body);
+}
+function deleteAcctShow(open) {
+  const p = document.getElementById("deleteAcctPanel"), b = document.getElementById("deleteAcctBtn");
+  if (!p || !b) return;
+  if (open && currentUser) document.getElementById("deleteAcctMail").href = deleteAcctMailto(currentUser);
+  p.hidden = !(open && currentUser);
+  b.setAttribute("aria-expanded", p.hidden ? "false" : "true");
+}
+if (document.getElementById("deleteAcctBtn")) {
+  $("deleteAcctBtn").onclick = () => deleteAcctShow(document.getElementById("deleteAcctPanel").hidden);
+  $("deleteAcctCancel").onclick = () => deleteAcctShow(false);
+  $("deleteAcctMail").onclick = () => { if (currentUser) $("deleteAcctMail").href = deleteAcctMailto(currentUser); };
+}
 getRedirectResult(auth)
   .then((res) => {
     if (!(res && res.user)) return;
