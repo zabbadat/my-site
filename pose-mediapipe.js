@@ -93,6 +93,9 @@
             minPoseDetectionConfidence: 0.5, minPosePresenceConfidence: 0.5, minTrackingConfidence: 0.5
           });
         };
+        // CPU (WASM) by default: ~25 ms a frame in testing and nothing to hang. The GPU (WebGL) delegate hard-crashed the
+        // Android emulator's graphics stack in testing, so it is opt-in (opts.gpu) until it is proven on real phones.
+        if (!(opts && opts.gpu)) return make("CPU").then(function (lm) { return { lm: lm, delegate: "CPU" }; });
         return make("GPU").then(function (lm) { return { lm: lm, delegate: "GPU" }; }, function () {
           return make("CPU").then(function (lm) { return { lm: lm, delegate: "CPU" }; });
         });
