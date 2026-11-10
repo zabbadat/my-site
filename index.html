@@ -2400,7 +2400,7 @@ async function startPush() {
     const restart = sessionPlan(coachKind) === "restart"; /* restart: short next-set intro, no first-time coaching */
     const placed = restart ? true : showPositioning(coachKind, $("pushStatus"), () => !live(), "place"); // spoken inside the tap
     if (restart && !camOn) $("pushStatus").textContent = "Starting camera…";
-    if (!camOn) { const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail(($("camNote") && $("camNote").textContent) || camErrorText()); }
+    if (!camOn) { const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail("Camera or pose blocked."); }
     if (!live()) return;
     if (!(await placed)) return;
     if (!live()) return;
@@ -2414,7 +2414,7 @@ async function startPush() {
     pushStarting = false;
     beginPushClock();
     syncPushStartBtn();
-  } catch (e) { fail(camErrorText(e)); }
+  } catch (e) { fail("Camera or pose blocked."); }
 }
 function beginPushClock() {
   if (pushState.finished || pushState.running) return;
@@ -2494,12 +2494,6 @@ function loadCamLibs() {
   }
   return camLibsPromise;
 }
-function prefetchCamLibs() {
-  const go = () => { loadCamLibs().catch(() => {}); };
-  if (typeof requestIdleCallback === "function") requestIdleCallback(go, { timeout: 4000 });
-  else setTimeout(go, 1500);
-}
-prefetchCamLibs();
 let lastCamStatus = "";
 
 function setCamStatus(text) {
@@ -2589,51 +2583,34 @@ async function poseTick(id = poseLoopId) {
   if (poseLoopOn && id === poseLoopId) requestAnimationFrame(() => poseTick(id));
 }
 
-const CAM_CONSTRAINTS = { video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false };
-function camErrorText(e) {
-  const name = e && e.name ? String(e.name) : "", msg = e && e.message ? String(e.message) : "";
-  if (name === "NotAllowedError" || name === "PermissionDeniedError") return "Camera blocked. Enable Camera in Settings > ZabbaDat.";
-  return "Camera or pose blocked (" + (name || "Error") + ")" + (msg && msg !== name ? ": " + msg : "") + (msg && /[.!?]$/.test(msg) ? "" : ".");
-}
-function stopCamTracks(stream) {
-  if (stream && stream.getTracks) stream.getTracks().forEach((t) => t.stop());
-}
-function attachCam(vid, stream) {
-  if (!vid) return Promise.resolve();
-  vid.srcObject = stream;
-  if (vid.setAttribute) { vid.setAttribute("playsinline", ""); vid.setAttribute("muted", ""); }
-  vid.muted = true;
-  return vid.play ? Promise.resolve(vid.play()) : Promise.resolve();
-}
 async function openCam() {
   if (camOn && poseLoopOn) return true; // already running: never a second stream or loop
   if (camWake) camWake.start().catch(() => {});
   try {
-    if (camStream) { stopCamTracks(camStream); camStream = null; }
-    $("camNote").textContent = "Starting camera…";
-    camStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
-    const vid = $("camVid");
-    await attachCam(vid, camStream);
-    $("camWrap").hidden = false;
-    $("camStopBtn").hidden = false;
     $("camNote").textContent = "Loading camera counter…";
     await loadCamLibs();
     $("camNote").textContent = "Loading pose model…";
+    if (camStream) camStream.getTracks().forEach((t) => t.stop());
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    const vid = $("camVid");
+    vid.srcObject = camStream;
+    vid.setAttribute("playsinline", "");
+    await vid.play();
     await ensurePose();
     camOn = true;
     poseLoopOn = true;
     resetPoseBaseline();
+    $("camWrap").hidden = false;
+    $("camStopBtn").hidden = false;
     $("camNote").textContent = "Get into a push-press plank. After Go, your first full push-up counts.";
     poseTick(++poseLoopId);
     return true;
   } catch (e) {
-    stopCamTracks(camStream);
-    camStream = null;
-    if ($("camVid")) $("camVid").srcObject = null;
-    $("camWrap").hidden = true;
-    $("camStopBtn").hidden = true;
     if (camWake && !camOn) camWake.stop().catch(() => {});
-    $("camNote").textContent = camErrorText(e);
+    $("camNote").textContent = "Camera or pose blocked.";
     return false;
   }
 }
@@ -2816,16 +2793,16 @@ async function startPlankCam() {
     const placed = restart ? true : showPositioning("plank", $("plankStatus"), () => !live(), "place"); // spoken inside the tap
     if (restart) $("plankStatus").textContent = "Starting camera…";
     if ($("plankStatus").style) $("plankStatus").style.whiteSpace = "pre-line";
-    if (plankStream) { stopCamTracks(plankStream); plankStream = null; }
-    const stream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
-    if (!live()) { stopCamTracks(stream); return; }
-    plankStream = stream;
-    const vid = $("plankVid"); await attachCam(vid, plankStream);
-    $("plankWrap").hidden = false;
     await loadCamLibs();
     if (!live()) return;
+    if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+    if (!live()) { stream.getTracks().forEach((t) => t.stop()); return; }
+    plankStream = stream;
+    const vid = $("plankVid"); vid.srcObject = plankStream; await vid.play();
     await ensurePose();
     if (!live()) return;
+    $("plankWrap").hidden = false;
     if (!(await placed)) return;
     if (!live()) return;
     if (!restart && !(await showPositioning("plank", $("plankStatus"), () => !live(), "criteria"))) return;
@@ -2839,7 +2816,7 @@ async function startPlankCam() {
     $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts when you start a proper plank. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.";
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once after Go on a fresh start */
     plankLoop = true; plankTick(++plankLoopId);
-  } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = camErrorText(e); } }
+  } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = "Camera or pose blocked."; } }
 }
 let plankStarting = false, plankStartSeq = 0;
 function cancelPlankStart() {
@@ -3696,24 +3673,13 @@ function tbGoLive(r) {
 }
 async function tbCamOn(placed) {
   try {
-    if (!placed) $("tbCamNote").textContent = "Starting camera…";
-    if (tbStream) { stopCamTracks(tbStream); tbStream = null; }
-    tbStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
-    const v = $("tbVid"); await attachCam(v, tbStream);
-    $("tbCamWrap").hidden = false;
-    await loadCamLibs();
-    await ensurePose();
+    if (!placed) $("tbCamNote").textContent = "Loading camera counter…"; await loadCamLibs();
+    tbStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+    const v = $("tbVid"); v.srcObject = tbStream; await v.play(); await ensurePose();
     tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
-    tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
+    $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
     if (placed) { tbCoaching = true; await placed; await showPositioning("tut", $("tbCamNote"), () => !tbLoop, "criteria"); tbCoaching = false; }
-  } catch (e) {
-    stopCamTracks(tbStream);
-    tbStream = null;
-    if ($("tbVid")) $("tbVid").srcObject = null;
-    $("tbCamWrap").hidden = true;
-    $("tbCamNote").textContent = camErrorText(e);
-    tbPaint();
-  }
+  } catch (e) { $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
 }
 function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; }
 async function tbPose() {

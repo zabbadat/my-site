@@ -44,7 +44,7 @@ function camExitFs() {} function setCamStatus() {} function newPlankHold() {} fu
 const GAME = [handler("startBtn"), handler("pauseBtn"), handler("resetBtn"), "async " + fnSrc("finishGame"), "this.finishGame = finishGame;"].join("\n");
 const PUSH = [fnSrc("finishPushSet"), line("const GET_SET_MS"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"), fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '), between('if ($("pushPauseBtn")) $("pushPauseBtn").onclick = ', "\n};"),
   fnSrc("freshPushSet"), "this.finishPushSet = finishPushSet;"].join("\n");
-const CAM = [line("const CAM_CONSTRAINTS"), fnSrc("camErrorText"), fnSrc("stopCamTracks"), fnSrc("attachCam"), "async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
+const CAM = ["async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
   "this.startCam = openCam; this.stopCam = stopCam; this.startPlankCam = startPlankCam; this.stopPlankCam = stopPlankCam;"].join("\n");
 const ALL_WAKES = ["gameWake", "pushWake", "camWake", "plankWake", "plankBattleWake", "tbWake"];
 const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUSH, CAM,

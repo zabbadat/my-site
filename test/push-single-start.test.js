@@ -18,7 +18,7 @@ function env(o = {}) {
     setTimeout: (f, d) => { timers.push({ at: now + (d || 0), f }); return timers.length; }, clearTimeout() {},
     setInterval: (f, d) => { const t = { at: now + d, f, every: d }; timers.push(t); return t; }, clearInterval: (t) => { if (t) t.dead = true; },
     performance: { now: () => now }, requestAnimationFrame() {},
-    navigator: { mediaDevices: { getUserMedia: async () => { if (o.camBlocked) { const err = new Error("Permission denied"); err.name = o.camErrName || "NotAllowedError"; throw err; } log.push("camera"); return { getTracks: () => [{ stop() { log.push("stop"); } }] }; } } } };
+    navigator: { mediaDevices: { getUserMedia: async () => { if (o.camBlocked) throw new Error("denied"); log.push("camera"); return { getTracks: () => [{ stop() {} }] }; } } } };
   ctx.window = ctx;
   if (o.speech !== "absent") {
     ctx.spoken = []; ctx.speechSynthesis = { cancel: () => log.push("speech:cancel"), speak: (u) => { if (o.speech === "throw") throw new Error("nope"); ctx.spoken.push({ w: u.text, at: now, rate: u.rate, vol: u.volume }); ctx.lastUtter = u; if (u.onend && !o.noEnd) timers.push({ at: now + 1000, f: () => u.onend() }); log.push(u.volume === 0 ? "speech:unlock" : "say:" + u.text); } };
@@ -39,7 +39,7 @@ async function loadCamLibs() {} async function ensurePose() { log.push("pose"); 
 function poseTick() {} function syncPushStartBtn() {} let poseLoopId = 0, plankLoopId = 0; function renderPush() {} function resetPoseBaseline() {} function camExitFs() {} function setCamStatus() {}
 let plankLeadUntil = 0; const PLANK_LEAD_MS = 5500;
 function newPlankHold() { log.push("plankHold"); } function plankTick() {} function plankEnded() {}`;
-  const SRC = [STUBS, line("const CAM_CONSTRAINTS"), fnSrc("camErrorText"), fnSrc("stopCamTracks"), fnSrc("attachCam"), line("const GET_SET_MS"), line("const getSet = "), line("const quickSet = "), line("const sessionTrack = "), line("function sessionPlan"), line("function sessionCommit"), line("function sessionTouch"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
+  const SRC = [STUBS, line("const GET_SET_MS"), line("const getSet = "), line("const quickSet = "), line("const sessionTrack = "), line("function sessionPlan"), line("function sessionCommit"), line("function sessionTouch"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
     fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '),
     "async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
     line('$("plankCamBtn").onclick = '), `const origClock = beginPushClock; beginPushClock = function () { log.push("clock"); return origClock(); };`].join("\n")
@@ -70,7 +70,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   for (const mode of ["sets", "long", "challenge"]) {
     const e = env({ mode });
     e.$("pushStartBtn").onclick();
-    check(`${mode}: in the tap: gate, wake, silent unlock, placement line spoken + shown; getUserMedia in the tap, no pose/clock yet`, e.log.slice(0, 5).join(",") === "gate:pushups,pushWake:start,speech:cancel,speech:unlock,say:" + C[mode].place && e.log.includes("camera") && !e.log.some((x) => /^(pose|clock)/.test(x)) && e.$("pushStatus").textContent === C[mode].place && e.$("pushStartBtn").disabled === true);
+    check(`${mode}: in the tap: gate, wake, silent unlock, placement line spoken + shown; no camera/clock yet`, e.log.slice(0, 5).join(",") === "gate:pushups,pushWake:start,speech:cancel,speech:unlock,say:" + C[mode].place && !e.log.some((x) => /^(camera|pose|clock)/.test(x)) && e.$("pushStatus").textContent === C[mode].place && e.$("pushStartBtn").disabled === true);
     await e.advance(10);
     check(`${mode}: camera + pose open while the placement line plays`, e.log.indexOf("camera") > 0 && e.log.indexOf("camera") < e.log.indexOf("pose") && SAID(e).length === 1);
     await e.advance(1000);
@@ -95,9 +95,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     check("signed out -> practice: same flow starts the clock", e.log.includes("pushWake:start") && e.log.includes("camera") && e.log.includes("say:Ready") && e.run("pushState.running") === true); }
   // ---- camera blocked
   { const e = env({ camBlocked: true }); e.$("pushStartBtn").onclick(); await e.advance(2500);
-    check("camera blocked: Settings message, no countdown, no clock, wakes released", e.$("pushStatus").textContent === "Camera blocked. Enable Camera in Settings > ZabbaDat." && e.$("camNote").textContent === "Camera blocked. Enable Camera in Settings > ZabbaDat." && !e.log.includes("say:Ready") && !e.log.includes("clock") && e.run("pushWake.held") === false && e.run("camWake.held") === false && e.$("pushStartBtn").disabled === false); }
-  { const e = env({ camBlocked: true, camErrName: "AbortError" }); e.$("pushStartBtn").onclick(); await e.advance(2500);
-    check("camera blocked with another error: status shows the error name", /Camera or pose blocked \(AbortError\)/.test(e.$("pushStatus").textContent) && /AbortError/.test(e.$("camNote").textContent)); }
+    check("camera blocked: 'Camera or pose blocked.', no countdown, no clock, wakes released", e.$("pushStatus").textContent === "Camera or pose blocked." && !e.log.includes("say:Ready") && !e.log.includes("clock") && e.run("pushWake.held") === false && e.run("camWake.held") === false && e.$("pushStartBtn").disabled === false); }
   // ---- cancel at each stage
   { const e = env(); e.$("pushStartBtn").onclick(); e.run("stopCam()"); await e.advance(12000);
     check("cancel while camera loading: camera closed, no countdown, no clock, wake released", e.run("camOn") === false && !e.log.includes("say:Ready") && !e.log.includes("clock") && e.run("pushWake.held") === false); }
@@ -112,7 +110,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     check(`speech ${sp}: silent fallback, on-screen countdown runs, clock still starts`, !threw && shown === "3" && e.run("pushState.running") === true); }
   // ---- Plank House: same shared sequence, then its 1.5 s good-form hold (plank-session readyMs unchanged)
   { const e = env(); e.$("plankCamBtn").onclick();
-    check("plank: in the tap: gate, wake, unlock, placement line spoken + shown, getUserMedia in the tap", e.log.slice(0, 5).join(",") === "gate:plank,plankWake:start,speech:cancel,speech:unlock,say:" + C.plank.place && e.log.includes("camera") && e.$("plankStatus").textContent === C.plank.place);
+    check("plank: in the tap: gate, wake, unlock, placement line spoken + shown", e.log.join(",") === "gate:plank,plankWake:start,speech:cancel,speech:unlock,say:" + C.plank.place && e.$("plankStatus").textContent === C.plank.place);
     await e.advance(10); check("plank: camera opens while the placement line plays", e.log.includes("camera") && SAID(e).length === 1);
     await e.advance(1000); check("plank: criteria line after the placement line", SAID(e)[1].w === C.plank.criteria && e.$("plankStatus").textContent === C.plank.criteria);
     await e.advance(9980 - e.now()); check("plank: no pre-loop countdown: hold armed right after the criteria line (3-2-1-Hold runs at lock-in)", e.log.includes("plankHold") && e.run("plankLoop") === true && !SAID(e).some((x) => ["Ready", "get set", "Go"].includes(x.w)));
@@ -124,7 +122,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   for (const at of [0, 600, 1500]) { const e = env(); e.$("plankCamBtn").onclick(); await e.advance(at); e.$("plankCamBtn").onclick(); await e.advance(12000);
     check(`plank: Stop camera at ${at} ms cancels cleanly`, !e.log.includes("plankHold") && !e.log.includes("say:Go") && e.run("plankWake.held") === false && e.run("plankStream") === null && e.$("plankCamBtn").textContent === "Start plank camera"); }
   { const e = env({ camBlocked: true }); e.$("plankCamBtn").onclick(); await e.advance(100);
-    check("plank camera blocked: Settings message, wake released", e.$("plankStatus").textContent === "Camera blocked. Enable Camera in Settings > ZabbaDat." && e.run("plankWake.held") === false); }
+    check("plank camera blocked: message, wake released", e.$("plankStatus").textContent === "Camera or pose blocked." && e.run("plankWake.held") === false); }
   // ---- static UI
   check("static: single push Start button, no old phone-placement button / camBtn", !html.includes('id="camBtn"') && !html.includes("Phone on floor") && html.includes('<button class="btn" id="pushStartBtn" type="button">Start set</button>'));
   check("static: Stop camera kept", html.includes('<button class="btn ghost" id="camStopBtn" type="button" hidden>Stop camera</button>'));
