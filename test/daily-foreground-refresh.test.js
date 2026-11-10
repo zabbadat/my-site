@@ -26,16 +26,16 @@ const tick = () => new Promise((r) => setTimeout(r, 5));
   check("post hook gets new total", posted.length === 1 && posted[0] === 1000);
   // debounce
   H.fire("focus"); H.fire("pageshow"); H.fireDoc("visibilitychange"); await tick();
-  check("debounced within 1s", reads === 1);
-  t += 1500; total = 1800; H.fire("focus"); await tick();
-  check("after debounce window refreshes and total rises", reads === 2 && c.state().steps === 1800 && posted[1] === 1800);
+  check("concurrent resume events coalesce to one in-flight query", reads === 2);
+  total = 1800; t += 1; H.fire("focus"); await tick();
+  check("next resume after the in-flight query finishes refreshes and total rises", reads === 3 && c.state().steps === 1800 && posted[2] === 1800);
   // hidden does nothing
   t += 5000; H.win.document.hidden = true; H.fireDoc("visibilitychange"); await tick();
-  check("hidden visibilitychange does nothing", reads === 2);
+  check("hidden visibilitychange does nothing", reads === 3);
   H.win.document.hidden = false;
   // never lowers
   t += 5000; total = 900; H.fire("pageshow"); await tick();
-  check("never lowers the total", reads === 3 && c.state().steps === 1800 && posted[2] === 1800);
+  check("never lowers the total", reads === 4 && c.state().steps === 1800 && posted[posted.length - 1] === 1800);
   // never concurrent
   let release, inflight = 0, maxIn = 0, calls = 0;
   const slow = { getTodaySteps() { calls++; inflight++; maxIn = Math.max(maxIn, inflight); return new Promise((r) => { release = () => { inflight--; r({ steps: 2000 }); }; }); } };

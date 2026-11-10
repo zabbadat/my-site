@@ -20,6 +20,33 @@
   // Web adds walk steps to the day; native reports the day's total. Never go down.
   function addWeb(prev, added) { return clampSteps(clampSteps(prev) + clampSteps(added)); }
   function mergeNative(prev, total) { return Math.max(clampSteps(prev), clampSteps(total)); }
+  var CACHE_KEY = "zabbadat-steps-cache";
+  var WALK_KEY = "zabbadat-walk-live";
+  function readCache(store) {
+    try { var c = JSON.parse((store && store.getItem(CACHE_KEY)) || "null"); return c && typeof c === "object" ? c : null; } catch (e) { return null; }
+  }
+  function writeCache(store, o) {
+    try { if (store) store.setItem(CACHE_KEY, JSON.stringify({ steps: clampSteps(o.steps), rawSteps: clampSteps(o.rawSteps != null ? o.rawSteps : o.steps), debug: o.debug || null, at: Date.now() })); } catch (e) {}
+  }
+  function readWalk(store) {
+    try { var c = JSON.parse((store && store.getItem(WALK_KEY)) || "null"); return c && c.walking ? c : null; } catch (e) { return null; }
+  }
+  function writeWalk(store, o) {
+    try { if (!store) return; if (o && o.walking) store.setItem(WALK_KEY, JSON.stringify(o)); else store.removeItem(WALK_KEY); } catch (e) {}
+  }
+  // Display policy: never flash a lower number; a large catch-up on resume is shown at once (no count-up).
+  function nextDisplayed(prev, incoming, opts) {
+    opts = opts || {};
+    var a = clampSteps(prev), b = clampSteps(incoming);
+    if (opts.allowLower) return b;
+    return Math.max(a, b);
+  }
+  function debugLine(d, steps) {
+    if (!d) return "";
+    var raw = d.rawSteps != null ? d.rawSteps : steps;
+    var rej = d.rejectedTotal || 0, why = d.reason || "";
+    return "Phone raw " + Number(raw || 0).toLocaleString() + " · counted " + Number(steps || 0).toLocaleString() + (rej ? (" · rejected " + rej + (why ? " (" + why + ")" : "")) : "");
+  }
 
   function buildRecord(o) {
     var r = { name: String(o.name || "Player").trim().slice(0, NAME_MAX) || "Player", uid: o.uid, date: o.date,
@@ -64,20 +91,53 @@
   // Browser controller. hooks: { onChange(state), isLocked(), detectorFactory() }
   function createController(win, hooks) {
     hooks = hooks || {};
-    var src = pickSource(win), store = win.localStorage, walking = false, det = null, onMotion = null, nativeOk = false;
-    var st = { date: localDateKey(), steps: 0, source: src.kind === "native" ? "native" : "web", kind: src.kind, walking: false, msg: "" };
+    var src = pickSource(win), store = win.localStorage, walking = false, det = null, onMotion = null, nativeOk = false, nativeHooked = false;
+    var st = { date: localDateKey(), steps: 0, source: src.kind === "native" ? "native" : "web", kind: src.kind, walking: false, msg: "", rawSteps: 0, debug: null, debugLine: "" };
     st.steps = readLocal(store, st.date);
+    var cached0 = readCache(store);
+    if (cached0 && cached0.steps > st.steps) { st.steps = clampSteps(cached0.steps); st.rawSteps = clampSteps(cached0.rawSteps); st.debug = cached0.debug; st.debugLine = debugLine(st.debug, st.steps); }
     function emit() { st.walking = walking; hooks.onChange && hooks.onChange(st); }
     function rollDay() { var d = localDateKey(); if (d !== st.date) { st.date = d; st.steps = readLocal(store, d); det && det.reset(); } }
-    function setSteps(n) { rollDay(); st.steps = n; writeLocal(store, st.date, n); emit(); }
+    function setSteps(n) { rollDay(); st.steps = nextDisplayed(st.steps, n); writeLocal(store, st.date, st.steps); writeCache(store, st); emit(); }
+    function applyNativeReading(r, opts) {
+      opts = opts || {};
+      if (!r) return st.steps;
+      rollDay();
+      var n = r.steps;
+      if (n == null && r.cachedSteps != null) n = r.cachedSteps;
+      st.rawSteps = Math.max(st.rawSteps || 0, clampSteps(r.rawSteps != null ? r.rawSteps : n));
+      if (r.debug) { st.debug = r.debug; st.debugLine = debugLine(r.debug, nextDisplayed(st.steps, n)); }
+      else if (r.rawSteps != null) { st.debug = st.debug || { rawSteps: r.rawSteps, filteredSteps: n }; st.debugLine = debugLine(st.debug, nextDisplayed(st.steps, n)); }
+      setSteps(mergeNative(st.steps, n));
+      if (r.msg) st.msg = r.msg;
+      return st.steps;
+    }
+    function hookNativeStream() {
+      if (nativeHooked || src.kind !== "native" || !src.plugin) return;
+      nativeHooked = true;
+      var p = src.plugin;
+      function onData(d) { try { applyNativeReading(d || {}); } catch (e) {} }
+      if (typeof p.addListener === "function") {
+        try { Promise.resolve(p.addListener("todaySteps", onData)).catch(function () {}); } catch (e) {}
+        try { Promise.resolve(p.addListener("stepsResume", onData)).catch(function () {}); } catch (e) {}
+      }
+      if (typeof p.startTodayUpdates === "function") {
+        try { Promise.resolve(p.startTodayUpdates()).catch(function () {}); } catch (e) {}
+      }
+    }
     async function refreshNative() {
       if (src.kind !== "native") return st.steps;
+      hookNativeStream();
       try {
+        if (typeof src.plugin.getCachedSteps === "function") {
+          try { var c = await src.plugin.getCachedSteps(); if (c) applyNativeReading(c); } catch (e) {}
+        }
         if (typeof src.plugin.requestPermissions === "function") await src.plugin.requestPermissions();
         var r = await src.plugin.getTodaySteps();
-        rollDay(); setSteps(mergeNative(st.steps, r && r.steps)); st.msg = "Phone step counter: today's total."; nativeOk = true;
-      } catch (e) { nativeOk = false; st.msg = "Couldn't read the phone step counter. Check motion/activity permission in Settings."; }
-      emit(); return st.steps;
+        nativeOk = true;
+        applyNativeReading(Object.assign({ msg: "Phone step counter: today's total." }, r || {}));
+      } catch (e) { nativeOk = false; st.msg = "Couldn't read the phone step counter. Check motion/activity permission in Settings."; emit(); }
+      return st.steps;
     }
     async function startWalk() { // call from a user gesture (iOS permission)
       if (walking) return true;
@@ -85,7 +145,12 @@
         // App: the phone's step counter owns the total. No DeviceMotion, no addWeb (no double counting): read the phone first, then time the session.
         await refreshNative();
         if (!nativeOk) { emit(); return false; } // no baseline without a phone reading; the permission message stays up
-        walking = true; st.source = "native"; st.msg = "Walk on. The phone's step counter keeps counting: lock your phone or use other apps, steps still count."; emit(); return true;
+        walking = true; st.source = "native"; st.msg = "Walk on. The phone's step counter keeps counting: lock your phone or use other apps, steps still count.";
+        writeWalk(store, { walking: true, startedAt: Date.now(), baseSteps: st.steps, date: st.date });
+        if (src.plugin && typeof src.plugin.startWalkSession === "function") {
+          try { Promise.resolve(src.plugin.startWalkSession({ startedAt: Date.now(), baseSteps: st.steps, resume: false })).catch(function () {}); } catch (e) {}
+        }
+        emit(); return true;
       }
       if (typeof win.DeviceMotionEvent === "undefined") { st.msg = "This browser has no motion sensor."; emit(); return false; }
       try {
@@ -109,28 +174,48 @@
     }
     function stopWalk() {
       if (onMotion) win.removeEventListener("devicemotion", onMotion);
-      onMotion = null; walking = false; st.msg = "Walk stopped. " + st.steps.toLocaleString() + " steps today."; emit();
+      onMotion = null; walking = false; st.msg = "Walk stopped. " + st.steps.toLocaleString() + " steps today.";
+      writeWalk(store, null);
+      if (src.plugin && typeof src.plugin.stopWalkSession === "function") {
+        try { Promise.resolve(src.plugin.stopWalkSession()).catch(function () {}); } catch (e) {}
+      }
+      emit();
+    }
+    function restoreWalk() {
+      var w = readWalk(store);
+      if (!w || !w.walking) return false;
+      walking = true; st.source = src.kind === "native" ? "native" : st.source;
+      emit();
+      return w;
     }
     // Manual entry: steps already on the phone (built-in counter or health app), added to today's total.
     function addManual(n) { n = clampSteps(n); if (!n) return st.steps; setSteps(addWeb(st.steps, n)); st.msg = "Added " + n.toLocaleString() + " steps. Total today: " + st.steps.toLocaleString() + "."; emit(); return st.steps; }
     // Signed-in sync: today's board doc (written by web or app) is the shared total. Take the higher, never go down.
     function syncRemote(n) { rollDay(); var m = mergeNative(st.steps, n); if (m !== st.steps) setSteps(m); return st.steps; }
+    hookNativeStream();
     emit();
-    return { state: function () { return st; }, source: src, refreshNative: refreshNative, startWalk: startWalk, stopWalk: stopWalk, addManual: addManual, syncRemote: syncRemote, rollDay: rollDay };
+    return { state: function () { return st; }, source: src, refreshNative: refreshNative, startWalk: startWalk, stopWalk: stopWalk, addManual: addManual, syncRemote: syncRemote, rollDay: rollDay, applyNativeReading: applyNativeReading, restoreWalk: restoreWalk, hookNativeStream: hookNativeStream };
   }
 
-  // Foreground refresh: when the app/page comes back, re-read the phone's step total (native source only) and let the caller post it.
-  // Debounced (default 1 s), never concurrent, errors swallowed. rollDay first so a day change is handled. Totals only ever rise (mergeNative).
+  // Foreground refresh: when the app/page comes back, paint the last known total immediately, then
+  // run one getTodaySteps / getCachedSteps backfill (no debounce). Never concurrent, errors swallowed.
+  // rollDay first so a day change is handled. Totals only ever rise (mergeNative).
   function createForegroundRefresh(ctl, hooks) {
     hooks = hooks || {};
-    var now = hooks.now || Date.now, gap = hooks.minGapMs == null ? 1000 : hooks.minGapMs, last = -Infinity, busy = false;
-    async function run() {
-      if (!ctl || !ctl.source || ctl.source.kind !== "native" || busy) return false;
+    var now = hooks.now || Date.now, gap = hooks.minGapMs == null ? 0 : hooks.minGapMs, last = -Infinity, busy = false;
+    async function run(ev) {
+      if (!ctl || !ctl.source || ctl.source.kind !== "native") return false;
+      // Always re-emit the last known count synchronously so the first paint after resume is not stale/zero.
+      try {
+        if (typeof ctl.rollDay === "function") ctl.rollDay();
+        if (typeof ctl.applyNativeReading === "function") { var c = readCache(hooks.store); if (c) ctl.applyNativeReading(c); }
+        if (hooks.onImmediate) hooks.onImmediate(ctl.state());
+      } catch (e) {}
+      if (busy) return false;
       var t = now();
       if (t - last < gap) return false;
       busy = true; last = t;
       try {
-        ctl.rollDay();
         await ctl.refreshNative();
         if (hooks.afterRefresh) await hooks.afterRefresh(ctl.state());
         return true;
@@ -151,13 +236,16 @@
       try { Promise.resolve(App.addListener("appStateChange", function (st) { if (!st || st.isActive !== false) go(); })).catch(function () {}); } catch (e) {}
       try { Promise.resolve(App.addListener("resume", go)).catch(function () {}); } catch (e) {}
     }
+    if (ctl.hookNativeStream) try { ctl.hookNativeStream(); } catch (e) {}
     return true;
   }
 
   var api = { MAX_STEPS: MAX_STEPS, localDateKey: localDateKey, docId: docId, clampSteps: clampSteps, addWeb: addWeb,
-              mergeNative: mergeNative, buildRecord: buildRecord, validateRecord: validateRecord, rankDaily: rankDaily,
+              mergeNative: mergeNative, nextDisplayed: nextDisplayed, debugLine: debugLine, readCache: readCache, writeCache: writeCache,
+              readWalk: readWalk, writeWalk: writeWalk, buildRecord: buildRecord, validateRecord: validateRecord, rankDaily: rankDaily,
               pickSource: pickSource, readLocal: readLocal, writeLocal: writeLocal, createController: createController,
-              createForegroundRefresh: createForegroundRefresh, bindForegroundEvents: bindForegroundEvents };
+              createForegroundRefresh: createForegroundRefresh, bindForegroundEvents: bindForegroundEvents,
+              CACHE_KEY: CACHE_KEY, WALK_KEY: WALK_KEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatDaily = api;
 })(this);
