@@ -21,7 +21,7 @@
 const ZC = require("./zab-currency.js");
 const ZB = require("./zab-balance.js");
 
-// ---- OWNER DECISION: caps (ZAB). Per claim and per source per UTC day. ----
+// ---- OWNER DECISION: caps (ZAB). Per claim and per source per UTC day (walk: per America/New_York day, see capDay). ----
 const CLAIM_CAP = 500;
 const DAY_CAP = { pushups: 50, tut: 30, hold: 10, plank: 30, walk: 24, washers: 20 };
 const MAX_AGE_MS = 48 * 3600000;          // a session can be claimed for 48 h after it was recorded
@@ -41,6 +41,11 @@ const err = (status, message) => Object.assign(new Error(message), { status });
 const isInt = (v) => typeof v === "number" && Number.isInteger(v);
 const num = (v) => (typeof v === "number" && isFinite(v) ? v : NaN);
 const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+// Walk cap day: the America/New_York calendar date (resets at Eastern midnight, DST-safe via Intl). Other sources keep the UTC day.
+const ET_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+const etDay = (ms) => { const p = {}; ET_DAY.formatToParts(new Date(ms)).forEach((x) => { p[x.type] = x.value; }); return p.year + "-" + p.month + "-" + p.day; };
+const DAY_KEY = { walk: etDay };
+const capDay = (src, ms) => (DAY_KEY[src] || day)(ms);
 
 // Session doc -> { qty, amount } or throws 422 (implausible / not earnable). Pure (tested in test/zab-earn.test.js).
 function measure(kind, d, uid, nowMs) {
@@ -103,7 +108,7 @@ function claim(fs, uid, body, nowMs, sinceMs) {
   const K = Object.prototype.hasOwnProperty.call(KINDS, kind) ? KINDS[kind] : null;
   if (!K) return Promise.reject(err(400, "Unknown source."));
   if (!ID.test(id)) return Promise.reject(err(400, "Bad session id."));
-  const now = nowMs || Date.now(), today = day(now), src = K.source;
+  const now = nowMs || Date.now(), src = K.source, today = capDay(src, now);
   return fs.tx((t) => t.get([K.col, id]).then((d) => {
     if (!d) throw err(404, "No such session.");
     const created = fs.toMs(d.createdAt);
@@ -131,4 +136,4 @@ function claim(fs, uid, body, nowMs, sinceMs) {
     });
   }));
 }
-module.exports = { CLAIM_CAP, DAY_CAP, MAX_AGE_MS, KINDS, measure, claim };
+module.exports = { CLAIM_CAP, DAY_CAP, MAX_AGE_MS, KINDS, measure, claim, capDay, etDay };
