@@ -13,20 +13,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Privacy Policy | Zabbadat</title>
   <link rel="canonical" href="https://www.zabbadat.com/privacy">
-  <meta name="description" content="How Zabbadat uses your data: camera video is processed on your device and never uploaded, plus Google sign-in, Firebase scores, and local reminders.">
+  <meta name="description" content="How Zabbadat uses your data: on-device camera, step counts and Health Connect, sign-in, public boards, forms, analytics, retention, and account deletion.">
   <meta name="theme-color" content="#0e1412">
   <meta name="robots" content="index,follow">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Zabbadat™">
   <meta property="og:title" content="Privacy Policy | Zabbadat">
-  <meta property="og:description" content="How Zabbadat uses your data: camera video is processed on your device and never uploaded, plus Google sign-in, Firebase scores, and local reminders.">
+  <meta property="og:description" content="How Zabbadat uses your data: on-device camera, step counts and Health Connect, sign-in, public boards, forms, analytics, retention, and account deletion.">
   <meta property="og:url" content="https://www.zabbadat.com/privacy">
   <meta property="og:image" content="https://www.zabbadat.com/og-zd-v2.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Privacy Policy | Zabbadat">
-  <meta name="twitter:description" content="How Zabbadat uses your data: camera video is processed on your device and never uploaded, plus Google sign-in, Firebase scores, and local reminders.">
+  <meta name="twitter:description" content="How Zabbadat uses your data: on-device camera, step counts and Health Connect, sign-in, public boards, forms, analytics, retention, and account deletion.">
   <meta name="twitter:image" content="https://www.zabbadat.com/og-zd-v2.png">
   <link rel="icon" href="/favicon.ico">
   <script type="application/ld+json">
@@ -38,7 +38,7 @@
       "@id": "https://www.zabbadat.com/privacy#webpage",
       "url": "https://www.zabbadat.com/privacy",
       "name": "Privacy Policy | Zabbadat",
-      "description": "How Zabbadat uses your data: camera video is processed on your device and never uploaded, plus Google sign-in, Firebase scores, and local reminders.",
+      "description": "How Zabbadat uses your data: on-device camera, step counts and Health Connect, sign-in, public boards, forms, analytics, retention, and account deletion.",
       "inLanguage": "en",
       "isPartOf": {
         "@id": "https://www.zabbadat.com/#website"
@@ -108,24 +108,60 @@
   </nav>
   <main>
   <h1>Privacy Policy</h1>
-  <p class="sub">Effective November 9, 2026. This page is public and does not require sign-in.</p>
-  <p>This policy explains how Zabbadat (zabbadat.com and the ZabbaDat app) handles a few kinds of information. We only describe practices in use today.</p>
+  <p class="sub">Effective November 10, 2026. This page is public and does not require sign-in.</p>
+  <p>This policy explains how Zabbadat handles information on the website (www.zabbadat.com) and in the ZabbaDat app for iPhone and Android. The apps open the same Zabbadat site inside the app, so the same practices apply everywhere. We only describe practices in use today.</p>
+
   <h2>Camera video</h2>
-  <p>When you use the camera for push-ups, planks, or similar tracking, the video is processed on your device to count reps and watch form. Camera video is never uploaded to Zabbadat or to our servers.</p>
-  <h2>Google sign-in</h2>
-  <p>Sign-in is optional. If you choose Sign in with Google, Google shares the account details needed to sign you in — typically your name, a unique account id, and your email — with Firebase Authentication. We use that so finished games can post under your name. You can stay signed out and still play; results then stay on your device and are not posted to the boards.</p>
-  <h2>Names and scores stored in Firebase</h2>
-  <p>If you are signed in and you finish a set or a game, your display name and scores are stored in Firebase. That includes things such as push-up counts, hold times, time-under-tension sets, and ZAB totals, so they can appear on public boards and related totals on the site. We do not post those results until you are signed in and a session finishes.</p>
+  <p>When you use the camera for push-ups, planks, time under tension, or similar tracking, the video is processed on your device to count reps and watch form. Camera video is never recorded, uploaded, or sent to Zabbadat or to our servers. The app asks for camera permission only so this tracking can run.</p>
+
+  <h2>Steps, motion, and Health Connect</h2>
+  <p><strong>What we read.</strong> To show today’s steps, the app reads a daily step count from your phone. On iPhone it uses Apple’s Core Motion pedometer. On Android it uses the phone’s step counter sensor (this needs the Physical activity / activity recognition permission) and, if you allow it, Health Connect. From Health Connect we ask for one permission only: read steps (<code>READ_STEPS</code>). We do not read any other Health Connect data and we never write to Health Connect. On the website, the live walk uses your browser’s motion sensors.</p>
+  <p><strong>Why.</strong> So steps you take while the app is closed or your screen is locked still count toward today’s total, and so you can see that total in the app.</p>
+  <p><strong>On your device.</strong> Step counting and the motion and sensor readings happen on your phone. On Android the app may check the step counter in the background about every 15 minutes, and after a restart, to keep today’s total correct. These raw readings stay on the device.</p>
+  <p><strong>What is sent.</strong> Only if you are signed in, the app sends today’s step total (one number per day), the date, your board name, your optional X handle, and whether the total came from the phone or a web walk, so it can appear on the daily steps board. A finished live walk you choose to post sends its step count and length. Individual steps, sensor data, and location are not sent. Signed out, your steps stay on your device.</p>
+  <p><strong>Health Connect data.</strong> Step data read from Health Connect is used only to show and post your own daily step total as described above. It is not sold, not shared with third parties, not used for advertising, and not used for any purpose other than the step features you see in the app. You can turn off access at any time in Health Connect settings or your phone’s permission settings.</p>
+
+  <h2>Signing in</h2>
+  <p>Sign-in is optional. You can practice without an account; results then stay on your device and are not posted to the boards. If you sign in, Firebase Authentication (a Google service) handles your account:</p>
+  <ul>
+    <li><strong>Google:</strong> Google shares the details needed to sign you in, typically your name, a unique account id, your email, and your profile photo.</li>
+    <li><strong>X:</strong> X shares your name, a unique account id, your X username, and your profile photo. Your X username may fill in the optional X handle field.</li>
+    <li><strong>Email:</strong> if you create an account with email, we store your email address and the name you enter. Your password is handled by Firebase and we never see it.</li>
+  </ul>
+  <p>We use this only to sign you in and post your finished results under your name. Your email address is never shown on a board.</p>
+
+  <h2>Public boards, names, and X handles</h2>
+  <p>When you are signed in and you finish a set, a walk, or a game, your display name and results are stored in Firebase (Cloud Firestore) and shown on boards that other signed-in players can see. That includes push-up counts, hold and plank times, time-under-tension sets, daily steps, washers games and battles, reputation, and ZAB totals. If you add an X handle (optional), it is shown next to your name on the boards. ZAB is in-game only and has no cash value.</p>
+
+  <h2>Sign-up and contact forms</h2>
+  <p>Some forms on the site (for example the starter kit claim, league, team, and order forms) are sent through Formspree, a form service. They ask for things such as your name, email, and city or location, plus any note you add. We use that only to answer you or fulfill what you asked for. These forms are separate from your sign-in account.</p>
+
   <h2>Local reminders</h2>
-  <p>The ZabbaDat phone app can offer an optional daily reminder on your device. Those reminders are scheduled locally on the phone. They are not sent by our servers, and turning them off happens on the device.</p>
+  <p>The ZabbaDat phone app can offer an optional daily reminder. Reminders are scheduled locally on your phone, not sent by our servers, and you turn them off on the device.</p>
+
   <h2>Information that stays on your device</h2>
-  <p>Some totals, such as today’s reps, sets, and time under tension, can also be saved on the device you are using, including when you play as a guest. Clearing the browser or app data on that device removes this local copy.</p>
+  <p>Some totals, such as today’s reps, sets, steps, personal bests, and time under tension, are saved on the device you are using, including when you play as a guest. Clearing the browser or app data, or uninstalling the app, removes this local copy.</p>
+
   <h2>Site analytics</h2>
-  <p>The website uses Google Analytics to measure visits to public pages, including this one. That is separate from camera video, which is not uploaded.</p>
+  <p>The website (also loaded inside the apps) uses Google Analytics to measure visits to pages. Google Analytics may use cookies or similar identifiers and receives standard technical data such as pages viewed, device and browser type, and approximate region. Our host (Netlify) and Firebase also process standard technical data, such as IP address, to deliver pages and run the boards. We do not sell personal information, and the apps show no ads.</p>
+
+  <h2>How long we keep data</h2>
+  <p>Your account, board name, X handle, scores, step records, and battle and ZAB data are kept while your account exists, so your history and boards stay correct. When you ask us to delete your account, we delete them within 30 days, as described on the <a href="/delete-account">account deletion page</a>. Form messages are kept only as long as needed to answer you or fulfill your request, and are deleted on request. Data saved only on your device stays there until you clear it. Analytics data is kept according to Google Analytics retention settings and is not linked to your account.</p>
+
+  <h2>Deleting your account</h2>
+  <p>You can ask us to delete your Zabbadat account and its data at any time. In the app or on the website, sign in and tap <strong>Delete my account</strong>, or email <a href="mailto:zabbadat@mail.grokbot.com?subject=Delete%20my%20Zabbadat%20account">zabbadat@mail.grokbot.com</a> with the subject “Delete my Zabbadat account”. See <a href="/delete-account">how account deletion works</a> for what is deleted and the timeframe.</p>
+
+  <h2>Children</h2>
+  <p>Zabbadat is intended for adults 18 and over and is not directed to children. We do not knowingly collect personal information from children under 13. If you believe a child has signed in, contact us and we will delete the account.</p>
+
+  <h2>Changes</h2>
+  <p>If these practices change, we will update this page and its effective date.</p>
+
   <h2>Contact</h2>
   <p>Questions about this policy can be sent to <a href="mailto:zabbadat@mail.grokbot.com">zabbadat@mail.grokbot.com</a>.</p>
   </main>
   <footer>
+    <p><a href="/privacy">Privacy</a> · <a href="/delete-account">Delete account</a></p>
     <p>© 2026 Zabbadat<sup style="font-size:0.5em">™</sup> · www.zabbadat.com · also searched as Zabadat</p>
     <p>Find us on <a href="https://x.com/ZabbaDat" rel="me noopener">X</a> · <a href="https://www.instagram.com/zabbadat" rel="noopener">Instagram</a> · <a href="https://www.tiktok.com/@zabbadat" rel="noopener">TikTok</a> · <a href="https://www.youtube.com/@zabbadat" rel="noopener">YouTube</a> · <a href="https://discord.gg/ebDugMwgSZ" rel="noopener">Discord</a></p>
   <p class="footer-netlify" style="font-size:.72rem;opacity:.55;margin:.4rem 0 0"><a href="https://www.netlify.com" rel="noopener" style="color:inherit">Powered by Netlify</a></p>
