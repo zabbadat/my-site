@@ -1001,7 +1001,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h2>The practice</h2>
     <p class="lead">Learned coordination, breath, and attention — a game that makes being active the point.</p>
     <div class="grid">
-      <div class="card"><h3>Time Under Tension - <a class="tut-link" href="#tut-board">TUT</a></h3><p>Hold the pressed plank or keep pushing. Your time under tension adds up rep by rep, and you can rank it on the TUTS board.</p></div>
+      <div class="card"><h3>Time Under Tension - <a class="tut-link" href="#tut-board">TUT</a></h3><p data-app-copy='[["Hold the pressed plank", "Hold the plank push press"]]'>Hold the pressed plank or keep pushing. Your time under tension adds up rep by rep, and you can rank it on the TUTS board.</p></div>
       <div class="card"><h3>Coordination &amp; strength</h3><p>Patterns that organize the body so movement costs less effort.</p></div>
       <div class="card"><h3>Breath & meditation</h3><p>Settle the nervous system before you activate the mechanism.</p></div>
       <div class="card"><h3>10k steps</h3><p>Washers is built so chasing 21 also gets you moving.</p></div>
@@ -1125,10 +1125,10 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 <section id="push">
     <h2>TUTS &amp; PUSH up sets</h2>
     <ul class="lead push-rules">
-      <li>As many push-ups you can do without quitting, or holding yourself up while holding a plank push press, with good form and a controlled tempo — not too fast — within a minute and twenty seconds. Even holding yourself up in a push-press plank is a big deal — you can't fail just by holding.</li>
+      <li data-app-copy='[["holding yourself up in a push-press plank", "holding yourself up in a plank push press"]]'>As many push-ups you can do without quitting, or holding yourself up while holding a plank push press, with good form and a controlled tempo — not too fast — within a minute and twenty seconds. Even holding yourself up in a push-press plank is a big deal — you can't fail just by holding.</li>
       <li>Lean your phone up in front of you, camera facing you. It counts each full set.</li>
-      <li>A set ends only when your knees touch down. Holding the top of a push-up press — a push-press plank — never ends it.</li>
-      <li>Hold the top 30 seconds straight for the hold bonus, once per set.</li>
+      <li data-app-copy='[["Holding the top of a push-up press \u2014 a push-press plank \u2014 never ends it.", "Holding a plank push press never ends it."]]'>A set ends only when your knees touch down. Holding the top of a push-up press — a push-press plank — never ends it.</li>
+      <li data-app-copy='[["Hold the top 30 seconds straight for the hold bonus", "Hold a plank push press 30 seconds straight for the bonus"]]'>Hold the top 30 seconds straight for the hold bonus, once per set.</li>
       <li class="note">Same login as washers. This isn't a form judge, and it isn't medical treatment.</li>
     </ul>
 <div class="mode-toggle" role="group" aria-label="Pushup mode">
@@ -1139,7 +1139,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="olt-banner" id="oltBanner"><span>TIME UNDER TENSION SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
     <p class="note" id="longNote" hidden>Time under tension set; the clock runs non-stop from start. As many push-ups you can do without quitting, or holding yourself up while holding a plank push press. A TUT set counts regardless of how many push-ups you can do — even holding yourself up the whole time with zero push-ups counts as one set, as long as form isn't broken.<br>Ends only on knees down, or any type of failure motion. Time reps and tut sets will post.</p>
     <span class="vcount" id="pushViol" hidden>0</span>
-    <p class="note" id="challengeNote" hidden>Three-minute challenge: a fixed 3:00 clock, no pause. Reps and top holds both count.<br>Ends at 3:00, on knees down, or I give up. Time reps and tut sets will post.<br>Each top hold counts up to 10 seconds. Score: reps plus seconds under tension.</p>
+    <p class="note" id="challengeNote" hidden data-app-copy='[["Reps and top holds both count.", "Reps and plank push presses both count."], ["Each top hold counts up to 10 seconds.", "Each plank push press counts up to 10 seconds."]]'>Three-minute challenge: a fixed 3:00 clock, no pause. Reps and top holds both count.<br>Ends at 3:00, on knees down, or I give up. Time reps and tut sets will post.<br>Each top hold counts up to 10 seconds. Score: reps plus seconds under tension.</p>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Reps today</span></div>
       <div class="stat"><b id="pushSets">0</b><span>Sets today</span></div>
@@ -1176,10 +1176,10 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h2>Drop your tuts</h2>
     <p class="eyebrow" style="margin:-.4rem 0 .8rem">drop your tuts</p>
     <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
-    <p class="lead">The scoreboard for drop your tuts. Each entry is a TUT set — drop your tuts plus a 120-second hold — with your push-up count and hold time. You can't fail just by holding.</p>
+    <p class="lead" data-app-copy='[["drop your tuts plus a 120-second hold", "drop your tuts plus a 120-second plank push press"], ["and hold time.", "and plank push press time."]]'>The scoreboard for drop your tuts. Each entry is a TUT set — drop your tuts plus a 120-second hold — with your push-up count and hold time. You can't fail just by holding.</p>
     <h3>drop your tuts</h3>
     <table>
-      <thead><tr><th>Push-ups</th><th>Hold</th></tr></thead>
+      <thead><tr><th>Push-ups</th><th data-app-copy='[["Hold", "Plank Push Press"]]'>Hold</th></tr></thead>
       <tbody id="tutBoardBody"><tr><td colspan="2">Waiting for sets…</td></tr></tbody>
     </table>
     <h3 style="margin-top:1.6rem">Your time under tension</h3>
@@ -1315,7 +1315,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="tutbattles">
     <h2>TUT Battles</h2>
-    <p class="lead">Three minutes, head to head. Both tap ready, the 5-second countdown is shared, then a 3:00 clock runs on both phones and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Drop a knee or leave the frame for 10 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins (then more reps; still tied is a draw). Video never uploads. Optional ZAB wager: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. A tie refunds both stakes, and leaving or 30 seconds of silence counts as a forfeit.</p>
+    <p class="lead" data-app-copy='[["each top hold counts for at most 10 seconds", "each plank push press counts for at most 10 seconds"]]'>Three minutes, head to head. Both tap ready, the 5-second countdown is shared, then a 3:00 clock runs on both phones and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Drop a knee or leave the frame for 10 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins (then more reps; still tied is a draw). Video never uploads. Optional ZAB wager: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. A tie refunds both stakes, and leaving or 30 seconds of silence counts as a forfeit.</p>
     <p class="note" id="tbSignIn"><a href="#play">Sign in</a> to create or join a TUT battle.</p>
     <div id="tbStart" hidden>
       <div class="row"><button class="btn" id="tbCreate" type="button">Create arena</button></div>
@@ -2487,9 +2487,18 @@ function loadScript(src) {
     document.head.appendChild(el);
   });
 }
+// App only: the push-up camera uses MediaPipe Pose Landmarker bundled with the app (pose-mediapipe.js, offline);
+// TF.js + MoveNet load on demand only for plank or as the fallback. Browsers keep CAM_SCRIPTS exactly as before.
+function isNativeApp() { return typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); }
+const APP_CAM_SCRIPTS = ["/push-counter.js", "/pose-mediapipe.js"];
+let tfLibsPromise = null;
+function loadTfLibs() {
+  if (!tfLibsPromise) tfLibsPromise = CAM_SCRIPTS.filter((s) => s.indexOf("http") === 0).reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve()).catch((e) => { tfLibsPromise = null; throw e; });
+  return tfLibsPromise;
+}
 function loadCamLibs() {
   if (!camLibsPromise) {
-    camLibsPromise = CAM_SCRIPTS.reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve())
+    camLibsPromise = (isNativeApp() ? APP_CAM_SCRIPTS : CAM_SCRIPTS).reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve())
       .then(() => {
         if (!pushCounter && window.ZabbadatPush) pushCounter = window.ZabbadatPush.createCounter();
       })
@@ -2505,6 +2514,23 @@ function prefetchCamLibs() { // app only: browsers load the pose libraries on th
 }
 prefetchCamLibs();
 let lastCamStatus = "";
+// App only: the pressed-plank top hold is called "plank push press". Browsers keep the original words.
+const HOLD_CAPPED_TEXT = isNativeApp() ? "Plank push press capped at 10 seconds" : "Top hold capped at 10 seconds";
+function holdTimerText(sec) { return (isNativeApp() ? "Plank push press " : "Top hold ") + sec + "s / 30s"; }
+function holdAwardLine(live) { return isNativeApp() ? "30-second plank push press!" + (live ? " +0.5 ZAB" : "") : "30-second hold!" + (live ? " +0.5 ZAB" : ""); }
+function holdAwardSpoken(live) { return isNativeApp() ? (live ? "30-second plank push press! Plus half a ZAB." : "30-second plank push press!") : (live ? "30-second hold! Plus half a ZAB." : "30-second hold!"); }
+function applyAppCopy(doc) { // app only: swaps the words listed in data-app-copy; browsers never run it
+  if (!isNativeApp() || !doc || !doc.querySelectorAll) return 0;
+  let n = 0;
+  doc.querySelectorAll("[data-app-copy]").forEach((el) => {
+    let pairs = []; try { pairs = JSON.parse(el.getAttribute("data-app-copy")) || []; } catch (e) { pairs = []; }
+    let h = el.innerHTML;
+    pairs.forEach(([from, to]) => { if (h.indexOf(from) >= 0) { h = h.split(from).join(to); n += 1; } });
+    el.innerHTML = h;
+  });
+  return n;
+}
+if (typeof document !== "undefined") applyAppCopy(document);
 
 function setCamStatus(text) {
   if (text === lastCamStatus) return;
@@ -2517,9 +2543,30 @@ function resetPoseBaseline() {
   setCamStatus(camOn ? "Start your push-ups" : "");
 }
 
-async function ensurePose() {
+let pushPoseDetector = null, pushPosePromise = null, poseEngine = "", mediaPipeFailed = false, pushCoach = null;
+function ensurePosePush() { // app only: push-ups use MediaPipe; browsers never call this
+  if (pushPoseDetector) return Promise.resolve(pushPoseDetector);
+  if (!pushPosePromise) pushPosePromise = (async () => {
+    await loadCamLibs();
+    if (!mediaPipeFailed && window.ZabbadatMediaPipe) {
+      try {
+        pushPoseDetector = await window.ZabbadatMediaPipe.createDetector({ base: "/vendor/mediapipe" });
+        poseEngine = "mediapipe";
+        pushCoach = window.ZabbadatMediaPipe.createCoach();
+        return pushPoseDetector;
+      } catch (e) { mediaPipeFailed = true; if (typeof console !== "undefined") console.warn("MediaPipe pose unavailable; using MoveNet", e); }
+    }
+    pushPoseDetector = await ensurePose("movenet"); // MoveNet fallback (needs network for TF.js)
+    poseEngine = "movenet";
+    return pushPoseDetector;
+  })().catch((e) => { pushPosePromise = null; throw e; });
+  return pushPosePromise;
+}
+async function ensurePose(engine) { // app: push-ups (no argument) get MediaPipe; plank passes "movenet". Browsers: MoveNet, unchanged
+  if (engine !== "movenet" && isNativeApp()) return ensurePosePush();
   if (poseDetector) return poseDetector;
   await loadCamLibs();
+  if (!window.poseDetection && isNativeApp()) await loadTfLibs();
   if (!window.poseDetection) throw new Error("Pose library not loaded");
   await tf.setBackend("webgl");
   await tf.ready();
@@ -2542,7 +2589,8 @@ async function poseTick(id = poseLoopId) {
     const w = vid.videoWidth || 640;
     // Feed every frame (also before Start): no calibration hold, the first real dip counts.
     const r = pushCounter.update(pose ? pose.keypoints : [], tFrame, w);
-    setCamStatus(r.status);
+    const coachLine = typeof pushCoach !== "undefined" && pushCoach && r.stage !== "down" ? pushCoach.update(pose ? pose.keypoints : [], tFrame, w, vid.videoHeight || 480, vid) : ""; // app only: dark / framing / placement coaching
+    setCamStatus(coachLine || r.status);
     if ((pushMode === "long" || pushMode === "challenge") && postureGuard && pushState.running && !pushState.finished) {
       const st = pushCounter.state();
       const g = postureGuard.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0);
@@ -2557,12 +2605,12 @@ async function poseTick(id = poseLoopId) {
     if (typeof holdReward !== "undefined" && holdReward && pushState.running && !pushState.finished && pushCounter) {
       const hg = postureGuard && postureGuard.state ? postureGuard.state().active === "knees" : false;
       const h = holdReward.update(window.ZabbadatChallenge && window.ZabbadatChallenge.atTopFrom(pushCounter.state()), performance.now(), hg);
-      if ($("pushHoldTimer")) { $("pushHoldTimer").hidden = !(h.holdMs >= 1000 && !h.done); $("pushHoldTimer").textContent = "Top hold " + Math.floor(h.holdMs / 1000) + "s / 30s"; }
+      if ($("pushHoldTimer")) { $("pushHoldTimer").hidden = !(h.holdMs >= 1000 && !h.done); $("pushHoldTimer").textContent = holdTimerText(Math.floor(h.holdMs / 1000)); }
       if (h.awarded) {
         const live = typeof HOLD_ZAB_LIVE !== "undefined" && HOLD_ZAB_LIVE && typeof ZT !== "undefined" && ZT && typeof currentUser !== "undefined" && currentUser;
-        const line = "30-second hold!" + (live ? " +0.5 ZAB" : "");
+        const line = holdAwardLine(live);
         $("camNote").textContent = line; if (typeof zabRing === "function") zabRing($("camNote"));
-        const GSh = window.ZabbadatGetSet; if (GSh && GSh.interruptSpeak) GSh.interruptSpeak(live ? "30-second hold! Plus half a ZAB." : "30-second hold!");
+        const GSh = window.ZabbadatGetSet; if (GSh && GSh.interruptSpeak) GSh.interruptSpeak(holdAwardSpoken(live));
         if (live) pushHoldsThisSet += 1; // credited with the set (server-checked: pushups.holds)
       }
     }
@@ -2578,8 +2626,8 @@ async function poseTick(id = poseLoopId) {
       if (c.ended) finishChallenge();
       else {
         if (r.counted) { pushState.reps = c.reps; pushState.tut = c.tutMs; renderPush(); $("camNote").textContent = "Counted " + pushState.reps + "."; sayRep(pushState.reps); }
-        if (c.capped) $("camNote").textContent = "Top hold capped at 10 seconds";
-        else if ($("camNote").textContent === "Top hold capped at 10 seconds") $("camNote").textContent = "Counted " + pushState.reps + ".";
+        if (c.capped) $("camNote").textContent = HOLD_CAPPED_TEXT;
+        else if ($("camNote").textContent === HOLD_CAPPED_TEXT) $("camNote").textContent = "Counted " + pushState.reps + ".";
       }
     } else if (r.counted && pushState.running && !pushState.finished) {
       pushState.reps += 1;
@@ -2659,7 +2707,8 @@ async function openCam() {
     camOn = true;
     poseLoopOn = true;
     resetPoseBaseline();
-    $("camNote").textContent = "Get into a push-press plank. After Go, your first full push-up counts.";
+    if (typeof pushCoach !== "undefined" && pushCoach) pushCoach.reset();
+    $("camNote").textContent = (typeof poseEngine !== "undefined" && poseEngine === "mediapipe" && window.ZabbadatMediaPipe ? window.ZabbadatMediaPipe.PLACEMENT + " " : "") + "Get into a plank push press. After Go, your first full push-up counts.";
     poseTick(++poseLoopId);
     return true;
   } catch (e) {
@@ -2810,7 +2859,7 @@ function plankOutlineSet(r) {
 async function plankTick(id = plankLoopId) {
   if (!plankLoop || id !== plankLoopId) return;
   try {
-    const det = await ensurePose();
+    const det = await ensurePose("movenet");
     const vid = $("plankVid"), tFrame = performance.now(); // stamped before inference; MoveNet smoothing is off, plank-session.js runs its own One Euro filter
     const poses = await det.estimatePoses(vid, { flipHorizontal: true });
     const r = plankHold.update(poses && poses[0] ? poses[0].keypoints : [], tFrame, { w: vid.videoWidth || 0, h: vid.videoHeight || 0 });
@@ -2862,7 +2911,7 @@ async function startPlankCam() {
       $("plankWrap").hidden = false;
       await loadCamLibs();
       if (!live()) return;
-      await ensurePose();
+      await ensurePose("movenet");
       if (!live()) return;
     } else { // browser: unchanged (dffac32)
       await loadCamLibs();
@@ -3799,7 +3848,7 @@ function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach
 async function tbPose() {
   if (!tbLoop) return;
   try {
-    const v = $("tbVid"), tFrame = performance.now(), poses = await poseDetector.estimatePoses(v, { flipHorizontal: true }), kps = poses && poses[0] ? poses[0].keypoints : [];
+    const v = $("tbVid"), tFrame = performance.now(), poses = await ((typeof pushPoseDetector !== "undefined" && pushPoseDetector) || poseDetector).estimatePoses(v, { flipHorizontal: true }), kps = poses && poses[0] ? poses[0].keypoints : [];
     const w = v.videoWidth || 640, now = tFrame, r = tbCounter.update(kps, now, w);
     if (tbLiveT0 == null) { if (!tbCoaching) $("tbCamNote").textContent = r.status; }
     else if (tbRoom && tbRoom.status === "live" && !tbLostSent) {
@@ -3813,7 +3862,7 @@ async function tbPose() {
           if (lost) { tbLostSent = true; if (tbTimeVoice) tbTimeVoice.end(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.interruptSpeak) window.ZabbadatGetSet.interruptSpeak(window.ZabbadatGetSet.SET_DONE_LINE); $("tbCamNote").textContent = TBm.REASONS[lost]; TBm.reportLoss(tbFs, tbCodeCur, currentUser.uid, lost, tbMine).catch(() => { tbLostSent = false; }); }
           else {
             if (tbPub()) TBm.publishLive(tbFs, tbCodeCur, currentUser.uid, tbMine).catch(() => {});
-            $("tbCamNote").textContent = c.capped ? "Top hold capped at 10 seconds" : r.counted || $("tbCamNote").textContent === "Top hold capped at 10 seconds" ? "Counted " + tbMine.reps : $("tbCamNote").textContent;
+            $("tbCamNote").textContent = c.capped ? HOLD_CAPPED_TEXT : r.counted || $("tbCamNote").textContent === HOLD_CAPPED_TEXT ? "Counted " + tbMine.reps : $("tbCamNote").textContent;
           }
         }
       }

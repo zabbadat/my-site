@@ -124,13 +124,16 @@
   function flushClaims(post, store) {
     return readClaims(store).reduce(function (p, c) { return p.then(function () { return claimEarn(post, store, c.source, c.id).catch(function () {}); }); }, Promise.resolve());
   }
-  var LABEL = { pushups: "Push-ups", plank: "Plank", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers", hold: "30-second holds", steps10k: "10K steps bonus" };
+  // App only (Capacitor native): the 30-second top hold is called "plank push press". Browsers keep "30-second holds".
+  function isNativeApp() { return typeof root !== "undefined" && !!(root && root.Capacitor && typeof root.Capacitor.isNativePlatform === "function" && root.Capacitor.isNativePlatform()); }
+  var APP = isNativeApp();
+  var LABEL = { pushups: "Push-ups", plank: "Plank", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers", hold: APP ? "30-second plank push presses" : "30-second holds", steps10k: "10K steps bonus" };
   var WAGER_TYPE = { stake: "Battle stake", payout: "Battle win", refund: "Battle refund" };
   var WAGER_GAME = { washers: "Zabba Washer Battle", tut: "TUT Battle", plank: "Plank Battle" };
   function mins(m) { m = Math.floor(m); return m + " minute" + (m === 1 ? "" : "s"); }
   var UNIT = { pushups: function (n) { return n + " push-up" + (n === 1 ? "" : "s"); }, plank: function (n) { return mins(n / 60); },
     tut: function (n) { return mins(n / 60); }, walk: function (n) { return mins(n); },
-    washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; }, hold: function (n) { return n + " 30-second hold" + (n === 1 ? "" : "s"); },
+    washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; }, hold: function (n) { return APP ? n + " 30-second plank push press" + (n === 1 ? "" : "es") : n + " 30-second hold" + (n === 1 ? "" : "s"); },
     steps10k: function (n) { return Number(n).toLocaleString("en-US") + " steps in a day"; } };
   var OF = { pushups: "", plank: " of plank", tut: " of TUT", walk: " of walking", hold: "", steps10k: "" };
   // Display lines built from RATES so the page always matches the earn math.
