@@ -13,7 +13,7 @@ check("no dailyPostBtn and no 'Post to board' button or copy anywhere (pages, sc
 check("Step Equity: one Reset button (dailyResetBtn, label 'Reset', same danger style as the other Reset buttons)", /<button class="btn danger" id="dailyResetBtn" type="button">Reset<\/button>/.test(html));
 check("Step Equity lead explains: stopping posts, Reset clears the session readout only, total never goes down", /stopping posts your steps to the daily board\. Reset clears the session readout only; today's total never goes down/.test(html));
 check("existing resets kept with the label 'Reset': washers resetBtn; push-ups have no Reset (sets auto-reset); plank keeps 'New hold' (behaviour unchanged)", /id="resetBtn" type="button">Reset</.test(html) && !/pushResetBtn/.test(html) && /id="plankAgainBtn" type="button" hidden>New hold</.test(html));
-check("main walk button cycle unchanged: 'Start live walk' -> 'Hold to stop' (1 s hold, pocket/walk lock) -> back to Start", /s\.walking \? "Hold to stop" : \(s\.kind === "native" \? "Start walk" : "Start live walk"\)/.test(html) && /bindHold\(\$\("dailyWalkBtn"\), \{ label: "Hold to stop"/.test(html) && /Hold to stop the walk\./.test(html));
+check("main walk button cycle unchanged: 'Start live walk' -> 'Hold to stop' (1 s hold, pocket/walk lock) -> back to Start", /s\.walking \? "Hold to stop" : "Start live walk"/.test(html) && /bindHold\(\$\("dailyWalkBtn"\), \{ label: "Hold to stop"/.test(html) && /Hold to stop the walk\./.test(html));
 check("native app: Reset is hidden (the phone counter owns the all-day total; there is no session), Refresh from phone stays", /\$\("dailyResetBtn"\)\.hidden = true; \$\("dailyRefreshBtn"\)\.hidden = false/.test(html));
 
 // ---- real postDaily + Reset handler

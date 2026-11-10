@@ -1413,7 +1413,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="steps">
     <h2>Step Equity</h2>
-    <p class="lead" id="stepsLead">Step Equity: stopping posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk, put the phone in your pocket and walk: the page keeps the screen awake and locked, and steps count from the pocket. Same login as washers.</p>
+    <p class="lead">Step Equity: stopping posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk, put the phone in your pocket and walk: the page keeps the screen awake and locked, and steps count from the pocket. Same login as washers.</p>
     <div class="stats duo">
       <div class="stat"><b id="dailyCount">0</b><span>Steps today</span></div>
       <div class="stat"><b id="walkClock">00:00</b><span>Session time</span></div>
@@ -1427,7 +1427,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="card" id="tenKBonus" style="margin-top:1rem"><h3>Ten thousand steps. Breathe, stride, collect.</h3><p>Hit 10K in a day and stack a 4 <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> bonus on top of every step you've earned.</p></div>
     <p class="note" id="dailyStatus" aria-live="polite">Signed-in totals post to the daily board. Unsigned stays on this phone.</p>
     <h3 style="margin-top:1.6rem">Live walk sessions</h3>
-    <p class="lead" id="walkLead">Start a live walk and the session clock runs. Stop it to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap. Hiding the page pauses the clock; hidden over 2 minutes ends the session.</p>
+    <p class="lead">Start a live walk and the session clock runs. Stop it to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap. Hiding the page pauses the clock; hidden over 2 minutes ends the session.</p>
     <div class="stats">
       <div class="stat"><b id="dailySource">—</b><span>Source</span></div>
     </div>
@@ -2846,17 +2846,15 @@ renderPlankDays();
 paintPlankRows(localPlanks());
 // ---- Daily steps (shared module daily-steps.js; native plugin in the app, live walk on web) ----
 let saveRemoteDaily = async () => { throw new Error("Daily board is not connected"); };
-let dailyRepaint = null; // set by the live walk section: repaint the session readout whenever today's total changes (app: phone counter stream)
 let dailyPosted = 0, dailyLiveTimer = null, dailyRetryTimer = null, dailyRetries = 0; // live walk saves within ~3 s of a step so other devices update in real time
 const DS = window.ZabbadatDaily;
 const daily = DS ? DS.createController(window, { onChange: (s) => {
   $("dailyCount").textContent = s.steps.toLocaleString();
   $("dailySource").textContent = s.kind === "native" ? "Phone" : s.kind === "web" ? "Live walk" : "None";
-  $("dailyWalkBtn").textContent = s.walking ? "Hold to stop" : (s.kind === "native" ? "Start walk" : "Start live walk");
+  $("dailyWalkBtn").textContent = s.walking ? "Hold to stop" : "Start live walk";
   if (s.msg) $("dailyStatus").textContent = s.msg;
   if (s.walking && currentUser && s.steps > dailyPosted && !dailyLiveTimer) dailyLiveTimer = setTimeout(() => { dailyLiveTimer = null; postDaily(true); }, 3000);
   if (s.steps >= 10000) tenKBonus(s);
-  if (dailyRepaint) dailyRepaint();
 } }) : null;
 // 10K steps bonus: 4 ZAB once per user per local day, on top of the walk earn (zab-balance.js steps10k; ledger id steps10k-YYYY-MM-DD).
 const TEN_K_LINE = "Ten thousand steps. Four ZAB bonus. Breathe easy, and keep striding.";
@@ -2903,13 +2901,8 @@ function paintDailyRows(rows) {
 }
 const dailyFg = daily ? DS.createForegroundRefresh(daily, { afterRefresh: () => postDaily(true) }) : null;
 if (daily) {
-  if (daily.source.kind === "native") { // app: the phone counter owns the all-day total; Start walk only times a session on top of it (Reset stays hidden)
-    $("dailyWalkBtn").hidden = false; $("dailyResetBtn").hidden = true; $("dailyRefreshBtn").hidden = false;
-    $("stepsLead").innerHTML = 'Step Equity: in the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone\'s step counter keeps your all-day total automatically, even when the app is closed. Tap Start walk to time a session: lock your phone or use other apps, steps still count. Refresh from phone pulls the latest total; today\'s total never goes down. Same login as washers.';
-    $("walkLead").textContent = "Tap Start walk and the session clock runs on the phone's step counter. Lock your phone or use other apps; the session clock doesn't pause and steps still count. Hold to stop to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap.";
-    dailyFg.run();
-  }
-  $("dailyRefreshBtn").onclick = () => { if (walkLockOn && daily.source.kind !== "native") { $("dailyStatus").textContent = "Hold to stop first."; return; } daily.refreshNative().then(() => postDaily(true)); };
+  if (daily.source.kind === "native") { $("dailyWalkBtn").hidden = true; $("dailyResetBtn").hidden = true; $("dailyRefreshBtn").hidden = false; dailyFg.run(); } // phone counter owns the all-day total: no session to reset
+  $("dailyRefreshBtn").onclick = () => { if (walkLockOn) { $("dailyStatus").textContent = "Hold to stop first."; return; } daily.refreshNative().then(() => postDaily(true)); };
   $("dailyWalkBtn").onclick = async () => {
     if (daily.state().walking) { daily.stopWalk(); postDaily(true); } else { if (!requireSignIn("walk", () => $("dailyWalkBtn").onclick(), { practice: true })) return; await daily.startWalk(); }
   };
@@ -2921,18 +2914,12 @@ if (daily) {
 const WS = window.ZabbadatWalk;
 let saveRemoteWalk = async () => { throw new Error("Walk board is not connected"); };
 let walkSession = null, walkTick = null, walkRows = [], walkView = "all";
-// App (native step counter): the session clock runs on wall-clock time and never pauses when the app is hidden or the screen locks
-// (the phone keeps counting). Session steps = phone total now - phone total at Start (WS.createNativeCounter). Web: performance.now + DeviceMotion, unchanged.
-const NATIVE_WALK = !!(daily && daily.source.kind === "native");
-let walkCtr = null;
-const walkNow = () => (NATIVE_WALK ? Date.now() : performance.now());
-const walkTotal = () => { const st = daily.state().steps; return walkCtr ? walkCtr.update(st) : st; };
 // Live mirror (live-walk.js): the walking device writes liveWalk/{uid}; other signed-in devices show it.
 const LW = window.ZabbadatLiveWalk;
 let writeLiveWalk = async () => {}, liveLast = null, walkStartedAt = 0, liveRemote = null, liveShown = false, liveTick = null;
 function liveSync(force) {
   if (!LW || !currentUser || !walkSession || !daily) return;
-  const now = walkNow(), st = walkTotal(), t = Date.now();
+  const now = performance.now(), st = daily.state().steps, t = Date.now();
   const rec = LW.record(currentUser.uid, walkStartedAt, walkSession.elapsed(now), walkSession.steps(st), walkSession.isPaused(), true);
   if (!force && !LW.shouldPush(liveLast, rec, t)) return;
   liveLast = { ...rec, at: t }; writeLiveWalk(rec).catch(() => {});
@@ -2955,7 +2942,7 @@ function paintLiveRemote() {
 }
 function paintWalk() {
   if (!walkSession || !daily) return;
-  const now = walkNow(), st = walkTotal();
+  const now = performance.now(), st = daily.state().steps;
   const capped = walkSession.tick(now, st);
   $("walkClock").textContent = WS.formatClock(walkSession.elapsed(now)) + (walkSession.isPaused() ? " ⏸" : "");
   $("walkSteps").textContent = walkSession.steps(st).toLocaleString();
@@ -2963,12 +2950,11 @@ function paintWalk() {
 }
 function beginWalk() {
   if (!WS || !daily) return;
-  if (NATIVE_WALK) { walkCtr = WS.createNativeCounter(daily.state().steps); walkSession = WS.createSession(walkNow(), 0); }
-  else { walkCtr = null; walkSession = WS.createSession(performance.now(), daily.state().steps); }
+  walkSession = WS.createSession(performance.now(), daily.state().steps);
   walkStartedAt = Date.now(); liveLast = null;
   if (liveShown) { liveShown = false; clearInterval(liveTick); liveTick = null; }
-  $("walkStatus").textContent = NATIVE_WALK ? "Session clock running. Lock your phone or use other apps; the phone keeps counting." : "Session clock running.";
-  if (walkWake && !NATIVE_WALK) walkWake.start().catch(() => {}); // app: let the phone lock, the step counter keeps going
+  $("walkStatus").textContent = "Session clock running.";
+  if (walkWake) walkWake.start().catch(() => {});
   clearInterval(walkTick); walkTick = setInterval(paintWalk, 500); paintWalk();
 }
 // Shared screen wake (wake-lock.js): keep the screen awake during a live walk; one-time note if unsupported.
@@ -2976,7 +2962,7 @@ const walkWake = window.WakeLock ? window.WakeLock.createWakeLock({ onNote: (m) 
 async function endWalk(r) {
   clearInterval(walkTick); walkTick = null;
   if (!walkSession) return;
-  walkSession = null; walkCtr = null;
+  walkSession = null;
   setWalkLock(false);
   if (walkWake) walkWake.stop().catch(() => {});
   liveEnd(r);
@@ -3013,8 +2999,7 @@ if (WS && daily) {
   const dailyClick = $("dailyWalkBtn").onclick;
   const toggleWalk = async () => {
     const was = daily.state().walking;
-    if (was && NATIVE_WALK) { try { await daily.refreshNative(); } catch (e) {} } // app: final phone read before the session is closed
-    const stopAt = walkNow(), stepsNow = walkSession ? walkTotal() : daily.state().steps;
+    const stopAt = performance.now(), stepsNow = daily.state().steps;
     await dailyClick();
     const is = daily.state().walking;
     if (!was && is) { beginWalk(); setWalkLock(true); if (window.ZabbadatGetSet && window.ZabbadatGetSet.pocketCue) window.ZabbadatGetSet.pocketCue(); }
@@ -3029,10 +3014,8 @@ if (WS && daily) {
     await toggleWalk();
   };
   bindHold($("dailyWalkBtn"), { label: "Hold to stop", active: () => daily.state().walking, done: () => { walkHoldDone = true; setTimeout(() => { walkHoldDone = false; }, 600); setWalkLock(false); toggleWalk(); } });
-  dailyRepaint = () => { if (walkSession && NATIVE_WALK) paintWalk(); }; // app: live session steps as the phone total streams in (web repaints on its 500 ms tick)
   document.addEventListener("visibilitychange", () => {
     if (!walkSession) return;
-    if (NATIVE_WALK) { if (document.hidden) liveSync(true); else { paintWalk(); if (dailyFg) dailyFg.run(); } return; } // app: never pause or end on hide; refresh on return
     if (document.hidden) { walkSession.hide(performance.now()); liveSync(true); }
     else { const r = walkSession.show(performance.now()); if (r) { daily.stopWalk(); endWalk(r); postDaily(true); } else paintWalk(); }
   });
