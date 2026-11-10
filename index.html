@@ -2979,7 +2979,36 @@ function stopPlankCam() {
   $("plankWrap").hidden = true; $("plankStopBtn").hidden = true;
   $("plankCamBtn").textContent = "Start plank camera";
 }
-$("plankCamBtn").onclick = () => (plankLoop ? stopPlankCam() : plankStarting ? cancelPlankStart() : startPlankCam());
+// ---- App-only native plank hook (iOS app build with the ZabbaPlank plugin: Apple Vision on the phone, Swift port of plank-session.js) ----
+// Browsers, Android and app builds without the plugin never enter this path: nativePlank() is null and the button runs startPlankCam() as before.
+// The native screen only measures. Its result is saved by the same plankEnded() as the site camera, under the same one-shot session guard
+// (plankSessionStartedAt / plankSaved): sign-in gate, best, local rows, sets board, Plank House board and the server-checked ZAB award. No new save path.
+// If the native screen cannot run (no camera, camera denied, plugin error) the site plank starts instead.
+const NATIVE_PLANK_REASONS = ["sag", "pike", "knees", "standing", "left_frame", "frozen", "repeat", "stopped"];
+let nativePlankBusy = false;
+function nativePlank() { try { const C = window.Capacitor; const p = C && typeof C.isNativePlatform === "function" && C.isNativePlatform() && C.Plugins && C.Plugins.ZabbaPlank; return p && typeof p.start === "function" ? p : null; } catch (e) { return null; } }
+function nativePlankResult(res, startedAt, now) { // never more time than the native screen was open; unknown reasons count as Stop
+  const ms = Math.round(Number(res && res.ms)), cap = Math.max(0, now - startedAt);
+  return { phase: "ended", ended: true, ms: Number.isFinite(ms) && ms > 0 ? Math.min(ms, cap) : 0, reason: NATIVE_PLANK_REASONS.includes(res && res.reason) ? res.reason : "stopped" };
+}
+async function startNativePlank(P) {
+  if (nativePlankBusy || plankLoop || plankStarting) return;
+  if (!requireSignIn("plank", () => startNativePlank(P), { practice: true })) return; // same gate as startPlankCam
+  unlockGetSet(); // inside the tap: the page speaks "Set complete" after a failure end, as with the site camera
+  if (camOn) stopCam();
+  if (pushStarting) cancelPushStart();
+  nativePlankBusy = true;
+  const restart = sessionPlan("plank") === "restart", startedAt = Date.now();
+  let res;
+  try { res = await P.start({ restart }); } catch (e) { nativePlankBusy = false; return startPlankCam(); }
+  nativePlankBusy = false;
+  if (!res || res.cancelled || plankLoop || plankStarting) return;
+  sessionCommit("plank");
+  plankSaved = false; plankSessionStartedAt = startedAt; // one live session, one save
+  try { plankEnded(nativePlankResult(res, startedAt, Date.now())); } finally { plankSessionStartedAt = 0; }
+  $("plankAgainBtn").hidden = true; // "New hold" belongs to the site camera loop; in the app the start button opens a new native hold
+}
+$("plankCamBtn").onclick = () => (plankLoop ? stopPlankCam() : plankStarting ? cancelPlankStart() : typeof nativePlank === "function" && nativePlank() ? startNativePlank(nativePlank()) : startPlankCam());
 $("plankStopBtn").onclick = () => { if (plankLoop && plankHold && !plankSaved) plankEnded(plankHold.stop(performance.now())); };
 $("plankAgainBtn").onclick = () => { if (plankLoop) { newPlankHold(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts when you start a proper plank. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold."; } };
 renderPlankBest();
