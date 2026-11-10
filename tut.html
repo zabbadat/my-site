@@ -133,5 +133,17 @@
     <p>Find us on <a href="https://x.com/ZabbaDat" rel="me noopener">X</a> · <a href="https://www.instagram.com/zabbadat" rel="noopener">Instagram</a> · <a href="https://www.tiktok.com/@zabbadat" rel="noopener">TikTok</a> · <a href="https://www.youtube.com/@zabbadat" rel="noopener">YouTube</a> · <a href="https://discord.gg/ebDugMwgSZ" rel="noopener">Discord</a></p>
   <p class="footer-netlify" style="font-size:.72rem;opacity:.55;margin:.4rem 0 0"><a href="https://www.netlify.com" rel="noopener" style="color:inherit">Powered by Netlify</a></p>
   </footer>
+<script>
+// App only (Capacitor native): the pressed-plank top hold is called "plank push press". Browsers keep the original words.
+(function () {
+  var C = window.Capacitor;
+  if (!(C && typeof C.isNativePlatform === "function" && C.isNativePlatform())) return;
+  var pairs = [["Holding the top never ends it.", "Holding a plank push press never ends it."], ["Each hold at the top counts for at most 10 seconds of tension.", "Each plank push press counts for at most 10 seconds of tension."], ["Holding the top never loses.", "Holding a plank push press never loses."]];
+  var main = document.querySelector("main") || document.body;
+  var h = main.innerHTML;
+  pairs.forEach(function (p) { h = h.split(p[0]).join(p[1]); });
+  main.innerHTML = h;
+})();
+</script>
 </body>
 </html>
