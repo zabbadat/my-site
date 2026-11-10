@@ -5,7 +5,7 @@ const SS = require("../push-session.js"), G = require("../get-set.js"), P = requ
 const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
 let pass = 0, fail = 0; const check = (n, ok) => { ok ? pass++ : fail++; console.log((ok ? "PASS " : "FAIL ") + n); };
 const fnSrc = (n) => { const i = html.indexOf("function " + n + "("); if (i < 0) throw new Error("missing " + n); return html.slice(i, html.indexOf("\n}", i) + 2); };
-const SRC = ["clearPushPrompts", "freshPushSet", "voidTutSet", "showChallengeResult", "finishPushSet", "beginPushClock", "resetPoseBaseline", "setCamStatus"].map(fnSrc).join("\n") + "\nasync " + fnSrc("startPush");
+const SRC = ["camErrorText", "clearPushPrompts", "freshPushSet", "voidTutSet", "showChallengeResult", "finishPushSet", "beginPushClock", "resetPoseBaseline", "setCamStatus"].map(fnSrc).join("\n") + "\nasync " + fnSrc("startPush");
 check("push-ups have no Reset button or handler any more", !/pushResetBtn/.test(html));
 function page(mode) {
   const log = [], els = {}, store = {}; let now = 1000;

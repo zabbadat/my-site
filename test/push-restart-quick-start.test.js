@@ -39,7 +39,7 @@ async function loadCamLibs() {} async function ensurePose() { log.push("pose"); 
 function poseTick() {} function syncPushStartBtn() {} let poseLoopId = 0, plankLoopId = 0; function renderPush() {} function resetPoseBaseline() {} function camExitFs() {} function setCamStatus() {}
 let plankLeadUntil = 0; const PLANK_LEAD_MS = 5500;
 function newPlankHold() { log.push("plankHold"); } function plankTick() {} function plankEnded() {}`;
-  const SRC = [STUBS, line("const GET_SET_MS"), line("const getSet = "), line("const quickSet = "), line("const sessionTrack = "), line("function sessionPlan"), line("function sessionCommit"), line("function sessionTouch"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
+  const SRC = [STUBS, line("const CAM_CONSTRAINTS"), fnSrc("camErrorText"), fnSrc("stopCamTracks"), fnSrc("attachCam"), line("const GET_SET_MS"), line("const getSet = "), line("const quickSet = "), line("const sessionTrack = "), line("function sessionPlan"), line("function sessionCommit"), line("function sessionTouch"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
     fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '),
     "async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
     line('$("plankCamBtn").onclick = '), `const origClock = beginPushClock; beginPushClock = function () { log.push("clock"); return origClock(); };`].join("\n")
@@ -133,7 +133,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     check("plank: first start of a session has the full intro + countdown", words(e) === FULLP(0) && e.run("plankLoop") === true);
     e.run("plankHold = null; stopPlankCam();"); let n = SAID(e).length, t0 = e.now();
     e.$("plankCamBtn").onclick();
-    check("plank restart tap: no placement line, wake + unlock inside the tap", SAID(e).length === n && e.log.slice(-3).join(",") === "plankWake:start,speech:cancel,speech:unlock" && e.$("plankStatus").textContent !== C.plank.place);
+    check("plank restart tap: no placement line, wake + unlock + getUserMedia inside the tap", SAID(e).length === n && e.log.slice(-4).join(",") === "plankWake:start,speech:cancel,speech:unlock,camera" && e.$("plankStatus").textContent !== C.plank.place);
     await e.advance(2500);
     check("plank restart: short next-set intro, no first-time coaching or pre-loop countdown (3-2-1-Hold comes at lock-in)", words(e, n) === C.plank.next + "@" + t0 && NOINTRO(e, n));
     check("plank restart: hold armed + status exactly as a first start", e.run("plankLoop") === true && e.$("plankStatus").textContent === "Whole body in the outline, side-on. Clock starts when you start a proper plank. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.");

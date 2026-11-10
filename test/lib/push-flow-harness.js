@@ -35,7 +35,7 @@ function renderPush() {} function finishChallenge() { log.push("finishChallenge"
 `;
   const src = pre + [between("const GET_SET_MS = ", ";\n"), ...(html.includes("const repVoice = ") ? [between("const repVoice = ", ";\n"), fnSrc("pushTarget"), fnSrc("sayRep")] : []), ...(html.includes("const POSITION_MS") ? [between("const POSITION_MS = ", ";\n"), fnSrc("showPositioning")] : []), between("const getSet = ", ";\n"), between("const quickSet = ", ";\n"), between("const sessionTrack = ", ";\n"), between("function sessionPlan", "\n"), between("function sessionCommit", "\n"), between("function sessionTouch", "\n"), fnSrc("getSetCountdown"), fnSrc("cancelGetSet"), fnSrc("unlockGetSet"),
     "let pushStarting = false, pushStartSeq = 0;", fnSrc("cancelPushStart"), ...(html.includes("function waitCalibrated(") ? [fnSrc("waitCalibrated")] : []), "async " + fnSrc("startPush"), fnSrc("beginPushClock"),
-    fnSrc("setCamStatus"), fnSrc("resetPoseBaseline"), "async " + fnSrc("poseTick"), "async " + fnSrc("openCam")].join("\n") +
+    fnSrc("setCamStatus"), fnSrc("resetPoseBaseline"), "async " + fnSrc("poseTick"), between("const CAM_CONSTRAINTS = ", ";\n"), fnSrc("camErrorText"), fnSrc("stopCamTracks"), fnSrc("attachCam"), "async " + fnSrc("openCam")].join("\n") +
     "\nthis.api = { startPush, openCam, pushState, get counter() { return pushCounter; }, log };";
   ctx.frame = frame;
   vm.runInContext(src, ctx);
