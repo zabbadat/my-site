@@ -104,7 +104,7 @@ function simHold(segs, opts) {
 // 9. page wiring: app only, browser unchanged
 const html = fs.readFileSync(HTML, "utf8");
 check("page: app counter gets { app: true }; browsers call createCounter() exactly as before", html.includes("if (!pushCounter && window.ZabbadatPush && isNativeApp()) pushCounter = window.ZabbadatPush.createCounter({ app: true });\n        if (!pushCounter && window.ZabbadatPush) pushCounter = window.ZabbadatPush.createCounter();"));
-check("page: push-coach.js loads only in the app; browser CAM_SCRIPTS list unchanged", /isNativeApp\(\) \? CAM_SCRIPTS\.concat\(\["\/push-coach\.js"\]\) : CAM_SCRIPTS/.test(html) && !/CAM_SCRIPTS = \[[^\]]*push-coach/.test(html));
+check("page: push-coach.js loads only in the app; browser CAM_SCRIPTS list unchanged", /isNativeApp\(\) \? CAM_SCRIPTS\.concat\(\["\/push-coach\.js"\]\) : CAM_SCRIPTS/.test(html) && !/const CAM_SCRIPTS = \[[^\]]*push-coach/.test(html));
 check("page: TUT battle counter stays the shared (browser) rules, so app and browser players are judged the same", /tbCounter = window\.ZabbadatPush\.createCounter\(\); \/\/ separate instance/.test(html) && !/tbCounter = [^\n]*app: true/.test(html));
 check("page: the one new speech call site (sayPushHint) is app-only and only speaks during a running set or for a refused rep", /function sayPushHint\(line, now, force\) \{\n  if \(!line \|\| !isNativeApp\(\)\) return;/.test(html) && /coachLine && pushState\.running && !pushState\.finished && typeof sayPushHint/.test(html) && /r\.refused && pushState\.running && !pushState\.finished\)/.test(html));
 check("page: no canvas / drawing code added to the page (luminance lives in push-coach.js)", !/getContext\(|drawImage/.test(html));

@@ -1707,6 +1707,14 @@ function armRelock() {
   relockTimer = setTimeout(() => { relockTimer = null; if (state.running && !state.finished && !pocketOn) { setPocket(true); setStatus("Pack scored. Locked again."); } }, RELOCK_MS);
 }
 function setWalkLock(on) { walkLockOn = !!on; }
+// App only: after a completed press-and-hold, swallow the button's follow-up click until the finger is lifted
+// (+400 ms), however long the hold. A fixed 600 ms window let a hold longer than ~1.6 s fire a click on release
+// that restarted the walk / game. Browsers keep the 600 ms window.
+function holdSwallow(btn, clear) {
+  let done = false; const evs = ["pointerup", "pointerleave", "pointercancel"];
+  const off = () => { if (done) return; done = true; evs.forEach((t) => btn.removeEventListener(t, off)); setTimeout(clear, 400); };
+  evs.forEach((t) => btn.addEventListener(t, off)); setTimeout(off, 10000);
+}
 
 // Shared press-and-hold (pointer events cover mouse + touch; release/leave/cancel aborts).
 // Default: one 1 s stage calling o.done. o.stages: [{ ms, label?, fire }] for multi-stage holds.
@@ -1819,7 +1827,7 @@ $("startBtn").onclick = () => {
   render();
   setPocket(true);
 };
-const holdGuard = () => { gameHoldDone = true; setTimeout(() => { gameHoldDone = false; }, 600); };
+const holdGuard = () => { gameHoldDone = true; if (typeof isNativeApp === "function" && isNativeApp() && typeof holdSwallow === "function") holdSwallow($("startBtn"), () => { gameHoldDone = false; }); else setTimeout(() => { gameHoldDone = false; }, 600); };
 bindHold($("startBtn"), {
   active: () => state.running && !state.finished,
   label: () => (pocketOn ? "Hold to score" : "Hold to stop"),
@@ -2498,9 +2506,18 @@ function loadScript(src) {
 }
 // App only (Capacitor native) helper. Browsers never take an isNativeApp() branch.
 function isNativeApp() { return typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); }
+// iOS app with the native ZabbaPose plugin: push-ups use Apple Vision body pose (pose-vision.js), no downloaded model.
+// TF.js + MoveNet then load only on demand (plank, or if Vision fails). Older iOS builds, Android and browsers keep MoveNet.
+function useVision() { const C = isNativeApp() ? window.Capacitor : null; return !!(C && typeof C.getPlatform === "function" && C.getPlatform() === "ios" && C.Plugins && C.Plugins.ZabbaPose && !visionFailed); }
+let visionFailed = false, pushVisionDet = null, tfLibsPromise = null;
+const VISION_CAM_SCRIPTS = ["/push-counter.js", "/push-coach.js", "/pose-vision.js"];
+function loadTfLibs() { // app only: the TF.js part of CAM_SCRIPTS, when the Vision path skipped it
+  if (!tfLibsPromise) tfLibsPromise = CAM_SCRIPTS.filter((s) => s.indexOf("http") === 0).reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve()).catch((e) => { tfLibsPromise = null; throw e; });
+  return tfLibsPromise;
+}
 function loadCamLibs() {
   if (!camLibsPromise) {
-    camLibsPromise = (isNativeApp() ? CAM_SCRIPTS.concat(["/push-coach.js"]) : CAM_SCRIPTS).reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve())
+    camLibsPromise = (useVision() ? VISION_CAM_SCRIPTS : isNativeApp() ? CAM_SCRIPTS.concat(["/push-coach.js"]) : CAM_SCRIPTS).reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve())
       .then(() => {
         // App only: shoulder-and-arm counting, no 6 s speed refusal, refusal reasons; plus framing / light coaching.
         if (!pushCounter && window.ZabbadatPush && isNativeApp()) pushCounter = window.ZabbadatPush.createCounter({ app: true });
@@ -2551,6 +2568,7 @@ function resetPoseBaseline() {
 async function ensurePose() {
   if (poseDetector) return poseDetector;
   await loadCamLibs();
+  if (!window.poseDetection && isNativeApp()) await loadTfLibs(); // app only: iOS Vision path loads TF.js only when MoveNet is needed
   if (!window.poseDetection) throw new Error("Pose library not loaded");
   await tf.setBackend("webgl");
   await tf.ready();
@@ -2561,11 +2579,26 @@ async function ensurePose() {
   return poseDetector;
 }
 
+// Push-up pose engine: iOS app + ZabbaPose plugin -> Apple Vision; anything else (browsers, Android, older iOS builds,
+// or Vision failing) -> ensurePose() (MoveNet) exactly as before.
+async function ensurePushPose() {
+  if (!useVision()) return ensurePose();
+  if (pushVisionDet) return pushVisionDet;
+  try {
+    await loadCamLibs();
+    pushVisionDet = await window.ZabbadatVision.createDetector();
+    return pushVisionDet;
+  } catch (e) {
+    visionFailed = true; if (typeof console !== "undefined") console.warn("Apple Vision pose unavailable; using MoveNet", e);
+    return ensurePose();
+  }
+}
+
 async function poseTick(id = poseLoopId) {
   if (id !== poseLoopId || !poseLoopOn || !camOn) return;
   const vid = $("camVid");
   try {
-    const det = await ensurePose();
+    const det = await (typeof ensurePushPose === "function" ? ensurePushPose() : ensurePose());
     if (!pushCounter) throw new Error("Counter not loaded");
     const tFrame = performance.now(); // stamp the frame BEFORE inference: the pose is of this moment, not of when the model finished
     const poses = await det.estimatePoses(vid, { flipHorizontal: true });
@@ -2689,7 +2722,7 @@ async function openCam() {
     $("camNote").textContent = "Loading camera counter…";
     await loadCamLibs();
     $("camNote").textContent = "Loading pose model…";
-    await ensurePose();
+    await (typeof ensurePushPose === "function" ? ensurePushPose() : ensurePose()); // iOS app: Apple Vision when the plugin is there
     camOn = true;
     poseLoopOn = true;
     resetPoseBaseline();
@@ -3137,7 +3170,7 @@ if (WS && daily) {
     if (!requireSignIn("walk", () => $("dailyWalkBtn").onclick(), { practice: true })) return;
     await toggleWalk();
   };
-  bindHold($("dailyWalkBtn"), { label: "Hold to stop", active: () => daily.state().walking, done: () => { walkHoldDone = true; setTimeout(() => { walkHoldDone = false; }, 600); setWalkLock(false); toggleWalk(); } });
+  bindHold($("dailyWalkBtn"), { label: "Hold to stop", active: () => daily.state().walking, done: () => { walkHoldDone = true; if (typeof isNativeApp === "function" && isNativeApp() && typeof holdSwallow === "function") holdSwallow($("dailyWalkBtn"), () => { walkHoldDone = false; }); else setTimeout(() => { walkHoldDone = false; }, 600); setWalkLock(false); toggleWalk(); } });
   dailyRepaint = () => { if (walkSession && NATIVE_WALK) paintWalk(); }; // app: live session steps as the phone total streams in (web repaints on its 500 ms tick)
   document.addEventListener("visibilitychange", () => {
     if (!walkSession) return;
@@ -3817,7 +3850,7 @@ async function tbCamOn(placed) {
     const v = $("tbVid"); await attachCam(v, tbStream);
     $("tbCamWrap").hidden = false;
     await loadCamLibs();
-    await ensurePose();
+    await (typeof ensurePushPose === "function" ? ensurePushPose() : ensurePose()); // iOS app: Apple Vision when the plugin is there
     tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
     tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
     if (placed) { tbCoaching = true; await placed; await showPositioning("tut", $("tbCamNote"), () => !tbLoop, "criteria"); tbCoaching = false; }
@@ -3834,7 +3867,7 @@ function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach
 async function tbPose() {
   if (!tbLoop) return;
   try {
-    const v = $("tbVid"), tFrame = performance.now(), poses = await poseDetector.estimatePoses(v, { flipHorizontal: true }), kps = poses && poses[0] ? poses[0].keypoints : [];
+    const v = $("tbVid"), tFrame = performance.now(), poses = await (pushVisionDet || poseDetector).estimatePoses(v, { flipHorizontal: true }), kps = poses && poses[0] ? poses[0].keypoints : [];
     const w = v.videoWidth || 640, now = tFrame, r = tbCounter.update(kps, now, w);
     if (tbLiveT0 == null) { if (!tbCoaching) $("tbCamNote").textContent = r.status; }
     else if (tbRoom && tbRoom.status === "live" && !tbLostSent) {
