@@ -579,6 +579,20 @@
     .premium-demo { margin-top: 1.2rem; }
     .premium-tag { font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 .3rem; }
 body.zabba-snapshot #dailyCount, body.zabba-snapshot #walkSteps, body.zabba-snapshot #stepsStat { visibility: hidden; }
+#dailyWalkBtn, #startBtn, #stepsHud, #stepsHud .stat, #stepsHud .stat b, #stepsHud .stat span,
+#dailyCount, #walkClock, #walkSteps, #dailyStatus, #stepsDebug {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#dailyWalkBtn, #startBtn { touch-action: none; position: relative; overflow: hidden; }
+#dailyWalkBtn .hold-fill, #startBtn .hold-fill {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0; pointer-events: none;
+  background: rgba(125, 255, 125, 0.35); z-index: 0; transition: none;
+}
+#dailyWalkBtn > *, #startBtn > * { position: relative; z-index: 1; }
+#steps.zabba-holding, #steps.zabba-holding * {
+  -webkit-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important;
+}
 #stepsDebug { margin-top:.4rem; font-size:.82rem; color:#8a8a8a; }
 .arcade-strip{display:flex;align-items:stretch;justify-content:center;gap:1.2rem;width:100%;box-sizing:border-box;padding:.45rem .75rem calc(.45rem + env(safe-area-inset-bottom,0px));background:#080612;border-bottom:2px solid #3a2a7a;box-shadow:0 0 18px rgba(120,80,255,.35), inset 0 0 18px rgba(0,0,0,.45);color:#ffe14d;font-family:"Press Start 2P",ui-monospace,"Courier New",monospace;text-align:center;pointer-events:none;z-index:4}
 .arcade-strip .arcade-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:6.5rem}
@@ -1444,14 +1458,13 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="steps">
     <h2>Step Equity</h2>
     <p class="lead" id="stepsLead">Step Equity: stopping posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk, put the phone in your pocket and walk: the page keeps the screen awake and locked, and steps count from the pocket. Same login as washers.</p>
-    <div class="stats duo">
+    <div class="stats duo session-hud" id="stepsHud">
       <div class="stat"><b id="dailyCount">0</b><span>Steps today</span></div>
       <div class="stat"><b id="walkClock">00:00</b><span>Session time</span></div>
       <div class="stat"><b id="walkSteps">0</b><span>Session steps</span></div>
     </div>
     <div class="row">
       <button class="btn" id="dailyWalkBtn" type="button">Start live walk</button>
-      <button class="btn ghost" id="dailyRefreshBtn" type="button" hidden>Refresh from phone</button>
       <button class="btn danger" id="dailyResetBtn" type="button">Reset</button>
     </div>
     <div class="card" id="tenKBonus" style="margin-top:1rem"><h3>Ten thousand steps. Breathe, stride, collect.</h3><p>Hit 10K in a day and stack a 4 <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> bonus on top of every step you've earned.</p></div>
@@ -1747,9 +1760,177 @@ function holdSwallow(btn, clear) {
   evs.forEach((t) => btn.addEventListener(t, off)); setTimeout(off, 10000);
 }
 
+// App-only hold tracker (1.0 s hold, 150 ms grace, 30 px drift, no text selection).
+// Browser bindHold below is unchanged. Exported for tests as window.ZabbadatHold.
+function createHoldTracker(opts) {
+  opts = opts || {};
+  var holdMs = opts.holdMs != null ? opts.holdMs : 1000;
+  var graceMs = opts.graceMs != null ? opts.graceMs : 150;
+  var moveTol = opts.moveTol != null ? opts.moveTol : 30;
+  var pointerId = null, x0 = 0, y0 = 0, t0 = 0, holding = false, completed = false, pausedAt = 0, heldMs = 0;
+  function elapsed(now) { return heldMs + (holding ? Math.max(0, now - t0) : 0); }
+  function progress(now) { return Math.max(0, Math.min(1, elapsed(now) / holdMs)); }
+  function down(e, now) {
+    now = now != null ? now : e.timeStamp;
+    if (e.isPrimary === false) return { action: "ignore" };
+    if (holding && pointerId != null && e.pointerId !== pointerId) return { action: "ignore" };
+    if (pausedAt && now - pausedAt <= graceMs && !completed) {
+      t0 = now; pointerId = e.pointerId; holding = true; pausedAt = 0;
+      return { action: "resume", progress: progress(now) };
+    }
+    pointerId = e.pointerId; x0 = e.clientX; y0 = e.clientY; t0 = now;
+    holding = true; completed = false; heldMs = 0; pausedAt = 0;
+    return { action: "start", progress: 0 };
+  }
+  function move(e) {
+    if (!holding || (pointerId != null && e.pointerId !== pointerId)) return { action: "ignore" };
+    var dx = e.clientX - x0, dy = e.clientY - y0;
+    if (dx * dx + dy * dy > moveTol * moveTol) {
+      holding = false; heldMs = 0; pausedAt = 0; pointerId = null;
+      return { action: "cancel-move", progress: 0 };
+    }
+    return { action: "move", progress: progress(e.timeStamp) };
+  }
+  function up(e, now) {
+    now = now != null ? now : e.timeStamp;
+    if (pointerId != null && e.pointerId != null && e.pointerId !== pointerId) return { action: "ignore" };
+    if (completed) { holding = false; pointerId = null; return { action: "already-done", progress: 1 }; }
+    if (!holding && !pausedAt) return { action: "ignore" };
+    var el = elapsed(now);
+    holding = false;
+    if (el >= holdMs - graceMs) { completed = true; pointerId = null; return { action: "complete", progress: 1 }; }
+    pausedAt = now; heldMs = el; pointerId = null;
+    return { action: "pause", progress: progress(now), elapsed: el };
+  }
+  function expirePause(now) {
+    if (!pausedAt || completed || holding) return { action: "ignore" };
+    if (now - pausedAt > graceMs) {
+      var el = heldMs; pausedAt = 0; heldMs = 0;
+      return { action: "cancel", progress: 0, elapsed: el, hint: true };
+    }
+    return { action: "ignore" };
+  }
+  function tick(now) {
+    if (completed || !holding) return { action: "ignore", progress: progress(now) };
+    if (progress(now) >= 1) { completed = true; holding = false; pointerId = null; return { action: "complete", progress: 1 }; }
+    return { action: "tick", progress: progress(now) };
+  }
+  return { down: down, move: move, up: up, expirePause: expirePause, tick: tick, progress: progress, holdMs: holdMs, graceMs: graceMs, moveTol: moveTol };
+}
+if (typeof window !== "undefined") window.ZabbadatHold = { createHoldTracker: createHoldTracker };
+
+function bindHoldNative(btn, o) {
+  var tracker = createHoldTracker({ holdMs: (o && o.holdMs) || 1000, graceMs: (o && o.graceMs) || 150, moveTol: (o && o.moveTol) || 30 });
+  var fill = btn.querySelector(".hold-fill");
+  if (!fill) { fill = document.createElement("span"); fill.className = "hold-fill"; fill.setAttribute("aria-hidden", "true"); btn.insertBefore(fill, btn.firstChild); }
+  var hud = document.getElementById("stepsHud") || document.getElementById("steps");
+  var pauseTimer = null, raf = 0, holding = false;
+  function setFill(p) { fill.style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + "%"; }
+  function label() { return o.active() ? (typeof o.label === "function" ? o.label() : (o.label || "Hold to stop")) : btn.textContent; }
+  function setBtnText(s) {
+    var parts = [], hasFill = false;
+    Array.prototype.forEach.call(btn.childNodes, function (n) {
+      if (n === fill) { parts.push(n); hasFill = true; }
+      else if (n.nodeType === 3) { /* skip old text */ }
+      else parts.push(n);
+    });
+    btn.textContent = "";
+    if (hasFill) btn.appendChild(fill);
+    else btn.insertBefore(fill, btn.firstChild);
+    btn.appendChild(document.createTextNode(s));
+  }
+  function blockSelect(ev) { ev.preventDefault(); }
+  function armSelectGuard() {
+    document.addEventListener("selectstart", blockSelect, true);
+    document.addEventListener("contextmenu", blockSelect, true);
+    btn.addEventListener("selectstart", blockSelect, true);
+    btn.addEventListener("contextmenu", blockSelect, true);
+    if (hud) { hud.addEventListener("selectstart", blockSelect, true); hud.addEventListener("contextmenu", blockSelect, true); }
+    var sec = document.getElementById("steps");
+    if (sec) sec.classList.add("zabba-holding");
+  }
+  function disarmSelectGuard() {
+    document.removeEventListener("selectstart", blockSelect, true);
+    document.removeEventListener("contextmenu", blockSelect, true);
+    btn.removeEventListener("selectstart", blockSelect, true);
+    btn.removeEventListener("contextmenu", blockSelect, true);
+    if (hud) { hud.removeEventListener("selectstart", blockSelect, true); hud.removeEventListener("contextmenu", blockSelect, true); }
+    var sec = document.getElementById("steps");
+    if (sec) sec.classList.remove("zabba-holding");
+  }
+  function haptic() {
+    try {
+      var H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+      if (H && typeof H.impact === "function") H.impact({ style: "Light" });
+    } catch (e) {}
+  }
+  function hint() {
+    if (typeof o.hint === "function") o.hint();
+    else { var el = document.getElementById("dailyStatus") || document.getElementById("status"); if (el) el.textContent = "Hold to stop"; }
+  }
+  function complete() {
+    holding = false; setFill(1); haptic(); disarmSelectGuard();
+    if (pauseTimer) { clearTimeout(pauseTimer); pauseTimer = null; }
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    if (o.done) o.done();
+  }
+  function cancelHold(showHint) {
+    holding = false; setFill(0); disarmSelectGuard();
+    if (pauseTimer) { clearTimeout(pauseTimer); pauseTimer = null; }
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    setBtnText(label());
+    if (showHint && o.active()) hint();
+  }
+  function tick() {
+    var r = tracker.tick(performance.now());
+    setFill(r.progress);
+    if (r.action === "complete") { complete(); return; }
+    if (holding) raf = requestAnimationFrame(tick);
+  }
+  btn.addEventListener("pointerdown", function (e) {
+    if (!o.active()) return;
+    if (e.isPrimary === false) return;
+    e.preventDefault();
+    armSelectGuard();
+    if (typeof btn.setPointerCapture === "function") { try { btn.setPointerCapture(e.pointerId); } catch (err) {} }
+    var r = tracker.down(e, performance.now());
+    if (r.action === "ignore") return;
+    if (pauseTimer) { clearTimeout(pauseTimer); pauseTimer = null; }
+    holding = true;
+    setBtnText("Hold…");
+    setFill(r.progress);
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(tick);
+  });
+  btn.addEventListener("pointermove", function (e) {
+    var r = tracker.move(e);
+    if (r.action === "cancel-move") cancelHold(false);
+    else if (r.action === "move") setFill(r.progress);
+  });
+  function onUp(e) {
+    var r = tracker.up(e, performance.now());
+    if (r.action === "complete" || r.action === "already-done") { if (r.action === "complete") complete(); return; }
+    if (r.action === "pause") {
+      setFill(r.progress);
+      if (pauseTimer) clearTimeout(pauseTimer);
+      pauseTimer = setTimeout(function () {
+        pauseTimer = null;
+        var x = tracker.expirePause(performance.now());
+        if (x.action === "cancel") cancelHold(true);
+      }, tracker.graceMs + 5);
+      return;
+    }
+  }
+  btn.addEventListener("pointerup", onUp);
+  btn.addEventListener("pointercancel", onUp);
+  // Do not cancel on pointerleave: capture + 30 px tolerance cover drift. Leaving used to make the hold feel finicky.
+}
+
 // Shared press-and-hold (pointer events cover mouse + touch; release/leave/cancel aborts).
 // Default: one 1 s stage calling o.done. o.stages: [{ ms, label?, fire }] for multi-stage holds.
+// In the native app, bindHoldNative adds a fill, pointer capture, drift/grace, and blocks iOS text selection.
 function bindHold(btn, o) {
+  if (typeof isNativeApp === "function" && isNativeApp()) { bindHoldNative(btn, o); return; }
   let timers = [], fired = 0;
   const clear = () => { timers.forEach(clearTimeout); timers = []; };
   const stages = o.stages || [{ ms: 1000, fire: o.done }];
@@ -3169,12 +3350,11 @@ function paintDailyRows(rows) {
 const dailyFg = daily ? DS.createForegroundRefresh(daily, { afterRefresh: () => postDaily(true) }) : null;
 if (daily) {
   if (daily.source.kind === "native") { // app: the phone counter owns the all-day total; Start walk only times a session on top of it (Reset stays hidden)
-    $("dailyWalkBtn").hidden = false; $("dailyResetBtn").hidden = true; $("dailyRefreshBtn").hidden = false;
-    $("stepsLead").innerHTML = 'Step Equity: in the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone\'s step counter keeps your all-day total automatically, even when the app is closed. Tap Start walk to time a session: lock your phone or use other apps, steps still count. Refresh from phone pulls the latest total; today\'s total never goes down. Same login as washers.';
+    $("dailyWalkBtn").hidden = false; $("dailyResetBtn").hidden = true;
+    $("stepsLead").innerHTML = 'Step Equity: in the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone\'s step counter keeps your all-day total automatically, even when the app is closed. Tap Start walk to time a session: lock your phone or use other apps, steps still count. Today\'s total never goes down. Same login as washers.';
     $("walkLead").textContent = "Tap Start walk and the session clock runs on the phone's step counter. Lock your phone or use other apps; the session clock doesn't pause and steps still count. Hold to stop to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap.";
     dailyFg.run();
   }
-  $("dailyRefreshBtn").onclick = () => { if (walkLockOn && daily.source.kind !== "native") { $("dailyStatus").textContent = "Hold to stop first."; return; } daily.refreshNative().then(() => postDaily(true)); };
   $("dailyWalkBtn").onclick = async () => {
     if (daily.state().walking) { daily.stopWalk(); postDaily(true); } else { if (!requireSignIn("walk", () => $("dailyWalkBtn").onclick(), { practice: true })) return; await daily.startWalk(); }
   };

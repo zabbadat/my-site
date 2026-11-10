@@ -36,7 +36,7 @@ function page(o) {
   const RealDate = Date;
   class FakeDate extends RealDate { constructor(...a) { a.length ? super(...a) : super(now); } static now() { return now; } }
   const els = {}, docEv = {}, winEv = {}, saved = [], wake = { start: 0, stop: 0 };
-  const el = (id) => els[id] || (els[id] = { id, textContent: "", innerHTML: "", hidden: id === "dailyRefreshBtn", setAttribute() {} });
+  const el = (id) => els[id] || (els[id] = { id, textContent: "", innerHTML: "", hidden: false, setAttribute() {} });
   const store = { m: {}, getItem(k) { return this.m[k] ?? null; }, setItem(k, v) { this.m[k] = String(v); } };
   const doc = { hidden: false, get visibilityState() { return this.hidden ? "hidden" : "visible"; }, addEventListener: (t, f) => (docEv[t] = docEv[t] || []).push(f), getElementById: el };
   const win = { localStorage: store, document: doc, performance: { now: () => perf }, addEventListener: (t, f) => (winEv[t] = winEv[t] || []).push(f), removeEventListener: (t, f) => { winEv[t] = (winEv[t] || []).filter((x) => x !== f); },
@@ -85,9 +85,9 @@ function page(o) {
   let total = 4000, reads = 0;
   const plugin = { async getTodaySteps() { reads++; return { steps: total }; } };
   let p = page({ plugin }); await tick();
-  check("app: Start walk shown, Reset hidden, Refresh from phone shown", p.els.dailyWalkBtn.hidden === false && p.els.dailyResetBtn.hidden === true && p.els.dailyRefreshBtn.hidden === false);
+  check("app: Start walk shown, Reset hidden, no Refresh from phone button", p.els.dailyWalkBtn.hidden === false && p.els.dailyResetBtn.hidden === true && !html.includes("dailyRefreshBtn") && !html.includes("Refresh from phone"));
   check("app: button label 'Start walk'", p.els.dailyWalkBtn.textContent === "Start walk");
-  check("app: Step Equity lead describes the phone counter + Start walk", /all-day total automatically/.test(p.els.stepsLead.innerHTML) && /lock your phone or use other apps, steps still count/.test(p.els.stepsLead.innerHTML));
+  check("app: Step Equity lead describes the phone counter + Start walk, never goes down, no Refresh sentence", /all-day total automatically/.test(p.els.stepsLead.innerHTML) && /lock your phone or use other apps, steps still count/.test(p.els.stepsLead.innerHTML) && /Today's total never goes down/.test(p.els.stepsLead.innerHTML) && !/Refresh from phone/.test(p.els.stepsLead.innerHTML));
   check("app: Live walk sessions lead describes the app (no 'Hiding the page pauses')", /Tap Start walk/.test(p.els.walkLead.textContent) && !/Hiding the page/.test(p.els.walkLead.textContent));
   total = 4200;
   await p.click();
@@ -112,7 +112,7 @@ function page(o) {
 
   // ---- web unchanged
   const w = page({});
-  check("web: label 'Start live walk', Refresh hidden, web lead untouched", w.els.dailyWalkBtn.textContent === "Start live walk" && w.els.dailyRefreshBtn.hidden === true && !w.els.stepsLead);
+  check("web: label 'Start live walk', no Refresh button, web lead untouched", w.els.dailyWalkBtn.textContent === "Start live walk" && !html.includes("dailyRefreshBtn") && !w.els.stepsLead);
   await w.click();
   check("web: Start adds the DeviceMotion listener and keeps the screen awake", (w.winEv.devicemotion || []).length === 1 && w.wake.start === 1);
   w.adv(60000); await w.fireVis(true);

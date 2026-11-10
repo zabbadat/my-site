@@ -22,11 +22,25 @@
   function mergeNative(prev, total) { return Math.max(clampSteps(prev), clampSteps(total)); }
   var CACHE_KEY = "zabbadat-steps-cache";
   var WALK_KEY = "zabbadat-walk-live";
-  function readCache(store) {
-    try { var c = JSON.parse((store && store.getItem(CACHE_KEY)) || "null"); return c && typeof c === "object" ? c : null; } catch (e) { return null; }
+  function readCache(store, date) {
+    try {
+      var c = JSON.parse((store && store.getItem(CACHE_KEY)) || "null");
+      if (!c || typeof c !== "object") return null;
+      var today = date || localDateKey();
+      if (c.date && c.date !== today) return null;
+      if (!c.date && ET && c.at && c.at < ET.startMs()) return null;
+      if (!c.date && ET && !c.at) return null;
+      return c;
+    } catch (e) { return null; }
   }
   function writeCache(store, o) {
-    try { if (store) store.setItem(CACHE_KEY, JSON.stringify({ steps: clampSteps(o.steps), rawSteps: clampSteps(o.rawSteps != null ? o.rawSteps : o.steps), debug: o.debug || null, at: Date.now() })); } catch (e) {}
+    try {
+      if (!store) return;
+      store.setItem(CACHE_KEY, JSON.stringify({
+        steps: clampSteps(o.steps), rawSteps: clampSteps(o.rawSteps != null ? o.rawSteps : o.steps),
+        debug: o.debug || null, date: o.date || localDateKey(), at: Date.now()
+      }));
+    } catch (e) {}
   }
   function readWalk(store) {
     try { var c = JSON.parse((store && store.getItem(WALK_KEY)) || "null"); return c && c.walking ? c : null; } catch (e) { return null; }
@@ -97,7 +111,14 @@
     var cached0 = readCache(store);
     if (cached0 && cached0.steps > st.steps) { st.steps = clampSteps(cached0.steps); st.rawSteps = clampSteps(cached0.rawSteps); st.debug = cached0.debug; st.debugLine = debugLine(st.debug, st.steps); }
     function emit() { st.walking = walking; hooks.onChange && hooks.onChange(st); }
-    function rollDay() { var d = localDateKey(); if (d !== st.date) { st.date = d; st.steps = readLocal(store, d); det && det.reset(); } }
+    function rollDay() {
+      var d = localDateKey();
+      if (d !== st.date) {
+        st.date = d; st.steps = readLocal(store, d); st.rawSteps = 0; st.debug = null; st.debugLine = "";
+        det && det.reset();
+        try { if (store) store.removeItem(CACHE_KEY); } catch (e) {}
+      }
+    }
     function setSteps(n) { rollDay(); st.steps = nextDisplayed(st.steps, n); writeLocal(store, st.date, st.steps); writeCache(store, st); emit(); }
     function applyNativeReading(r, opts) {
       opts = opts || {};

@@ -14,7 +14,8 @@ check("Step Equity: one Reset button (dailyResetBtn, label 'Reset', same danger 
 check("Step Equity lead explains: stopping posts, Reset clears the session readout only, total never goes down", /stopping posts your steps to the daily board\. Reset clears the session readout only; today's total never goes down/.test(html));
 check("existing resets kept with the label 'Reset': washers resetBtn; push-ups have no Reset (sets auto-reset); plank keeps 'New hold' (behaviour unchanged)", /id="resetBtn" type="button">Reset</.test(html) && !/pushResetBtn/.test(html) && /id="plankAgainBtn" type="button" hidden>New hold</.test(html));
 check("main walk button cycle unchanged: 'Start live walk' -> 'Hold to stop' (1 s hold, pocket/walk lock) -> back to Start", /s\.walking \? "Hold to stop" : \(s\.kind === "native" \? "Start walk" : "Start live walk"\)/.test(html) && /bindHold\(\$\("dailyWalkBtn"\), \{ label: "Hold to stop"/.test(html) && /Hold to stop the walk\./.test(html));
-check("native app: Reset is hidden (the phone counter owns the all-day total; there is no session), Refresh from phone stays", /\$\("dailyResetBtn"\)\.hidden = true; \$\("dailyRefreshBtn"\)\.hidden = false/.test(html));
+check("native app: Reset is hidden; Refresh from phone is gone (automatic resume replaces it)", /\$\("dailyResetBtn"\)\.hidden = true/.test(html) && !/\$\("dailyRefreshBtn"\)/.test(html) && !/id="dailyRefreshBtn"/.test(html) && !/Refresh from phone/.test(html));
+check("app lead keeps 'today's total never goes down' and drops the Refresh sentence", /Today\\'s total never goes down/.test(html) && !/Refresh from phone pulls the latest total/.test(html));
 
 // ---- real postDaily + Reset handler
 const pdSrc = html.slice(html.indexOf("async function postDaily(quiet) {"), html.indexOf("function paintDailyRows(rows) {"));
