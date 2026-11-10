@@ -12,7 +12,9 @@
   var MAX_STEPS = 60000, NAME_MAX = 40, HANDLE_MAX = 21, KEY = "zabbadat-daily-steps-";
 
   function pad(n) { return (n < 10 ? "0" : "") + n; }
-  function localDateKey(d) { d = d || new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  // Day key = the America/New_York date (et-day.js): the day resets at Eastern midnight for everyone. Device-local date only if et-day.js is missing.
+  var ET = typeof module !== "undefined" && module.exports ? require("./et-day.js") : root && root.ZabbadatEtDay;
+  function localDateKey(d) { if (ET) return ET.key(d || Date.now()); d = d || new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function docId(uid, date) { return uid + "_" + date; }
   function clampSteps(n) { n = Math.floor(Number(n)); if (!isFinite(n) || n < 0) return 0; return Math.min(n, MAX_STEPS); }
   // Web adds walk steps to the day; native reports the day's total. Never go down.

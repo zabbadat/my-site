@@ -1,4 +1,5 @@
-// Camera starts in the Start tap: getUserMedia before loadCamLibs / ensurePose, preview first, real error text.
+// iOS app only (window.Capacitor native): camera starts in the Start tap, getUserMedia before loadCamLibs / ensurePose, preview first,
+// real error text. Browsers keep the original (dffac32) order and copy.
 // Covers openCam, startPlankCam, and tbCamOn. Run: node test/cam-start-first.test.js
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
@@ -7,15 +8,26 @@ const between = (a, b) => { const i = html.indexOf(a); if (i < 0) throw new Erro
 const fnSrc = (name) => between("function " + name + "(", "\n}");
 const sliceFn = (start, end) => { const i = html.indexOf(start); if (i < 0) throw new Error("missing " + start); return html.slice(i, html.indexOf(end, i)); };
 
-const openSrc = sliceFn("async function openCam()", "function stopCam()");
-const plankSrc = sliceFn("async function startPlankCam()", "$(\"plankCamBtn\").onclick");
-const tbSrc = sliceFn("async function tbCamOn(", "function tbCamOff()");
+const openAll = sliceFn("async function openCam()", "function stopCam()");
+const plankAll = sliceFn("async function startPlankCam()", "$(\"plankCamBtn\").onclick");
+const tbAll = sliceFn("async function tbCamOn(", "function tbCamOff()");
+const NATIVE_LINE = 'const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());';
+// native parts: after the browser block; browser parts: the dffac32 block
+const openSrc = openAll.slice(openAll.indexOf("\n  }\n  if (camOn && poseLoopOn)")), openWeb = openAll.slice(0, openAll.indexOf("\n  }\n  if (camOn && poseLoopOn)"));
+const tbSrc = tbAll.slice(tbAll.indexOf("    return;\n  }\n")), tbWeb = tbAll.slice(0, tbAll.indexOf("    return;\n  }\n"));
+const plankSrc = plankAll.slice(0, plankAll.indexOf("} else { // browser")), plankWeb = plankAll.slice(plankAll.indexOf("} else { // browser"));
 const startPushSrc = sliceFn("async function startPush()", "function beginPushClock()");
 const tbClick = between('$("tbCam").onclick = ', "\n");
 
 function first(src, a, b) { return src.indexOf(a) >= 0 && src.indexOf(b) >= 0 && src.indexOf(a) < src.indexOf(b); }
 
-check("only three getUserMedia calls in index.html (openCam, startPlankCam, tbCamOn)", (html.match(/getUserMedia/g) || []).length === 3);
+check("getUserMedia only in openCam, startPlankCam, tbCamOn (app + browser branch each: 6)", (html.match(/getUserMedia/g) || []).length === 6 && [openAll, plankAll, tbAll].every((x) => (x.match(/getUserMedia/g) || []).length === 2));
+check("each camera start branches on the native app check", [openAll, plankAll, tbAll, sliceFn("async function startPush()", "function beginPushClock()")].every((x) => x.includes(NATIVE_LINE)));
+check("browser openCam: dffac32 order (loadCamLibs, then getUserMedia) and copy", first(openWeb, "loadCamLibs", "getUserMedia") && openWeb.includes('"Camera or pose blocked."') && !openWeb.includes("camErrorText"));
+check("browser startPlankCam: dffac32 order and copy", first(plankWeb, "loadCamLibs", "getUserMedia") && /native \? camErrorText\(e\) : "Camera or pose blocked\."/.test(plankAll));
+check("browser tbCamOn: dffac32 order and copy", first(tbWeb, "loadCamLibs", "getUserMedia") && tbWeb.includes('"Camera unavailable: "'));
+check("browser startPush: dffac32 copy", (startPushSrc.match(/: "Camera or pose blocked\."/g) || []).length === 2);
+check("prefetch is app-only", /function prefetchCamLibs\(\) \{[^\n]*\n\s*if \(!\(typeof window !== "undefined" && window\.Capacitor/.test(html));
 check("openCam: getUserMedia before loadCamLibs and ensurePose", first(openSrc, "getUserMedia", "loadCamLibs") && first(openSrc, "getUserMedia", "ensurePose"));
 check("openCam: preview (#camWrap) shown before loadCamLibs", first(openSrc, '$("camWrap").hidden = false', "loadCamLibs"));
 check("startPlankCam: getUserMedia before loadCamLibs and ensurePose", first(plankSrc, "getUserMedia", "loadCamLibs") && first(plankSrc, "getUserMedia", "ensurePose"));
@@ -43,7 +55,7 @@ function env(o = {}) {
       if (o.camBlocked) { const err = new Error(o.camMsg || "Permission denied"); err.name = o.camErrName || "NotAllowedError"; throw err; }
       return stream;
     } } } };
-  ctx.window = ctx;
+  ctx.Capacitor = { isNativePlatform: () => true }; ctx.window = ctx; // the iOS app (camera-first path)
   vm.createContext(ctx);
   const STUBS = `
 let camOn = false, poseLoopOn = false, camStream = null, poseLoopId = 0, pushStarting = false, camWake = { start() { log.push("camWake:start"); return Promise.resolve(); }, stop() { log.push("camWake:stop"); return Promise.resolve(); } };

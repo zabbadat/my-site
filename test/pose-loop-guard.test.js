@@ -42,7 +42,7 @@ ${fnSrc("stopCam")}
   check("push: Start re-enabled when the set ends", e.els.pushStartBtn.disabled === false);
 
   // static guards
-  check("openCam is idempotent (returns early when the camera + loop already run)", /async function openCam\(\) \{\n\s*if \(camOn && poseLoopOn\) return true;/.test(html));
+  check("openCam is idempotent (returns early when the camera + loop already run)", /async function openCam\(\) \{\n\s*const native = [^\n]*\n\s*if \(!native\) \{[^\n]*\n\s*if \(camOn && poseLoopOn\) return true;/.test(html) && /\n  \}\n  if \(camOn && poseLoopOn\) return true;/.test(html.slice(html.indexOf("async function openCam()"), html.indexOf("function stopCam()"))));
   check("startPush ignores a tap while running or starting", /async function startPush\(\) \{\n\s*if \(pushState\.running \|\| pushStarting\) return;/.test(html));
   check("startPlankCam ignores a tap while running or starting", /async function startPlankCam\(\) \{\n\s*if \(plankLoop \|\| plankStarting\) return;/.test(html));
   check("plank loop starts with a fresh loop id", html.includes("plankLoop = true; plankTick(++plankLoopId);"));

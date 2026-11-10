@@ -1610,6 +1610,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/push-challenge.js"></script>
   <script src="/get-set.js"></script>
   <script src="/plank-session.js"></script>
+  <script src="/et-day.js"></script>
   <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>
   <script src="/walk-session.js"></script>
@@ -1764,6 +1765,7 @@ function publicName(s) {
 function isTonight(when, created) {
   const d = created instanceof Date ? created : (when ? new Date(when) : null);
   if (!d || Number.isNaN(d.getTime())) return false;
+  if (window.ZabbadatEtDay) return window.ZabbadatEtDay.key(d) === window.ZabbadatEtDay.key(); // same Eastern day
   const now = new Date();
   return d.getFullYear() === now.getFullYear() &&
     d.getMonth() === now.getMonth() &&
@@ -2048,7 +2050,7 @@ function localPush() {
 function pushTotalKey() {
   const d = new Date();
   const who = currentUser ? currentUser.uid : "guest";
-  return "zabbadat-push-total-" + who + "-" + d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  return "zabbadat-push-total-" + who + "-" + (typeof window !== "undefined" && window.ZabbadatEtDay ? window.ZabbadatEtDay.shortKey(d) : d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate()); // Eastern day (et-day.js), same unpadded Y-M-D key format
 }
 function savedPushTotal() {
   return Number(localStorage.getItem(pushTotalKey())) || 0;
@@ -2230,7 +2232,7 @@ function renderTutHistory() {
   const who = currentUser ? currentUser.uid : "guest", d = new Date();
   const entries = [];
   for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); entries.push([k, localStorage.getItem(k)]); }
-  const h = window.ZabbadatSession.tutHistory(entries, "zabbadat-push-tut-" + who + "-", d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(), "zabbadat-push-total-" + who + "-");
+  const h = window.ZabbadatSession.tutHistory(entries, "zabbadat-push-tut-" + who + "-", (typeof window !== "undefined" && window.ZabbadatEtDay ? window.ZabbadatEtDay.shortKey(d) : d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate()), "zabbadat-push-total-" + who + "-");
   const sig = JSON.stringify([who, h.total, h.totalReps, h.days.length, localStorage.getItem("zabbadat-push-sessions") || ""]);
   // live part (today) updates every tick; tables only when data changes
   $("tutToday").textContent = $("pushTut") ? $("pushTut").textContent : formatTut(h.today);
@@ -2389,6 +2391,7 @@ async function startPush() {
   else if (typeof clearPushPrompts === "function") clearPushPrompts(); // before this tap's own coaching line is spoken
 
   if (!requireSignIn("pushups", () => startPush(), { practice: true })) return;
+  const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
   if (pushWake) pushWake.start().catch(() => {}); // inside the tap, before any await or timer
   unlockGetSet(); // iOS: silent utterance inside the tap so the coaching lines and countdown can speak
   if (typeof plankLoop !== "undefined" && plankLoop) stopPlankCam();
@@ -2400,7 +2403,7 @@ async function startPush() {
     const restart = sessionPlan(coachKind) === "restart"; /* restart: short next-set intro, no first-time coaching */
     const placed = restart ? true : showPositioning(coachKind, $("pushStatus"), () => !live(), "place"); // spoken inside the tap
     if (restart && !camOn) $("pushStatus").textContent = "Starting camera…";
-    if (!camOn) { const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail(($("camNote") && $("camNote").textContent) || camErrorText()); }
+    if (!camOn) { const ok = await openCam(); if (!live()) { if (ok && camOn) stopCam(); return; } if (!ok) return fail(native ? (($("camNote") && $("camNote").textContent) || camErrorText()) : "Camera or pose blocked."); }
     if (!live()) return;
     if (!(await placed)) return;
     if (!live()) return;
@@ -2414,7 +2417,7 @@ async function startPush() {
     pushStarting = false;
     beginPushClock();
     syncPushStartBtn();
-  } catch (e) { fail(camErrorText(e)); }
+  } catch (e) { fail(native ? camErrorText(e) : "Camera or pose blocked."); }
 }
 function beginPushClock() {
   if (pushState.finished || pushState.running) return;
@@ -2494,7 +2497,8 @@ function loadCamLibs() {
   }
   return camLibsPromise;
 }
-function prefetchCamLibs() {
+function prefetchCamLibs() { // app only: browsers load the pose libraries on the Start tap, as before
+  if (!(typeof window !== "undefined" && window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform())) return;
   const go = () => { loadCamLibs().catch(() => {}); };
   if (typeof requestIdleCallback === "function") requestIdleCallback(go, { timeout: 4000 });
   else setTimeout(go, 1500);
@@ -2606,6 +2610,38 @@ function attachCam(vid, stream) {
   return vid.play ? Promise.resolve(vid.play()) : Promise.resolve();
 }
 async function openCam() {
+  const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
+  if (!native) { // browser: unchanged (dffac32)
+    if (camOn && poseLoopOn) return true; // already running: never a second stream or loop
+    if (camWake) camWake.start().catch(() => {});
+    try {
+      $("camNote").textContent = "Loading camera counter…";
+      await loadCamLibs();
+      $("camNote").textContent = "Loading pose model…";
+      if (camStream) camStream.getTracks().forEach((t) => t.stop());
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
+      const vid = $("camVid");
+      vid.srcObject = camStream;
+      vid.setAttribute("playsinline", "");
+      await vid.play();
+      await ensurePose();
+      camOn = true;
+      poseLoopOn = true;
+      resetPoseBaseline();
+      $("camWrap").hidden = false;
+      $("camStopBtn").hidden = false;
+      $("camNote").textContent = "Get into a push-press plank. After Go, your first full push-up counts.";
+      poseTick(++poseLoopId);
+      return true;
+    } catch (e) {
+      if (camWake && !camOn) camWake.stop().catch(() => {});
+      $("camNote").textContent = "Camera or pose blocked.";
+      return false;
+    }
+  }
   if (camOn && poseLoopOn) return true; // already running: never a second stream or loop
   if (camWake) camWake.start().catch(() => {});
   try {
@@ -2804,6 +2840,7 @@ function newPlankHold() {
 async function startPlankCam() {
   if (plankLoop || plankStarting) return; // idempotent: a running or starting camera ignores the tap
   if (!requireSignIn("plank", () => startPlankCam(), { practice: true })) return;
+  const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
   if (plankWake) plankWake.start().catch(() => {}); // inside the tap, before any await or timer
   unlockGetSet(); // iOS: silent utterance inside the tap so the coaching lines and countdown can speak
   const my = ++plankStartSeq; const live = () => my === plankStartSeq;
@@ -2816,16 +2853,29 @@ async function startPlankCam() {
     const placed = restart ? true : showPositioning("plank", $("plankStatus"), () => !live(), "place"); // spoken inside the tap
     if (restart) $("plankStatus").textContent = "Starting camera…";
     if ($("plankStatus").style) $("plankStatus").style.whiteSpace = "pre-line";
-    if (plankStream) { stopCamTracks(plankStream); plankStream = null; }
-    const stream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
-    if (!live()) { stopCamTracks(stream); return; }
-    plankStream = stream;
-    const vid = $("plankVid"); await attachCam(vid, plankStream);
-    $("plankWrap").hidden = false;
-    await loadCamLibs();
-    if (!live()) return;
-    await ensurePose();
-    if (!live()) return;
+    if (native) { // app: camera first, inside the tap, then the pose libraries
+      if (plankStream) { stopCamTracks(plankStream); plankStream = null; }
+      const stream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+      if (!live()) { stopCamTracks(stream); return; }
+      plankStream = stream;
+      const vid = $("plankVid"); await attachCam(vid, plankStream);
+      $("plankWrap").hidden = false;
+      await loadCamLibs();
+      if (!live()) return;
+      await ensurePose();
+      if (!live()) return;
+    } else { // browser: unchanged (dffac32)
+      await loadCamLibs();
+      if (!live()) return;
+      if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      if (!live()) { stream.getTracks().forEach((t) => t.stop()); return; }
+      plankStream = stream;
+      const vid = $("plankVid"); vid.srcObject = plankStream; await vid.play();
+      await ensurePose();
+      if (!live()) return;
+      $("plankWrap").hidden = false;
+    }
     if (!(await placed)) return;
     if (!live()) return;
     if (!restart && !(await showPositioning("plank", $("plankStatus"), () => !live(), "criteria"))) return;
@@ -2839,7 +2889,7 @@ async function startPlankCam() {
     $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts when you start a proper plank. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.";
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once after Go on a fresh start */
     plankLoop = true; plankTick(++plankLoopId);
-  } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = camErrorText(e); } }
+  } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = native ? camErrorText(e) : "Camera or pose blocked."; } }
 }
 let plankStarting = false, plankStartSeq = 0;
 function cancelPlankStart() {
@@ -3015,7 +3065,8 @@ function paintWalkRows(rows) {
   if (!WS) return;
   if (rows) walkRows = rows;
   const d = new Date(); d.setHours(0, 0, 0, 0);
-  const ranked = WS.rankSessions(walkRows, 20, walkView === "today" ? d.getTime() : 0);
+  const dayStart = window.ZabbadatEtDay ? window.ZabbadatEtDay.startMs() : d.getTime(); // "Today" = since Eastern midnight
+  const ranked = WS.rankSessions(walkRows, 20, walkView === "today" ? dayStart : 0);
   $("walkBoardBody").innerHTML = ranked.length
     ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${WS.formatClock(r.ms)}</td><td>${Number(r.steps).toLocaleString()}</td></tr>`).join("")
     : `<tr><td colspan="4">${walkView === "today" ? "No sessions logged today yet." : "No sessions logged yet."}</td></tr>`;
@@ -3712,6 +3763,18 @@ function tbGoLive(r) {
   tbStat(tbStream ? "Go! Keep repping." : "Camera is off: turn it on to stay in the battle.");
 }
 async function tbCamOn(placed) {
+  const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
+  if (!native) { // browser: unchanged (dffac32)
+    try {
+      if (!placed) $("tbCamNote").textContent = "Loading camera counter…"; await loadCamLibs();
+      tbStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      const v = $("tbVid"); v.srcObject = tbStream; await v.play(); await ensurePose();
+      tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
+      $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
+      if (placed) { tbCoaching = true; await placed; await showPositioning("tut", $("tbCamNote"), () => !tbLoop, "criteria"); tbCoaching = false; }
+    } catch (e) { $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
+    return;
+  }
   try {
     if (!placed) $("tbCamNote").textContent = "Starting camera…";
     if (tbStream) { stopCamTracks(tbStream); tbStream = null; }

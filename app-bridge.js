@@ -7,7 +7,7 @@
   var P = C.Plugins || {};
   var BEST = "zabbadat-plank-best";
   function pushToday() {
-    var n = 0, d = new Date(), tail = "-" + d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+    var n = 0, d = new Date(), E = window.ZabbadatEtDay, tail = "-" + (E ? E.shortKey() : d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate()); // Eastern day, same key format as index.html pushTotalKey
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
       if (k && k.indexOf("zabbadat-push-total-") === 0 && k.slice(-tail.length) === tail) n = Math.max(n, Number(localStorage.getItem(k)) || 0);

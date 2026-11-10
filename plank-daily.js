@@ -6,7 +6,9 @@
   "use strict";
   var MIN_SET_SEC = 10, CAP = { sets: 100, totalSec: 14400, bestSec: 7200 }, KEY = "zabbadat-plank-days";
   function pad(n) { return (n < 10 ? "0" : "") + n; }
-  function localDateKey(d) { d = d || new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  // Day key = the America/New_York date (et-day.js): the day resets at Eastern midnight for everyone. Device-local date only if et-day.js is missing.
+  var ET = typeof module !== "undefined" && module.exports ? require("./et-day.js") : root && root.ZabbadatEtDay;
+  function localDateKey(d) { if (ET) return ET.key(d || Date.now()); d = d || new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function docId(uid, date) { return uid + "_" + date; }
   function holdSec(ms) { var s = Math.floor((Number(ms) || 0) / 1000); return s > 0 ? s : 0; }
   function countsAsSet(ms) { return holdSec(ms) >= MIN_SET_SEC; }
