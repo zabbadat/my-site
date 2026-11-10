@@ -9,6 +9,16 @@
  *   the second signal is skipped and the main signal decides alone.
  * Smoothing: speed-adaptive One Euro filter (opts.filter = "ema" gives a fixed EMA with tauMs, for comparison).
  * Zero calibration: the first real dip sets the top and counts as rep 1.
+ * App mode (opts.app = true, passed only inside the Capacitor app; browsers never set it):
+ *   - Shoulders AND arms: when both elbows are clearly visible (elbow confidence >= noseMin), the elbow angle
+ *     (shoulder-elbow-wrist) is a third signal, learned from the user's own first rep like the wrist signal:
+ *     the rep must bend it at least reachFrac of the user's range ("not low enough") and the arms must open
+ *     back to the top (upRom of the range, the same hysteresis as the main signal) before the rep is credited on
+ *     the way up. Going back down without opening the arms refuses the rep ("didn't lock out").
+ *   - No speed refusal: a rep is never refused for taking longer than maxRepMs (6 s). A stall far longer than any
+ *     rep (3 x topWinMs) only re-bases the top quietly.
+ *   - Every refused rep carries a short reason in result.refused (shown and spoken by the app).
+ *   Browsers (opts.app unset): exactly the original behaviour.
  * Usage: const c = ZabbadatPush.createCounter();
  *        const r = c.update(keypoints, timeMs, frameWidth);  // r.counted, r.status, r.phase
  */
@@ -46,6 +56,9 @@
     learnRate: 0.05,      // how fast the face->shoulders mapping learns while the face is visible
     handBackMs: 600       // when the face returns, the leftover offset fades over this long
   };
+  // opts.app (not a DEFAULT, so browsers' DEFAULTS stay pinned): app mode, see the header. Only the Capacitor app sets it.
+  // App-mode refusal reasons (short: shown on screen and spoken).
+  var REFUSE = { low: "Not counted: not low enough", lock: "Not counted: didn't lock out", fast: "Not counted: too fast" };
 
   // One Euro filter (Casiez et al.): low cutoff at rest (kills jitter), cutoff rises with speed (kills lag).
   function oneEuro(o) {
@@ -77,12 +90,12 @@
     var o = {}, k;
     for (k in DEFAULTS) o[k] = DEFAULTS[k];
     for (k in (opts || {})) o[k] = opts[k];
-    var s, fY, fQ;
+    var s, fY, fQ, fA;
 
     function mkFilter() { return o.filter === "ema" ? emaFilter(o.tauMs) : oneEuro(o); }
 
     function reset() {
-      fY = mkFilter(); fQ = mkFilter();
+      fY = mkFilter(); fQ = mkFilter(); fA = mkFilter();
       s = {
         held: {},             // name -> {x,y,t}
         smooth: null, lastT: null, glitchSince: null, gref: null,
@@ -93,6 +106,7 @@
         topQ: null, bottomQ: null, qTopSamples: [], qs: null, minQ: null,
         stage: "up", needTop: false, repStart: null, lastTopT: null, bottomT: null, bottomMs: 0,
         peak: null, repTopMin: null, noseOff: null, map: null, fbRaw: false, fbOff: 0, hand: null, lastY: null, roll: [], rollT: null, swS: null, topSize: null,
+        as: null, topA: null, bottomA: null, aTopSamples: [], minA: null, maxA: null, armsUp: false, refused: null,
         reps: 0, status: "Start your push-ups"
       };
     }
@@ -177,12 +191,39 @@
         var wr = point(kps, (i ? "right" : "left") + "_wrist", t);
         if (wr) rr.push(dist(wr, sh) / swPx);
       });
-      return { y: y, reach: avg(rr), sw: swPx / w };
+      var ang = null;
+      if (o.app) { // elbow angle (0..1 = 0..180 degrees), only from clearly visible elbows
+        var aa = [];
+        [ls, rs].forEach(function (sh, i) {
+          var side = i ? "right" : "left", el = null, wr = point(kps, side + "_wrist", t);
+          for (var q = 0; q < kps.length; q++) if (kps[q].name === side + "_elbow") { el = kps[q]; break; }
+          if (!el || !wr || !(el.score == null || el.score >= o.noseMin)) return;
+          var ax = sh.x - el.x, ay = sh.y - el.y, bx = wr.x - el.x, by = wr.y - el.y, la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+          if (!(la > 1 && lb > 1)) return;
+          aa.push(Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb)))) / Math.PI);
+        });
+        if (aa.length === 2) ang = avg(aa);
+      }
+      return { y: y, reach: avg(rr), sw: swPx / w, ang: ang };
     }
 
     function result(counted, repMs) {
-      return { counted: counted, repMs: counted ? repMs : 0, reps: s.reps, phase: s.phase, status: s.status, stage: s.stage,
+      var r = { counted: counted, repMs: counted ? repMs : 0, reps: s.reps, phase: s.phase, status: s.status, stage: s.stage,
                rom: s.top != null && s.bottom != null && s.smooth != null ? (s.smooth - s.top) / (s.bottom - s.top) : null };
+      if (o.app) { r.refused = s.refused; s.refused = null; }
+      return r;
+    }
+    function refuse(why) { s.refused = REFUSE[why]; s.status = REFUSE[why]; }
+
+    // App only: elbow-angle gate, same shape as reachGate. 'ok' = bent enough and opened back to the top,
+    // 'wait' = bent enough, arms not open yet, 'bad' = never bent enough, 'skip' = elbows not clearly visible.
+    function armGate() {
+      if (!o.app || s.topA == null || s.bottomA == null || s.minA == null || s.as == null) return "skip";
+      var span = s.topA - s.bottomA;
+      if (!(span > 0.05)) return "skip";
+      if (s.minA > s.topA - o.reachFrac * span) return "bad";
+      if (s.as < s.bottomA + (1 - o.upRom) * span) return "wait";
+      return "ok";
     }
 
     // Wrist-to-shoulder gate for the rep in progress. 'ok' = closed enough and opened again, 'wait' = closed enough
@@ -214,10 +255,11 @@
       s.glitchSince = null;
       s.gref = m.sw;
       s.lastGoodT = t;
-      if (accepted || s.smooth == null) { fY.reset(m.y, t); fQ.reset(m.reach == null ? 0 : m.reach, t); s.qs = m.reach; s.swS = m.sw; }
+      if (accepted || s.smooth == null) { fY.reset(m.y, t); fQ.reset(m.reach == null ? 0 : m.reach, t); s.qs = m.reach; s.swS = m.sw; if (o.app) { if (m.ang != null) fA.reset(m.ang, t); s.as = m.ang; } }
       var v = s.smooth = fY.f(m.y, t);
       s.swS += 0.3 * (m.sw - s.swS);
       if (m.reach != null) s.qs = s.qs == null ? m.reach : fQ.f(m.reach, t);
+      if (o.app) { if (m.ang == null) s.as = null; else if (s.as == null) { fA.reset(m.ang, t); s.as = m.ang; } else s.as = fA.f(m.ang, t); }
       s.lastT = t;
       var counted = false;
 
@@ -227,15 +269,17 @@
       // upward drift follows at once.
       if (s.phase === "calibrate") {
         if (s.qs != null && (s.base == null || v - s.base <= o.steadyTol)) { s.qTopSamples.push(s.qs); if (s.qTopSamples.length > 60) s.qTopSamples.shift(); }
+        if (o.app && s.as != null && (s.base == null || v - s.base <= o.steadyTol)) { s.aTopSamples.push(s.as); if (s.aTopSamples.length > 60) s.aTopSamples.shift(); }
         if (s.base == null) s.base = v;
         if (s.repStart == null) {
           if (v < s.base) s.base = v;
-          else if (v - s.base > o.minDepth * 0.5) { s.repStart = t; s.peak = v; s.minQ = s.qs; s.win = []; }
+          else if (v - s.base > o.minDepth * 0.5) { s.repStart = t; s.peak = v; s.minQ = s.qs; s.minA = s.as; s.win = []; }
           s.status = "Start your push-ups";
           return result(false);
         }
         if (v > s.peak) s.peak = v;
         if (s.qs != null && (s.minQ == null || s.qs < s.minQ)) s.minQ = s.qs;
+        if (s.as != null && (s.minA == null || s.as < s.minA)) s.minA = s.as;
         s.win.push([t, v]); while (s.win.length && t - s.win[0][0] > o.calibMs) s.win.shift();
         var dv = s.win.map(function (x) { return x[1]; }), dlo = Math.min.apply(null, dv), dhi = Math.max.apply(null, dv), dmean = (dlo + dhi) / 2;
         // Parked at a new level (steady calibMs, >= 2 x calibMs into the "dip"): only a CANDIDATE start level. A slow
@@ -244,21 +288,22 @@
         var parked = t - s.win[0][0] >= o.calibMs * 0.9 && dhi - dlo <= o.steadyTol * 2 && t - s.repStart >= o.calibMs * 2;
         if (parked && s.parkLv == null) s.parkLv = dmean;
         if (s.parkLv != null && v - s.parkLv > o.minDepth * 0.5) {
-          s.base = s.parkLv; s.parkLv = null; s.repStart = t; s.peak = v; s.minQ = s.qs; s.qTopSamples = []; s.win = [[t, v]];
+          s.base = s.parkLv; s.parkLv = null; s.repStart = t; s.peak = v; s.minQ = s.qs; s.minA = s.as; s.qTopSamples = []; s.aTopSamples = []; s.win = [[t, v]];
           return result(false);
         }
         if (parked && t - s.repStart >= o.maxRepMs) {
-          s.base = dmean; s.parkLv = null; s.repStart = null; s.peak = null; s.minQ = null; s.qTopSamples = []; s.win = [];
+          s.base = dmean; s.parkLv = null; s.repStart = null; s.peak = null; s.minQ = null; s.minA = null; s.qTopSamples = []; s.aTopSamples = []; s.win = [];
           return result(false);
         }
         if (v < s.base + o.upRom * (s.peak - s.base)) {
           var dd = s.peak - s.base, ddur = t - s.repStart;
-          if (dd >= o.minDepth && ddur >= o.minRepMs && ddur <= o.maxRepMs * 2) {
+          if (dd >= o.minDepth && ddur >= o.minRepMs && (o.app || ddur <= o.maxRepMs * 2)) {
             s.top = s.base; s.bottom = s.peak; s.topQ = avg(s.qTopSamples.slice(-30)); s.bottomQ = s.minQ;
+            if (o.app) { s.topA = avg(s.aTopSamples.slice(-30)); s.bottomA = s.minA; if (s.topA != null && s.bottomA != null && !(s.topA - s.bottomA > 0.05)) { s.topA = null; s.bottomA = null; } }
             s.phase = "ready"; s.stage = "up"; s.reps += 1; counted = true; s.lastRepMs = ddur; s.lastTopT = t; s.needTop = false; s.roll = []; s.topSize = s.swS;
             s.status = "Counted " + s.reps;
           } else s.status = dd < o.minDepth ? "Go a little lower" : "Start your push-ups";
-          s.repStart = null; s.peak = null; s.minQ = null; s.win = []; s.parkLv = null;
+          s.repStart = null; s.peak = null; s.minQ = null; s.minA = null; s.win = []; s.parkLv = null;
         }
         return result(counted, s.lastRepMs);
       }
@@ -272,13 +317,13 @@
       if (s.stage === "up" && s.repStart == null && rom < o.upRom) s.topSize += 0.1 * (s.swS - s.topSize);
       if (rom < 0 && s.stage === "up" && s.repStart == null) { var mv = (1 - Math.exp(-dtT / o.topFollowMs)) * (v - s.top); s.top += mv; s.bottom += mv; }
       s.roll.push([t, v]); while (s.roll.length && t - s.roll[0][0] > o.topWinMs) s.roll.shift();
-      if (s.roll.length > 4 && t - s.roll[0][0] >= o.topWinMs * 0.95) {
+      if (s.roll.length > 4 && t - s.roll[0][0] >= o.topWinMs * 0.95 && (!o.app || s.repStart == null || t - s.repStart > o.topWinMs * 3)) {
         var rs2 = s.roll.map(function (x) { return x[1]; }), q10 = function (a) { a = a.slice().sort(function (x, y) { return x - y; }); return a[Math.floor(a.length * 0.1)]; };
         var rmin = q10(rs2); // 10th percentile: ignores a few transition frames
         if ((rmin - s.top) / range > 0.35) {
           rmin = q10(rs2.slice(Math.floor(rs2.length / 2))); // new top from the latter half only (the first part may still hold the move itself)
           s.bottom = rmin + range; s.top = rmin; s.roll = []; s.rebased = (s.rebased || 0) + 1;
-          s.stage = "up"; s.repStart = null; s.peak = null; s.needTop = false; s.repTopMin = null;
+          s.stage = "up"; s.repStart = null; s.peak = null; s.needTop = false; s.repTopMin = null; s.armsUp = false;
         }
       }
       range = s.bottom - s.top; rom = (v - s.top) / range;
@@ -287,20 +332,31 @@
         if (rom < o.upRom) s.needTop = false;
         if (s.needTop) return result(false);
         if (rom < o.upRom) { s.repTopMin = s.repTopMin == null ? v : Math.min(s.repTopMin, v); s.repStart = null; }
-        else if (s.repStart == null) { s.repStart = s.lastTopT != null ? s.lastTopT : t; s.peak = v; s.minQ = s.qs; }
+        else if (s.repStart == null) { s.repStart = s.lastTopT != null ? s.lastTopT : t; s.peak = v; s.minQ = s.qs; s.minA = s.as; }
+        if (o.app && s.repStart == null && s.as != null) s.maxA = s.maxA == null ? s.as : Math.max(s.maxA, s.as);
         if (s.repStart != null) {
           if (v > s.peak) s.peak = v;
           if (s.qs != null && (s.minQ == null || s.qs < s.minQ)) s.minQ = s.qs;
+          if (s.as != null && (s.minA == null || s.as < s.minA)) s.minA = s.as;
         }
-        if (rom > o.downRom && s.repStart != null) { s.stage = "down"; s.bottomT = t; s.bottomMs = 0; }
-        else if (s.repStart != null && t - s.repStart > o.maxRepMs) { s.repStart = null; s.needTop = true; }
+        if (rom > o.downRom && s.repStart != null) { s.stage = "down"; s.bottomT = t; s.bottomMs = 0; s.armsUp = false; }
+        else if (!o.app && s.repStart != null && t - s.repStart > o.maxRepMs) { s.repStart = null; s.needTop = true; }
       } else {
         if (v > s.peak) s.peak = v;
         if (s.qs != null && (s.minQ == null || s.qs < s.minQ)) s.minQ = s.qs;
+        if (s.as != null && (s.minA == null || s.as < s.minA)) s.minA = s.as;
         if (rom > o.downRom) { s.bottomMs += t - s.bottomT; } s.bottomT = t;
-        var gate = rom < o.upRom ? reachGate() : null;
-        if (rom < o.upRom && gate !== "wait") {
-          var d = t - s.repStart, ok = d >= o.minRepMs && d <= o.maxRepMs && s.bottomMs >= o.minBottomMs && gate !== "bad";
+        var gate = rom < o.upRom ? reachGate() : null, ag = o.app && rom < o.upRom ? armGate() : "skip";
+        if (o.app && ag === "wait" && gate !== "bad") {
+          // Body is back up but the arms are still bent: wait for the lockout. Going back down first refuses the rep.
+          s.armsUp = true; s.status = "Lock out your arms";
+        } else if (o.app && s.armsUp && rom > o.downRom) {
+          refuse("lock");
+          if (s.topA != null && s.maxA != null) s.topA += o.adapt * (s.maxA - s.topA); // learn a looser lockout if this keeps happening
+          s.stage = "up"; s.repStart = null; s.repTopMin = null; s.lastTopT = t; s.armsUp = false; s.maxA = null;
+          return result(false);
+        } else if (rom < o.upRom && gate !== "wait") {
+          var d = t - s.repStart, ok = d >= o.minRepMs && (o.app || d <= o.maxRepMs) && s.bottomMs >= o.minBottomMs && gate !== "bad" && ag !== "bad";
           if (ok) {
             s.reps += 1; counted = true; s.status = "Counted " + s.reps; s.lastRepMs = d;
             // slow adaptation with outlier rejection (no ever-growing range)
@@ -308,9 +364,11 @@
             if (pr > 0.7 && pr < 1.6) s.bottom += o.adapt * (s.peak - s.bottom);
             if (s.repTopMin != null) { var tr = (s.repTopMin - s.top) / range; if (tr > -0.4 && tr < 0.3) s.top += o.adapt * (s.repTopMin - s.top); }
             if (s.minQ != null && s.bottomQ != null) s.bottomQ += o.adapt * (s.minQ - s.bottomQ);
-          } else s.status = d > o.maxRepMs ? "Too slow, not counted" : gate === "bad" ? "Not counted: bring your hands closer to your shoulders" : "Not counted: go all the way down";
-          s.stage = "up"; s.repStart = null; s.repTopMin = null; s.lastTopT = t;
-        } else if (t - s.repStart > o.maxRepMs) { s.stage = "up"; s.repStart = null; s.needTop = true; s.status = "Too slow, not counted"; }
+            if (o.app && s.minA != null && s.bottomA != null && ag === "ok") { s.bottomA += o.adapt * (s.minA - s.bottomA); if (s.maxA != null) s.topA += o.adapt * (s.maxA - s.topA); }
+          } else if (o.app) refuse(d < o.minRepMs ? "fast" : "low");
+          else s.status = d > o.maxRepMs ? "Too slow, not counted" : gate === "bad" ? "Not counted: bring your hands closer to your shoulders" : "Not counted: go all the way down";
+          s.stage = "up"; s.repStart = null; s.repTopMin = null; s.lastTopT = t; s.armsUp = false; s.maxA = null;
+        } else if (!o.app && t - s.repStart > o.maxRepMs) { s.stage = "up"; s.repStart = null; s.needTop = true; s.status = "Too slow, not counted"; }
       }
       if (!counted && /view|Start your/i.test(s.status)) s.status = "Ready";
       return result(counted, s.lastRepMs);
@@ -332,7 +390,7 @@
     return h ? h + ":" + (m < 10 ? "0" : "") + m + ":" + ss : m + ":" + ss;
   }
 
-  var api = { createCounter: createCounter, oneEuro: oneEuro, DEFAULTS: DEFAULTS, tutForRep: tutForRep, formatTut: formatTut };
+  var api = { createCounter: createCounter, oneEuro: oneEuro, DEFAULTS: DEFAULTS, REFUSE: REFUSE, tutForRep: tutForRep, formatTut: formatTut };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatPush = api;
 })(this);

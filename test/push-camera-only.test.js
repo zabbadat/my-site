@@ -11,7 +11,7 @@ check("no stick figure / skeleton overlay: no canvas inside the push-up camera b
 check("no drawing code on the page (no canvas context, keypoint or skeleton drawing)", !/getContext\(|drawKeypoints|drawSkeleton|skeleton|stick ?figure|strokeStyle|fillRect|drawImage/i.test(html));
 check("MoveNet runs with enableSmoothing: false (the counter's One Euro filter is the only smoother)", /enableSmoothing:\s*false/.test(solo) && !/enableSmoothing:\s*true/.test(html));
 check("solo: frame stamped BEFORE inference and that time is what the counter gets", /const tFrame = performance\.now\(\);[^\n]*\n\s*const poses = await det\.estimatePoses/.test(solo) && /pushCounter\.update\([^)]*tFrame/.test(solo));
-check("TUT battle: same, stamped before inference", /tFrame = performance\.now\(\), poses = await poseDetector\.estimatePoses/.test(tbPose) && /tbCounter\.update\(kps, now, w\)/.test(tbPose) && /now = tFrame/.test(tbPose));
+check("TUT battle: same, stamped before inference", /tFrame = performance\.now\(\), poses = await \(pushVisionDet \|\| poseDetector\)\.estimatePoses/.test(tbPose) && /tbCounter\.update\(kps, now, w\)/.test(tbPose) && /now = tFrame/.test(tbPose));
 check("posture guards get the counter's topSize (shoulder width), not the signal level", /postureGuard\.update\([^\n]*st\.topSize/.test(html) && /tbJudge\.update\([^\n]*st\.topSize/.test(html));
 const srcs = ["push-counter.js", "push-session.js", "push-challenge.js"].map(read).join("\n");
 check("camera only: no motion / orientation / proximity sensor use in the push-up counter, session or challenge code", !/devicemotion|deviceorientation|accelerometer|gyroscope|Sensor\b|proximity/i.test(srcs));
