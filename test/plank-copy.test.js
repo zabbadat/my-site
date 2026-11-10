@@ -23,18 +23,18 @@ check("plank stays side-view only: no front-view or placement choice text", !/fr
 check("push-up copy is unchanged (leaned-up front-facing)", G.COACH.pushups.place === "Lean your phone up in front of you, camera facing you." && G.COACH.pushups.criteria === "Shoulders and hands in frame. Go all the way down and back up." && G.COACH.tut.criteria === "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up.");
 check("plank page: the Plank House board and ZAB lines are untouched", /Every 60 seconds of plank earns 1 <span class="zab">ZAB/.test(plank) && /honor system, not a form judge/.test(plank));
 check("no Ready / get set / go wording left in the plank intro (index set-up + status, plank.html, spoken criteria)", ![setup, status, plank, C.criteria].some((x) => /says go|say go|get set|"Ready"/.test(x)) && /Clock starts/.test(status) && !/3, 2, 1, Hold/.test(status));
-check("clock and next-set spoken lines say when timing starts", C.clock === "Clock starts when you start a proper plank." && C.next === "Get ready for another set. Clock starts when you start a proper plank.");
+check("clock line says when timing starts; next-set line is the shared go-cue setup", C.clock === "Clock starts when you start a proper plank." && C.next === "Set up, go on three.");
 check("plank page no longer previews countdown and explains proper plank", !/3, 2, 1, Hold/.test(plank) && /Clock starts when you start a proper plank/.test(plank));
 // Exercise the actual New hold handler with an already-running camera, not a camera-start stub.
 const vm = require("vm"), els = {}, said = []; let now = 100;
 const ctx = { performance: { now: () => now }, $: (id) => els[id] || (els[id] = {}), window: { ZabbadatPlank: { createPlankHold: () => ({}) }, ZabbadatGetSet: { COACH: G.COACH, plankSpeak: (s) => said.push(s) } } };
 vm.createContext(ctx);
-vm.runInContext('let plankLoop = true, plankHold, plankSaved = true, plankCueSeq = 9, plankLeadUntil = 0; const PLANK_LEAD_MS = 5500;\n' + html.match(/function newPlankHold\(\) \{[\s\S]*?\n\}/)[0] + '\n' + html.split('\n').find((l) => l.startsWith('$("plankAgainBtn").onclick = ')), ctx);
+vm.runInContext('let plankLoop = true, plankHold, plankSaved = true, plankCueSeq = 9, plankLeadUntil = 0; const PLANK_LEAD_MS = 4000;\n' + html.match(/function newPlankHold\(\) \{[\s\S]*?\n\}/)[0] + '\n' + html.split('\n').find((l) => l.startsWith('$("plankAgainBtn").onclick = ')), ctx);
 ctx.$("plankAgainBtn").onclick();
-check("New hold resets a single 5.5 s lead-in and clears saved/cue state", vm.runInContext("plankLeadUntil === 5600 && !plankSaved && plankCueSeq === 0", ctx));
+check("New hold resets a single 4 s lead-in and clears saved/cue state", vm.runInContext("plankLeadUntil === 4100 && !plankSaved && plankCueSeq === 0", ctx));
 check("New hold speaks next-set intro and restores proper-plank status without camera calls", said.length === 1 && said[0] === C.next && /Clock starts when you start a proper plank/.test(ctx.$("plankStatus").textContent));
 now = 20000; ctx.$("plankAgainBtn").onclick();
-check("every subsequent hold gets a fresh lead-in, not an expired or stacked one", vm.runInContext("plankLeadUntil === 25500", ctx) && said.length === 2);
+check("every subsequent hold gets a fresh lead-in, not an expired or stacked one", vm.runInContext("plankLeadUntil === 24000", ctx) && said.length === 2);
 vm.runInContext("plankLoop = false", ctx); ctx.$("plankAgainBtn").onclick();
 check("New hold does nothing with the camera stopped", said.length === 2);
 const fails = R.filter((x) => !x).length; console.log(`\n${R.length - fails}/${R.length} passed`); process.exit(fails ? 1 : 0);

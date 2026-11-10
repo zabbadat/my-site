@@ -8,7 +8,7 @@ v.phase("tut:K7QX:99000", "countdown"); check("rematch / new start speaks again"
 const late = []; const v2 = G.makeBattleVoice({ speak: (w) => late.push(w) }); v2.phase("x", "live"); check("rejoin after GO: silent", late.length === 0);
 const v3 = G.makeBattleVoice({ speak: () => { throw new Error("no speech"); } }); let ok = true; try { v3.phase("y", "countdown"); v3.phase("y", "go"); } catch (e) { ok = false; } check("silent fallback when speech throws", ok);
 const html = fs.readFileSync(__dirname + "/../index.html", "utf8");
-check("wired in Plank, TUT (shared countdown voice) and Zabba Washer Battle ticks", /pbVoice\.phase\("plank:/.test(html) && /tbVoice\.phase\("tut:/.test(html) && /battleVoice\.phase\("washers:/.test(html));
+check("wired in Plank, TUT (shared countdown voice) and Zabba Washer Battle ticks", /pbVoice\.phase\("plank:/.test(html) && /tbNextSetCue\(r, st\)/.test(html) && /battleVoice\.phase\("washers:/.test(html));
 check("unlocked inside each I'm ready tap (Plank, TUT via unlockGetSet; Washer via battleVoice)", (html.match(/return; unlockGetSet\(\);/g) || []).length >= 2 && /\$\("wbReady"\)\.onclick = async \(\) => \{ if \(!requireSignIn\("washer battle"\)\) return; if \(battleVoice\) battleVoice\.unlock\(\);/.test(html));
 check("TUT battle reps spoken counting up", /tbRepVoice\.say\(String\(c\.reps\)\)/.test(html));
 const pass = R.filter(Boolean).length; console.log(`${pass}/${R.length} passed`); process.exit(pass === R.length ? 0 : 1);

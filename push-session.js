@@ -18,7 +18,7 @@
   function setsToAdd(reps) { return Number(reps) > 0 ? 1 : 0; }
   function canSwitchMode(ps) { return !ps.running && !(ps.elapsed > 0 || ps.reps > 0) || !!ps.finished; }
 
-  var GUARD = { minScore: 0.4, holdMs: 500, rearmMs: 300, kneeAngle: 130, upright: 2, shrink: 0.55 };
+  var GUARD = { minScore: 0.4, holdMs: 500, rearmMs: 300, kneeAngle: 130, foldFrac: 0.45, upright: 2, shrink: 0.55 };
   function pt(kps, name, min) {
     for (var i = 0; i < (kps || []).length; i++) {
       var k = kps[i];
@@ -31,10 +31,27 @@
     var d = Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y);
     return d ? Math.acos(Math.max(-1, Math.min(1, (v1x * v2x + v1y * v2y) / d))) * 180 / Math.PI : null;
   }
-  // Classify one frame: "standing", "knees", "ok" (plank, confident) or null (uncertain).
+  // Front-facing kneel / sit-back: hips have dropped to roughly knee height. Used when the side-view
+  // hip-knee-ankle angle is missing or stays near 180° because the bend is into the camera (depth).
+  // scale is shoulder width or topWidth. Tight on purpose so a foreshortened plank (knees farther and
+  // lower than the hips) does not trip it.
+  function foldedLegs(hip, kn, an, o, scale) {
+    if (!hip || !kn) return false;
+    var s = scale > 1 ? scale : 80;
+    var gap = Math.abs((kn.y || 0) - (hip.y || 0));
+    return gap < (o.foldFrac || 0.45) * s;
+  }
+  function minKnee3D(k3) {
+    if (!k3) return null;
+    var vals = [k3.left, k3.right, k3.L, k3.R].map(Number).filter(function (n) { return isFinite(n); });
+    return vals.length ? Math.min.apply(null, vals) : null;
+  }
+    // Classify one frame: "standing", "knees", "ok" (plank, confident) or null (uncertain).
   function classify(kps, topWidth, o) {
     o = o || GUARD;
     var ls = pt(kps, "left_shoulder", o.minScore), rs = pt(kps, "right_shoulder", o.minScore);
+    var w = ls && rs ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : null;
+    var foldScale = w || (topWidth > 0 ? topWidth : null);
     var known = false;
     var sides = ["left", "right"], knees = false, upright = false;
     for (var i = 0; i < 2; i++) {
@@ -45,9 +62,12 @@
         var a = angle(hip, kn, an);
         if (a != null && a < o.kneeAngle) knees = true;
         if (sh) { var dy = Math.abs(an.y - sh.y), dx = Math.abs(an.x - sh.x); if (dy > o.upright * dx && a != null && a >= o.kneeAngle) upright = true; }
+      } else if (hip && kn) {
+        // Front camera: ankles are often missing. A kneel still shows the hips dropped to about knee height.
+        known = true;
+        if (foldedLegs(hip, kn, null, o, foldScale)) knees = true;
       }
     }
-    var w = ls && rs ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : null;
     // A camera looking along the plank sees the legs running straight down the frame, so an upright-looking
     // line only counts when the shoulders have also moved away from the camera.
     if (upright && (!(w && topWidth > 0) || w < 0.8 * topWidth)) return "standing";
@@ -187,15 +207,17 @@
   // Holding the top must never end a set. Shoulder-width shrink is only a flag (endOn.standing is off): a leaned-up
   // front camera reads a long press that way. Knees that are out of frame or below minScore never trigger.
   // update(kps, t, topWidth, extra). extra may be a frame width, or { frameW, atTop }.
-  var FAIL = { badMs: 1000, frameMs: 10000, minScore: 0.3, kneeAngle: 140, endOn: { knees: true, frame: true, standing: false, lifted: false, left: true, upright: true, elbows: true, form: true }, elbowFrac: 0.12, lineDeg: 30, kneeDeg: 35, baseSamples: 8 };
+  var FAIL = { badMs: 1000, frameMs: 10000, minScore: 0.3, kneeAngle: 140, foldFrac: 0.45, endOn: { knees: true, frame: true, standing: false, lifted: false, left: true, upright: true, elbows: true, form: true }, elbowFrac: 0.12, lineDeg: 30, kneeDeg: 35, baseSamples: 8 };
   function createFailureWatch(opts) {
-    var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed, view, upSince, base, acc, badSince;
+    var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed, failAt, view, upSince, base, acc, badSince, foldSince, k3Since;
     o.endOn = Object.assign({}, FAIL.endOn, (opts && opts.endOn) || {});
+    o.guard = Object.assign({}, o.guard || {}, { foldFrac: o.foldFrac });
     function formFeats(kps, min) { return formFeatures(kps, min, o.elbowFrac); }
     function avgFeats(a) { var r = {}; ["line", "knee"].forEach(function (k) { var n = 0, v = 0; a.forEach(function (x) { if (x[k] != null) { n++; v += x[k]; } }); r[k] = n ? v / n : null; }); r.samples = a.length; return r; }
+    function mark(reason, at) { failed = reason; failAt = at != null ? at : null; return failed; }
     function reset(t0) {
-      guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs, minScore: o.minScore, kneeAngle: o.kneeAngle }));
-      seen = t0 == null ? null : t0; failed = null; upSince = null; base = null; acc = []; badSince = null; view = createViewWatch({ minScore: o.minScore, badMs: o.badMs }); view.reset();
+      guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs, minScore: o.minScore, kneeAngle: o.kneeAngle, foldFrac: o.foldFrac }));
+      seen = t0 == null ? null : t0; failed = null; failAt = null; upSince = null; base = null; acc = []; badSince = null; foldSince = null; k3Since = null; view = createViewWatch({ minScore: o.minScore, badMs: o.badMs }); view.reset();
     }
     reset(null);
     function upper(kps) { for (var i = 0; i < (kps || []).length; i++) { var k = kps[i]; if (k && /shoulder$/.test(k.name) && (k.score == null || k.score >= o.minScore)) return true; } return false; }
@@ -206,9 +228,15 @@
       if (typeof extra === "number" && isFinite(extra)) frameW = extra;
       else if (extra && typeof extra === "object") { if (extra.frameW > 1) frameW = extra.frameW; atTop = extra.atTop === true; skipFrame = extra.skipFrame === true; }
       if (seen == null) seen = t;
-      if (upper(kps)) seen = t; else if (o.endOn.frame && !skipFrame && t - seen >= o.frameMs) return (failed = "frame");
+      if (upper(kps)) seen = t; else if (o.endOn.frame && !skipFrame && t - seen >= o.frameMs) return mark("frame", seen);
       var g = guard.update(kps, t, topWidth);
-      if (g.event === "knees" && o.endOn.knees) return (failed = "knees");
+      if (g.event === "knees" && o.endOn.knees) return mark("knees", g.since != null ? g.since : t - o.badMs);
+      // 3D knee angle from Apple Vision (app, iOS 17+): a real kneel is visible even when 2D looks straight.
+      var k3 = extra && typeof extra === "object" ? minKnee3D(extra.knee3D || extra.pose3d && extra.pose3d.kneeAngleDeg) : null;
+      if (o.endOn.knees && k3 != null && k3 < o.kneeAngle) {
+        if (k3Since == null) k3Since = t;
+        if (t - k3Since >= o.badMs) return mark("knees", k3Since);
+      } else k3Since = null;
       var v = view.update(kps, t, frameW, atTop);
       // v === "lifted" (phone picked up / camera moved) is deliberately ignored: only form breaks end the set.
       var reps = extra && typeof extra === "object" && typeof extra.reps === "number" ? extra.reps : null;
@@ -224,15 +252,15 @@
         if (base.line != null && f.line != null && base.line - f.line > o.lineDeg) bad = "form";
         else if (base.knee != null && f.knee != null && base.knee - f.knee > o.kneeDeg) bad = "form";
       }
-      if (bad) { if (!badSince || badSince.kind !== bad) badSince = { kind: bad, t: t }; if (t - badSince.t >= o.badMs) return (failed = bad); }
+      if (bad) { if (!badSince || badSince.kind !== bad) badSince = { kind: bad, t: t }; if (t - badSince.t >= o.badMs) return mark(bad, badSince.t); }
       else badSince = null;
-      if (v === "standing" && o.endOn.left) return (failed = "standing");
-      if (v === "collapse" && o.endOn.knees) return (failed = "collapse");
-      if (!atTop && o.endOn.upright && isUpright(kps, topWidth, o.minScore)) { if (upSince == null) upSince = t; if (t - upSince >= o.badMs) return (failed = "standing"); }
+      if (v === "standing" && o.endOn.left) return mark("standing", t - o.badMs);
+      if (v === "collapse" && o.endOn.knees) return mark("collapse", t - o.badMs);
+      if (!atTop && o.endOn.upright && isUpright(kps, topWidth, o.minScore)) { if (upSince == null) upSince = t; if (t - upSince >= o.badMs) return mark("standing", upSince); }
       else upSince = null;
       return null;
     }
-    return { update: update, reset: reset, failed: function () { return failed; }, baseline: function () { return base; } };
+    return { update: update, reset: reset, failed: function () { return failed; }, failedAt: function () { return failAt; }, baseline: function () { return base; } };
   }
   // 30-second top-hold reward: one continuous hold at the top (press / plank) for holdMs earns the bonus ONCE per set.
   // update(atTop, t, kneesDown) -> { holdMs, awarded (true only on the frame it is earned), done }. Leaving the top or knees down
@@ -288,7 +316,7 @@
       .sort(function (a, b) { return Number(b.ms) - Number(a.ms); }).slice(0, n || 50);
   }
 
-  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
+  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

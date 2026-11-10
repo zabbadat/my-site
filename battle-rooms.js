@@ -40,6 +40,7 @@
   }
   function controller(fs, opts = {}) {
     const rand = opts.rand || Math.random, now = opts.now || (() => Date.now());
+    const leadMs = opts.leadMs != null ? opts.leadMs : LEAD_MS;
     let offset = 0;
     const toMs = fs.toMs;
     // Our own server-stamped field read back -> clock skew.
@@ -76,7 +77,7 @@
     async function maybeStart(code) {
       return fs.tx(code, (t) => { const r = t.get(); if (!r || started(r) || r.startAt != null || !bothReady(r)) return false;
         if (opts.canStart && !opts.canStart(r)) return false; // e.g. wager: both stakes must be in escrow first
-        t.update({ status: "countdown", startAt: Math.round(serverNow(now(), offset) + LEAD_MS) }); return true; });
+        t.update({ status: "countdown", startAt: Math.round(serverNow(now(), offset) + leadMs) }); return true; });
     }
     async function setReady(code, u, ready) {
       const ok = await fs.tx(code, (t) => { const r = t.get(); if (!r || started(r) || !(u.uid in r.players)) return false;

@@ -43,9 +43,10 @@ const TUT = GS.coachLines("tut");
     await e.advance(3000); check("TUT battle: coaching done, counter status shows again", e.run("tbCoaching") === false);
     // shared countdown via the real battle-rooms countdownState, ticked every 100 ms like tbTickFn
     const startAt = 20000; e.said.length = 0;
-    for (let t = 15000; t <= 22000; t += 100) { e.setNow(t); const st = BR.countdownState(startAt, t, 0); e.run(`tbVoice.phase("tut:K7QX:${startAt}", ${JSON.stringify(st.phase)}, ${st.n || 0})`); }
-    check("TUT battle shared countdown spoken once each: Ready, get set, three, two, one, Go (1 s apart, Go at start)", e.said.map((x) => x.w + "@" + x.at).join(",") === "Ready@15000,get set@16000,three@17000,two@18000,one@19000,Go@20000");
-    check("tbTickFn feeds the countdown voice; I'm ready tap unlocks speech", /if \(tbVoice\) tbVoice\.phase\("tut:" \+ tbCodeCur \+ ":" \+ r\.startAt, st\.phase, st\.n\);/.test(html) && /\$\("tbReady"\)\.onclick = async \(\) => \{ if \(!requireSignIn\("tut battle"\)\) return; unlockGetSet\(\);/.test(html));
+    e.run(`const BR = window.ZabbaBattles; const tb = { offset: 0 }; const tbCueSaid = {}; ${html.slice(html.indexOf("function tbNextSetCue(r, st) {"), html.indexOf("const tbNow = "))}`);
+    for (let t = 12400; t <= 20200; t += 100) { e.setNow(t); const st = BR.countdownState(startAt, t, 0); e.run(`tbNextSetCue({ startAt: ${startAt} }, ${JSON.stringify(st)})`); }
+    check("TUT battle shared countdown spoken once each: Set up, go on three. One, two, three, Go (clock at startAt)", e.said.map((x) => x.w + "@" + x.at).join(",") === "Set up, go on three.@12400,One@16400,two@17600,three@18800,Go@20000");
+    check("tbTickFn feeds the go-cue; I'm ready tap unlocks speech", /const cue = tbNextSetCue\(r, st\);/.test(html) && /\$\("tbReady"\)\.onclick = async \(\) => \{ if \(!requireSignIn\("tut battle"\)\) return; unlockGetSet\(\);/.test(html));
     e.said.length = 0; e.run("tbRepVoice.reset()"); for (const n of [1, 1, 2, 3]) e.run(`tbRepVoice.say("${n}")`);
     check("TUT battle reps counted up, no repeats", W(e).join(",") === "1,2,3");
     check("tbPose speaks each new rep; reset at GO", /if \(c\.reps > tbMine\.reps && tbRepVoice\) tbRepVoice\.say\(String\(c\.reps\)\);/.test(html) && /clearTimeout\(tbSettleTimer\); if \(tbRepVoice\) tbRepVoice\.reset\(\);/.test(html)); }

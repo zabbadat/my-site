@@ -42,7 +42,7 @@ const HOLD5 = 5 * 60 * 1000;
 check("TUT Battles: 3:00 clock + 10 s top cap kept; shoulders-shrink 'standing' no longer loses; out of frame 10 s", TB.RULES.durationMs === 180000 && TB.RULES.topCapMs === 10000 && TB.RULES.outOfFrameMs === 10000);
 check("failure watch: knees and 10 s out of frame end; shoulder-shrink standing does not; leaving the plank does; phone lift does not", SS.FAIL.frameMs === 10000 && SS.FAIL.endOn.knees && SS.FAIL.endOn.frame && !SS.FAIL.endOn.standing && !SS.FAIL.endOn.lifted && SS.FAIL.endOn.left);
 check("no idle / no-rep / TUT-cap timer ends a set in the page (finishPushSet callers are buttons, challenge 3:00, camera stop, failure watch)", (html.match(/finishPushSet\(/g) || []).length === 8 && !/noRepMs|idleMs/.test(html));
-check("regular Sets: knees down / 10 s out of frame ends via finishPushSet (posts once) with reps; with 0 reps it keeps going", /pushMode === "sets" && pushState\.running[\s\S]{0,400}if \(pushState\.reps >= 1\) finishPushSet\(why\); else \{ failWatch\.reset/.test(html));
+check("regular Sets: knees down / 10 s out of frame ends via finishPushSet (posts once) with reps; with 0 reps it keeps going", /pushMode === "sets" && pushState\.running[\s\S]{0,500}if \(pushState\.reps >= 1\) \{ freezePushClock\(failWatch\.failedAt && failWatch\.failedAt\(\)\); finishPushSet\(why\); \} else \{ failWatch\.reset/.test(html));
 check("'I give up' button exists for the 3:00 challenge (Sets has Finish set, One long set has End session)", /id="pushGiveUpBtn"[^>]*>I give up</.test(html) && /\$\("pushGiveUpBtn"\)\.onclick = /.test(html));
 
 // ---- 30-second hold bonus

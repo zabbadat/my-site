@@ -119,6 +119,6 @@ check("pickup is off: endOn.lifted false, no Phone picked up text", SS.FAIL.endO
 
 check("page passes the rested-lean options into both failure watches and the battle judge", (() => {
   const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
-  return /function pwOpt\(st, w\)/.test(html) && html.split("pwOpt(st, w)").length === 4 && /tbJudge\.update\(kps, now, st\.topSize \? st\.topSize \* w : 0, w\)/.test(html);
+  return /function pwOpt\(st, w\)/.test(html) && html.split("pwOpt(st, w)").length === 3 && /failExtra\(st, w, pose/.test(html) && /tbJudge\.update\(kps, now, st\.topSize \? st\.topSize \* w : 0, w\)/.test(html);
 })());
 const fails = fail; console.log(`\n${pass} passed, ${fail} failed`); process.exit(fails ? 1 : 0);

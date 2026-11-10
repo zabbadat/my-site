@@ -8,7 +8,7 @@ const HTML = path.join(__dirname, "..", "index.html");
 const SW = 0.2;
 // one rep per 2 s starting at t0: 800 ms down, 300 ms bottom, 800 ms up, 100 ms top
 const repAt = (t0) => (t) => { const p = (t - t0) % 2000; return t < t0 ? 0 : p < 800 ? p / 800 : p < 1100 ? 1 : p < 1900 ? 1 - (p - 1100) / 800 : 0; };
-// Start takes 9 s with no speech (place line, 2 s criteria, 7 s countdown)
+// Start takes 9.6 s with no speech (place line, 2 s criteria, 7.6 s go-cue)
 const SH = 2000;
 const S0 = {
   ideal: (t) => ({ d: t < 8000 ? 0 : repAt(8000)(t) }),
@@ -23,7 +23,7 @@ const S0 = {
 const shifted = (f) => (t) => f(t - SH);
 check("DEFAULTS pinned (One Euro filter, wrist reach gate, depth in shoulder widths; shoulders-only fallback keys; no elbow angle, no size view)", JSON.stringify(P.DEFAULTS) === JSON.stringify({ minScore: 0.3, holdMs: 300, poorMs: 1000, minCutoff: 3, beta: 6, dCutoff: 1, tauMs: 70, glitchRatio: 0.45, glitchMaxMs: 250, calibMs: 1000, steadyTol: 0.05, minDepth: 0.2, downRom: 0.7, upRom: 0.3, minBottomMs: 120, minRepMs: 400, maxRepMs: 6000, adapt: 0.15, reachFrac: 0.4, reachReturn: 0.35, topFollowMs: 400, topWinMs: 7000, noseMin: 0.5, noseJump: 0.5, faceCluster: 0.55, learnRate: 0.05, handBackMs: 600 }));
 (async () => {
-  for (const mode of ["sets", "long", "challenge"]) { const r = await run(HTML, { mode, script: shifted(S0.ideal), ms: 32000 }); check(mode + ": first real dip after Go counts; every rep counted (11 in 30 s)", r.reps === 11 && r.running && r.startedAt === 9000, "reps " + r.reps); }
+  for (const mode of ["sets", "long", "challenge"]) { const r = await run(HTML, { mode, script: shifted(S0.ideal), ms: 32000 }); check(mode + ": first real dip after Go counts; every rep counted (11 in 30 s)", r.reps === 11 && r.running && r.startedAt === 9600, "reps " + r.reps); }
   let r = await run(HTML, { mode: "sets", script: shifted(S0.close), ms: 32000 }); check("user too close to the phone at first, then backs away: start level follows, reps count", r.reps >= 10, "reps " + r.reps);
   r = await run(HTML, { mode: "sets", script: shifted(S0.far), ms: 32000 }); check("user far from the phone at first, then steps in: reps count", r.reps >= 10, "reps " + r.reps);
   r = await run(HTML, { mode: "long", script: shifted(S0.far), ms: 32000 }); check("One long set: same recovery", r.reps >= 10, "reps " + r.reps);

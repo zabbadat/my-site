@@ -25,17 +25,17 @@ check("no target: counts up", G.repCallout(1, 0) === "1" && G.repCallout(7, null
 { const v = G.makeRepVoice({ speak: () => { throw new Error("no speech"); }, stop: () => { throw new Error("x"); } }); let ok = true; try { v.say("3"); } catch (e) { ok = false; } check("rep voice: silent fallback when speech throws", ok); }
 check("coaching lines per exercise (shared get-set.js COACH)", G.coachLines("pushups").place === "Lean your phone up in front of you, camera facing you." && G.coachLines("pushups").criteria === "Shoulders and hands in frame. Go all the way down and back up." && G.coachLines("tut").criteria === "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up." && G.coachLines("plank").place === "Prop your phone on the floor, off to your side, sideways or upright. Turn so the camera sees your side." && G.coachLines("plank").criteria === "Step back until the outline shows your whole body, head to heels.");
 (async () => {
-  // speech mock ends each utterance after 1 s: place 0-1 s, criteria 1-3 s (min 2 s), countdown 3-10 s, Go @10 s
-  const CD = "Ready|get set|three|two|one|Go", PL = G.COACH.pushups, TU = G.COACH.tut;
-  let sp = []; let r = await run(HTML, { mode: "sets", script: repAt(11000), ms: 19100, spoken: sp });
+  // speech mock ends each utterance after 1 s: place 0-1 s, criteria 1-3 s (min 2 s), go-cue 3-10.6 s, Go @10.6 s
+  const LINE = G.NEXT_SET_LINE, CD = [LINE, "One", "two", "three", "Go"].join("|"), PL = G.COACH.pushups, TU = G.COACH.tut;
+  let sp = []; let r = await run(HTML, { mode: "sets", script: repAt(11600), ms: 19700, spoken: sp });
   const words = sp.filter((x) => x.vol !== 0).map((x) => x.w), at = (w) => (sp.find((x) => x.w === w) || {}).at;
-  check("flow (Sets, target 20): place line @0, criteria after it ends, slow countdown, Go @10 s, then 20, 19, 18, 17",
-    r.reps === 4 && words.join("|") === [PL.place, PL.criteria, CD, "20|19|18|17"].join("|") && at(PL.place) === 0 && at(PL.criteria) === 1000 && at("Ready") === 3000 && at("get set") === 5000 && at("three") === 7000 && at("one") === 9000 && at("Go") === 10000);
-  sp = []; r = await run(HTML, { mode: "long", script: repAt(11000), ms: 17000, spoken: sp });
+  check("flow (Sets, target 20): place line @0, criteria after it ends, go-cue, Go @10.6 s, then 20, 19, 18, 17",
+    r.reps === 4 && words.join("|") === [PL.place, PL.criteria, CD, "20|19|18|17"].join("|") && at(PL.place) === 0 && at(PL.criteria) === 1000 && at(LINE) === 3000 && at("One") === 7000 && at("three") === 9400 && at("Go") === 10600);
+  sp = []; r = await run(HTML, { mode: "long", script: repAt(11600), ms: 17600, spoken: sp });
   check("flow (One long set = TUT): TUT coaching lines, counts up 1, 2, 3", sp.filter((x) => x.vol !== 0).map((x) => x.w).join("|") === [TU.place, TU.criteria, CD, "1|2|3"].join("|"));
-  sp = []; r = await run(HTML, { mode: "challenge", script: repAt(11000), ms: 17000, spoken: sp });
-  check("flow (Three-minute challenge): counts up 1, 2, 3", sp.filter((x) => x.vol !== 0).map((x) => x.w).slice(8).join("|") === "1|2|3");
+  sp = []; r = await run(HTML, { mode: "challenge", script: repAt(11600), ms: 17600, spoken: sp });
+  check("flow (Three-minute challenge): counts up 1, 2, 3", sp.filter((x) => x.vol !== 0).map((x) => x.w).slice(7).join("|") === "1|2|3");
   sp = []; r = await run(HTML, { mode: "sets", script: repAt(0), ms: 12000, spoken: sp });
-  check("dips before Go: not counted, not spoken", sp.filter((x) => x.vol !== 0 && /^\d|Plus/.test(x.w)).every((x) => x.at >= 10000) && r.reps <= 1);
+  check("dips before Go: not counted, not spoken", sp.filter((x) => x.vol !== 0 && /^\d|Plus/.test(x.w)).every((x) => x.at >= 10600) && r.reps <= 1);
   const pass = R.filter(Boolean).length; console.log(`${pass}/${R.length} passed`); process.exit(pass === R.length ? 0 : 1);
 })();

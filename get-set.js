@@ -1,8 +1,8 @@
 /* 3-2-1 countdown for camera Start buttons (push Start set / Start session / Start challenge, Plank House).
  * Runs AFTER camera, pose model and calibration are ready; the clock starts when run() resolves true.
  * makeGetSet({ ms: 2000, speak, unlock, stop, schedule }) -> { unlock(), run(show, cancelled) -> Promise<bool>, cancel() }
- * makeQuickCountdown: restart-only Ready, set, Go (2.4 s); makeSessionTracker: fresh vs restart.
- * makeGoCountdown: 7 s "Ready" · "get set" · "three" · "two" · "one" · "Go" (see STEPS). COACH: spoken setup lines.
+ * makeNextSetCountdown / makeQuickCountdown: "Set up, go on three." then One · two · three · Go (7.6 s; clock starts at Go).
+ * makeSessionTracker: fresh (coaching + go-cue) vs restart (go-cue only). COACH: spoken setup lines.
  * iOS: call unlock() synchronously inside the tap (cancel + silent volume-0 utterance) so later speech is allowed.
  * Speech is optional: missing or throwing speechSynthesis falls back to on-screen only, silently.
  */
@@ -23,7 +23,8 @@
     var u = new w.SpeechSynthesisUtterance(say(text)); u.rate = voice && voice.rate || VOICE.rate; if (volume !== undefined) u.volume = volume;
     w.speechSynthesis.speak(u);
   }
-  function defaultUnlock() { var w = g(); if (!w || !w.speechSynthesis) return; w.speechSynthesis.cancel(); utter(" ", 0); }
+  // Silent unlock for iOS: must run inside a tap. Do not cancel a line already speaking (the end-of-set "Set complete." must finish).
+  function defaultUnlock() { var w = g(); if (!w || !w.speechSynthesis) return; utter(" ", 0); }
   function defaultSpeak(word) { utter(word); }
   // Interrupting speak for callouts (reps, hold time): WebKit / iOS Safari can silently drop an utterance queued in
   // the same tick as speechSynthesis.cancel(). Only cancel when something is actually speaking / queued, then speak
@@ -75,18 +76,69 @@
   }
   /* Push-ups + Plank House: 5-second countdown. 0 ms: show "Ready, get set · 5" + speak "Ready, get set"; 1000..4000: show 4,3,2,1;
    * 5000 ms: show "GO" + speak "Go", resolve true (counting starts). unlock() inside the tap (iOS). Silent fallback. */
-  // Shared start countdown (push-ups all modes, TUT, Plank House): slower pacing, 7 s total.
-  //   0 s "Ready" · 2 s "get set" · 4 s "three" · 5 s "two" · 6 s "one" · 7 s "Go" (clock starts). Screen shows the same.
-  var STEPS = [[0, "Ready", "Ready"], [2000, "get set", "Get set"], [4000, "three", "3"], [5000, "two", "2"], [6000, "one", "1"], [7000, "Go", "GO"]], DEFAULT_STEPS = STEPS;
-  var COUNTDOWN_MS = 7000;
-  // Plank start, unhurried: "Three." 0 s, "Two." 1.2 s, "One." 2.4 s, "Hold." 3.6 s; the hold clock starts at "Hold".
-  // Each word gets 1.2 s so the slower plank voice finishes before the next one (the digits on screen change in step).
+  // Universal go-cue, every mode, first start (after coaching) and every later set:
+  //   0 s speak/show "Set up, go on three." · 4.0 s "One" · 5.2 s "two" · 6.4 s "three" · 7.6 s "Go" (clock starts at Go).
+  // The 4 s lead lets the setup line finish (~1.8 s at rate 0.88) and leaves a beat to get back into position.
+  var NEXT_SET_LINE = "Set up, go on three.";
+  var NEXT_LEAD_MS = 4000;
+  var NEXT_STEPS = [[0, "One", "1"], [1200, "two", "2"], [2400, "three", "3"], [3600, "Go", "GO"]];
+  var NEXT_COUNT_MS = 3600;
+  var NEXT_TOTAL_MS = NEXT_LEAD_MS + NEXT_COUNT_MS; // 7600
+  // Legacy names kept so older tests and any leftover callers still resolve. STEPS/QUICK now follow the same go-cue
+  // (no separate hasty 2.4 s restart). Plank uses the same One / two / three / Go; the clock starts at "Go".
+  var STEPS = [[0, NEXT_SET_LINE, NEXT_SET_LINE], [4000, "One", "1"], [5200, "two", "2"], [6400, "three", "3"], [7600, "Go", "GO"]], DEFAULT_STEPS = STEPS;
+  var COUNTDOWN_MS = NEXT_TOTAL_MS;
   var PLANK_STEP_MS = 1200;
-  var PLANK_STEPS = [[0, "Three.", "3"], [1200, "Two.", "2"], [2400, "One.", "1"], [3600, "Hold.", "HOLD"]], PLANK_COUNT_MS = 3600;
-  /* Quick restart start (no coaching, no 3-2-1): "Ready" 0 s, "set" 1.2 s, "Go" 2.4 s (clock starts). */
-  var QUICK_STEPS = [[0, "Ready", "Ready"], [1200, "set", "Set"], [2400, "Go", "GO"]], QUICK_MS = 2400;
-  function makeQuickCountdown(opts) { var o = {}, k; opts = opts || {}; for (k in opts) o[k] = opts[k]; o.steps = QUICK_STEPS; return makeGoCountdown(o); }
-  /* Session tracker: decides "fresh" (full coaching + 7 s countdown) vs "restart" (quick Ready, set, Go only).
+  var PLANK_STEPS = NEXT_STEPS;
+  var PLANK_COUNT_MS = NEXT_COUNT_MS;
+  var QUICK_STEPS = STEPS;
+  var QUICK_MS = NEXT_TOTAL_MS;
+  function makeQuickCountdown(opts) { return makeNextSetCountdown(opts); }
+  function makeNextSetCountdown(opts) {
+    opts = opts || {};
+    var leadMs = opts.leadMs != null ? opts.leadMs : NEXT_LEAD_MS;
+    var line = opts.line != null ? opts.line : NEXT_SET_LINE;
+    var STEPS = opts.steps || NEXT_STEPS;
+    var speak = safe(opts.speak || defaultSpeak), unlock = safe(opts.unlock || defaultUnlock), stopSpeech = safe(opts.stop || defaultStop);
+    var schedule = opts.schedule || function (f, d) { return setTimeout(f, d); }, runId = 0;
+    var idle = opts.isSpeaking || isSpeaking;
+    var waitMax = opts.waitIdleMaxMs != null ? opts.waitIdleMaxMs : 0;
+    return {
+      ms: leadMs + STEPS[STEPS.length - 1][0], leadMs: leadMs, line: line, steps: STEPS, words: [line].concat(STEPS.map(function (x) { return x[1]; })),
+      unlock: function () { unlock(); },
+      run: function (show, cancelled) {
+        var my = ++runId; cancelled = cancelled || function () { return false; };
+        var dead = function () { return my !== runId || cancelled(); };
+        return new Promise(function (resolve) {
+          function go() {
+            if (dead()) { stopSpeech(); return resolve(false); }
+            try { show(line); } catch (e) {}
+            speak(line);
+            var step = function (i) {
+              if (dead()) { stopSpeech(); return resolve(false); }
+              try { show(STEPS[i][2]); } catch (e) {}
+              speak(STEPS[i][1]);
+              if (i === STEPS.length - 1) return resolve(true);
+              schedule(function () { step(i + 1); }, STEPS[i + 1][0] - STEPS[i][0]);
+            };
+            schedule(function () { step(0); }, leadMs);
+          }
+          if (!waitMax) return go();
+          var waited = 0;
+          (function hold() {
+            if (dead()) { stopSpeech(); return resolve(false); }
+            var busy = false; try { busy = !!idle(); } catch (e) { busy = false; }
+            if (!busy || waited >= waitMax) return go();
+            waited += 100;
+            schedule(hold, 100);
+          })();
+        });
+      },
+      cancel: function () { runId += 1; stopSpeech(); },
+      cancelKeepSpeech: function () { runId += 1; }
+    };
+  }
+  /* Session tracker: decides "fresh" (placement + criteria coaching, then the shared go-cue) vs "restart" (go-cue only).
    *   plan(kind) -> "restart" only if the SAME kind (pushups / tut / plank / ...) completed a start before (commit), with
    *   activity (commit or touch) within idleMs (default 10 min), and no reset() since. Anything else -> "fresh":
    *   first start after page load, switching exercise or mode, leaving the section (reset), a long idle, or a start that
@@ -186,7 +238,7 @@
   var COACH = {
     pushups: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Go all the way down and back up." },
     tut: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up." },
-    plank: { clock: "Clock starts when you start a proper plank.", next: "Get ready for another set. Clock starts when you start a proper plank.", place: "Prop your phone on the floor, off to your side, sideways or upright. Turn so the camera sees your side.", criteria: "Step back until the outline shows your whole body, head to heels.", rules: "Keep it steady. Hips sagging, hips piking up, knees down, standing up, or leaving the frame for a second, ends the hold." }
+    plank: { clock: "Clock starts when you start a proper plank.", next: NEXT_SET_LINE, place: "Prop your phone on the floor, off to your side, sideways or upright. Turn so the camera sees your side.", criteria: "Step back until the outline shows your whole body, head to heels.", rules: "Keep it steady. Hips sagging, hips piking up, knees down, standing up, or leaving the frame for a second, ends the hold." }
   };
   function coachLines(kind) { return COACH[kind] || COACH.pushups; }
   function positionPrompt(kind) { return (POSITION[kind] || POSITION.pushups).join("\n"); }
@@ -302,7 +354,7 @@
     try { var n = w && w.navigator; if (n && typeof n.vibrate === "function") { n.vibrate([120, 80, 120]); buzzed = true; } } catch (e) {}
     return { line: POCKET_LINE, spoke: spoke, buzzed: buzzed };
   }
-  var api = { POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
+  var api = { POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);

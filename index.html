@@ -578,12 +578,25 @@
     body:not(.is-member) [data-premium="lock"]::after { content: "Members only"; position: absolute; top: .6rem; right: .8rem; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .premium-demo { margin-top: 1.2rem; }
     .premium-tag { font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 .3rem; }
-.cam-hud{position:absolute;top:calc(8px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:3;background:rgba(0,0,0,.55);color:#fff;padding:.3rem .8rem;border-radius:10px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;line-height:1.25;pointer-events:none;white-space:nowrap}
-.cam-hud small{font-weight:500;opacity:.9}
-#camWrap:fullscreen,#camWrap:-webkit-full-screen,#camWrap.cam-fs{max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;align-items:center;justify-content:center}
+.arcade-strip{display:flex;align-items:stretch;justify-content:center;gap:1.2rem;width:100%;box-sizing:border-box;padding:.45rem .75rem calc(.45rem + env(safe-area-inset-bottom,0px));background:#080612;border-bottom:2px solid #3a2a7a;box-shadow:0 0 18px rgba(120,80,255,.35), inset 0 0 18px rgba(0,0,0,.45);color:#ffe14d;font-family:"Press Start 2P",ui-monospace,"Courier New",monospace;text-align:center;pointer-events:none;z-index:4}
+.arcade-strip .arcade-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:6.5rem}
+.arcade-strip .arcade-num{display:block;font-size:clamp(1.15rem,6.5vw,2.15rem);line-height:1.25;letter-spacing:.08em;color:#7dff7d;text-shadow:0 0 6px #fff6a8,0 0 14px #2bff2b,0 0 24px rgba(45,255,45,.7);font-variant-numeric:tabular-nums}
+.arcade-strip .arcade-lbl{display:block;margin-top:.25rem;font-size:clamp(.38rem,1.5vw,.52rem);letter-spacing:.14em;text-transform:uppercase;color:#ffe14d;text-shadow:0 0 8px rgba(255,225,77,.7)}
+#sessionStrip{position:fixed;top:0;left:0;right:0;z-index:10000;padding-top:calc(.45rem + env(safe-area-inset-top,0px));padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
+#camWrap .arcade-strip{border-radius:14px 14px 0 0;border-bottom-width:2px}
+#plankWrap .arcade-strip{border-radius:14px 14px 0 0}
+#camWrap:fullscreen,#camWrap:-webkit-full-screen,#camWrap.cam-fs{max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start}
 #camWrap.cam-fs{position:fixed!important;inset:0;z-index:9999}
-#camWrap:fullscreen video,#camWrap:-webkit-full-screen video,#camWrap.cam-fs video{width:100%;height:100%;object-fit:contain;border-radius:0}
+#camWrap:fullscreen .arcade-strip,#camWrap:-webkit-full-screen .arcade-strip,#camWrap.cam-fs .arcade-strip{flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px))}
+#camWrap:fullscreen video,#camWrap:-webkit-full-screen video,#camWrap.cam-fs video{flex:1 1 auto;width:100%;height:auto;min-height:0;object-fit:contain;border-radius:0}
 #camFsBtn{position:absolute;right:calc(8px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));z-index:3;padding:.35rem .6rem;font-size:.85rem}
+#pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page{font-family:"Press Start 2P",ui-monospace,"Courier New",monospace;color:#7dff7d;text-shadow:0 0 8px #2bff2b}
+@media (orientation:landscape) and (max-height:500px){
+  .arcade-strip{flex-direction:row;gap:.8rem;padding:.3rem .6rem}
+  .arcade-strip .arcade-num{font-size:clamp(1rem,8vh,1.6rem)}
+  body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 3.6rem)}
+}
 .tut-hero.unboxed{background:none!important;border:0!important;box-shadow:none!important;padding:.4rem 0 0!important}
 .tut-hero.unboxed .motto{display:block;font-size:.95rem;letter-spacing:.32em;line-height:2;margin:0 0 1.6rem;padding:.2rem 0}
 .tut-hero.unboxed h2{margin-bottom:.9rem}
@@ -758,6 +771,12 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
     <a href="#membership">Membership</a>
     </div>
   </nav>
+<div id="sessionStrip" class="arcade-strip" hidden>
+  <div class="arcade-cell"><span class="arcade-num" id="sessionStripReps">0</span><span class="arcade-lbl">Reps</span></div>
+  <div class="arcade-cell"><span class="arcade-num" id="sessionStripClock">00:00</span><span class="arcade-lbl">Time</span></div>
+  <div class="arcade-cell" id="sessionStripHoldCell" hidden><span class="arcade-num" id="sessionStripHold">0</span><span class="arcade-lbl">Hold</span></div>
+</div>
+
 <script>
 (function(){var n=document.querySelector("nav > div");if(!n)return;
 function f(){var m=n.scrollWidth-n.clientWidth;n.classList.toggle("fade-l",n.scrollLeft>2);n.classList.toggle("fade-r",m>2&&n.scrollLeft<m-2);}
@@ -1161,14 +1180,17 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn ghost" id="camStopBtn" type="button" hidden>Stop camera</button>
     </div>
     <div id="camWrap" hidden style="margin-top:1rem;max-width:22rem;position:relative">
+      <div class="arcade-strip" id="camHud">
+        <div class="arcade-cell"><span class="arcade-num" id="camHudReps">0</span><span class="arcade-lbl">Reps</span></div>
+        <div class="arcade-cell"><span class="arcade-num" id="camHudClock">00:00</span><span class="arcade-lbl">Time</span></div>
+      </div>
       <div class="violation" id="pushViolFlag" hidden></div>
-      <div class="cam-hud" id="camHud" aria-hidden="true"><span id="camHudReps">0</span> reps<br><small id="camHudClock">00:00</small></div>
       <button class="btn ghost" id="camFsBtn" type="button">Full screen</button>
-      <video id="camVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video>
+      <video id="camVid" autoplay playsinline muted style="width:100%;border-radius:0 0 14px 14px;background:#101816;transform:scaleX(-1);display:block"></video>
     </div>
     <div class="note" id="challengeResult" hidden></div>
    <p class="note" id="camNote">Lean your phone up in front of you, camera facing you, shoulders and hands in frame. The camera counts each full rep. Video stays on this phone.</p>
-    <p class="note" id="pushGetSetNote">Get set first: tapping Start turns on your camera and talks you through setup, then a slow countdown ("Ready" … "get set" … "three, two, one, go"). Counting starts at Go; your first full push-up counts.</p>
+    <p class="note" id="pushGetSetNote">Get set first: tapping Start turns on your camera and talks you through setup, then "Set up, go on three. One, two, three, go." Counting starts at Go; your first full push-up counts.</p>
     <p class="note" id="camStatus" aria-live="polite"></p>
     <p class="note" id="pushStatus">Ready. Get set, then tap Start.</p>
     <p class="fine">Signed-in finishes post to the push board. Unsigned stays on this phone. Video never uploads.</p>
@@ -1315,7 +1337,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="tutbattles">
     <h2>TUT Battles</h2>
-    <p class="lead" data-app-copy='[["each top hold counts for at most 10 seconds", "each plank push press counts for at most 10 seconds"]]'>Three minutes, head to head. Both tap ready, the 5-second countdown is shared, then a 3:00 clock runs on both phones and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Drop a knee or leave the frame for 10 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins (then more reps; still tied is a draw). Video never uploads. Optional ZAB wager: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. A tie refunds both stakes, and leaving or 30 seconds of silence counts as a forfeit.</p>
+    <p class="lead" data-app-copy='[["each top hold counts for at most 10 seconds", "each plank push press counts for at most 10 seconds"]]'>Three minutes, head to head. Both tap ready, a shared countdown ("Set up, go on three. One, two, three, go.") starts the clock, then a 3:00 clock runs on both phones and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Drop a knee or leave the frame for 10 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins (then more reps; still tied is a draw). Video never uploads. Optional ZAB wager: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. A tie refunds both stakes, and leaving or 30 seconds of silence counts as a forfeit.</p>
     <p class="note" id="tbSignIn"><a href="#play">Sign in</a> to create or join a TUT battle.</p>
     <div id="tbStart" hidden>
       <div class="row"><button class="btn" id="tbCreate" type="button">Create arena</button></div>
@@ -1363,8 +1385,14 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn ghost" id="plankAgainBtn" type="button" hidden>New hold</button>
     </div>
     <div id="plankWrap" hidden style="margin-top:1rem;max-width:22rem;position:relative">
-      <video id="plankVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1);display:block"></video>
-      <div id="plankOutline" class="plank-outline" aria-hidden="true"><span>head to heels</span></div>
+      <div class="arcade-strip" id="plankHud">
+        <div class="arcade-cell"><span class="arcade-num" id="plankHudClock">0:00</span><span class="arcade-lbl">Hold</span></div>
+        <div class="arcade-cell"><span class="arcade-num" id="plankHudCount" hidden></span><span class="arcade-lbl" id="plankHudCountLbl" hidden>Go</span></div>
+      </div>
+      <div id="plankStage" style="position:relative">
+        <video id="plankVid" autoplay playsinline muted style="width:100%;border-radius:0 0 14px 14px;background:#101816;transform:scaleX(-1);display:block"></video>
+        <div id="plankOutline" class="plank-outline" aria-hidden="true"><span>head to heels</span></div>
+      </div>
     </div>
     <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. Clock starts when you start a proper plank.<br>Hips sagging, hips piking up, dropping to your knees, standing up, or leaving the frame for more than a second ends the hold. A framing tip only delays the start; it never ends a hold.</p>
     <p class="fine">Every camera hold of 10 seconds or more counts as one set. New hold starts the next set without stopping the camera. Signed-in holds post to the Plank House board and today's sets board. Unsigned stays on this phone. Video never uploads.</p>
@@ -2079,6 +2107,23 @@ function formatTut(ms) {
 // Total = reps from finished sets today + live reps of the set in progress.
 // A set's reps are added to the stored total once, when "Finish set" is pressed.
 function syncPushStartBtn() { const b = $("pushStartBtn"); if (b) b.disabled = !!(pushStarting || (pushState.running && !pushState.finished)); }
+
+function paintArcadeStrip(o) {
+  o = o || {};
+  const strip = $("sessionStrip");
+  const live = !!o.live;
+  if (strip) strip.hidden = !live;
+  if (typeof document !== "undefined" && document.body && document.body.classList) document.body.classList.toggle("arcade-live", live);
+  if ($("sessionStripReps")) $("sessionStripReps").textContent = o.reps != null ? String(o.reps) : "0";
+  if ($("sessionStripClock")) $("sessionStripClock").textContent = o.clock || "00:00";
+  const holdCell = $("sessionStripHoldCell");
+  if (holdCell) {
+    const show = !!(o.hold != null && o.hold !== "");
+    holdCell.hidden = !show;
+    if (show && $("sessionStripHold")) $("sessionStripHold").textContent = String(o.hold);
+  }
+  if ($("plankHudClock") && o.plankClock) $("plankHudClock").textContent = o.plankClock;
+}
 function renderPush() {
   syncPushStartBtn();
   if ($("pushReps")) $("pushReps").textContent = savedPushTotal() + (pushState.finished ? 0 : pushState.reps);
@@ -2101,6 +2146,7 @@ function renderPush() {
   if ($("pushClock")) $("pushClock").textContent = formatTime(shown);
   if ($("camHudReps")) $("camHudReps").textContent = pushState.reps;
   if ($("camHudClock")) $("camHudClock").textContent = formatTime(shown);
+  if (typeof paintArcadeStrip === "function") paintArcadeStrip({ reps: pushState.reps, clock: formatTime(shown), live: !!(pushState.running && !pushState.finished) || (typeof camOn !== "undefined" && camOn) });
   const best = localPush().reduce((m, r) => Math.max(m, Number(r.reps) || 0), 0);
   if ($("pushBest")) $("pushBest").textContent = best ? String(best) : "—";
 }
@@ -2148,31 +2194,55 @@ if ($("modeChallengeBtn")) $("modeChallengeBtn").onclick = () => setPushMode("ch
 // A camera-detected failure in a TUT mode (One long set / 3:00 challenge) ends the set at once. With at least 1 rep it POSTS the time under
 // tension and reps so far through finishPushSet (same fields and path as End session, once). With 0 reps there is nothing to post: the set is
 // discarded (clock stops, nothing saved, no board row, no ZAB, no remote write). Regular Sets are not TUT and never get here. Start begins a fresh set.
+function speakSetDone() {
+  const GS = window.ZabbadatGetSet;
+  if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.SET_DONE_LINE);
+}
+// Freeze the set clock at the last valid moment (the start of the 1 s fail window), not at confirm time.
+function freezePushClock(failedAtPerf) {
+  if (failedAtPerf == null) return 0;
+  const cut = Math.max(0, performance.now() - failedAtPerf);
+  const raw = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
+  const lasted = Math.max(0, raw - cut);
+  pushState.elapsed = lasted;
+  pushState.startedAt = 0;
+  return cut;
+}
+function failExtra(st, w, pose, more) {
+  const o = Object.assign(typeof pwOpt === "function" ? pwOpt(st, w) : {}, more || {});
+  if (pose && pose.knee3D) o.knee3D = pose.knee3D;
+  else if (pose && pose.pose3d && pose.pose3d.kneeAngleDeg) o.knee3D = pose.pose3d.kneeAngleDeg;
+  return o;
+}
 function voidTutSet(reason) {
+  const failedAtPerf = arguments.length > 1 ? arguments[1] : undefined;
   if (pushState.finished || !pushState.running || (pushMode !== "long" && pushMode !== "challenge")) return;
-  const lasted = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
+  let cut = 0, lasted;
+  if (typeof freezePushClock === "function") { cut = freezePushClock(failedAtPerf); lasted = pushState.elapsed; }
+  else lasted = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
   const why = (window.ZabbadatSession.FAIL_TEXT || {})[reason] || "Set ended";
   let r = null;
-  if (pushMode === "challenge" && pushChallenge) { pushChallenge.update(performance.now(), {}); r = pushChallenge.result(); } // credit the top hold up to now; nothing past this moment
+  if (pushMode === "challenge" && pushChallenge) { pushChallenge.update(performance.now() - cut, {}); r = pushChallenge.result(); } // credit only up to the last valid moment
+  if (typeof speakSetDone === "function") speakSetDone();
+  else { const GS0 = window.ZabbadatGetSet; if (GS0 && GS0.interruptSpeak) GS0.interruptSpeak(GS0.SET_DONE_LINE); }
   if (window.ZabbadatSession.postOnFailure && window.ZabbadatSession.postOnFailure(pushMode, r ? r.reps : pushState.reps)) {
     if (r) { pushState.tut = r.tutMs; pushState.reps = r.reps; showChallengeResult(r, "Three-minute challenge ended early: " + why); }
     $("camNote").textContent = "Set ended";
-    finishPushSet(why); // speaks "Set complete." once, saves, posts once
+    finishPushSet(why, { alreadySpoke: true });
     return;
   }
   pushState.running = false; pushState.finished = true;
   clearInterval(pushState.tick);
   if (pushWake) pushWake.stop().catch(() => {});
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.end();
-  freshPushSet(); // back to zero: reps, TUT time, clock, counter, TUT voice, fail watch, posture guard, challenge; Start begins the next set
+  freshPushSet({ keepSpeech: true }); // back to zero; do not cancel "Set complete."
   $("pushStatus").textContent = "Set failed: 0 reps, " + formatTime(lasted) + " (" + why + "). Nothing saved. Ready for the next set.";
   $("camNote").textContent = "Set ended";
-  const GS = window.ZabbadatGetSet; if (GS && GS.interruptSpeak) GS.interruptSpeak(GS.SET_DONE_LINE); // short end line; may interrupt other speech
   renderPush();
 }
 // Prompts from the last set never carry into the next one: queued speech, spoken-rep / 15 s time milestones, camera note, form flag, result box.
-function clearPushPrompts() {
-  if (typeof cancelGetSet === "function") { try { cancelGetSet(); } catch (e) {} } // stops queued speech and any pending countdown step
+function clearPushPrompts(opts) {
+  if (typeof cancelGetSet === "function") { try { cancelGetSet(opts && opts.keepSpeech); } catch (e) {} } // drop a pending countdown; keepSpeech leaves "Set complete." playing
   if (typeof repVoice !== "undefined" && repVoice) repVoice.reset();
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice && tutTimeVoice.reset) tutTimeVoice.reset();
   if ($("camNote")) $("camNote").textContent = "";
@@ -2181,10 +2251,10 @@ function clearPushPrompts() {
   if ($("challengeResult")) $("challengeResult").hidden = true;
 }
 // Full per-set wipe (same as Reset, minus the status text): set numbers, TUT voice, fail watch, counter, posture guard, challenge.
-function freshPushSet() {
+function freshPushSet(opts) {
   clearInterval(pushState.tick);
   Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 });
-  clearPushPrompts();
+  clearPushPrompts(opts);
   if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(null);
   if (typeof resetPoseBaseline === "function") resetPoseBaseline();
   if (typeof postureGuard !== "undefined" && postureGuard) postureGuard.reset();
@@ -2278,16 +2348,20 @@ function paintPushRows(rows) {
 }
 // endedBy (optional): failure text when the camera ended the set (One long set, 60 s or more); shown in the result line.
 function finishPushSet(endedBy) {
+  const opts = arguments.length > 1 ? arguments[1] : undefined;
   if (pushState.finished) return;
   sessionTouch();
   if (!pushState.running && pushState.elapsed === 0 && pushState.reps === 0) {
     $("pushStatus").textContent = "Start the set first.";
     return;
   }
+  if (!(opts && opts.alreadySpoke)) {
+    if (typeof speakSetDone === "function") speakSetDone();
+    else { const GSd = window.ZabbadatGetSet; if (GSd && GSd.interruptSpeak) GSd.interruptSpeak(GSd.SET_DONE_LINE); }
+  }
   pushState.running = false;
   pushState.finished = true;
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.end();
-  if (pushMode === "long" || pushMode === "challenge") { const GSd = window.ZabbadatGetSet; if (GSd && GSd.interruptSpeak) GSd.interruptSpeak(GSd.SET_DONE_LINE); } // "Set complete." once, every TUT end
   clearInterval(pushState.tick);
   if (pushWake) pushWake.stop().catch(() => {});
   const ms = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
@@ -2350,18 +2424,18 @@ function finishPushSet(endedBy) {
 // criteria line -> 7 s countdown -> clock. Push-ups need no calibration: the first real dip sets the top and counts.
 // Plank House "Start plank camera" uses the same sequence, then its 1.5 s good-form hold.
 // 7 s start countdown: "Ready" · "get set" · "three" · "two" · "one" · "Go" (get-set.js STEPS)
-const GET_SET_MS = 7000;
-const getSet = window.ZabbadatGetSet ? window.ZabbadatGetSet.makeGoCountdown({ ms: GET_SET_MS }) : null;
-/* Restart start: a stop then a new start in the same exercise session skips all coaching and the 3-2-1; it only says Ready, set, Go.
- * Fresh = first start after page load, after switching exercise or mode, after leaving the section, or after 10 min idle (get-set.js makeSessionTracker). */
-const quickSet = window.ZabbadatGetSet && window.ZabbadatGetSet.makeQuickCountdown ? window.ZabbadatGetSet.makeQuickCountdown() : null;
+const GET_SET_MS = (window.ZabbadatGetSet && window.ZabbadatGetSet.NEXT_TOTAL_MS) || 7600;
+const getSet = window.ZabbadatGetSet && window.ZabbadatGetSet.makeNextSetCountdown ? window.ZabbadatGetSet.makeNextSetCountdown({ waitIdleMaxMs: 2500 }) : (window.ZabbadatGetSet ? window.ZabbadatGetSet.makeGoCountdown({ ms: GET_SET_MS }) : null);
+/* Restart start: a stop then a new start in the same exercise session skips first-time coaching and uses the shared
+ * "Set up, go on three. One, two, three, go." cue (7.6 s, clock at Go). Fresh = first start after page load, after
+ * switching exercise or mode, after leaving the section, or after 10 min idle — coaching, then the same go-cue. */
+const quickSet = getSet;
 const sessionTrack = window.ZabbadatGetSet && window.ZabbadatGetSet.makeSessionTracker ? window.ZabbadatGetSet.makeSessionTracker() : null;
 function sessionPlan(kind) { return sessionTrack ? sessionTrack.plan(kind) : "fresh"; }
 function sessionCommit(kind) { if (sessionTrack) sessionTrack.commit(kind); }
 function sessionTouch() { if (sessionTrack) sessionTrack.touch(); }
 window.addEventListener("hashchange", () => { if (sessionTrack) sessionTrack.reset(); });
-function getSetCountdown(show, cancelled, quick) {
-  if (quick && quickSet) return quickSet.run(show, cancelled);
+function getSetCountdown(show, cancelled) {
   if (getSet) return getSet.run(show, cancelled);
   show("GO");
   return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), GET_SET_MS));
@@ -2383,7 +2457,7 @@ function showPositioning(kind, el, cancelled, part) {
   if (lines && G.sayAndWait) return G.sayAndWait(txt, Object.assign({ minMs: place ? 0 : POSITION_MS, maxMs: POSITION_SPOKEN_MAX_MS, cancelled, now: () => performance.now() }, pv));
   return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), place ? 0 : POSITION_MS));
 }
-function cancelGetSet() { if (getSet) getSet.cancel(); if (quickSet) quickSet.cancel(); }
+function cancelGetSet(keepSpeech) { const c = keepSpeech && getSet && getSet.cancelKeepSpeech ? "cancelKeepSpeech" : "cancel"; if (getSet && getSet[c]) getSet[c](); }
 function unlockGetSet() { if (getSet) getSet.unlock(); }
 let pushStarting = false, pushStartSeq = 0;
 function cancelPushStart(msg) {
@@ -2419,7 +2493,7 @@ async function startPush() {
     if (!live()) return;
     // Forget setup frames (placing the phone, getting into plank): the top locks from the first real dip from here.
     resetPoseBaseline();
-    if (!(await getSetCountdown((t) => { $("pushStatus").textContent = t; }, () => !live(), restart))) return;
+    if (!(await getSetCountdown((t) => { $("pushStatus").textContent = t; }, () => !live()))) return;
     if (!live()) return;
     sessionCommit(coachKind);
     pushStarting = false;
@@ -2615,8 +2689,8 @@ async function poseTick(id = poseLoopId) {
       const g = postureGuard.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0);
       if (g.event && pushMode === "challenge") challengeFlags[g.event] = (challengeFlags[g.event] || 0) + 1;
       if (g.event) $("pushStatus").textContent = (g.event === "knees" ? "Knees down" : "Stood up / left plank") + " flagged: fix it now or the set ends.";
-      const failed = typeof failWatch !== "undefined" && failWatch ? failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, Object.assign(pwOpt(st, w), { skipFrame: true })) : null;
-      if (failed) voidTutSet(failed); // clock stops here; the checks below see finished and skip
+      const failed = typeof failWatch !== "undefined" && failWatch ? failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, failExtra(st, w, pose, { skipFrame: true })) : null;
+      if (failed) voidTutSet(failed, failWatch.failedAt && failWatch.failedAt()); // clock stops at the last valid moment
       const f = $("pushViolFlag");
       if (f) { f.hidden = !g.active; if (g.active) f.textContent = (g.active === "knees" ? "Knees down" : "Standing") + " · " + g.count; }
       if ($("pushViol")) $("pushViol").textContent = String(g.count);
@@ -2625,6 +2699,10 @@ async function poseTick(id = poseLoopId) {
       const hg = postureGuard && postureGuard.state ? postureGuard.state().active === "knees" : false;
       const h = holdReward.update(window.ZabbadatChallenge && window.ZabbadatChallenge.atTopFrom(pushCounter.state()), performance.now(), hg);
       if ($("pushHoldTimer")) { $("pushHoldTimer").hidden = !(h.holdMs >= 1000 && !h.done); $("pushHoldTimer").textContent = holdTimerText(Math.floor(h.holdMs / 1000)); }
+      if (typeof paintArcadeStrip === "function" && h.holdMs >= 1000 && !h.done) {
+        const shown = $("camHudClock") ? $("camHudClock").textContent : "";
+        paintArcadeStrip({ reps: pushState.reps, clock: shown, hold: Math.floor(h.holdMs / 1000) + "s", live: true });
+      }
       if (h.awarded) {
         const live = typeof HOLD_ZAB_LIVE !== "undefined" && HOLD_ZAB_LIVE && typeof ZT !== "undefined" && ZT && typeof currentUser !== "undefined" && currentUser;
         const line = holdAwardLine(live);
@@ -2637,8 +2715,8 @@ async function poseTick(id = poseLoopId) {
     // 10 s out of frame ends it (posts once via finishPushSet when it has reps). Paused sets are not watched.
     if (pushMode === "sets" && pushState.running && !pushState.finished && typeof failWatch !== "undefined" && failWatch) {
       const st = pushCounter.state();
-      const failed = failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, pwOpt(st, w));
-      if (failed) { const why = (window.ZabbadatSession.FAIL_TEXT || {})[failed] || "Set ended"; if (pushState.reps >= 1) finishPushSet(why); else { failWatch.reset(performance.now()); $("pushStatus").textContent = why + ": no reps yet, the set keeps going. Tap Finish set to stop."; } }
+      const failed = failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, failExtra(st, w, pose));
+      if (failed) { const why = (window.ZabbadatSession.FAIL_TEXT || {})[failed] || "Set ended"; if (pushState.reps >= 1) { freezePushClock(failWatch.failedAt && failWatch.failedAt()); finishPushSet(why); } else { failWatch.reset(performance.now()); $("pushStatus").textContent = why + ": no reps yet, the set keeps going. Tap Finish set to stop."; } }
     }
     if (pushMode === "challenge" && pushChallenge && pushState.running && !pushState.finished) {
       const c = pushChallenge.update(performance.now(), { atTop: window.ZabbadatChallenge.atTopFrom(pushCounter.state()), counted: r.counted, repMs: r.repMs });
@@ -2755,6 +2833,7 @@ function stopCam() {
   $("camWrap").hidden = true;
   $("camStopBtn").hidden = true;
   $("camNote").textContent = "Camera off.";
+  if (typeof paintArcadeStrip === "function") paintArcadeStrip({ live: !!(pushState.running && !pushState.finished) });
   setCamStatus("");
 }
 $("camStopBtn").onclick = stopCam;
@@ -2829,6 +2908,8 @@ function plankEnded(r) {
   if (r.reason && r.reason !== "stopped") { const GS = window.ZabbadatGetSet; if (GS && GS.plankSpeak) GS.plankSpeak(GS.PLANK_SET_DONE_LINE); }
   const why = window.ZabbadatPlank.reasonText(r.reason);
   $("plankClock").textContent = formatTut(r.ms);
+  if ($("plankHudClock")) $("plankHudClock").textContent = formatTut(r.ms);
+  if (typeof paintArcadeStrip === "function") paintArcadeStrip({ reps: "—", clock: formatTut(r.ms), plankClock: formatTut(r.ms), live: true });
   $("plankMsg").textContent = "Final " + formatTut(r.ms);
   $("plankStopBtn").hidden = true;
   $("plankAgainBtn").hidden = false;
@@ -2853,12 +2934,18 @@ function plankEnded(r) {
 // Cue first, count after: when the hold locks in (aligned, 1.5 s ready satisfied) it enters the "cue" phase and
 // the clock only starts (hold.begin) once Three / Two / One / Hold has been spoken. It waits for any earlier line (the rules line after Go)
 // to finish instead of cutting it off, and starts on its own if speech is silent or stuck (sayAndWait caps, cueMaxMs in the logic).
-let plankCueSeq = 0, plankLeadUntil = 0; const PLANK_LEAD_MS = 5500;
+let plankCueSeq = 0, plankLeadUntil = 0; const PLANK_LEAD_MS = (window.ZabbadatGetSet && window.ZabbadatGetSet.NEXT_LEAD_MS) || 4000;
 function plankSpeechIdle() { const GS = window.ZabbadatGetSet; return !(GS && GS.isSpeaking && GS.isSpeaking()); }
 // Plank start: once a good plank is locked in (cue phase), show AND speak 3, 2, 1, Hold (1.2 s each, slower plank voice, queued not cut, big digits); the clock starts at "Hold".
 // This is the only plank countdown (the old Ready / get set / 3-2-1 / Go before the camera loop and the "Hold it… 1.5s" digits are gone).
 const plankCount = window.ZabbadatGetSet && window.ZabbadatGetSet.PLANK_STEPS ? window.ZabbadatGetSet.makeGoCountdown({ steps: window.ZabbadatGetSet.PLANK_STEPS, speak: window.ZabbadatGetSet.plankSpeak, stop: () => {} }) : null;
-function plankCountShow(t) { const b = $("plankCount"); if (b) { b.textContent = t || ""; b.hidden = !t; } if (t) $("plankMsg").textContent = t; }
+function plankCountShow(t) {
+  const b = $("plankCount"); if (b) { b.textContent = t || ""; b.hidden = !t; }
+  if (t) $("plankMsg").textContent = t;
+  const h = $("plankHudCount"), l = $("plankHudCountLbl");
+  if (h) { h.textContent = t || ""; h.hidden = !t; }
+  if (l) l.hidden = !t;
+}
 function plankCue(r) {
   if (!r || r.phase !== "cue" || !r.cueSeq || r.cueSeq === plankCueSeq) return;
   plankCueSeq = r.cueSeq;
@@ -2891,6 +2978,7 @@ async function plankTick(id = plankLoopId) {
       $("plankMsg").textContent = r.framing && r.framing.msg ? r.framing.msg : r.countdownMs != null ? "Hold still…" : (r.frame === "missing" ? "Step back until your whole body fits" : "Get into plank");
     } else {
       $("plankClock").textContent = formatTut(r.ms);
+      if (typeof paintArcadeStrip === "function") paintArcadeStrip({ reps: "—", clock: formatTut(r.ms), plankClock: formatTut(r.ms), live: true });
       if (typeof plankTimeVoice !== "undefined" && plankTimeVoice && !plankSaved) plankTimeVoice.tick(r.ms);
       // During the hold a framing hint is information only: it never ends the hold.
       $("plankMsg").textContent = r.frame === "ok" ? (r.framing && r.framing.msg ? "Holding · " + r.framing.msg : "Holding") : r.frame === "missing" ? "Back in frame!" : window.ZabbadatPlank.reasonText(r.frame) + "! Fix it";
@@ -2955,7 +3043,8 @@ async function startPlankCam() {
     newPlankHold();
     if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(restart ? window.ZabbadatGetSet.COACH.plank.next : window.ZabbadatGetSet.COACH.plank.clock);
     $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts when you start a proper plank. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.";
-    if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once after Go on a fresh start */
+    if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once on a fresh start, before the go-cue */
+    if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); /* counts (One / two / three / Go) run at lock-in */
     plankLoop = true; plankTick(++plankLoopId);
   } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = native ? camErrorText(e) : "Camera or pose blocked."; } }
 }
@@ -2978,6 +3067,7 @@ function stopPlankCam() {
   if (plankWake) plankWake.stop().catch(() => {});
   $("plankWrap").hidden = true; $("plankStopBtn").hidden = true;
   $("plankCamBtn").textContent = "Start plank camera";
+  if (typeof paintArcadeStrip === "function") paintArcadeStrip({ live: false });
 }
 // ---- App-only native plank hook (iOS app build with the ZabbaPlank plugin: Apple Vision on the phone, Swift port of plank-session.js) ----
 // Browsers, Android and app builds without the plugin never enter this path: nativePlank() is null and the button runs startPlankCam() as before.
@@ -3775,7 +3865,7 @@ const mkBattleFs = (col) => ({
   toMs: (v) => (v && v.toMillis ? v.toMillis() : typeof v === "number" ? v : null),
 });
 const tbFs = mkBattleFs("tutBattles"), tbStatsFs = mkBattleFs("tutBattleStats");
-const tb = BR.controller(tbFs, wagerGate("tut"));
+const tb = BR.controller(tbFs, Object.assign({}, wagerGate("tut") || {}, { leadMs: (window.ZabbadatGetSet && window.ZabbadatGetSet.NEXT_TOTAL_MS) || 7600 }));
 let tbRoom = null, tbCodeCur = null, tbOff = null, tbTick = null, tbStream = null, tbLoop = false, tbCounter = null, tbJudge = null, tbMine = { reps: 0, tutMs: 0 }, tbPub = null, tbLostSent = false, tbRecorded = null, tbLiveT0 = null;
 // 3:00 battle clock: TUT per counted rep + top holds (capped 10 s each) via push-challenge.js (separate instance).
 let tbChal = null, tbEnded = false, tbSettleTimer = null, tbDraw = null;
@@ -3784,6 +3874,24 @@ const tbStat = (t) => { window.ZabCurrency.set($("tbStatus"), t || ""); };
 // TUT Battles voice: same coaching lines as solo TUT, the shared countdown spoken, reps counted up.
 const tbVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeSharedCountdownVoice ? window.ZabbadatGetSet.makeSharedCountdownVoice() : null;
 let tbCoaching = false;
+const tbCueSaid = {};
+function tbNextSetCue(r, st) {
+  const G = window.ZabbadatGetSet; if (!G || !r || r.startAt == null) return "";
+  const key = "tut:" + tbCodeCur + ":" + r.startAt;
+  const left = r.startAt - BR.serverNow(Date.now(), tb.offset);
+  const lead = G.NEXT_LEAD_MS || 4000, step = G.NEXT_COUNT_MS || 3600;
+  let word = "", show = "";
+  if (st.phase === "countdown" && left > step) { word = G.NEXT_SET_LINE || "Set up, go on three."; show = word; }
+  else if (st.phase === "countdown" && left > 2400) { word = "One"; show = "1"; }
+  else if (st.phase === "countdown" && left > 1200) { word = "two"; show = "2"; }
+  else if (st.phase === "countdown") { word = "three"; show = "3"; }
+  else if (st.phase === "go") { word = "Go"; show = "GO"; }
+  if (word && !tbCueSaid[key + ":" + word]) {
+    tbCueSaid[key + ":" + word] = 1;
+    if (G.interruptSpeak) G.interruptSpeak(word);
+  }
+  return show;
+}
 const tbNow = () => BR.serverNow(Date.now(), tb.offset);
 const tbPres = mkPresence({ fs: tbFs, room: () => tbRoom, code: () => tbCodeCur, done: (r) => TBm.isDone(r), canBeat: () => true,
   now: tbNow, stale: (r, u, n, t) => TBm.stale(r, u, n, t), claim: (fs, c, u, n) => TBm.claimGone(fs, c, u, n) });
@@ -3837,9 +3945,9 @@ function tbForfeitEnd(r, ff) {
 }
 function tbTickFn() {
   const r = tbRoom; if (!r) return; const st = tb.state(r.startAt), c = $("tbCount"); tbArc.paint(); if (r.status !== "done" && TBm.forfeitLoser(r)) return;
-  if (tbVoice) tbVoice.phase("tut:" + tbCodeCur + ":" + r.startAt, st.phase, st.n);
+  const cue = tbNextSetCue(r, st);
   c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
-  if (st.phase === "countdown") { c.textContent = st.n; tbStat("Get into plank at the top…"); }
+  if (st.phase === "countdown") { c.textContent = cue || st.n; tbStat("Set up, go on three."); }
   else if (st.phase === "go") { c.textContent = "GO!"; tbGoLive(r); }
   else if (st.phase === "live") {
     const left = TBm.timeLeft(r, BR.serverNow(Date.now(), tb.offset));

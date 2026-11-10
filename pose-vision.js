@@ -51,9 +51,15 @@
         var vw = (video && video.videoWidth) || 640, vh = (video && video.videoHeight) || 480;
         if (!video || !(video.readyState == null || video.readyState >= 2)) return Promise.resolve([]);
         var img; try { img = grab(video); } catch (e) { return Promise.reject(e); }
-        return Promise.resolve(p.detect({ image: img })).then(function (res) {
+        // include3D: iOS 17+ knee/elbow angles in body space, so a kneel toward the camera still fails the set.
+        // Older iOS no-ops this flag in the plugin.
+        return Promise.resolve(p.detect({ image: img, include3D: true })).then(function (res) {
           var kps = toKeypoints(res, vw, vh, !!(o && o.flipHorizontal));
-          return kps.length ? [{ keypoints: kps }] : [];
+          if (!kps.length) return [];
+          var pose = { keypoints: kps };
+          if (res && res.pose3d) pose.pose3d = res.pose3d;
+          if (res && res.pose3d && res.pose3d.kneeAngleDeg) pose.knee3D = res.pose3d.kneeAngleDeg;
+          return [pose];
         });
       },
       dispose: function () { cv = null; }

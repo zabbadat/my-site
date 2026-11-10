@@ -51,10 +51,10 @@ const complete = (p) => p.log.filter((x) => x === "say:Set complete.").length;
     check(`manual End session at ${secs} s / 35 reps posts once (same fields), says "Set complete." once`, p.posts().length === 1 && p.posts()[0] === "post:35:" + secs * 1000 && complete(p) === 1 && new RegExp("posted 35 reps in " + secs + "s\\.").test(p.els.pushStatus.textContent) && !/Ended:/.test(p.els.pushStatus.textContent));
   }
   p = page("sets", { ms: 90000 }); p.fail("knees"); p.end(); await tick();
-  check("regular Sets: the failure handler does nothing; finishing a set stays silent (no TUT end line)", p.posts().length === 1 && complete(p) === 0 && p.pushState.reps === 0 && p.pushState.finished === true);
+  check("regular Sets: the failure handler does nothing; finishing a set speaks Set complete. once", p.posts().length === 1 && complete(p) === 1 && p.pushState.reps === 0 && p.pushState.finished === true);
   p = page("long", { ms: 75000, signedIn: false }); p.fail("knees"); await tick();
   check("signed out: failure saves on this device with the reason, no remote post", p.posts().length === 0 && p.log.includes("local:zabbadat-push-total-u1-d") && /^Set failed: 35 reps, 75s\. Ready for the next set\. Saved on this device\. Sign in to post\. Ended: Knees down\./.test(p.els.pushStatus.textContent));
-  check("wiring: End session still calls finishPushSet in long mode; poseTick still calls voidTutSet(failed)", /pushEndBtn"\)\.onclick = \(\) => \{ if \(pushMode === "long"\) finishPushSet\(\); \}/.test(html) && /if \(failed\) voidTutSet\(failed\);/.test(html));
+  check("wiring: End session still calls finishPushSet in long mode; poseTick still calls voidTutSet(failed)", /pushEndBtn"\)\.onclick = \(\) => \{ if \(pushMode === "long"\) finishPushSet\(\); \}/.test(html) && /if \(failed\) voidTutSet\(failed, failWatch\.failedAt && failWatch\.failedAt\(\)\);/.test(html));
   check("copy: longNote, challengeNote and tut.html say time reps and tut sets will post", (html.match(/Time reps and tut sets will post/g) || []).length === 2 && /ends the set, and time reps and tut sets will post/.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
   for (const mode of ["long", "sets", "challenge"]) {
     const q = page(mode, { ms: 75000 }); q.end(); await tick();
