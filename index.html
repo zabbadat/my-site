@@ -578,9 +578,10 @@
     body:not(.is-member) [data-premium="lock"]::after { content: "Members only"; position: absolute; top: .6rem; right: .8rem; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .premium-demo { margin-top: 1.2rem; }
     .premium-tag { font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 .3rem; }
-body.zabba-snapshot #dailyCount, body.zabba-snapshot #walkSteps, body.zabba-snapshot #stepsStat { visibility: hidden; }
+body.zabba-snapshot #dailyCount, body.zabba-snapshot #walkSteps, body.zabba-snapshot #stepsStat, body.zabba-snapshot #washersStripSteps { visibility: hidden; }
 #dailyWalkBtn, #startBtn, #stepsHud, #stepsHud .stat, #stepsHud .stat b, #stepsHud .stat span,
-#dailyCount, #walkClock, #walkSteps, #dailyStatus, #stepsDebug {
+#dailyCount, #walkClock, #walkSteps, #dailyStatus, #stepsDebug,
+#play, #score, #stepsStat, #clock, #sessionStrip, #gameStepsDebug {
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-user-drag: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -590,7 +591,9 @@ body.zabba-snapshot #dailyCount, body.zabba-snapshot #walkSteps, body.zabba-snap
   background: rgba(125, 255, 125, 0.35); z-index: 0; transition: none;
 }
 #dailyWalkBtn > *, #startBtn > * { position: relative; z-index: 1; }
-#steps.zabba-holding, #steps.zabba-holding * {
+#steps.zabba-holding, #steps.zabba-holding *,
+#play.zabba-holding, #play.zabba-holding *,
+#sessionStrip.zabba-holding, #sessionStrip.zabba-holding * {
   -webkit-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important;
 }
 #stepsDebug { margin-top:.4rem; font-size:.82rem; color:#8a8a8a; }
@@ -607,7 +610,7 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 #camWrap:fullscreen .arcade-strip,#camWrap:-webkit-full-screen .arcade-strip,#camWrap.cam-fs .arcade-strip{flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px))}
 #camWrap:fullscreen video,#camWrap:-webkit-full-screen video,#camWrap.cam-fs video{flex:1 1 auto;width:100%;height:auto;min-height:0;object-fit:contain;border-radius:0}
 #camFsBtn{position:absolute;right:calc(8px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));z-index:3;padding:.35rem .6rem;font-size:.85rem}
-#pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page{font-family:"Press Start 2P",ui-monospace,"Courier New",monospace;color:#7dff7d;text-shadow:0 0 8px #2bff2b}
+#pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page,#score.arcade-page,#stepsStat.arcade-page,#clock.arcade-page{font-family:"Press Start 2P",ui-monospace,"Courier New",monospace;color:#7dff7d;text-shadow:0 0 8px #2bff2b}
 @media (orientation:landscape) and (max-height:500px){
   .arcade-strip{flex-direction:row;gap:.8rem;padding:.3rem .6rem}
   .arcade-strip .arcade-num{font-size:clamp(1rem,8vh,1.6rem)}
@@ -788,9 +791,12 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
     </div>
   </nav>
 <div id="sessionStrip" class="arcade-strip" hidden>
-  <div class="arcade-cell"><span class="arcade-num" id="sessionStripReps">0</span><span class="arcade-lbl">Reps</span></div>
-  <div class="arcade-cell"><span class="arcade-num" id="sessionStripClock">00:00</span><span class="arcade-lbl">Time</span></div>
-  <div class="arcade-cell" id="sessionStripHoldCell" hidden><span class="arcade-num" id="sessionStripHold">0</span><span class="arcade-lbl">Hold</span></div>
+  <div class="arcade-cell session-strip-cell"><span class="arcade-num" id="sessionStripReps">0</span><span class="arcade-lbl">Reps</span></div>
+  <div class="arcade-cell session-strip-cell"><span class="arcade-num" id="sessionStripClock">00:00</span><span class="arcade-lbl">Time</span></div>
+  <div class="arcade-cell session-strip-cell" id="sessionStripHoldCell" hidden><span class="arcade-num" id="sessionStripHold">0</span><span class="arcade-lbl">Hold</span></div>
+  <div class="arcade-cell washers-strip-cell" hidden><span class="arcade-num" id="washersStripScore">0</span><span class="arcade-lbl">Score</span></div>
+  <div class="arcade-cell washers-strip-cell" hidden><span class="arcade-num" id="washersStripSteps">0</span><span class="arcade-lbl">Steps</span></div>
+  <div class="arcade-cell washers-strip-cell" hidden><span class="arcade-num" id="washersStripClock">00:00</span><span class="arcade-lbl">Time</span></div>
 </div>
 
 <script>
@@ -1090,9 +1096,9 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <input id="xHandle" type="text" placeholder="@yourhandle" maxlength="20">
 <div id="wbPlayBoard" class="card wb-board" hidden aria-live="off"><div class="arc-head"><strong>Zabba Washer Battle live board</strong><button type="button" class="arc-mute" data-arc-mute hidden>Sound: on</button></div><div id="wbPlayBoardBody" class="arc"><div class="arc-fx"></div><div class="arc-main"></div></div></div>
 <div class="stats">
-      <div class="stat"><b id="score">0</b><span>Score / 21</span></div>
-      <div class="stat"><b id="stepsStat">0</b><span>Steps</span></div>
-      <div class="stat"><b id="clock">00:00</b><span>Time</span></div>
+      <div class="stat"><b id="score" class="arcade-page">0</b><span>Score / 21</span></div>
+      <div class="stat"><b id="stepsStat" class="arcade-page">0</b><span>Steps</span></div>
+      <div class="stat"><b id="clock" class="arcade-page">00:00</b><span>Time</span></div>
     </div>
     <div class="row">
       <button class="btn" id="startBtn" type="button">Start game</button>
@@ -1110,6 +1116,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <span class="note" id="sensorDot" aria-live="polite">○ Step sensor off</span>
     </div>
 <p class="note" id="phoneStepsNote" aria-live="polite"></p>
+<p class="note" id="gameStepsDebug" hidden aria-live="polite"></p>
 <p class="note" id="status">Ready. Sign in, then press start.</p>
 <p><a class="btn ghost" id="shareX" hidden target="_blank" rel="noopener">Share this game on X</a></p>
 <div class="card" id="pvpWasherEntry" style="margin-top:1.15rem">
@@ -1657,6 +1664,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/et-day.js"></script>
   <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>
+  <script src="/game-steps.js"></script>
   <script src="/walk-session.js"></script>
   <script src="/wake-lock.js"></script>
   <script src="/signin-gate.js"></script>
@@ -1824,6 +1832,7 @@ function bindHoldNative(btn, o) {
   var fill = btn.querySelector(".hold-fill");
   if (!fill) { fill = document.createElement("span"); fill.className = "hold-fill"; fill.setAttribute("aria-hidden", "true"); btn.insertBefore(fill, btn.firstChild); }
   var hud = document.getElementById("stepsHud") || document.getElementById("steps");
+  var holdRoots = ["stepsHud", "steps", "play", "sessionStrip", "score", "clock", "stepsStat"].map(function (id) { return document.getElementById(id); }).filter(Boolean);
   var pauseTimer = null, raf = 0, holding = false;
   function setFill(p) { fill.style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + "%"; }
   function label() { return o.active() ? (typeof o.label === "function" ? o.label() : (o.label || "Hold to stop")) : btn.textContent; }
@@ -1846,8 +1855,7 @@ function bindHoldNative(btn, o) {
     btn.addEventListener("selectstart", blockSelect, true);
     btn.addEventListener("contextmenu", blockSelect, true);
     if (hud) { hud.addEventListener("selectstart", blockSelect, true); hud.addEventListener("contextmenu", blockSelect, true); }
-    var sec = document.getElementById("steps");
-    if (sec) sec.classList.add("zabba-holding");
+    holdRoots.forEach(function (el) { el.addEventListener("selectstart", blockSelect, true); el.addEventListener("contextmenu", blockSelect, true); el.classList.add("zabba-holding"); });
   }
   function disarmSelectGuard() {
     document.removeEventListener("selectstart", blockSelect, true);
@@ -1855,8 +1863,7 @@ function bindHoldNative(btn, o) {
     btn.removeEventListener("selectstart", blockSelect, true);
     btn.removeEventListener("contextmenu", blockSelect, true);
     if (hud) { hud.removeEventListener("selectstart", blockSelect, true); hud.removeEventListener("contextmenu", blockSelect, true); }
-    var sec = document.getElementById("steps");
-    if (sec) sec.classList.remove("zabba-holding");
+    holdRoots.forEach(function (el) { el.removeEventListener("selectstart", blockSelect, true); el.removeEventListener("contextmenu", blockSelect, true); el.classList.remove("zabba-holding"); });
   }
   function haptic() {
     try {
@@ -1996,7 +2003,16 @@ function render() {
   $("stepsStat").textContent = state.steps.toLocaleString();
   const now = state.running ? Date.now() - state.startedAt + state.elapsed : state.elapsed;
   $("clock").textContent = formatTime(now);
-  if (state.running) stepVerifier.tick(performance.now());
+  if (state.running && !(typeof isNativeGameSteps === "function" && isNativeGameSteps())) stepVerifier.tick(performance.now());
+  if (typeof paintArcadeStrip === "function") {
+    const live = !!(state.running || state.finished || state.elapsed || state.score || state.steps);
+    const pushLive = typeof pushState !== "undefined" && pushState && pushState.running && !pushState.finished;
+    const cam = typeof camOn !== "undefined" && camOn;
+    if (!pushLive && !cam) paintArcadeStrip({ kind: "washers", score: state.score, steps: state.steps, clock: formatTime(now), live: live });
+  }
+  if (typeof washersGame !== "undefined" && washersGame && (state.running || state.elapsed || state.score || state.steps) && !state.finished) {
+    washersGame.writeLive({ running: !!(state.running && !state.finished), finished: !!state.finished, gameId: washersGame.state().gameId, steps: state.steps, baseSteps: washersGame.state().baseSteps, rawSteps: washersGame.state().rawSteps, score: state.score, elapsed: now, startedAt: state.startedAt, savedAt: Date.now(), nativeStartedAt: washersGame.state().startedAt });
+  }
   if (wbHook) wbHook.render();
 }
 function setStatus(msg) { $("status").textContent = msg; }
@@ -2050,7 +2066,7 @@ bindHold($("startBtn"), {
     else { setPocket(false); $("pauseBtn").onclick(); }
   },
 });
-$("pauseBtn").onclick = () => {
+$("pauseBtn").onclick = async () => {
   if (pocketOn) { setStatus("Locked. Hold the game button 1 second to unlock."); return; }
   if (!state.running || state.finished) return;
   setPocket(false);
@@ -2060,21 +2076,25 @@ $("pauseBtn").onclick = () => {
   clearInterval(state.tick);
   setStatus("Paused.");
   if (gameWake) gameWake.stop().catch(() => {});
-  stopPhoneSteps();
+  if (typeof isNativeGameSteps === "function" && isNativeGameSteps()) await stopNativeGameSteps();
+  else stopPhoneSteps();
   render();
   paintGameBtn();
 };
-$("resetBtn").onclick = () => {
+$("resetBtn").onclick = async () => {
   if (pocketOn) { setStatus("Locked. Hold the game button 1 second to unlock."); return; }
   setPocket(false);
   clearInterval(state.tick);
+  if (typeof isNativeGameSteps === "function" && isNativeGameSteps()) { await stopNativeGameSteps(); if (washersGame) washersGame.reset(); }
+  else stopPhoneSteps();
   Object.assign(state, { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false });
   if (typeof scoreVoice !== "undefined" && scoreVoice) scoreVoice.reset();
   stepDetector.reset();
   stepVerifier.reset();
   if (gameWake) gameWake.stop().catch(() => {});
   setStatus("Reset.");
-  stopPhoneSteps();
+  const dbg = $("gameStepsDebug"); if (dbg) { dbg.hidden = true; dbg.textContent = ""; }
+  if (typeof paintArcadeStrip === "function") paintArcadeStrip({ kind: "washers", live: false });
   render();
   paintGameBtn();
 };
@@ -2127,9 +2147,10 @@ const gameWake = makeWake("status"), pushWake = makeWake("pushStatus"), camWake 
 const plankBattleWake = makeWake("battleStatus"), tbWake = makeWake("tbStatus");
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
-    if (state.running && !state.finished) stepVerifier.hidden();
+    if (state.running && !state.finished && !(typeof isNativeGameSteps === "function" && isNativeGameSteps())) stepVerifier.hidden();
   } else if (state.running && !state.finished) {
-    setStatus("Page was hidden during play, so this game can't be verified for the live board.");
+    if (typeof isNativeGameSteps === "function" && isNativeGameSteps()) { /* silent catch-up: bindGameForeground */ }
+    else setStatus("Page was hidden during play, so this game can't be verified for the live board.");
   }
 });
 
@@ -2171,7 +2192,41 @@ function stopSensorDot() {
   setSensorDot("○ Step sensor off");
 }
 
+const GS = window.ZabbadatGameSteps;
+function isNativeGameSteps() {
+  try { return !!(GS && GS.pickGameSource(window).kind === "native"); } catch (e) { return false; }
+}
+let washersGame = (GS && isNativeGameSteps()) ? GS.createGameController(window, { onChange: (s) => {
+  if (s && s.steps != null) state.steps = Math.max(state.steps || 0, s.steps);
+  const dbg = $("gameStepsDebug");
+  if (dbg) { dbg.hidden = !s.debugLine; dbg.textContent = s.debugLine || ""; }
+  if (typeof render === "function") render();
+} }) : null;
+window.__zabbaApplyGameSteps = function (r) { if (washersGame) washersGame.applyNativeReading(r || {}); };
+
+async function startNativeGameSteps() {
+  if (!washersGame) return false;
+  const newSegment = !!(state.elapsed > 0 && !washersGame.state().active);
+  const id = washersGame.state().gameId || ("washers-" + (state.startedAt || Date.now()));
+  const ok = await washersGame.start({ gameId: id, startedAt: Date.now(), newSegment: newSegment, resume: !newSegment });
+  setPhoneNote((washersGame.state().msg) || (ok ? "Phone step counter on." : "Couldn't start the phone step counter."));
+  setSensorDot(ok ? "● Phone step counter on" : "○ Phone step counter off");
+  const dbg = $("gameStepsDebug"); if (dbg && washersGame.state().debugLine) { dbg.hidden = false; dbg.textContent = washersGame.state().debugLine; }
+  return ok;
+}
+function stopNativeGameSteps() {
+  if (!washersGame) return Promise.resolve(state.steps);
+  return washersGame.stop().then((n) => {
+    state.steps = Math.max(state.steps || 0, n || 0);
+    setPhoneNote("Phone step counter paused. It turns on again when you start or resume the game.");
+    setSensorDot("○ Phone step counter off");
+    render();
+    return n;
+  });
+}
+
 async function startPhoneSteps() {
+  if (typeof isNativeGameSteps === "function" && isNativeGameSteps()) { await startNativeGameSteps(); return; }
   try {
     if (typeof DeviceMotionEvent === "undefined") {
       if (state.running) stepVerifier.noSensor();
@@ -2199,6 +2254,7 @@ async function startPhoneSteps() {
   }
 }
 function stopPhoneSteps() {
+  if (typeof isNativeGameSteps === "function" && isNativeGameSteps()) { stopNativeGameSteps(); return; }
   phoneStepsOn = false;
   window.removeEventListener("devicemotion", onMotion);
   stopSensorDot();
@@ -2212,11 +2268,13 @@ async function finishGame() {
   paintGameBtn();
   clearInterval(state.tick);
   stepVerifier.pause(performance.now());
-  stopPhoneSteps();
+  if (typeof isNativeGameSteps === "function" && isNativeGameSteps()) await stopNativeGameSteps();
+  else stopPhoneSteps();
   if (gameWake) gameWake.stop().catch(() => {});
   const ms = state.elapsed + (state.startedAt ? Date.now() - state.startedAt : 0);
   state.elapsed = ms;
-  const check = stepVerifier.result(state.steps, ms);
+  const nativeGame = typeof isNativeGameSteps === "function" && isNativeGameSteps();
+  const check = (nativeGame && GS && GS.nativeResult) ? GS.nativeResult(stepVerifier, state.steps, ms) : stepVerifier.result(state.steps, ms);
   if (wbHook) wbHook.finish({ steps: state.steps, ms, verified: check.verified, reasons: check.reasons });
         const typed = ($("player").value || "").trim().slice(0, 20);
   const name = currentUser
@@ -2225,6 +2283,7 @@ async function finishGame() {
   const handle = ($("xHandle").value || "").trim().replace(/^@/, "");
   const record = { name, xHandle: handle ? "@" + handle : "", score: 21, steps: state.steps, ms, when: new Date().toLocaleString(),
     verified: check.verified, reason: check.reasons.join("; "),
+    source: nativeGame ? "native" : "web", native: !!nativeGame,
     sensor: { samples: check.samples, maxGapMs: check.maxGapMs, packs: check.packs } };
   const local = localBoard();
   local.push(record);
@@ -2296,15 +2355,30 @@ function paintArcadeStrip(o) {
   o = o || {};
   const strip = $("sessionStrip");
   const live = !!o.live;
+  const washers = o.kind === "washers";
   if (strip) strip.hidden = !live;
-  if (typeof document !== "undefined" && document.body && document.body.classList) document.body.classList.toggle("arcade-live", live);
-  if ($("sessionStripReps")) $("sessionStripReps").textContent = o.reps != null ? String(o.reps) : "0";
-  if ($("sessionStripClock")) $("sessionStripClock").textContent = o.clock || "00:00";
-  const holdCell = $("sessionStripHoldCell");
-  if (holdCell) {
-    const show = !!(o.hold != null && o.hold !== "");
-    holdCell.hidden = !show;
-    if (show && $("sessionStripHold")) $("sessionStripHold").textContent = String(o.hold);
+  if (typeof document !== "undefined" && document.body && document.body.classList) {
+    document.body.classList.toggle("arcade-live", live);
+    document.body.classList.toggle("arcade-washers", !!(live && washers));
+  }
+  const root = typeof document !== "undefined" ? document : null;
+  if (root && root.querySelectorAll) {
+    root.querySelectorAll(".session-strip-cell").forEach((el) => { el.hidden = !!(live && washers); });
+    root.querySelectorAll(".washers-strip-cell").forEach((el) => { el.hidden = !(live && washers); });
+  }
+  if (washers) {
+    if ($("washersStripScore")) $("washersStripScore").textContent = o.score != null ? String(o.score) : "0";
+    if ($("washersStripSteps")) $("washersStripSteps").textContent = Number(o.steps || 0).toLocaleString();
+    if ($("washersStripClock")) $("washersStripClock").textContent = o.clock || "00:00";
+  } else {
+    if ($("sessionStripReps")) $("sessionStripReps").textContent = o.reps != null ? String(o.reps) : "0";
+    if ($("sessionStripClock")) $("sessionStripClock").textContent = o.clock || "00:00";
+    const holdCell = $("sessionStripHoldCell");
+    if (holdCell) {
+      const show = !!(o.hold != null && o.hold !== "");
+      holdCell.hidden = !show;
+      if (show && $("sessionStripHold")) $("sessionStripHold").textContent = String(o.hold);
+    }
   }
   if ($("plankHudClock") && o.plankClock) $("plankHudClock").textContent = o.plankClock;
 }
@@ -3353,6 +3427,10 @@ if (daily) {
     $("dailyWalkBtn").hidden = false; $("dailyResetBtn").hidden = true;
     $("stepsLead").innerHTML = 'Step Equity: in the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone\'s step counter keeps your all-day total automatically, even when the app is closed. Tap Start walk to time a session: lock your phone or use other apps, steps still count. Today\'s total never goes down. Same login as washers.';
     $("walkLead").textContent = "Tap Start walk and the session clock runs on the phone's step counter. Lock your phone or use other apps; the session clock doesn't pause and steps still count. Hold to stop to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap.";
+    if (typeof isNativeGameSteps === "function" && isNativeGameSteps()) {
+      const n1 = $("sensorStartNote"); if (n1) n1.textContent = "Once start game, the phone's step counter is on. Lock your phone or use other apps; steps still count.";
+      const n2 = $("gameLockNote"); if (n2) n2.textContent = "Pocket play: after Start game, the phone's step counter keeps counting if you lock the phone or switch apps. The screen locks when the game starts. Hold 1 second to unlock and score a pack; it locks again after you score. While unlocked, hold 1 second to end the game.";
+    }
     dailyFg.run();
   }
   $("dailyWalkBtn").onclick = async () => {
@@ -3361,6 +3439,29 @@ if (daily) {
   setInterval(() => { if (daily.state().walking) postDaily(true); }, 120000);
   // Foreground refresh (daily-steps.js): visible / focus / pageshow / Capacitor App resume re-read the phone total and post it via postDaily (native source only).
   DS.bindForegroundEvents(window, daily, dailyFg.run);
+}
+if (typeof washersGame !== "undefined" && washersGame && typeof GS !== "undefined" && GS) {
+  const washersFg = GS.createGameForegroundRefresh(washersGame, {
+    onImmediate: () => { state.steps = Math.max(state.steps || 0, washersGame.state().steps || 0); render(); },
+    afterRefresh: () => { state.steps = Math.max(state.steps || 0, washersGame.state().steps || 0); render(); }
+  });
+  GS.bindGameForeground(window, washersGame, washersFg.run);
+  (async () => {
+    const rec = await washersGame.restore();
+    if (!rec || !rec.active || state.running || state.finished) return;
+    const live = rec.live || {};
+    state.score = live.score || 0;
+    state.steps = Math.max(live.steps || 0, rec.steps || 0);
+    state.elapsed = live.elapsed || 0;
+    if (live.running && live.savedAt) state.elapsed += Math.max(0, Date.now() - live.savedAt);
+    state.startedAt = Date.now();
+    state.running = true;
+    state.tick = setInterval(render, 200);
+    if (gameWake) gameWake.start().catch(() => {});
+    setStatus(washersGame.state().msg || "Game on. The phone's step counter keeps counting.");
+    render();
+    setPocket(true);
+  })().catch(() => {});
 }
 // ---- Live walk sessions (walk-session.js): session clock + walkSessions board. Wraps the daily walk button; daily steps untouched. ----
 const WS = window.ZabbadatWalk;
@@ -3524,7 +3625,7 @@ const xProvider = new TwitterAuthProvider();
 
 saveRemote = async (record) => {
   if (!auth.currentUser) throw new Error("Sign in required");
-  return (await addDoc(collection(db, "games"), {
+  const payload = {
     name: record.name,
     xHandle: record.xHandle || "",
     uid: auth.currentUser.uid,
@@ -3532,11 +3633,16 @@ saveRemote = async (record) => {
     steps: Math.round(Number(record.steps)),
     ms: Math.round(Number(record.ms)),
     verified: true,
-    sensorSamples: Math.round(Number(record.sensor.samples)),
-    maxGapMs: Math.round(Number(record.sensor.maxGapMs)),
-    packs: Math.round(Number(record.sensor.packs)),
+    packs: Math.round(Number(record.sensor && record.sensor.packs)),
     createdAt: serverTimestamp()
-  })).id;
+  };
+  // Browser posts keep sensorSamples + maxGapMs. Native ledger games omit them:
+  // samples would be 0 (fails the > 0 rule) and the coprocessor does not use the 1.5 s gap check.
+  if (!(record.source === "native" || record.native === true)) {
+    payload.sensorSamples = Math.round(Number(record.sensor.samples));
+    payload.maxGapMs = Math.round(Number(record.sensor.maxGapMs));
+  }
+  return (await addDoc(collection(db, "games"), payload)).id;
 };
 saveRemotePush = async (record) => {
   if (!auth.currentUser) throw new Error("Sign in required");
@@ -4381,7 +4487,7 @@ function wbStartGame() {
   if (wbPlayingFor === wbCodeCur) return;
   const mine = wbRoom && currentUser && wbRoom.players && wbRoom.players[currentUser.uid]; if (!mine || mine.result) return;
   wbPlayingFor = wbCodeCur; wbLastSteps = -1;
-  setPocket(false); $("resetBtn").onclick(); $("startBtn").onclick();
+  setPocket(false); Promise.resolve($("resetBtn").onclick()).then(() => { $("startBtn").onclick(); });
   setStatus("Battle on. Your steps are counted for the board. Report your scores in the Zabba Washer Battle panel.");
 }
 /* Battle decided while this phone is still counting: stop the local game, no board post. */
@@ -4611,7 +4717,7 @@ function waStartGame() {
   if (waPlayingFor === waCodeCur) return;
   const mine = waArena && currentUser && AR.seatOf(waArena, currentUser.uid); if (!mine || mine.result) return;
   waPlayingFor = waCodeCur; waLastSteps = -1;
-  setPocket(false); $("resetBtn").onclick(); $("startBtn").onclick();
+  setPocket(false); Promise.resolve($("resetBtn").onclick()).then(() => { $("startBtn").onclick(); });
   setStatus("Battle on. Your steps are counted for the board. Report your scores in the Zabba Washer Arena panel.");
 }
 function waStopGame() { if (state.running && !state.finished) { setPocket(false); $("pauseBtn").onclick(); setStatus("Battle over. " + AR.resultText(waArena, currentUser && currentUser.uid)); } waPlayingFor = null; }
