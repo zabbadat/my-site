@@ -52,6 +52,35 @@ function mkPlugin(init) {
   check("bindForegroundEvents is a no-op in the browser", G.bindGameForeground(webWin, webCtl, () => {}) === false);
   check("start() refuses in the browser (DeviceMotion path stays in index.html)", (await webCtl.start({ gameId: "x" })) === false);
 
+  // Pre-start: native may emit as soon as the listener is attached (plugin load / today
+  // stream). The washers counter must stay at 0 until Start game.
+  const earlyPlugin = mkPlugin();
+  earlyPlugin.addListener = function (name, fn) {
+    this.listeners[name] = fn;
+    if (name === "gameSteps") fn({ steps: 13, rawSteps: 13, gameId: "stale" });
+    return Promise.resolve({ remove() {} });
+  };
+  const He = mkWin(earlyPlugin);
+  const ce = G.createGameController(He.win, {});
+  check("immediate gameSteps emit before Start game does not paint the counter", ce.state().steps === 0 && ce.state().active === false);
+  earlyPlugin._set(13);
+  if (earlyPlugin.listeners.gameSteps) earlyPlugin.listeners.gameSteps({ steps: 13, rawSteps: 13, active: true, gameId: "stale" });
+  check("later gameSteps events are ignored until Start game", ce.state().steps === 0 && ce.state().active === false);
+  const startedEarly = await ce.start({ gameId: "washers-early" });
+  check("Start game begins at 0, then live events count", startedEarly && ce.state().active && ce.state().steps === 0);
+  earlyPlugin._set(8);
+  earlyPlugin.listeners.gameSteps(await earlyPlugin.getGameSteps());
+  check("after Start game, steps accumulate", ce.state().steps === 8);
+
+  // Stale zabbadat-washers-live without a native ledger must not resume or paint.
+  const stalePlugin = mkPlugin(); // no game
+  const Hs = mkWin(stalePlugin);
+  const cs = G.createGameController(Hs.win, {});
+  cs.writeLive({ running: true, gameId: "old-game", steps: 13, baseSteps: 0, rawSteps: 13, startedAt: Date.now() - 86400000, elapsed: 120000 });
+  const staleRec = await cs.restore();
+  check("stale local live record without a native ledger does not resume or show steps",
+    staleRec && staleRec.active === false && cs.state().steps === 0 && cs.state().active === false);
+
   // Native happy path: start, lock/unlock catch-up, app switch, unknown activity, snap.
   const plugin = mkPlugin();
   const H = mkWin(plugin);
@@ -205,6 +234,8 @@ function mkPlugin(init) {
     /id="dailyCount"/.test(html) && !/id="refreshNative"|Refresh from phone/.test(html));
   check("__zabbaApplyGameSteps is wired for the willEnterForeground snapshot unhide",
     /__zabbaApplyGameSteps/.test(html));
+  check("__zabbaApplyGameSteps ignores leftover native paints until the game is started or restored",
+    /if \(!wg\.state\(\)\.active && !state\.running && !state\.elapsed\) return;/.test(html));
 
   process.exit(R.every(Boolean) ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(1); });

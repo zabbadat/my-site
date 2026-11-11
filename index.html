@@ -2246,7 +2246,13 @@ let washersGame = (GS && isNativeGameSteps()) ? GS.createGameController(window, 
   if (dbg) { dbg.hidden = !s.debugLine; dbg.textContent = s.debugLine || ""; }
   if (typeof render === "function") render();
 } }) : null;
-window.__zabbaApplyGameSteps = function (r) { if (washersGame) washersGame.applyNativeReading(r || {}); };
+window.__zabbaApplyGameSteps = function (r) {
+  let wg = null; try { wg = washersGame; } catch (e) { wg = null; }
+  if (!wg) return;
+  // Native willEnterForeground can paint leftover ledger steps into the DOM. Ignore them until this game is started or restored.
+  if (!wg.state().active && !state.running && !state.elapsed) return;
+  wg.applyNativeReading(r || {});
+};
 
 async function startNativeGameSteps() {
   if (!washersGame) return false;

@@ -62,9 +62,13 @@
 
     function emit() { hooks.onChange && hooks.onChange(st); }
 
-    function applyNativeReading(r) {
+    function applyNativeReading(r, opts) {
       if (!r) return st.steps;
       if (r.active === false && r.steps == null && r.displayedSteps == null) return st.steps;
+      // Ignore pedometer / leftover-ledger readings until Start game (or restore of an
+      // in-progress game). Otherwise a native emit on page load can paint the washers
+      // counter before the user starts.
+      if (!st.active && !(opts && opts.force)) return st.steps;
       var n = r.steps != null ? r.steps : r.displayedSteps;
       if (n == null) return st.steps;
       var total = nextDisplayed(st.steps, clampGame(st.baseSteps) + clampGame(n));
@@ -159,7 +163,13 @@
       var live = readLive(store), peek = null;
       try { if (typeof src.plugin.getGameSteps === "function") peek = await src.plugin.getGameSteps(); } catch (e) {}
       var active = peek && peek.active !== false && (peek.gameId || peek.steps != null) && peek.ended !== true;
-      if (!active && !(live && live.running && live.gameId)) return null;
+      // A leftover localStorage live record without a native ledger must not paint or
+      // accumulate steps; only resume when the phone still has an in-progress game
+      // (webview reload mid-game). That game was already started by the user.
+      if (!active) {
+        if (live && live.running && live.gameId) return { live: live, peek: peek, active: false, steps: 0 };
+        return null;
+      }
       if (live) {
         st.baseSteps = clampGame(live.baseSteps);
         st.steps = clampGame(live.steps);
@@ -167,12 +177,10 @@
         st.gameId = live.gameId || st.gameId;
         st.startedAt = live.nativeStartedAt || live.startedAt || st.startedAt;
       }
-      if (peek && (peek.steps != null || peek.gameId)) applyNativeReading(peek);
-      if (active) {
-        st.active = true;
-        st.gameId = peek.gameId || st.gameId;
-        await start({ gameId: st.gameId, startedAt: st.startedAt || Date.now(), resume: true });
-      }
+      st.active = true;
+      st.gameId = (peek && peek.gameId) || st.gameId;
+      if (peek && (peek.steps != null || peek.gameId)) applyNativeReading(peek, { force: true });
+      await start({ gameId: st.gameId, startedAt: st.startedAt || Date.now(), resume: true });
       return { live: live, peek: peek, active: !!st.active, steps: st.steps };
     }
 
