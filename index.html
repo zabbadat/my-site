@@ -3870,7 +3870,7 @@ function preferPhoneGoogle(nav) {
   const touchMac = !!(nav && nav.platform === "MacIntel" && Number(nav.maxTouchPoints) > 1);
   return /iPad|iPhone|iPod/.test(ua) || touchMac || /Android/.test(ua);
 }
-function googleCredentialUrl(clientId, nonce) {
+function googleCredentialUrl(clientId, nonce, state) {
   const q = new URLSearchParams({
     client_id: clientId,
     redirect_uri: "https://www.zabbadat.com/__/auth/handler",
@@ -3880,10 +3880,28 @@ function googleCredentialUrl(clientId, nonce) {
     nonce: nonce,
     prompt: "select_account"
   });
+  if (state) q.set("state", state);
   return "https://accounts.google.com/o/oauth2/v2/auth?" + q.toString();
+}
+// iOS app (build 7+, ZabbaAuth plugin): Google refuses its sign-in page inside the app's WebView (it shows empty,
+// no accounts), so the same Google URL opens in Apple's sign-in sheet and comes back to com.zabbadat.app://signin#...
+// Builds without the plugin and every browser keep the same-tab flow below.
+function nativeGoogleAuth() {
+  try { const C = window.Capacitor; const p = C && typeof C.isNativePlatform === "function" && C.isNativePlatform() && C.Plugins && C.Plugins.ZabbaAuth; return p && typeof p.start === "function" ? p : null; } catch (e) { return null; }
+}
+async function startAppGoogle(plugin, nonce) {
+  let r;
+  try { r = await plugin.start({ url: googleCredentialUrl(GOOGLE_CLIENT_ID, nonce, "zab_app"), callbackScheme: "com.zabbadat.app" }); }
+  catch (e) { showSignInError(e, "Google sign-in"); return; }
+  if (!r || r.cancelled || !r.url) return; // closed the sheet: stay signed out, no error
+  const back = readPhoneGoogleHash(String(r.url).split("#")[1] || "");
+  if (back && back.cred) { let n = ""; try { n = phoneGooglePayload(back.cred).nonce || ""; } catch (e) {} if (n !== nonce) { showSignInError({ message: "the sign-in session did not match." }, "Google sign-in"); return; } }
+  await applyPhoneGoogleCred(back ? back.cred : "", back ? back.err : "", !back);
 }
 function startPhoneGoogle() {
   const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const app = nativeGoogleAuth();
+  if (app) { startAppGoogle(app, nonce); return; }
   markPhoneGooglePending();
   document.cookie = "zabba_gis_nonce=" + encodeURIComponent(nonce) + "; Path=/; Max-Age=300; Secure; SameSite=None";
   location.assign(googleCredentialUrl(GOOGLE_CLIENT_ID, nonce));
