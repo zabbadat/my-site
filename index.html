@@ -2050,8 +2050,12 @@ function render() {
     try { cam = !!camOn; } catch (e) {}
     if (!pushLive && !cam) paintArcadeStrip({ kind: "washers", score: state.score, steps: state.steps, clock: formatTime(now), live: live });
   }
-  if (typeof washersGame !== "undefined" && washersGame && (state.running || state.elapsed || state.score || state.steps) && !state.finished) {
-    washersGame.writeLive({ running: !!(state.running && !state.finished), finished: !!state.finished, gameId: washersGame.state().gameId, steps: state.steps, baseSteps: washersGame.state().baseSteps, rawSteps: washersGame.state().rawSteps, score: state.score, elapsed: now, startedAt: state.startedAt, savedAt: Date.now(), nativeStartedAt: washersGame.state().startedAt });
+  // App only: the native game controller emits (and so calls render) while `let washersGame` is still being
+  // assigned. Reading it then throws a TDZ ReferenceError (typeof does not help) and stops the whole module,
+  // so Sign in, Start and every handler wired below it never attach. Read it inside try.
+  let wg = null; try { wg = washersGame; } catch (e) { wg = null; }
+  if (wg && (state.running || state.elapsed || state.score || state.steps) && !state.finished) {
+    wg.writeLive({ running: !!(state.running && !state.finished), finished: !!state.finished, gameId: wg.state().gameId, steps: state.steps, baseSteps: wg.state().baseSteps, rawSteps: wg.state().rawSteps, score: state.score, elapsed: now, startedAt: state.startedAt, savedAt: Date.now(), nativeStartedAt: wg.state().startedAt });
   }
   if (wbHook) wbHook.render();
 }
