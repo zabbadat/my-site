@@ -773,18 +773,20 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .home-art img.small{position:absolute;width:46px;height:46px;left:18px;top:32px;filter:grayscale(1)}
 .home-art .word{position:absolute;left:16px;bottom:14px;margin:0;font-family:Outfit,sans-serif;font-weight:800;font-size:2.6rem;line-height:.9;letter-spacing:-.04em;color:#fff;text-shadow:3px 3px 0 #000}
 .home-art + .promo-banner{margin-top:0}
+.promo-banner .walk-bubble{box-sizing:border-box;flex:1 1 100%;width:260px;max-width:260px;min-height:56px;justify-content:center;padding:.85rem .5rem;border:2px solid transparent;font-size:.95rem;white-space:nowrap}
 .home-line{margin:0;padding:.7rem 1rem;background:#000;color:#fff;text-align:center;font-family:Outfit,sans-serif;font-weight:800;font-size:.68rem;letter-spacing:.06em;line-height:1.3;white-space:nowrap;border-bottom:2px solid #fff}
 .home-line + .promo-banner{margin-top:0}
 .promo-banner .ff-name{display:block;font-size:.78rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.2rem}
 .home-lockup{display:flex;justify-content:center;padding:1.6rem 0 .4rem}
 .home-lockup .lk{position:relative;width:220px;height:220px}
 .home-lockup .lk img{width:220px;height:220px;display:block;border-radius:50%}
-.home-lockup .lk p{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);white-space:nowrap;margin:0;padding:6px 14px;background:#0e1412;border:2px solid #fff;border-radius:4px;font-family:Outfit,sans-serif;font-weight:800;font-size:1.35rem;letter-spacing:.08em;color:#fff;line-height:1}
 .home-games{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:44rem;margin:1rem auto 0;padding:0 16px}
 .home-games a{display:flex;align-items:flex-end;min-height:142px;padding:18px 16px 16px;background:var(--card,#1b2723);border:2px solid rgba(255,46,147,.42);border-radius:18px;color:var(--text);text-decoration:none;font-weight:600;font-size:1.28rem;line-height:1.15}
 .home-games a:hover,.home-games a:focus-visible{border-color:rgba(198,255,0,.5);outline:none}
 .home-games a.featured{background:linear-gradient(160deg,rgba(198,255,0,.12),rgba(255,46,147,.08)),var(--card,#1b2723);border-color:rgba(255,60,172,.55)}
 .home-games a.wide{grid-column:1/-1;min-height:110px}
+.home-games a{flex-direction:column;align-items:flex-start;justify-content:space-between;gap:.6rem}
+.home-games .tile-ic{width:60px;height:60px;color:#fff;flex:0 0 auto}
 .home-games + .hero{padding-top:2.4rem}
 </style>
 </head>
@@ -1008,15 +1010,15 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <a class="btn promo-ghost" href="#play" onclick="var b=document.getElementById('ztBadge');if(b){b.click();}">Start game, challenge a friend</a>
     <a class="walk-bubble" href="#steps"><span class="walk-dot" aria-hidden="true"></span>Pitch, push &amp; step - earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a>
   </aside>
-  <div class="home-lockup"><div class="lk"><img src="/zd-v2-mark.svg" width="220" height="220" alt="Zabbadat"><p>Pitch-push-step</p></div></div>
+  <div class="home-lockup"><div class="lk"><img src="/zd-v2-mark.svg" width="220" height="220" alt="Zabbadat"></div></div>
   <div class="home-games" role="navigation" aria-label="Games">
-    <a class="featured" href="#push" id="tileTut">TUT</a>
-    <a href="#push" id="tileSets">Sets</a>
-    <a href="#push" id="tilePpp">Plank Push Press</a>
-    <a href="#plank">Plank House</a>
-    <a href="#steps">Step Equity</a>
-    <a href="#washers">Zabba Washers</a>
-    <a class="wide" href="#battles-hub">Battles</a>
+    <a href="#washers"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="24" cy="34" rx="16" ry="6"/><ellipse cx="24" cy="34" rx="4.5" ry="1.7"/><path d="M8 34v-7M40 34v-7"/><ellipse cx="24" cy="23" rx="16" ry="6"/><ellipse cx="24" cy="23" rx="4.5" ry="1.7"/><path d="M8 23v-9M40 23v-9"/><ellipse cx="24" cy="12" rx="16" ry="6"/><ellipse cx="24" cy="12" rx="4.5" ry="1.7"/></svg><span>Zabba Washers</span></a>
+    <a class="featured" href="#push" id="tileTut"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="27" r="15"/><path d="M20 6h8M24 6v6M36 14l3-3M24 27l6-7"/><circle cx="24" cy="27" r="1.5"/></svg><span>TUT</span></a>
+    <a href="#push" id="tileSets"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="38" cy="16" r="3.5"/><path d="M34 19 10 27M30 21v11M8 34h34M14 26l-2 8"/></svg><span>Sets</span></a>
+    <a href="#push" id="tilePpp"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="38" cy="22" r="3.5"/><path d="M34 25 10 31M32 26v10M8 36h34M14 30l-2 6M22 18V6M17 11l5-5 5 5"/></svg><span>Plank Push Press</span></a>
+    <a href="#plank"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20 24 8l16 12M12 18v4M36 18v4"/><circle cx="38" cy="30" r="3.5"/><path d="M34 32H10M30 32l-1 6M8 38h34"/></svg><span>Plank House</span></a>
+    <a href="#steps"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10c4 0 6 4 6 9s-2 8-5 8-5-3-5-8 0-9 4-9Z"/><path d="M11 31h7v3a3.5 3.5 0 0 1-7 0Z"/><path d="M34 6c4 0 4 4 4 9s-2 8-5 8-5-3-5-8 2-9 6-9Z"/><path d="M29 27h7v3a3.5 3.5 0 0 1-7 0Z"/></svg><span>Step Equity</span></a>
+    <a class="wide" href="#battles-hub"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l22 22M8 8h6M8 8v6M26 34l8-8M31 37l6-6M40 8 18 30M40 8h-6M40 8v6M22 34l-8-8M17 37l-6-6"/></svg><span>Battles</span></a>
   </div>
   <section class="hero">
     <div class="hero-top">
