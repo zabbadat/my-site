@@ -3842,8 +3842,10 @@ function showUser(user) {
         img = document.createElement("img");
         img.id = "avatar";
         img.alt = "";
+        img.referrerPolicy = "no-referrer"; // Google profile photos can refuse requests that carry the site as referrer (shows a broken-image ?)
         $("who").prepend(img);
       }
+      img.onerror = () => { img.onerror = null; img.remove(); }; // never leave a broken-image ? in the corner
       img.src = user.photoURL;
     }
   } else {
