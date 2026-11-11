@@ -766,6 +766,25 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .wg-entry{align-items:center;gap:.5rem}.wg-entry input{max-width:9rem}.wg-label{display:inline-flex;align-items:center;margin:0;font-weight:700}
 .wg-ask{font-weight:700;margin:.3rem 0}
 /* ARC-END */
+
+/* Home layout layer (Nov 10 2026): B&W art flush on Fall Frenzy, lockup, game tiles. */
+.home-art{position:relative;height:250px;overflow:hidden;margin-top:var(--navh,4.6rem);background:#000;background-image:radial-gradient(circle,rgba(255,255,255,.22) 1.1px,transparent 1.4px),repeating-linear-gradient(135deg,rgba(255,255,255,.07) 0 1px,transparent 1px 9px);background-size:7px 7px,auto;border-bottom:2px solid #fff}
+.home-art img.big{position:absolute;width:330px;height:330px;right:-110px;top:-50px;filter:grayscale(1) contrast(1.2);opacity:.95}
+.home-art img.small{position:absolute;width:46px;height:46px;left:18px;top:18px;filter:grayscale(1)}
+.home-art .word{position:absolute;left:16px;bottom:14px;margin:0;font-family:Outfit,sans-serif;font-weight:800;font-size:2.6rem;line-height:.9;letter-spacing:-.04em;color:#fff;text-shadow:3px 3px 0 #000}
+.home-art + .promo-banner{margin-top:0}
+.promo-banner .ff-name{display:block;font-size:.78rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.2rem}
+.home-lockup{display:flex;justify-content:center;padding:1.6rem 0 .4rem}
+.home-lockup .lk{position:relative;width:220px;height:220px}
+.home-lockup .lk img{width:220px;height:220px;display:block;border-radius:50%}
+.home-lockup .lk .tm{position:absolute;right:-10px;top:6px;font-size:1.1rem;font-weight:700;color:var(--text)}
+.home-lockup .lk p{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);white-space:nowrap;margin:0;padding:6px 14px;background:#0e1412;border:2px solid #fff;border-radius:4px;font-family:Outfit,sans-serif;font-weight:800;font-size:1.35rem;letter-spacing:.08em;color:#fff;line-height:1}
+.home-games{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:44rem;margin:1rem auto 0;padding:0 16px}
+.home-games a{display:flex;align-items:flex-end;min-height:142px;padding:18px 16px 16px;background:var(--card,#1b2723);border:2px solid rgba(255,46,147,.42);border-radius:18px;color:var(--text);text-decoration:none;font-weight:600;font-size:1.28rem;line-height:1.15}
+.home-games a:hover,.home-games a:focus-visible{border-color:rgba(198,255,0,.5);outline:none}
+.home-games a.featured{background:linear-gradient(160deg,rgba(198,255,0,.12),rgba(255,46,147,.08)),var(--card,#1b2723);border-color:rgba(255,60,172,.55)}
+.home-games a.wide{grid-column:1/-1;min-height:110px}
+.home-games + .hero{padding-top:2.4rem}
 </style>
 </head>
 <body>
@@ -804,6 +823,11 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 function f(){var m=n.scrollWidth-n.clientWidth;n.classList.toggle("fade-l",n.scrollLeft>2);n.classList.toggle("fade-r",m>2&&n.scrollLeft<m-2);}
 n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f);f();})();
 </script>
+  <div class="home-art" aria-hidden="true">
+    <img class="big" src="/zd-v2-mark.svg" width="330" height="330" alt="">
+    <img class="small" src="/zd-v2-mark.svg" width="46" height="46" alt="">
+    <p class="word">Zabbadat</p>
+  </div>
   <aside class="promo-banner" id="promoBanner" aria-label="Giveaway">
     <svg class="promo-fall" viewBox="0 0 410 146" width="410" height="146" aria-hidden="true" focusable="false">
       <!-- Overflowing cornucopia still life: produce, turkey, and pilgrim hat nestled together. -->
@@ -977,11 +1001,21 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <path d="M14 24q7-10 14-7" fill="none" stroke="#714322" stroke-width="1.1" stroke-linecap="round"/>
       </g>
     </svg>
-    <p><strong>Fall Frenzy: Get a free Zabba Washers starter pack.</strong> Three washers and a box, on us. Breathe in, pitch washers, walk your steps, and claim yours.</p>
+    <p><span class="ff-name">Fall Frenzy</span><strong>Get a free Zabba washer starter pack.</strong></p>
     <span class="claim-wrap"><a class="btn" href="#claim">Claim my free set</a><span class="promo-cloud" aria-hidden="false"><span class="promo-tag">While supplies last</span></span></span>
     <a class="btn promo-ghost" href="#play" onclick="var b=document.getElementById('ztBadge');if(b){b.click();}">Start game, challenge a friend</a>
     <a class="walk-bubble" href="#steps"><span class="walk-dot" aria-hidden="true"></span>Pitch, push &amp; step - earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a>
   </aside>
+  <div class="home-lockup"><div class="lk"><img src="/zd-v2-mark.svg" width="220" height="220" alt="Zabbadat"><span class="tm" aria-hidden="true">™</span><p>Pitch-push-step</p></div></div>
+  <div class="home-games" role="navigation" aria-label="Games">
+    <a class="featured" href="#push" id="tileTut">TUT</a>
+    <a href="#push" id="tileSets">Sets</a>
+    <a href="#push" id="tilePpp">Plank Push Press</a>
+    <a href="#plank">Plank House</a>
+    <a href="#steps">Step Equity</a>
+    <a href="#washers">Zabba Washers</a>
+    <a class="wide" href="#battles-hub">Battles</a>
+  </div>
   <section class="hero">
     <div class="hero-top">
       <div class="hero-copy">
@@ -2562,6 +2596,8 @@ function heroGo(mode, e) {
   $("push").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 if ($("heroLongBtn")) $("heroLongBtn").onclick = (e) => heroGo("long", e);
+["tileTut","tilePpp"].forEach((id) => { if ($(id)) $(id).onclick = (e) => heroGo("long", e); });
+if ($("tileSets")) $("tileSets").onclick = (e) => heroGo("sets", e);
 if ($("heroSetsBtn")) $("heroSetsBtn").onclick = (e) => heroGo("sets", e);
 function renderTutHistory() {
   if (!$("tutDaysBody")) return;
