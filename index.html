@@ -2042,8 +2042,9 @@ function render() {
   if (state.running && !(typeof isNativeGameSteps === "function" && isNativeGameSteps())) stepVerifier.tick(performance.now());
   if (typeof paintArcadeStrip === "function") {
     const live = !!(state.running || state.finished || state.elapsed || state.score || state.steps);
-    const pushLive = typeof pushState !== "undefined" && pushState && pushState.running && !pushState.finished;
-    const cam = typeof camOn !== "undefined" && camOn;
+    let pushLive = false, cam = false;
+    try { pushLive = !!(pushState && pushState.running && !pushState.finished); } catch (e) {}
+    try { cam = !!camOn; } catch (e) {}
     if (!pushLive && !cam) paintArcadeStrip({ kind: "washers", score: state.score, steps: state.steps, clock: formatTime(now), live: live });
   }
   if (typeof washersGame !== "undefined" && washersGame && (state.running || state.elapsed || state.score || state.steps) && !state.finished) {
