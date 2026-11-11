@@ -43,6 +43,7 @@ function fieldsFromBody(bodyText) {
         cred: j.credential || j[ID_FIELD] || "",
         err: j.error_description || j.error || "",
         csrf: j[CSRF_FIELD] || "",
+        state: j.state || "",
         looksGis: !!(j.credential || j.clientId || j.client_id || j[ID_FIELD])
       };
     } catch (e) { return null; }
@@ -53,6 +54,7 @@ function fieldsFromBody(bodyText) {
     cred: params.get(ID_FIELD) || params.get("credential") || "",
     err: params.get("error_description") || params.get("error") || "",
     csrf: params.get(CSRF_FIELD) || "",
+    state: params.get("state") || "",
     looksGis: params.has("credential") || params.has("clientId") || params.has("client_id") || params.has(ID_FIELD)
   };
 }
@@ -93,6 +95,19 @@ export function handOffHtml(hash) {
   const stored = "#" + hash;
   const dest = "/?zab_in=1#" + hash;
   return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><script>try{sessionStorage.setItem(\"zabba-gis-return\"," + JSON.stringify(stored) + ");}catch(e){}location.replace(" + JSON.stringify(dest) + ");</script></body></html>";
+}
+
+// iOS app (build 7+): Google's page cannot run inside the app's WebView, so the app opens it in Apple's
+// sign-in sheet with state=zab_app. The sheet only closes on the app's own scheme, so hand the same
+// fragment to com.zabbadat.app://signin instead of the homepage; the page in the app finishes sign-in.
+export const APP_STATE = "zab_app";
+export const APP_CALLBACK = "com.zabbadat.app://signin";
+export function isAppReturn(bodyText) {
+  const f = fieldsFromBody(bodyText);
+  return !!(f && f.state === APP_STATE);
+}
+export function appHandOffResponse(hash) {
+  return new Response(null, { status: 302, headers: { location: APP_CALLBACK + "#" + hash, "cache-control": "no-store" } });
 }
 
 export function credHash(cred) {
@@ -163,6 +178,10 @@ export async function handleAuthRequest(request, deps) {
   if (route === "query-cred" || route === "post") {
     const body = route === "post" ? await request.clone().text() : url.search.replace(/^\?/, "");
     const decision = acceptGooglePost(body, request.headers.get("cookie"), deps.clientId, deps.now());
+    if (isAppReturn(body)) {
+      if (decision.action === "error") return appHandOffResponse(errorHash(decision.message));
+      if (decision.action === "sign-in") return appHandOffResponse(credHash(decision.cred));
+    }
     if (decision.action === "error") return htmlResponse(handOffHtml(errorHash(decision.message)), 200);
     if (decision.action === "sign-in") return htmlResponse(handOffHtml(credHash(decision.cred)), 200, [credCookie(decision.cred)]);
   }
