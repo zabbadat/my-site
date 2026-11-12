@@ -45,7 +45,7 @@
     a.btn:link, a.btn:visited { display: inline-block; padding: .65rem 1.1rem; border-radius: 999px; background: #1f4d3c; color: #fff; text-decoration: none; font-weight: 700; }
     a.btn:hover, a.btn:focus-visible { background: #2f6b55; color: #fff; }
     a.btn.ghost:link, a.btn.ghost:visited { background: transparent; color: #1f4d3c; box-shadow: inset 0 0 0 2px #1f4d3c; }
-    .zab { display: inline-flex; align-items: center; gap: .15em; font-weight: 700; letter-spacing: .06em; }
+    .zab { display: inline-flex; align-items: center; gap: .28em; font-weight: 700; letter-spacing: .06em; }
     .zab-ring { width: .95em; height: .95em; }
     footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; font-family: system-ui, sans-serif; font-size: .85rem; color: #444; }
     footer p { margin: .3rem 0; }
@@ -93,7 +93,7 @@
   <p class="sub">Every ZAB holder, ranked by balance.</p>
   <p class="notice" id="zabNote"><strong>ZAB is an in-game label for Zabbadat games. It has no real-world value and is not tied to any real balance, wallet, product or offer.</strong></p>
   <h2>Your balance</h2>
-  <p class="mine"><span class="zt-bal-row"><span id="bankMine">Sign in to see your balance.</span><a class="zt-send-tab" id="bankSendTab" href="#bankSend" aria-label="Send Zab">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a></span></p>
+  <p class="mine"><span class="zt-bal-row"><span id="bankMine">Sign in to see your balance.</span><a class="zt-send-tab" id="bankSendTab" href="#bankSend" aria-label="Send Zab">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></a></span></p>
   <p class="fine" id="bankSendSignIn" hidden>Sign in to send Zab. <a href="/#play">Go to sign-in</a></p>
   <section id="bankSend" hidden>
   <h2>Send ZAB</h2>
@@ -107,7 +107,7 @@
   <p class="fine">Or tap a name in the rankings below.</p>
   <p class="fine" id="sendMsg" aria-live="polite"></p>
   <dialog id="sendModal" aria-labelledby="sendModalTitle"><form method="dialog" id="sendModalForm">
-    <h2 id="sendModalTitle">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></h2>
+    <h2 id="sendModalTitle">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></h2>
     <p>To <strong id="sendModalName"></strong></p>
     <label for="sendAmt" class="fine">Amount (ZAB, 0.1 to 1,000)</label><br>
     <input id="sendAmt" type="number" min="0.1" max="1000" step="0.1" inputmode="decimal" placeholder="ZAB">

@@ -47,7 +47,7 @@ check("scoreboard is inside the ZAB section, after the ZAB heading and balance",
 check("scoreboard comes ABOVE the 'Recent earnings' heading and its table", at('id="ztHolders"') < at("<h3>Recent earnings</h3>") && at('id="ztHolders"') < at('id="ztTxBody"'));
 check("scoreboard comes above the earn rates too, and the top-line note stays above it", at('id="ztHolders"') < at('id="ztRates"') && at('id="ztTop"') < at('id="ztHolders"'));
 check("heading: 'The Bank of Zabba \u2014 top ' + the site's ZAB markup (span.zab with the ring svg, as in the table header) + ' holders'", (() => { const m = sec.match(/<h3 class="zt-board-title">([\s\S]*?)<\/h3>/); if (!m) return false; const h = m[1];
-  const zabSpan = /<span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false">[\s\S]*?<\/svg><\/span>/;
+  const zabSpan = /<span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path[^>]*\/><\/svg><\/span>/;
   const same = sec.match(/<th><span class="zab">ZAB<svg[\s\S]*?<\/svg><\/span><\/th>/); // the existing table-header markup
   const plain = h.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, "");
   return h.startsWith("The Bank of Zabba \u2014 top ") && zabSpan.test(h) && h.endsWith("</span> holders") && plain === "The Bank of Zabba \u2014 top ZAB holders" && !/symbol/i.test(h) && !!same && h.match(zabSpan)[0] === same[0].replace(/^<th>|<\/th>$/g, ""); })());
