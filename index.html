@@ -170,9 +170,10 @@
     nav a:not(.logo) {
       color: var(--muted);
       text-decoration: none;
-      margin-left: 1.4rem;
+      margin-left: 1.86rem;
       font-size: .92rem;
     }
+    nav a[href="#push"] { white-space: nowrap; }
     .hero-top {
       display: flex;
       align-items: center;
@@ -558,7 +559,7 @@
     .fine { font-size: .8rem; color: var(--muted); margin-top: .6rem; }
     @media (max-width: 700px) {
       nav { flex-wrap: wrap; gap: .4rem; }
-      nav a:not(.logo) { margin-left: .55rem; }
+      nav a:not(.logo) { margin-left: .73rem; }
       /* nine links: one swipeable row instead of a crowded wrap */
       nav > div { display:flex; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; width:100%; padding-bottom:.25rem; }
       nav > div::-webkit-scrollbar { display:none; }
@@ -599,7 +600,7 @@ body.zabba-snapshot #dailyCount, body.zabba-snapshot #walkSteps, body.zabba-snap
 #stepsDebug { margin-top:.4rem; font-size:.82rem; color:#8a8a8a; }
 .arcade-strip{display:flex;align-items:stretch;justify-content:center;gap:1.2rem;width:100%;box-sizing:border-box;padding:.45rem .75rem calc(.45rem + env(safe-area-inset-bottom,0px));background:#080612;border-bottom:2px solid #3a2a7a;box-shadow:0 0 18px rgba(120,80,255,.35), inset 0 0 18px rgba(0,0,0,.45);color:#ffe14d;font-family:"Press Start 2P",ui-monospace,"Courier New",monospace;text-align:center;pointer-events:none;z-index:4}
 .arcade-strip .arcade-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:6.5rem}
-.arcade-strip .arcade-num{display:block;font-size:clamp(1.15rem,6.5vw,2.15rem);line-height:1.25;letter-spacing:.08em;color:#7dff7d;text-shadow:0 0 6px #fff6a8,0 0 14px #2bff2b,0 0 24px rgba(45,255,45,.7);font-variant-numeric:tabular-nums}
+.arcade-strip .arcade-num{display:block;font-size:24px;line-height:1.25;letter-spacing:1px;color:#7dff7d;text-shadow:none;filter:none;opacity:1;font-variant-numeric:tabular-nums;-webkit-font-smoothing:none;transform:none}
 .arcade-strip .arcade-lbl{display:block;margin-top:.25rem;font-size:clamp(.38rem,1.5vw,.52rem);letter-spacing:.14em;text-transform:uppercase;color:#ffe14d;text-shadow:0 0 8px rgba(255,225,77,.7)}
 #sessionStrip{position:fixed;top:0;left:0;right:0;z-index:10000;padding-top:calc(.45rem + env(safe-area-inset-top,0px));padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
@@ -610,10 +611,29 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 #camWrap:fullscreen .arcade-strip,#camWrap:-webkit-full-screen .arcade-strip,#camWrap.cam-fs .arcade-strip{flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px))}
 #camWrap:fullscreen video,#camWrap:-webkit-full-screen video,#camWrap.cam-fs video{flex:1 1 auto;width:100%;height:auto;min-height:0;object-fit:contain;border-radius:0}
 #camFsBtn{position:absolute;right:calc(8px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));z-index:3;padding:.35rem .6rem;font-size:.85rem}
-#pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page,#score.arcade-page,#stepsStat.arcade-page,#clock.arcade-page{font-family:"Press Start 2P",ui-monospace,"Courier New",monospace;color:#7dff7d;text-shadow:0 0 8px #2bff2b}
+#pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page,#score.arcade-page,#stepsStat.arcade-page,#clock.arcade-page{
+  font-family:ui-monospace,"Courier New",monospace;
+  color:#7dff7d;
+  font-size:32px;
+  line-height:1;
+  letter-spacing:1px;
+  text-shadow:none;
+  filter:none;
+  opacity:1;
+  -webkit-font-smoothing:none;
+  transform:none;
+}
+@media (max-width:700px){
+  #pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page,#score.arcade-page,#stepsStat.arcade-page,#clock.arcade-page{font-size:24px}
+}
+.arcade-crisp-on{position:relative;display:block;min-height:1em;color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;filter:none!important;opacity:1;transform:none}
+.arcade-src{position:absolute!important;left:0;top:0;width:1px;height:1px;padding:0;margin:0;overflow:hidden!important;clip:rect(0,0,0,0);clip-path:inset(50%);border:0;white-space:nowrap;color:transparent!important;-webkit-text-fill-color:transparent!important;font-size:0!important;line-height:0;opacity:0!important;pointer-events:none}
+.arcade-crisp-on>svg.arcade-crisp{position:absolute;pointer-events:none;display:block;overflow:visible;filter:none;opacity:1;transform:none}
+.arcade-crisp .arcade-glow{filter:none}
+.arcade-crisp .arcade-digits{filter:none;opacity:1}
 @media (orientation:landscape) and (max-height:500px){
   .arcade-strip{flex-direction:row;gap:.8rem;padding:.3rem .6rem}
-  .arcade-strip .arcade-num{font-size:clamp(1rem,8vh,1.6rem)}
+  .arcade-strip .arcade-num{font-size:24px}
   body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 3.6rem)}
 }
 .tut-hero.unboxed{background:none!important;border:0!important;box-shadow:none!important;padding:.4rem 0 0!important}
@@ -661,7 +681,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
   nav > .zt-badge { order: 3; }
 }
 #zab .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
-.zab{display:inline-flex;align-items:center;gap:.28em;font-weight:700;letter-spacing:.06em;white-space:nowrap}.zab-ring{width:.95em;height:.95em;display:inline-block;flex:none}
+.zab{display:inline-flex;align-items:center;gap:.15em;font-weight:700;letter-spacing:.06em;white-space:nowrap}.zab-ring{width:.95em;height:.95em;display:inline-block;flex:none}
 .tuts-l{font-weight:800;color:#7fe3ff;text-shadow:0 0 8px rgba(127,227,255,.55)}
 #zab .zt-rates li{border:1px solid rgba(198,255,0,.35);border-radius:10px;padding:.5rem .7rem}
 #zab .zt-board{margin:1.2rem 0 1.6rem;padding:1rem 1rem 1.1rem;border:2px solid rgba(198,255,0,.45);border-radius:16px;background:rgba(14,20,18,.6);box-shadow:0 0 22px rgba(198,255,0,.12)}
@@ -704,7 +724,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .arc-name em { font-style:normal; font-size:.6rem; color:#7dff7d; }
 .arc-badge { font-size:.62rem; font-weight:800; padding:.05rem .35rem; border-radius:4px; border:1px solid currentColor; }
 .arc-rep-shaky { color:#ff7a7a; } .arc-rep-steady { color:#ffe14d; } .arc-rep-trusted { color:#7dff7d; }
-.arc-score { font-size:3.2rem; font-weight:800; line-height:1.05; color:#fff; text-shadow:0 0 12px currentColor; margin:.2rem 0; }
+.arc-score { font-family:ui-monospace,"Courier New",monospace; font-size:32px; font-weight:800; line-height:1.05; letter-spacing:1px; color:#fff; text-shadow:none; filter:none; opacity:1; margin:.2rem 0; -webkit-font-smoothing:none; transform:none; }
 .arc-p1 .arc-score { color:#7fe3ff; } .arc-p2 .arc-score { color:#ff9ae9; }
 .arc-score small { font-size:1rem; color:#9fb4ff; text-shadow:none; }
 .arc-score .c { display:none; --arc-n:var(--to); }
@@ -801,8 +821,8 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
     <div>
     <a href="#approach">The Practice</a>
     <a href="#washers">Zabba Washers</a>
-    <a href="#push">TUTS</a>
-    <a href="#zab"><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></a>
+    <a href="#push">Push-Ups-TUTS</a>
+    <a href="#zab"><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a>
     <a href="#steps">Step Equity</a>
     <a href="#battles-hub">Battles</a>
     <a href="#plank">Plank House</a>
@@ -1009,11 +1029,11 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p><span class="ff-name">Fall Frenzy</span><strong>Get a free Zabba washer starter pack.</strong></p>
     <span class="claim-wrap"><a class="btn" href="#claim">Claim my free set</a><span class="promo-cloud" aria-hidden="false"><span class="promo-tag">While supplies last</span></span></span>
     <a class="btn promo-ghost" href="#play" onclick="var b=document.getElementById('ztBadge');if(b){b.click();}">Start game, challenge a friend</a>
-    <a class="walk-bubble" href="#steps"><span class="walk-dot" aria-hidden="true"></span>Pitch, push &amp; step - earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></a>
+    <a class="walk-bubble" href="#steps"><span class="walk-dot" aria-hidden="true"></span>Pitch, push &amp; step - earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a>
   </aside>
   <div class="home-lockup"><div class="lk"><img src="/zd-v2-mark.svg" width="220" height="220" alt="Zabbadat"></div></div>
   <div class="home-games" role="navigation" aria-label="Games">
-    <a href="#washers"><svg class="tile-ic tile-medal" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false"><path fill="#fff" fill-rule="evenodd" d="M39.837 31.665A7.68 7.68 0 0 0 39.837 16.335A1.536 1.536 0 0 1 38.557 14.118A7.68 7.68 0 0 0 25.28 6.453A1.536 1.536 0 0 1 22.72 6.453A7.68 7.68 0 0 0 9.443 14.118A1.536 1.536 0 0 1 8.163 16.335A7.68 7.68 0 0 0 8.163 31.665A1.536 1.536 0 0 1 9.443 33.882A7.68 7.68 0 0 0 22.72 41.547A1.536 1.536 0 0 1 25.28 41.547A7.68 7.68 0 0 0 38.557 33.882A1.536 1.536 0 0 1 39.837 31.665ZM16.32 24a7.68 7.68 0 1 0 15.36 0a7.68 7.68 0 1 0 -15.36 0Z"/><circle cx="24" cy="24" r="12.29" fill="none" stroke="#0e1412" stroke-width="1.3"/><g fill="#0e1412"><circle cx="39.360" cy="24.000" r="1.69"/><circle cx="31.680" cy="10.698" r="1.69"/><circle cx="16.320" cy="10.698" r="1.69"/><circle cx="8.640" cy="24.000" r="1.69"/><circle cx="16.320" cy="37.302" r="1.69"/><circle cx="31.680" cy="37.302" r="1.69"/></g></svg><span>Zabba Washers</span></a>
+    <a href="#washers"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="24" cy="34" rx="16" ry="6"/><ellipse cx="24" cy="34" rx="4.5" ry="1.7"/><path d="M8 34v-7M40 34v-7"/><ellipse cx="24" cy="23" rx="16" ry="6"/><ellipse cx="24" cy="23" rx="4.5" ry="1.7"/><path d="M8 23v-9M40 23v-9"/><ellipse cx="24" cy="12" rx="16" ry="6"/><ellipse cx="24" cy="12" rx="4.5" ry="1.7"/></svg><span>Zabba Washers</span></a>
     <a class="featured" href="#push" id="tileTut"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="9" r="3.5"/><path d="M24 12.5v17M24 29.5l-6 13M24 29.5l6 13M24 20H11v-9M24 20h13v-9M12 20c1-7 8-9 10.5-1M36 20c-1-7-8-9-10.5-1"/><circle cx="11" cy="9" r="2.2"/><circle cx="37" cy="9" r="2.2"/></svg><span>TUTS</span></a>
     <a href="#push" id="tileSets"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="38" cy="16" r="3.5"/><path d="M34 19 10 27M30 21v11M8 34h34M14 26l-2 8"/></svg><span>Sets</span></a>
     <a href="#push" id="tilePpp"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="38" cy="22" r="3.5"/><path d="M34 25 10 31M32 26v10M8 36h34M14 30l-2 6M22 18V6M17 11l5-5 5 5"/></svg><span>Plank Push Press</span></a>
@@ -1045,7 +1065,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
        <p class="jingle">Breathe. Activate. <a class="tut-link" href="#tut-board">TUT</a>. Score. Win Rank &amp; Reward.</p>
         <p>Zabbadat<sup style="font-size:0.5em">™</sup> is a movement towards better health through activation, coordination, breathing, and meditation. Zabba washers turn steps into a contest. Sign in so your name stays the same on every device.</p>
         <div class="actions">
-          <a class="btn" href="#play">Start pitching <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span> &amp; stepping</a>
+          <a class="btn" href="#play">Start pitching <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> &amp; stepping</a>
           <a class="btn ghost" href="#board">Live board</a>
         </div>
         <p class="aka">Zabbadat, also searched as Zabadat.</p>
@@ -1074,7 +1094,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <input type="hidden" name="_subject" value="Zabbadat free starter pack claim">
       <button class="btn" type="submit">Claim my free set</button>
     </form>
-    <div class="actions"><a class="btn ghost" href="#play">Start pitching <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span> &amp; stepping</a><a class="btn ghost" href="#steps">Step Equity</a></div>
+    <div class="actions"><a class="btn ghost" href="#play">Start pitching <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> &amp; stepping</a><a class="btn ghost" href="#steps">Step Equity</a></div>
     <p class="fine">Sign-up and participation only. No purchase needed. We'll email you about next steps and shipping.</p>
   </section>
   <section id="approach">
@@ -1106,7 +1126,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="who" id="who">
       <div>
         <strong id="whoName">Not signed in</strong>
-        <div class="note" id="zabBalanceRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Balance: <span id="zabaBal" style="color:var(--accent-2)">0</span> <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></div>
+        <div class="note" id="zabBalanceRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Balance: <span id="zabaBal" style="color:var(--accent-2)">0</span> <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></div>
         <div class="note" style="margin:0">Google or X sign-in keeps your board name consistent.</div>
       </div>
       <button class="btn" id="signInBtn" type="button">Sign in with Google</button>
@@ -1304,12 +1324,12 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </section>
 
   <section id="zab">
-    <h2><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></h2>
-    <p class="lead">Earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span> for the work you log.</p>
-    <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">ZAB bag</span><span class="zt-bal-row"><b id="ztBalance">—</b><a class="zt-send-tab" id="ztSendTab" href="#play" aria-label="Send Zab">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></a></span><span>Your balance</span></div></div>
+    <h2><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></h2>
+    <p class="lead">Earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> for the work you log.</p>
+    <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">ZAB bag</span><span class="zt-bal-row"><b id="ztBalance">—</b><a class="zt-send-tab" id="ztSendTab" href="#play" aria-label="Send Zab">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a></span><span>Your balance</span></div></div>
     <p class="note" id="ztTop" hidden></p>
     <div class="zt-board" id="ztHolders">
-      <h3 class="zt-board-title">The Bank of Zabba — top <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span> holders</h3>
+      <h3 class="zt-board-title">The Bank of Zabba — top <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> holders</h3>
       <div id="ztHoldersBody" aria-live="polite"><p class="zt-h-note" data-state="signedout">Sign in to see the ZAB holders.</p></div>
       <p class="fine">Top 10 by balance. Names only, never emails.</p>
     </div>
@@ -1318,7 +1338,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <ul class="zt-rates" id="ztRates"></ul>
     <p class="fine">Each set or walk counts on its own. Leftovers from plank, TUT and walking don't carry over.</p>
     <h3>Recent earnings</h3>
-    <table><thead><tr><th>Source</th><th><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></th><th>Activity</th><th>When</th></tr></thead><tbody id="ztTxBody"><tr><td colspan="4">Sign in to see your earnings.</td></tr></tbody></table>
+    <table><thead><tr><th>Source</th><th><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></th><th>Activity</th><th>When</th></tr></thead><tbody id="ztTxBody"><tr><td colspan="4">Sign in to see your earnings.</td></tr></tbody></table>
   </section>
 
   <section id="washerbattle">
@@ -1329,19 +1349,19 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <label id="wbSizeLabel">Players</label>
       <div class="row" id="wbSizeRow" role="group" aria-labelledby="wbSizeLabel"><button class="btn" id="wbSize2" type="button" aria-pressed="true">1v1</button><button class="btn ghost" id="wbSize4" type="button" aria-pressed="false">2v2</button></div>
       <div id="wbTeamRow" hidden><label id="wbTeamLabel">Your team</label><div class="row" role="group" aria-labelledby="wbTeamLabel"><button class="btn" id="wbTeamA" type="button" aria-pressed="true">Team A</button><button class="btn ghost" id="wbTeamB" type="button" aria-pressed="false">Team B</button></div><p class="note" style="margin:.2rem 0 0">2v2: two teams of two. Players who join with the code fill the open seats so the teams stay even.</p></div>
-      <p class="note" id="wbWagerNote" style="margin:.2rem 0 0">Each player sets their own <span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span> wager in the lobby: enter an amount, Submit, then Confirm. Your wager is final once confirmed, and 0 means no wager. When everyone has locked in, all players agree to one pot. The winner takes it (2v2: the winning team splits it equally). Ties and matches that never start are refunded.</p>
+      <p class="note" id="wbWagerNote" style="margin:.2rem 0 0">Each player sets their own <span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> wager in the lobby: enter an amount, Submit, then Confirm. Your wager is final once confirmed, and 0 means no wager. When everyone has locked in, all players agree to one pot. The winner takes it (2v2: the winning team splits it equally). Ties and matches that never start are refunded.</p>
       <div class="row"><button class="btn" id="wbCreate" type="button">Create arena</button></div>
       <label for="wbCode">Or join with a code</label>
       <div class="row"><input id="wbCode" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="K7QX" style="max-width:9rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="wbJoin" type="button">Join</button></div>
     </div>
     <div class="card" id="wbBattlers">
       <h3 id="bbTitle">Zabba Washer Battlers, Season Q4 2026</h3>
-      <p class="note" id="bbLead" style="margin:0 0 .2rem">This season's wins and losses, and each player's <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span>. Most wins first. Scroll to find your rank. Names only.</p>
+      <p class="note" id="bbLead" style="margin:0 0 .2rem">This season's wins and losses, and each player's <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span>. Most wins first. Scroll to find your rank. Names only.</p>
       <p class="note" id="bbReset" style="margin:0 0 .3rem"></p>
       <p class="note" id="bbYou" hidden style="margin:0 0 .3rem;font-weight:700;color:var(--accent-2)"></p>
       <div class="row"><button class="btn ghost" id="bbJump" type="button" hidden>Jump to me</button></div>
       <div class="bb-scroll" id="bbScroll" tabindex="0" role="region" aria-label="Zabba Washer Battlers ranking, scrolls">
-        <table><thead><tr><th>#</th><th>Player</th><th>Wins</th><th>Losses</th><th><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></th></tr></thead>
+        <table><thead><tr><th>#</th><th>Player</th><th>Wins</th><th>Losses</th><th><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></th></tr></thead>
         <tbody id="bbBody"><tr><td colspan="5">Waiting for battles…</td></tr></tbody></table>
       </div>
     </div>
@@ -1359,7 +1379,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <p class="note" id="waPotTotal" hidden></p>
         <div id="waPotEntry" hidden>
           <p class="note">Your wager is final once confirmed: enter your own amount, tap Submit, then Confirm. 0 means no wager.</p>
-          <div class="row wg-entry"><label for="waPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></label><input id="waPotAmt" type="number" inputmode="decimal" min="0" step="0.1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="waPotSubmit" type="button">Submit</button></div>
+          <div class="row wg-entry"><label for="waPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="waPotAmt" type="number" inputmode="decimal" min="0" step="0.1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="waPotSubmit" type="button">Submit</button></div>
         </div>
         <div id="waPotConfirm" hidden><p class="wg-ask" id="waPotAsk"></p><div class="row"><button class="btn" id="waPotYes" type="button">Confirm</button><button class="btn ghost" id="waPotBack" type="button">Back</button></div></div>
         <div id="waPotAgree" hidden><p class="note" id="waPotAgreeText"></p><div class="row"><button class="btn" id="waPotAgreeBtn" type="button">Agree to the pot</button></div></div>
@@ -1383,7 +1403,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <p class="note" id="wbPotTotal" hidden></p>
         <div id="wbPotEntry" hidden>
           <p class="note">Your wager is final once confirmed: enter your own amount, tap Submit, then Confirm. 0 means no wager.</p>
-          <div class="row wg-entry"><label for="wbPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></label><input id="wbPotAmt" type="number" inputmode="decimal" min="0" step="0.1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="wbPotSubmit" type="button">Submit</button></div>
+          <div class="row wg-entry"><label for="wbPotAmt" class="wg-label"><span class="zab zab-wager">Zab<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></label><input id="wbPotAmt" type="number" inputmode="decimal" min="0" step="0.1" autocomplete="off" placeholder="0 = no wager"><button class="btn" id="wbPotSubmit" type="button">Submit</button></div>
         </div>
         <div id="wbPotConfirm" hidden><p class="wg-ask" id="wbPotAsk"></p><div class="row"><button class="btn" id="wbPotYes" type="button">Confirm</button><button class="btn ghost" id="wbPotBack" type="button">Back</button></div></div>
         <div id="wbPotAgree" hidden><p class="note" id="wbPotAgreeText"></p><div class="row"><button class="btn" id="wbPotAgreeBtn" type="button">Agree to the pot</button></div></div>
@@ -1513,7 +1533,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn" id="dailyWalkBtn" type="button">Start live walk</button>
       <button class="btn danger" id="dailyResetBtn" type="button">Reset</button>
     </div>
-    <div class="card" id="tenKBonus" style="margin-top:1rem"><h3>Ten thousand steps. Breathe, stride, collect.</h3><p>Hit 10K in a day and stack a 4 <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span> bonus on top of every step you've earned.</p></div>
+    <div class="card" id="tenKBonus" style="margin-top:1rem"><h3>Ten thousand steps. Breathe, stride, collect.</h3><p>Hit 10K in a day and stack a 4 <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> bonus on top of every step you've earned.</p></div>
     <p class="note" id="dailyStatus" aria-live="polite">Signed-in totals post to the daily board. Unsigned stays on this phone.</p>
     <p class="note" id="stepsDebug" hidden></p>
     <h3 style="margin-top:1.6rem">Live walk sessions</h3>
@@ -1723,6 +1743,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/washers-pot.js"></script>
   <script src="/washers-battlers.js"></script>
   <script src="/washers-arcade.js"></script>
+  <script src="/arcade-crisp.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
     const PHONE_GIS_HASH = (typeof location !== "undefined" && location.hash) || "";
@@ -4831,7 +4852,7 @@ function mkWager(game, o) {
   const P = o.prefix; let off = null, curKey = null, w = null, lastSettle = 0, busy = false;
   // stake picker (create) + wager line / stake button (lobby), added once
   const start = $(P + "Start"), count = $(P + "Count");
-  if (start && !o.noUi) start.insertAdjacentHTML("beforeend", '<label for="' + P + 'Stake">Wager ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg> (optional, minimum ' + WG.MIN_STAKE + (WG.MAX_STAKE ? ", maximum " + WG.MAX_STAKE : "") + ')</label><div class="row"><input id="' + P + 'Stake" type="number" inputmode="decimal" min="' + WG.MIN_STAKE + '" step="0.1" placeholder="No wager" style="max-width:9rem"></div><p class="note" style="margin:.2rem 0 0">Both players stake the same amount; the winner takes the pot (2x the wager). Ties, draws, unverified games and rooms that never start are refunded.</p>');
+  if (start && !o.noUi) start.insertAdjacentHTML("beforeend", '<label for="' + P + 'Stake">Wager ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg> (optional, minimum ' + WG.MIN_STAKE + (WG.MAX_STAKE ? ", maximum " + WG.MAX_STAKE : "") + ')</label><div class="row"><input id="' + P + 'Stake" type="number" inputmode="decimal" min="' + WG.MIN_STAKE + '" step="0.1" placeholder="No wager" style="max-width:9rem"></div><p class="note" style="margin:.2rem 0 0">Both players stake the same amount; the winner takes the pot (2x the wager). Ties, draws, unverified games and rooms that never start are refunded.</p>');
   if (count && !o.noUi) count.insertAdjacentHTML("beforebegin", '<p class="note" id="' + P + 'Wager" hidden style="text-align:center;font-weight:700"></p><div class="row" id="' + P + 'StakeRow" hidden style="justify-content:center"><button class="btn" id="' + P + 'StakeBtn" type="button">Lock in</button></div>');
   const keyOf = (r) => (r && r.stake ? WG.roomKey(game, o.code(), o.fs.toMs(r.createdAt)) : null);
   async function call(name, body) {
