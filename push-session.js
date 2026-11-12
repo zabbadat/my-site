@@ -18,7 +18,11 @@
   function setsToAdd(reps) { return Number(reps) > 0 ? 1 : 0; }
   function canSwitchMode(ps) { return !ps.running && !(ps.elapsed > 0 || ps.reps > 0) || !!ps.finished; }
 
-  var GUARD = { minScore: 0.4, holdMs: 500, rearmMs: 300, kneeAngle: 130, foldFrac: 0.45, upright: 2, shrink: 0.55 };
+  // kneeMin: a hip / knee / ankle only counts toward a knees-down or upright call when it is CONFIDENTLY seen (Apple Vision
+// and MoveNet both report half-guessed legs at low scores when the legs are hidden behind the body on a front camera).
+// minFrames: a knees / standing call needs this many consecutive frames as well as holdMs, so one or two odd frames
+// (a landmark flicker, a missed frame) never add up to a fail.
+var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 300, kneeAngle: 130, foldFrac: 0.45, upright: 2, shrink: 0.55 };
   function pt(kps, name, min) {
     for (var i = 0; i < (kps || []).length; i++) {
       var k = kps[i];
@@ -55,8 +59,9 @@
     var known = false;
     var sides = ["left", "right"], knees = false, upright = false;
     for (var i = 0; i < 2; i++) {
-      var s = sides[i], sh = pt(kps, s + "_shoulder", o.minScore), hip = pt(kps, s + "_hip", o.minScore),
-          kn = pt(kps, s + "_knee", o.minScore), an = pt(kps, s + "_ankle", o.minScore);
+      var legMin = Math.max(o.minScore, o.kneeMin == null ? 0 : o.kneeMin);
+      var s = sides[i], sh = pt(kps, s + "_shoulder", o.minScore), hip = pt(kps, s + "_hip", legMin),
+          kn = pt(kps, s + "_knee", legMin), an = pt(kps, s + "_ankle", legMin);
       if (hip && kn && an) {
         known = true;
         var a = angle(hip, kn, an);
@@ -81,21 +86,22 @@
   function createPostureGuard(opts) {
     var o = Object.assign({}, GUARD, opts || {});
     var g;
-    function reset() { g = { count: 0, armed: true, pending: null, since: null, okSince: null, active: null, events: [] }; }
+    function reset() { g = { count: 0, armed: true, pending: null, since: null, frames: 0, okSince: null, active: null, events: [] }; }
     reset();
     function update(kps, t, topWidth) {
       var c = classify(kps, topWidth, o), ev = null;
       if (c === "standing" || c === "knees") {
         g.okSince = null;
-        if (g.pending !== c) { g.pending = c; g.since = t; }
-        if (g.armed && t - g.since >= o.holdMs) {
+        if (g.pending !== c) { g.pending = c; g.since = t; g.frames = 0; }
+        g.frames += 1;
+        if (g.armed && t - g.since >= o.holdMs && g.frames >= (o.minFrames || 1)) {
           g.armed = false; g.count += 1; g.active = c; ev = c; g.events.push({ type: c, t: t });
         }
       } else if (c === "ok") {
-        g.pending = null; g.since = null;
+        g.pending = null; g.since = null; g.frames = 0;
         if (g.okSince == null) g.okSince = t;
         if (!g.armed && t - g.okSince >= o.rearmMs) { g.armed = true; g.active = null; }
-      } else { g.pending = null; g.since = null; g.okSince = null; } // uncertain: no flag, no re-arm
+      } else { g.pending = null; g.since = null; g.frames = 0; g.okSince = null; } // uncertain (legs missing / low confidence): no flag, no re-arm
       return { frame: c, event: ev, active: g.active, count: g.count };
     }
     return { update: update, reset: reset, state: function () { return g; } };
@@ -170,12 +176,12 @@
   // Form features for the failure watch. line: shoulder-hip-ankle angle (180 = straight plank), knee: hip-knee-ankle,
   // elbowsDown: an elbow at wrist / floor height (forearm flat), i.e. the arms gave out. Normal bending keeps the
   // elbows clearly above the planted hands. Joints below minScore are ignored.
-  function formFeatures(kps, minScore, elbowFrac) {
-    var min = minScore == null ? 0.3 : minScore, ef = elbowFrac == null ? 0.12 : elbowFrac, ls = pt(kps, "left_shoulder", min), rs = pt(kps, "right_shoulder", min);
+  function formFeatures(kps, minScore, elbowFrac, kneeMin) {
+    var min = minScore == null ? 0.3 : minScore, legMin = Math.max(min, kneeMin == null ? 0 : kneeMin), ef = elbowFrac == null ? 0.12 : elbowFrac, ls = pt(kps, "left_shoulder", min), rs = pt(kps, "right_shoulder", min);
     if (!ls && !rs) return null;
     var sw = ls && rs ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : null, out = { line: null, knee: null, elbowsDown: false }, sides = ["left", "right"];
     for (var i = 0; i < 2; i++) {
-      var sd = sides[i], sh = pt(kps, sd + "_shoulder", min), hip = pt(kps, sd + "_hip", min), kn = pt(kps, sd + "_knee", min), an = pt(kps, sd + "_ankle", min), el = pt(kps, sd + "_elbow", min), wr = pt(kps, sd + "_wrist", min);
+      var sd = sides[i], sh = pt(kps, sd + "_shoulder", min), hip = pt(kps, sd + "_hip", legMin), kn = pt(kps, sd + "_knee", legMin), an = pt(kps, sd + "_ankle", legMin), el = pt(kps, sd + "_elbow", min), wr = pt(kps, sd + "_wrist", min);
       if (sh && hip && an) { var l = angle(sh, hip, an); if (l != null && (out.line == null || l < out.line)) out.line = l; }
       if (hip && kn && an) { var k = angle(hip, kn, an); if (k != null && (out.knee == null || k < out.knee)) out.knee = k; }
       if (el && wr && sh) { var scale = sw || Math.abs(wr.y - sh.y) || 1; if (el.y >= wr.y - ef * scale && sh.y > el.y - 0.6 * scale) out.elbowsDown = true; }
@@ -185,10 +191,10 @@
   function elbowsDown(kps, minScore) { var f = formFeatures(kps, minScore); return !!(f && f.elbowsDown); }
   // Straight legs running down the frame (a real stand-up). Needs the legs in view, and the shoulders narrower
   // than the plank, same rule classify() uses. A long press does not end on this while the counter says atTop.
-  function isUpright(kps, topWidth, minScore) {
-    var min = minScore == null ? GUARD.minScore : minScore, ls = pt(kps, "left_shoulder", min), rs = pt(kps, "right_shoulder", min), upright = false, sides = ["left", "right"];
+  function isUpright(kps, topWidth, minScore, kneeMin) {
+    var min = minScore == null ? GUARD.minScore : minScore, legMin = Math.max(min, kneeMin == null ? 0 : kneeMin), ls = pt(kps, "left_shoulder", min), rs = pt(kps, "right_shoulder", min), upright = false, sides = ["left", "right"];
     for (var i = 0; i < 2; i++) {
-      var s = sides[i], sh = pt(kps, s + "_shoulder", min), hip = pt(kps, s + "_hip", min), kn = pt(kps, s + "_knee", min), an = pt(kps, s + "_ankle", min);
+      var s = sides[i], sh = pt(kps, s + "_shoulder", min), hip = pt(kps, s + "_hip", legMin), kn = pt(kps, s + "_knee", legMin), an = pt(kps, s + "_ankle", legMin);
       if (!(sh && hip && kn && an)) continue;
       var a = angle(hip, kn, an), dy = Math.abs(an.y - sh.y), dx = Math.abs(an.x - sh.x);
       if (dy > GUARD.upright * dx && a != null && a >= GUARD.kneeAngle) upright = true;
@@ -207,17 +213,24 @@
   // Holding the top must never end a set. Shoulder-width shrink is only a flag (endOn.standing is off): a leaned-up
   // front camera reads a long press that way. Knees that are out of frame or below minScore never trigger.
   // update(kps, t, topWidth, extra). extra may be a frame width, or { frameW, atTop }.
-  var FAIL = { badMs: 1000, frameMs: 10000, minScore: 0.3, kneeAngle: 140, foldFrac: 0.45, endOn: { knees: true, frame: true, standing: false, lifted: false, left: true, upright: true, elbows: true, form: true }, elbowFrac: 0.12, lineDeg: 30, kneeDeg: 35, baseSamples: 8 };
+  var FAIL = { badMs: 1000, frameMs: 10000, minScore: 0.3, kneeMin: 0.5, minFrames: 5, kneeAngle: 140, foldFrac: 0.45, endOn: { knees: true, frame: true, standing: false, lifted: false, left: true, upright: true, elbows: true, form: true }, elbowFrac: 0.12, lineDeg: 30, kneeDeg: 35, baseSamples: 8 };
   function createFailureWatch(opts) {
-    var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed, failAt, view, upSince, base, acc, badSince, foldSince, k3Since;
+    var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed, failAt, view, upSince, upN, base, acc, badSince, foldSince, k3Since, k3N;
     o.endOn = Object.assign({}, FAIL.endOn, (opts && opts.endOn) || {});
     o.guard = Object.assign({}, o.guard || {}, { foldFrac: o.foldFrac });
-    function formFeats(kps, min) { return formFeatures(kps, min, o.elbowFrac); }
+    function formFeats(kps, min) { return formFeatures(kps, min, o.elbowFrac, o.kneeMin); }
+    // A leg (hip + knee on the same side) confidently in the 2D picture. Apple Vision's 3D request always returns a
+    // full skeleton, GUESSING the legs when they are hidden (front camera, legs behind the body): those guessed knees
+    // read bent, so the 3D knee angle is trusted only on frames where a real knee is seen.
+    function legSeen(kps) {
+      var m = Math.max(o.minScore, o.kneeMin == null ? 0 : o.kneeMin);
+      return (!!pt(kps, "left_hip", m) && !!pt(kps, "left_knee", m)) || (!!pt(kps, "right_hip", m) && !!pt(kps, "right_knee", m));
+    }
     function avgFeats(a) { var r = {}; ["line", "knee"].forEach(function (k) { var n = 0, v = 0; a.forEach(function (x) { if (x[k] != null) { n++; v += x[k]; } }); r[k] = n ? v / n : null; }); r.samples = a.length; return r; }
     function mark(reason, at) { failed = reason; failAt = at != null ? at : null; return failed; }
     function reset(t0) {
-      guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs, minScore: o.minScore, kneeAngle: o.kneeAngle, foldFrac: o.foldFrac }));
-      seen = t0 == null ? null : t0; failed = null; failAt = null; upSince = null; base = null; acc = []; badSince = null; foldSince = null; k3Since = null; view = createViewWatch({ minScore: o.minScore, badMs: o.badMs }); view.reset();
+      guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs, minScore: o.minScore, kneeMin: o.kneeMin, minFrames: o.minFrames, kneeAngle: o.kneeAngle, foldFrac: o.foldFrac }));
+      seen = t0 == null ? null : t0; failed = null; failAt = null; upSince = null; upN = 0; base = null; acc = []; badSince = null; foldSince = null; k3Since = null; k3N = 0; view = createViewWatch({ minScore: o.minScore, badMs: o.badMs }); view.reset();
     }
     reset(null);
     function upper(kps) { for (var i = 0; i < (kps || []).length; i++) { var k = kps[i]; if (k && /shoulder$/.test(k.name) && (k.score == null || k.score >= o.minScore)) return true; } return false; }
@@ -230,13 +243,18 @@
       if (seen == null) seen = t;
       if (upper(kps)) seen = t; else if (o.endOn.frame && !skipFrame && t - seen >= o.frameMs) return mark("frame", seen);
       var g = guard.update(kps, t, topWidth);
-      if (g.event === "knees" && o.endOn.knees) return mark("knees", g.since != null ? g.since : t - o.badMs);
       // 3D knee angle from Apple Vision (app, iOS 17+): a real kneel is visible even when 2D looks straight.
       var k3 = extra && typeof extra === "object" ? minKnee3D(extra.knee3D || extra.pose3d && extra.pose3d.kneeAngleDeg) : null;
-      if (o.endOn.knees && k3 != null && k3 < o.kneeAngle) {
-        if (k3Since == null) k3Since = t;
-        if (t - k3Since >= o.badMs) return mark("knees", k3Since);
-      } else k3Since = null;
+      // When Vision's depth-aware 3D knees say STRAIGHT, a 2D "knees" call (hips near knee height in a foreshortened
+      // front-camera plank) is not a kneel.
+      if (g.event === "knees" && o.endOn.knees && !(k3 != null && k3 >= o.kneeAngle)) return mark("knees", g.since != null ? g.since : t - o.badMs);
+      // Only a sustained, confident kneel ends the set: every frame in the window must show a real knee AND a bent 3D
+      // knee; a frame with the legs missing / low confidence restarts the window (never counts toward a fail).
+      if (o.endOn.knees && k3 != null && k3 < o.kneeAngle && legSeen(kps)) {
+        if (k3Since == null) { k3Since = t; k3N = 0; }
+        k3N += 1;
+        if (t - k3Since >= o.badMs && k3N >= (o.minFrames || 1)) return mark("knees", k3Since);
+      } else { k3Since = null; k3N = 0; }
       var v = view.update(kps, t, frameW, atTop);
       // v === "lifted" (phone picked up / camera moved) is deliberately ignored: only form breaks end the set.
       var reps = extra && typeof extra === "object" && typeof extra.reps === "number" ? extra.reps : null;
@@ -252,12 +270,12 @@
         if (base.line != null && f.line != null && base.line - f.line > o.lineDeg) bad = "form";
         else if (base.knee != null && f.knee != null && base.knee - f.knee > o.kneeDeg) bad = "form";
       }
-      if (bad) { if (!badSince || badSince.kind !== bad) badSince = { kind: bad, t: t }; if (t - badSince.t >= o.badMs) return mark(bad, badSince.t); }
+      if (bad) { if (!badSince || badSince.kind !== bad) badSince = { kind: bad, t: t, n: 0 }; badSince.n += 1; if (t - badSince.t >= o.badMs && badSince.n >= (o.minFrames || 1)) return mark(bad, badSince.t); }
       else badSince = null;
       if (v === "standing" && o.endOn.left) return mark("standing", t - o.badMs);
       if (v === "collapse" && o.endOn.knees) return mark("collapse", t - o.badMs);
-      if (!atTop && o.endOn.upright && isUpright(kps, topWidth, o.minScore)) { if (upSince == null) upSince = t; if (t - upSince >= o.badMs) return mark("standing", upSince); }
-      else upSince = null;
+      if (!atTop && o.endOn.upright && isUpright(kps, topWidth, o.minScore, o.kneeMin)) { if (upSince == null) { upSince = t; upN = 0; } upN += 1; if (t - upSince >= o.badMs && upN >= (o.minFrames || 1)) return mark("standing", upSince); }
+      else { upSince = null; upN = 0; }
       return null;
     }
     return { update: update, reset: reset, failed: function () { return failed; }, failedAt: function () { return failAt; }, baseline: function () { return base; } };

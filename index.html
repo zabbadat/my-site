@@ -2979,6 +2979,30 @@ async function ensurePushPose() {
   }
 }
 
+// App only (iOS Apple Vision): Vision's body pose can lose a person whose face is hidden (hood up, head down) or who is
+// low in a front-camera picture, so no shoulders come back and the set never gets going. After VISION_RESCUE.blindMs
+// without both shoulders, the same frame also goes to MoveNet (the pre-Nov 10 engine, which tracks shoulders without a
+// face). When MoveNet sees the shoulders on VISION_RESCUE.frames frames that Vision missed, MoveNet takes over for
+// the rest of the session (visionFailed, same switch as a Vision start-up failure).
+const VISION_RESCUE = { blindMs: 1500, frames: 3, minScore: 0.3 };
+let visionSeenT = null, visionRescueN = 0;
+function shouldersIn(pose) {
+  const k = pose && pose.keypoints;
+  if (!k) return false;
+  return ["left_shoulder", "right_shoulder"].every((n) => k.some((p) => p && p.name === n && (p.score == null || p.score >= VISION_RESCUE.minScore)));
+}
+async function visionRescue(pose, vid, t) {
+  if (shouldersIn(pose)) { visionSeenT = t; visionRescueN = 0; return pose; }
+  if (visionSeenT == null) visionSeenT = t;
+  if (t - visionSeenT < VISION_RESCUE.blindMs) return pose;
+  let mn = null;
+  try { const d = await ensurePose(); const p = await d.estimatePoses(vid, { flipHorizontal: true }); mn = p && p[0]; } catch (e) { return pose; }
+  if (!shouldersIn(mn)) { visionRescueN = 0; return pose; }
+  visionRescueN += 1;
+  if (visionRescueN >= VISION_RESCUE.frames && !visionFailed) { visionFailed = true; if (typeof console !== "undefined") console.info("Apple Vision lost the body; MoveNet tracks the rest of this session"); }
+  return mn;
+}
+
 async function poseTick(id = poseLoopId) {
   if (id !== poseLoopId || !poseLoopOn || !camOn) return;
   const vid = $("camVid");
@@ -2987,7 +3011,8 @@ async function poseTick(id = poseLoopId) {
     if (!pushCounter) throw new Error("Counter not loaded");
     const tFrame = performance.now(); // stamp the frame BEFORE inference: the pose is of this moment, not of when the model finished
     const poses = await det.estimatePoses(vid, { flipHorizontal: true });
-    const pose = poses && poses[0];
+    let pose = poses && poses[0];
+    if (det && det.engine === "vision") pose = await visionRescue(pose, vid, tFrame); // app only (iOS Apple Vision)
     const w = vid.videoWidth || 640;
     // Feed every frame (also before Start): no calibration hold, the first real dip counts.
     const r = pushCounter.update(pose ? pose.keypoints : [], tFrame, w);
