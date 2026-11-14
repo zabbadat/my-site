@@ -72,7 +72,7 @@ function loadPfp(w) { const ctx = Object.assign({}, w); ctx.window = ctx; vm.cre
 
 // 4. page wiring
 const nav = html.slice(html.indexOf("<nav>"), html.indexOf("</nav>"));
-check("PFP row sits in the top nav directly after the links, toggle first then the exact label", /<\/a>\n    <\/div>\n    <label class="pfp-row" id="pfpRow" for="pfpToggle" hidden><input type="checkbox" id="pfpToggle" role="switch"[^>]*><span class="pfp-sw"[^>]*><\/span><span class="pfp-lbl">Enable profile - PFP<\/span><\/label>\n  $/.test(nav));
+check("PFP row sits in the top nav directly after the links, toggle first then the exact label", /<\/a>\n    <\/div>\n    <label class="pfp-row" id="pfpRow" for="pfpToggle"[^>]*hidden><input type="checkbox" id="pfpToggle" role="switch"[^>]*><span class="pfp-sw"[^>]*><\/span><span class="pfp-lbl">Enable profile - PFP<\/span><span class="pfp-hint"[^>]*>[^<]+<\/span><span class="sr-only-pfp">[^<]+<\/span><\/label>\n  $/.test(nav));
 check("pfp.js loaded before the page scripts", html.indexOf('<script src="/pfp.js"></script>') > 0 && html.indexOf('<script src="/pfp.js"></script>') < html.indexOf("function poseTick("));
 const tick = html.slice(html.indexOf("async function poseTick("), html.indexOf("async function openCam()"));
 check("push-ups/TUT: overlay fed after Vision rescue, before the counter, with the same keypoints", /visionRescue\(pose, vid, tFrame\);[^\n]*\n\s+if \(window\.ZabPfp\) window\.ZabPfp\.frame\(vid, pose \? pose\.keypoints : \[\], tFrame\);/.test(tick) && tick.indexOf("ZabPfp.frame") < tick.indexOf("pushCounter.update("));

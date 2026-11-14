@@ -690,6 +690,8 @@ nav > .pfp-row[hidden]{display:none}
 .pfp-row input:checked + .pfp-sw::after{transform:translateX(1.05rem);background:#0e1412}
 .pfp-row input:focus-visible + .pfp-sw{outline:2px solid var(--pink-2);outline-offset:2px}
 .pfp-row .pfp-lbl{font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.pfp-row .pfp-hint{font-size:.72rem;opacity:.7;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pfp-row .sr-only-pfp{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .zt-badge{flex:0 0 auto;max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
 @media (min-width: 701px) {
   nav > div { order: 2; margin-left: auto; }
@@ -847,7 +849,7 @@ nav > .pfp-row[hidden]{display:none}
     <a href="#order">Order</a>
     <a href="#membership">Membership</a>
     </div>
-    <label class="pfp-row" id="pfpRow" for="pfpToggle" hidden><input type="checkbox" id="pfpToggle" role="switch" aria-checked="false"><span class="pfp-sw" aria-hidden="true"></span><span class="pfp-lbl">Enable profile - PFP</span></label>
+    <label class="pfp-row" id="pfpRow" for="pfpToggle" title="When on, the Zabbadat logo covers your face and follows your head during push-ups, TUT, TUT Battle and plank. Your body still shows, so reps count the same. Recordings show the logo too. Video never leaves your phone." hidden><input type="checkbox" id="pfpToggle" role="switch" aria-checked="false"><span class="pfp-sw" aria-hidden="true"></span><span class="pfp-lbl">Enable profile - PFP</span><span class="pfp-hint" id="pfpHint">Logo covers your face on camera</span><span class="sr-only-pfp">When on, the Zabbadat logo covers your face and follows your head during push-ups, TUT, TUT Battle and plank. Your body still shows, so reps count the same. Recordings show the logo too. Video never leaves your phone.</span></label>
   </nav>
 <div id="sessionStrip" class="arcade-strip" hidden>
   <div class="arcade-cell session-strip-cell"><span class="arcade-num" id="sessionStripReps">0</span><span class="arcade-lbl">Reps</span></div>
