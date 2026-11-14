@@ -3338,6 +3338,14 @@ let plankLoopId = 0; // one plank rAF chain only
 let plankStream = null, plankLoop = false, plankHold = null, plankSaved = false;
 // Spoken hold time every 15 s of hold (same voice helper as rep counts; silent fallback). Restarts per hold / set.
 const plankTimeVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makePlankTimeVoice ? window.ZabbadatGetSet.makePlankTimeVoice() : null; // spoken time every 15 s for the whole hold, no cap
+// Regular plank: 1 ZAB once per set at a continuous 60 s hold. Spoken once (plankSpeak, queued). The hold bonus (30 s plank push press, 0.5 ZAB) is separate.
+const PLANK_ZAB_LINE = "One minute plank. Plus one ZAB.";
+let plankZabSpoken = false;
+function speakPlankZabOnce() {
+  if (plankZabSpoken) return;
+  plankZabSpoken = true;
+  const GS = window.ZabbadatGetSet; if (GS && GS.plankSpeak) GS.plankSpeak(PLANK_ZAB_LINE);
+}
 const PLANK_BEST_KEY = "zabbadat-plank-best";
 let saveRemotePlank = async () => { throw new Error("Plank board is not connected"); };
 let saveRemotePlankDaily = async () => { throw new Error("Sets board is not connected"); };
@@ -3405,7 +3413,7 @@ function plankEnded(r) {
   if (!currentUser) { $("plankStatus").textContent += " Sign in to post to the Plank House board."; paintPlankRows(localPlanks()); return; }
   if (day) saveRemotePlankDaily(day, record).catch(() => { $("plankStatus").textContent += " Sets saved on this phone (sets board offline)."; });
   saveRemotePlank(record).then((id) => { $("plankStatus").textContent += " Posted to the Plank House board.";
-    if (ZT) awardZab("plank", id).then((tk) => { $("plankStatus").textContent += zabNote(tk); if (typeof zabRing === "function") zabRing($("plankStatus")); }, () => {}); })
+    if (ZT) awardZab("plank", id).then((tk) => { $("plankStatus").textContent += zabNote(tk); if (tk && tk.credited > 0) speakPlankZabOnce(); if (typeof zabRing === "function") zabRing($("plankStatus")); }, () => {}); })
     .catch(() => { $("plankStatus").textContent += " Saved on this phone (board offline)."; paintPlankRows(localPlanks()); });
 }
 // Cue first, count after: when the hold locks in (aligned, 1.5 s ready satisfied) it enters the "cue" phase and
@@ -3458,6 +3466,7 @@ async function plankTick(id = plankLoopId) {
       $("plankClock").textContent = formatTut(r.ms);
       if (typeof paintArcadeStrip === "function") paintArcadeStrip({ reps: "—", clock: formatTut(r.ms), plankClock: formatTut(r.ms), live: true });
       if (typeof plankTimeVoice !== "undefined" && plankTimeVoice && !plankSaved) plankTimeVoice.tick(r.ms);
+      if (!plankSaved && r.ms >= 60000 && currentUser) speakPlankZabOnce(); // one-time 1 ZAB mark at 60 s; claim still runs when the hold is saved
       // During the hold a framing hint is information only: it never ends the hold.
       $("plankMsg").textContent = r.frame === "ok" ? (r.framing && r.framing.msg ? "Holding · " + r.framing.msg : "Holding") : r.frame === "missing" ? "Back in frame!" : window.ZabbadatPlank.reasonText(r.frame) + "! Fix it";
     }
@@ -3466,7 +3475,7 @@ async function plankTick(id = plankLoopId) {
 }
 function newPlankHold() {
   plankLeadUntil = performance.now() + PLANK_LEAD_MS;
-  plankHold = window.ZabbadatPlank.createPlankHold({ cue: true, cueMaxMs: 20000 }); if (typeof plankCount !== "undefined" && plankCount) plankCount.cancel(); if (typeof plankCountShow === "function") plankCountShow(""); plankSaved = false; plankCueSeq = 0;
+  plankHold = window.ZabbadatPlank.createPlankHold({ cue: true, cueMaxMs: 20000 }); if (typeof plankCount !== "undefined" && plankCount) plankCount.cancel(); if (typeof plankCountShow === "function") plankCountShow(""); plankSaved = false; plankZabSpoken = false; plankCueSeq = 0;
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.reset();
   $("plankClock").textContent = "0:00"; $("plankMsg").textContent = "Get into plank";
   $("plankStopBtn").hidden = false; $("plankAgainBtn").hidden = true;
@@ -3572,7 +3581,7 @@ async function startNativePlank(P) {
   nativePlankBusy = false;
   if (!res || res.cancelled || plankLoop || plankStarting) return;
   sessionCommit("plank");
-  plankSaved = false; plankSessionStartedAt = startedAt; // one live session, one save
+  plankSaved = false; plankZabSpoken = false; plankSessionStartedAt = startedAt; // one live session, one save
   try { plankEnded(nativePlankResult(res, startedAt, Date.now())); } finally { plankSessionStartedAt = 0; }
   $("plankAgainBtn").hidden = true; // "New hold" belongs to the site camera loop; in the app the start button opens a new native hold
 }

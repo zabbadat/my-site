@@ -9,7 +9,7 @@
  *   pushups  pushups/{id}      reps            1 rep = 0.1 ZAB
  *   tut      pushups/{id}      tutMs (One long set only, written by the page)  60 s = 1 ZAB
  *   hold     pushups/{id}      holds (30-second top holds in that set)          0.5 ZAB each
- *   plank    planks/{id}       holdSec         60 s = 1 ZAB
+ *   plank    planks/{id}       holdSec         60 s = 1 ZAB once per set (no extra for time past 60 s)
  *   walk     walkSessions/{id} ms              10 min = 1 ZAB
  *   washers  games/{id}        verified 21     1 ZAB per game won
  *   tutBattle tutBattles/{code}  players[uid].tutMs of a finished TUT Battle (credited as source "tut")
@@ -81,7 +81,8 @@ function measure(kind, d, uid, nowMs) {
   }
   if (kind === "plank") {
     if (d.source !== "camera" || !isInt(d.holdSec) || d.holdSec < 0 || d.holdSec > 7200) bad("bad plank record");
-    return { qty: d.holdSec, units: "seconds", amount: ZB.zabFor("plank", d.holdSec) };
+    const qty = Math.min(60, d.holdSec);
+    return { qty, units: "seconds", amount: ZB.zabFor("plank", qty) };
   }
   if (kind === "walk") {
     // Match the client (walk-session.js MIN_MS = 600000) and firestore.rules (ms >= 600000): under 10 min cannot earn.

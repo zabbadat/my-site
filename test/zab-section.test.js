@@ -12,7 +12,7 @@ ok(sec.includes('id="ztBalance"')&&sec.includes('id="ztRates"')&&sec.includes('i
 // rates match constants
 const lines=ZT.rateLines();
 ok(lines[0]==='1 push-up = 0.1 ZAB'&&ZT.RATES.pushups.per===1&&ZT.RATES.pushups.zab===0.1,'pushups rate');
-ok(lines[1]==='1 minute of plank = 1 ZAB'&&ZT.RATES.plank.per===60,'plank rate');
+ok(lines[1]==='1 minute of plank = 1 ZAB, once per set'&&ZT.RATES.plank.per===60&&ZT.RATES.plank.max===60,'plank rate');
 ok(lines[2]==='1 minute of TUT = 1 ZAB'&&ZT.RATES.tut.per===60,'tut rate');
 ok(lines[3]==='10 minutes of walking = 1 ZAB'&&ZT.RATES.walk.per===10,'walk rate');
 // tx render

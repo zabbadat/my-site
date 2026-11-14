@@ -6,7 +6,7 @@
  * txId = "<source>-<setId>" is deterministic per set/session, so a retry finds the existing tx and
  * credits nothing (idempotent). Rules also forbid re-creating or editing a tx.
  * Rates (each set stands alone; plank/TUT/walk remainders are NOT carried):
- *   pushups: 1 rep = 0.1 · plank: 60 s = 1 · walk: 10 min = 1 · tut: 60 s = 1
+ *   pushups: 1 rep = 0.1 · plank: 60 s = 1 once per set (no pay past the first minute) · walk: 10 min = 1 · tut: 60 s = 1
  *   washers: 1 Zabba Washers game won (reached 21, signed in, verified) = 1 (setId = game id)
  * Browser: window.ZabBalance. Node: require("./zab-balance.js").
  */
@@ -15,7 +15,8 @@
   var ZC = typeof module !== "undefined" && module.exports ? require("./zab-currency.js") : root.ZabCurrency;
   var RATES = {
     pushups: { units: "reps", per: 1, max: 5000, zab: 0.1 },
-    plank: { units: "seconds", per: 60, max: 7200 },
+    // Regular plank: 1 ZAB once per set, paid at a continuous 60 s hold. Time past 60 s does not earn more.
+    plank: { units: "seconds", per: 60, max: 60 },
     walk: { units: "minutes", per: 10, max: 1440 },
     tut: { units: "seconds", per: 60, max: 7200 },
     washers: { units: "wins", per: 1, max: 1 },
@@ -137,7 +138,7 @@
     steps10k: function (n) { return Number(n).toLocaleString("en-US") + " steps in a day"; } };
   var OF = { pushups: "", plank: " of plank", tut: " of TUT", walk: " of walking", hold: "", steps10k: "" };
   // Display lines built from RATES so the page always matches the earn math.
-  function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { var r = RATES[k]; return UNIT[k](r.per) + OF[k] + " = " + ZC.fmtZab(r.zab || 1) + " ZAB"; }).concat(["Won Zabba Washers game = 1 ZAB"]); }
+  function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { var r = RATES[k]; var line = UNIT[k](r.per) + OF[k] + " = " + ZC.fmtZab(r.zab || 1) + " ZAB"; return k === "plank" ? line + ", once per set" : line; }).concat(["Won Zabba Washers game = 1 ZAB"]); }
   function txLine(t) {
     t = t || {};
     var src = LABEL[t.source] || String(t.source || "?"), q = Number(t.qty) || 0;

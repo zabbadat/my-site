@@ -71,7 +71,8 @@ const run = (fr, onFrame) => { const h = P.createPlankHold(); let r, ended = nul
 
 // ---- page wiring
 const tick = html.slice(html.indexOf("async function plankTick"), html.indexOf("function newPlankHold"));
-check("page: no PLANK_SET_MS and no 'Minute set done' anywhere; plankTick has no fixed-time end", !/PLANK_SET_MS|Minute set done/.test(html) && !/r\.ms\s*>=/.test(tick));
+check("page: no PLANK_SET_MS and no 'Minute set done' anywhere; plankTick has no fixed-time end", !/PLANK_SET_MS|Minute set done/.test(html) && !/r\.ms\s*>=\s*\d+[^\n;]*(plankEnded|\.end\(|\.stop\()/.test(tick));
+check("page: 60 s mark only speaks the once-per-set ZAB line, it does not end the hold", /!plankSaved && r\.ms >= 60000 && currentUser\) speakPlankZabOnce\(\)/.test(tick) && !/speakPlankZabOnce\(\)[^\n]*plankEnded/.test(tick));
 check("page: plankTimeVoice is the uncapped voice, ticked once per frame without await, only while holding and not saved", /const plankTimeVoice = [^\n]*makePlankTimeVoice\(\)/.test(html) && /!plankSaved\) plankTimeVoice\.tick\(r\.ms\)/.test(tick) && !/await[^\n]*plankTimeVoice/.test(html));
 check("page: plankEnded ends the voice first; a new hold resets it", /function plankEnded\(r\) \{\s*if \(typeof plankTimeVoice[^\n]*\.end\(\)/.test(html) && /createPlankHold\(\{ cue: true, cueMaxMs: 20000 \}\)[^\n]*\n[^\n]*plankTimeVoice\.reset\(\)/.test(html));
 check("page: the old 60 s generic voice is not used for Plank House (Plank Battle keeps makeHoldVoice)", /const pbTimeVoice = [^\n]*makeHoldVoice\(\) : null;/.test(html));

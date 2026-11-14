@@ -50,7 +50,7 @@ const st = (p) => p.then((r) => ({ ok: true, r }), (e) => ({ ok: false, status: 
   check("unknown source / bad id: 400", !r.ok && r.status === 400 && (await st(E.claim(f, "u1", { source: "pushups", id: "a/b" }, NOW, SINCE))).status === 400);
   check("not signed in: 401", (await st(E.claim(f, null, { source: "pushups", id: "p1" }, NOW, SINCE))).status === 401);
   r = await st(E.claim(f, "u1", { source: "plank", id: "k1" }, NOW, SINCE));
-  check("plank 185 s -> 3 ZAB", r.ok && r.r.credited === 3);
+  check("plank 185 s -> 1 ZAB (once per set, no pay past the first minute)", r.ok && r.r.credited === 1 && f.db["users/u1/zabLedger/plank-plk1"].amount === 1 && f.db["users/u1/zabLedger/plank-plk1"].qty === 60 && f.db["users/u1/zabLedger/plank-plk1"].source === "plank");
   r = await st(E.claim(f, "u1", { source: "walk", id: "w1" }, NOW, SINCE));
   check("walk 30 min with 3,000 steps -> 3 ZAB", r.ok && r.r.credited === 3);
   r = await st(E.claim(f, "u1", { source: "walk", id: "w2" }, NOW, SINCE));
