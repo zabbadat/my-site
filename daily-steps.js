@@ -111,25 +111,51 @@
     var cached0 = readCache(store);
     if (cached0 && cached0.steps > st.steps) { st.steps = clampSteps(cached0.steps); st.rawSteps = clampSteps(cached0.rawSteps); st.debug = cached0.debug; st.debugLine = debugLine(st.debug, st.steps); }
     function emit() { st.walking = walking; hooks.onChange && hooks.onChange(st); }
+    // Native day guard (per Eastern day). trustRaw = highest phone raw count seen today from a fresh reading
+    // (getTodaySteps / live stream; not a resume/cached push). Filtered steps can never exceed the raw count, so a
+    // reading above it is a total carried over from yesterday (older app builds kept yesterday's base after
+    // midnight). After a day change, resume/cached pushes are ignored until the first fresh reading of the new day.
+    var trustRaw = 0, awaitFresh = false, carried = false;
     function rollDay() {
       var d = localDateKey();
       if (d !== st.date) {
+        var prev = st.date;
         st.date = d; st.steps = readLocal(store, d); st.rawSteps = 0; st.debug = null; st.debugLine = "";
+        trustRaw = 0; carried = false; awaitFresh = src.kind === "native";
         det && det.reset();
         try { if (store) store.removeItem(CACHE_KEY); } catch (e) {}
+        if (hooks.onDayChange) try { hooks.onDayChange(d, prev); } catch (e) {}
+        return true;
       }
+      return false;
     }
-    function setSteps(n) { rollDay(); st.steps = nextDisplayed(st.steps, n); writeLocal(store, st.date, st.steps); writeCache(store, st); emit(); }
+    // Called by a timer at Eastern midnight (and on resume): roll the day and repaint even with no new steps.
+    function checkDay() { if (rollDay()) { emit(); return true; } return false; }
+    function setSteps(n, allowLower) { rollDay(); st.steps = nextDisplayed(st.steps, n, { allowLower: !!allowLower }); writeLocal(store, st.date, st.steps); writeCache(store, st); emit(); }
     function applyNativeReading(r, opts) {
       opts = opts || {};
       if (!r) return st.steps;
       rollDay();
+      // Newer app builds tag each reading with its Eastern day: drop any reading for another day.
+      if (r.day && r.day !== st.date) return st.steps;
       var n = r.steps;
       if (n == null && r.cachedSteps != null) n = r.cachedSteps;
+      var fresh = !r.resume && !r.immediate && r.rawSteps != null && r.at == null; // r.at: this page's own cache object
+      if (fresh) { trustRaw = Math.max(trustRaw, clampSteps(r.rawSteps)); awaitFresh = false; }
+      else if (awaitFresh && !r.day) return st.steps; // new day, no fresh phone reading yet: a pushed cache may be yesterday's
+      var lower = false;
+      if (src.kind === "native" && !r.day) {
+        // A fresh reading whose filtered count is above the phone's raw count today is yesterday's total carried over.
+        if (fresh && clampSteps(r.steps) > clampSteps(r.rawSteps)) carried = true;
+        if (carried && trustRaw > 0) { n = Math.min(clampSteps(n), trustRaw); if (st.steps > trustRaw) lower = true; }
+      }
+      if (lower) st.rawSteps = 0;
       st.rawSteps = Math.max(st.rawSteps || 0, clampSteps(r.rawSteps != null ? r.rawSteps : n));
-      if (r.debug) { st.debug = r.debug; st.debugLine = debugLine(r.debug, nextDisplayed(st.steps, n)); }
-      else if (r.rawSteps != null) { st.debug = st.debug || { rawSteps: r.rawSteps, filteredSteps: n }; st.debugLine = debugLine(st.debug, nextDisplayed(st.steps, n)); }
-      setSteps(mergeNative(st.steps, n));
+      if (carried && trustRaw > 0) st.rawSteps = Math.min(st.rawSteps, trustRaw);
+      if (r.debug) { st.debug = r.debug; st.debugLine = debugLine(r.debug, lower ? clampSteps(n) : nextDisplayed(st.steps, n)); }
+      else if (r.rawSteps != null) { st.debug = st.debug || { rawSteps: r.rawSteps, filteredSteps: n }; st.debugLine = debugLine(st.debug, lower ? clampSteps(n) : nextDisplayed(st.steps, n)); }
+      if (lower) setSteps(clampSteps(n), true);
+      else setSteps(mergeNative(st.steps, n));
       if (r.msg) st.msg = r.msg;
       return st.steps;
     }
@@ -188,7 +214,7 @@
         var r = e.rotationRate;
         var res = det.update({ t: win.performance.now(), x: a.x, y: a.y, z: a.z, gravity: a === g,
           rot: r ? { alpha: r.alpha || 0, beta: r.beta || 0, gamma: r.gamma || 0 } : null });
-        if (res.added) setSteps(addWeb(st.steps, res.added));
+        if (res.added) { rollDay(); setSteps(addWeb(st.steps, res.added)); } // roll first: across midnight the add starts from today's 0, not yesterday's total
       };
       win.addEventListener("devicemotion", onMotion);
       walking = true; st.source = "web"; st.msg = "Live walk on. Phone in your pocket, breathe easy, and walk. The screen stays awake and locked; steps keep counting."; emit(); return true;
@@ -210,12 +236,13 @@
       return w;
     }
     // Manual entry: steps already on the phone (built-in counter or health app), added to today's total.
-    function addManual(n) { n = clampSteps(n); if (!n) return st.steps; setSteps(addWeb(st.steps, n)); st.msg = "Added " + n.toLocaleString() + " steps. Total today: " + st.steps.toLocaleString() + "."; emit(); return st.steps; }
+    function addManual(n) { n = clampSteps(n); if (!n) return st.steps; rollDay(); setSteps(addWeb(st.steps, n)); st.msg = "Added " + n.toLocaleString() + " steps. Total today: " + st.steps.toLocaleString() + "."; emit(); return st.steps; }
     // Signed-in sync: today's board doc (written by web or app) is the shared total. Take the higher, never go down.
-    function syncRemote(n) { rollDay(); var m = mergeNative(st.steps, n); if (m !== st.steps) setSteps(m); return st.steps; }
+    // date (optional): the board doc's day; a snapshot for another day (listener left on yesterday's doc) is ignored.
+    function syncRemote(n, date) { rollDay(); if (date && date !== st.date) return st.steps; var m = mergeNative(st.steps, n); if (m !== st.steps) setSteps(m); return st.steps; }
     hookNativeStream();
     emit();
-    return { state: function () { return st; }, source: src, refreshNative: refreshNative, startWalk: startWalk, stopWalk: stopWalk, addManual: addManual, syncRemote: syncRemote, rollDay: rollDay, applyNativeReading: applyNativeReading, restoreWalk: restoreWalk, hookNativeStream: hookNativeStream };
+    return { state: function () { return st; }, source: src, refreshNative: refreshNative, startWalk: startWalk, stopWalk: stopWalk, addManual: addManual, syncRemote: syncRemote, rollDay: rollDay, checkDay: checkDay, applyNativeReading: applyNativeReading, restoreWalk: restoreWalk, hookNativeStream: hookNativeStream };
   }
 
   // Foreground refresh: when the app/page comes back, paint the last known total immediately, then

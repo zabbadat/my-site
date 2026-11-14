@@ -13,6 +13,7 @@
  *   walk     walkSessions/{id} ms              10 min = 1 ZAB
  *   washers  games/{id}        verified 21     1 ZAB per game won
  *   tutBattle tutBattles/{code}  players[uid].tutMs of a finished TUT Battle (credited as source "tut")
+ *   steps10k dailySteps/{uid}_{YYYY-MM-DD}  steps >= 10,000 on that Eastern day   4 ZAB once per person per day
  * RESIDUAL RISK: those session docs are still written by the player's own browser. firestore.rules only bound them
  * (ranges, server time) and plausible() below adds sanity limits, so a determined player can still post invented
  * sessions within those limits. The caps (per claim, per source per UTC day) bound how much that is worth.
@@ -23,7 +24,7 @@ const ZB = require("./zab-balance.js");
 
 // ---- OWNER DECISION: caps (ZAB). Per claim and per source per America/New_York day (resets at Eastern midnight, see capDay). ----
 const CLAIM_CAP = 500;
-const DAY_CAP = { pushups: 50, tut: 30, hold: 10, plank: 30, walk: 24, washers: 20 };
+const DAY_CAP = { pushups: 50, tut: 30, hold: 10, plank: 30, walk: 24, washers: 20, steps10k: 4 };
 const MAX_AGE_MS = 48 * 3600000;          // a session can be claimed for 48 h after it was recorded
 const SLACK_MS = 10000;
 
@@ -34,7 +35,8 @@ const KINDS = {
   plank:     { col: "planks", source: "plank" },
   walk:      { col: "walkSessions", source: "walk" },
   washers:   { col: "games", source: "washers" },
-  tutBattle: { col: "tutBattles", source: "tut" }
+  tutBattle: { col: "tutBattles", source: "tut" },
+  steps10k:  { col: "dailySteps", source: "steps10k" }
 };
 const ID = /^[A-Za-z0-9_-]{1,60}$/;
 const err = (status, message) => Object.assign(new Error(message), { status });
@@ -91,6 +93,13 @@ function measure(kind, d, uid, nowMs) {
     if (d.steps > minutes * 250 + 250) bad("more than 250 steps a minute");
     return { qty: minutes, units: "minutes", amount: ZB.zabFor("walk", minutes) };
   }
+  if (kind === "steps10k") {
+    // The day doc (Eastern date) must hold 10,000+ steps and be today's or yesterday's Eastern day (a late post after midnight).
+    if (!isInt(d.steps) || d.steps < 10000) bad("fewer than 10,000 steps that day");
+    const today = etDay(nowMs), yest = etDay(ETD.startMs(nowMs) - 3600000);
+    if (d.date !== today && d.date !== yest) bad("that day is over");
+    return { qty: 10000, units: "steps", amount: ZB.zabFor("steps10k", 10000) };
+  }
   if (kind === "washers") {
     if (d.verified !== true || d.score !== 21 || !isInt(d.ms) || d.ms < 60000) bad("not a verified win");
     return { qty: 1, units: "wins", amount: ZB.zabFor("washers", 1) };
@@ -110,7 +119,8 @@ function claim(fs, uid, body, nowMs, sinceMs) {
   const now = nowMs || Date.now(), src = K.source, today = capDay(src, now);
   return fs.tx((t) => t.get([K.col, id]).then((d) => {
     if (!d) throw err(404, "No such session.");
-    const created = fs.toMs(d.createdAt);
+    if (kind === "steps10k" && (d.uid !== uid || id !== uid + "_" + d.date)) throw err(403, "Not your day.");
+    const created = fs.toMs(kind === "steps10k" ? d.updatedAt : d.createdAt); // day docs carry updatedAt only
     if (created == null) throw err(422, "Session has no time.");
     if (created < (sinceMs || 0)) throw err(410, "Sessions from before server-checked earning can't be claimed.");
     if (now - created > MAX_AGE_MS) throw err(410, "That session is too old to claim.");

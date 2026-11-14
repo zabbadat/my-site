@@ -1,5 +1,5 @@
 // Daily step resume vs Eastern midnight: no reset within the same ET day; reset only at ET midnight,
-// even if the device zone is UTC or Tokyo. Run: node test/et-day-resume.test.js
+// even if the device zone is UTC or Tokyo. Cache reads pass the simulated day (the test must not depend on the real clock). Run: node test/et-day-resume.test.js
 const { execFileSync } = require("child_process");
 if (!process.env.__ET_CHILD) {
   let ok = true;
@@ -31,9 +31,9 @@ function mk(plugin, nowMs) {
   const plugin = { async getTodaySteps() { return { steps: total, rawSteps: total }; }, async getCachedSteps() { return { steps: total, rawSteps: total, resume: true }; }, async startTodayUpdates() {}, addListener() { return Promise.resolve({}); } };
   const a = mk(plugin, sameA);
   a.at(sameA, () => { a.c.applyNativeReading({ steps: 2400, rawSteps: 2400 }); });
-  check("same-day: cache is tagged with the Eastern date", D.readCache(a.store).date === ET.key(sameA) && D.readCache(a.store).steps === 2400);
+  check("same-day: cache is tagged with the Eastern date", D.readCache(a.store, ET.key(sameA)).date === ET.key(sameA) && D.readCache(a.store, ET.key(sameA)).steps === 2400);
   total = 2650;
-  const after = a.at(sameB, () => { a.c.rollDay(); const c = D.readCache(a.store); if (c) a.c.applyNativeReading(c); return a.c.state(); });
+  const after = a.at(sameB, () => { a.c.rollDay(); const c = D.readCache(a.store, ET.key(sameB)); if (c) a.c.applyNativeReading(c); return a.c.state(); });
   check("no reset on resume within the same Eastern day (cache still applies, total stays up)", after.date === ET.key(sameB) && after.steps === 2400);
   await a.at(sameB, () => a.c.applyNativeReading({ steps: 2650, rawSteps: 2650 }));
   check("same-day catch-up only goes up", a.c.state().steps === 2650);
@@ -46,7 +46,7 @@ function mk(plugin, nowMs) {
   b.at(before, () => b.c.applyNativeReading({ steps: 5200, rawSteps: 5200 }));
   check("before midnight: " + ET.key(before) + " has 5200", b.c.state().date === "2026-11-10" && b.c.state().steps === 5200);
   dayTotal = 40; // new Eastern day's pedometer total
-  const rolled = b.at(afterMid, () => { b.c.rollDay(); const c = D.readCache(b.store); if (c) b.c.applyNativeReading(c); return { state: b.c.state(), cache: D.readCache(b.store, ET.key(afterMid)) }; });
+  const rolled = b.at(afterMid, () => { b.c.rollDay(); const c = D.readCache(b.store, ET.key(afterMid)); if (c) b.c.applyNativeReading(c); return { state: b.c.state(), cache: D.readCache(b.store, ET.key(afterMid)) }; });
   check("resume across Eastern midnight does not carry yesterday's cache", rolled.cache == null && rolled.state.date === "2026-11-11" && rolled.state.steps === 0);
   b.at(afterMid, () => b.c.applyNativeReading({ steps: 40, rawSteps: 40 }));
   check("new Eastern day then shows today's count (40), not yesterday's 5200", b.c.state().steps === 40 && b.c.state().date === "2026-11-11");

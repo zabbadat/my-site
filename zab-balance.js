@@ -114,7 +114,7 @@
   function claimKey(c) { return c.source + ":" + c.id; }
   function keepClaim(store, c) { var q = readClaims(store); if (!q.some(function (x) { return claimKey(x) === claimKey(c); })) q.push(c); store.setItem(CLAIM_KEY, JSON.stringify(q.slice(-50))); }
   function dropClaim(store, c) { store.setItem(CLAIM_KEY, JSON.stringify(readClaims(store).filter(function (x) { return claimKey(x) !== claimKey(c); }))); }
-  var CLAIM_SOURCES = ["pushups", "tut", "hold", "plank", "walk", "washers", "tutBattle"];
+  var CLAIM_SOURCES = ["pushups", "tut", "hold", "plank", "walk", "washers", "tutBattle", "steps10k"];
   function claimEarn(post, store, source, id) {
     var c = { source: String(source || ""), id: cleanId(id) };
     if (CLAIM_SOURCES.indexOf(c.source) < 0 || !c.id) return Promise.resolve({ credited: 0, skipped: "invalid" });

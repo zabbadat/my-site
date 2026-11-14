@@ -3587,7 +3587,15 @@ let saveRemoteDaily = async () => { throw new Error("Daily board is not connecte
 let dailyRepaint = null; // set by the live walk section: repaint the session readout whenever today's total changes (app: phone counter stream)
 let dailyPosted = 0, dailyLiveTimer = null, dailyRetryTimer = null, dailyRetries = 0; // live walk saves within ~3 s of a step so other devices update in real time
 const DS = window.ZabbadatDaily;
-const daily = DS ? DS.createController(window, { onChange: (s) => {
+// New Eastern day (midnight timer, resume, or the first reading after midnight): everything "today" starts over.
+function dailyNewDay() {
+  dailyPosted = 0; dailyRetries = 0; tenKBusy = false;
+  if (dailyLiveTimer) { clearTimeout(dailyLiveTimer); dailyLiveTimer = null; }
+  if (dailyRetryTimer) { clearTimeout(dailyRetryTimer); dailyRetryTimer = null; }
+  try { dailyDocSub(currentUser); } catch (e) {}            // listen to today's dailySteps doc, not yesterday's
+  try { if (currentUser) boardsOnUser(currentUser); } catch (e) {} // boards re-query with today's date key
+}
+const daily = DS ? DS.createController(window, { onDayChange: () => dailyNewDay(), onChange: (s) => {
   $("dailyCount").textContent = s.steps.toLocaleString();
   $("dailySource").textContent = s.kind === "native" ? "Phone" : s.kind === "web" ? "Live walk" : "None";
   $("dailyWalkBtn").textContent = s.walking ? "Hold to stop" : (s.kind === "native" ? "Start walk" : "Start live walk");
@@ -3595,7 +3603,6 @@ const daily = DS ? DS.createController(window, { onChange: (s) => {
   const dbg = $("stepsDebug");
   if (dbg) { if (s.kind === "native" && s.debugLine) { dbg.hidden = false; dbg.textContent = s.debugLine; } else if (!s.debugLine) { dbg.hidden = true; } }
   if (s.walking && currentUser && s.steps > dailyPosted && !dailyLiveTimer) dailyLiveTimer = setTimeout(() => { dailyLiveTimer = null; postDaily(true); }, 3000);
-  if (s.steps >= 10000) tenKBonus(s);
   if (dailyRepaint) dailyRepaint();
 } }) : null;
 // 10K steps bonus: 4 ZAB once per user per local day, on top of the walk earn (zab-balance.js steps10k; ledger id steps10k-YYYY-MM-DD).
@@ -3605,15 +3612,16 @@ function tenKBonus(s) {
   if (tenKBusy || !ZT || !currentUser || !s || !s.date) return;
   const key = "zd10k-" + currentUser.uid + "-" + s.date;
   try { if (localStorage.getItem(key)) return; } catch (e) {}
+  if (!DS || s.date !== DS.localDateKey()) return; // only today's Eastern day (the same key the reset uses)
   const e = ZT.tenKEarn(currentUser.uid, s.steps, s.date); if (!e) return;
   tenKBusy = true;
-  awardZab("steps10k", e.tx.qty, s.date).then((r) => {
-    if (r && (r.credited > 0 || r.skipped === "duplicate")) { try { localStorage.setItem(key, "1"); } catch (x) {} }
+  awardZab("steps10k", DS.docId(currentUser.uid, s.date)).then((r) => {
+    if (r && (r.credited > 0 || r.skipped === "duplicate" || r.capped)) { try { localStorage.setItem(key, "1"); } catch (x) {} }
     if (r && r.credited > 0) {
       $("dailyStatus").textContent = "Ten thousand steps. Breathe, stride, collect. +4 ZAB bonus.";
       const G = window.ZabbadatGetSet; if (G && G.plankSpeak) G.plankSpeak(TEN_K_LINE); // shared phone voice, rate 0.88, queued
     }
-  }).catch(() => {}).finally(() => { tenKBusy = false; });
+  }).catch((err) => { if (err && err.status === 409) { try { localStorage.setItem(key, "1"); } catch (x) {} } }).finally(() => { tenKBusy = false; }); // 409 = already claimed today
 }
 function dailyName() {
   const typed = ($("player").value || "").trim().slice(0, 20);
@@ -3625,7 +3633,10 @@ async function postDaily(quiet) {
   if (!(s.steps > 0)) { if (!quiet) $("dailyStatus").textContent = "No steps yet today."; return; }
   if (!currentUser) { if (!quiet) $("dailyStatus").textContent = s.steps.toLocaleString() + " steps saved on this phone. Sign in to post to the daily board."; return; }
   if (s.steps <= dailyPosted && quiet) return;
-  try { await saveRemoteDaily(s); dailyPosted = s.steps; dailyRetries = 0; $("dailyStatus").textContent = "Posted " + s.steps.toLocaleString() + " steps to today's board."; }
+  try {
+    await saveRemoteDaily(s); dailyPosted = s.steps; dailyRetries = 0; $("dailyStatus").textContent = "Posted " + s.steps.toLocaleString() + " steps to today's board.";
+    if (s.steps >= 10000) tenKBonus(s); // claimed after today's doc holds 10,000+: the server checks that doc
+  }
   catch (e) {
     // Post failed (offline): the steps stay on this phone and the same idempotent post is retried a few times on its own (status text only, no button).
     if (dailyRetries < 5) {
@@ -3657,6 +3668,13 @@ if (daily) {
     if (daily.state().walking) { daily.stopWalk(); postDaily(true); } else { if (!requireSignIn("walk", () => $("dailyWalkBtn").onclick(), { practice: true })) return; await daily.startWalk(); }
   };
   setInterval(() => { if (daily.state().walking) postDaily(true); }, 120000);
+  // Eastern midnight reset with the page/app open: check the day every 30 s and whenever the page comes back
+  // (timers sleep in the background). checkDay() zeroes today's total and fires onDayChange (board + doc re-subscribe).
+  setInterval(() => { daily.checkDay(); }, 30000);
+  ["visibilitychange", "focus", "pageshow"].forEach((ev) => (ev === "visibilitychange" ? document : window).addEventListener(ev, () => { if (!document.hidden) daily.checkDay(); }));
+  // App: the native plugin paints dailyCount itself on resume, then calls this hook; route it through the same
+  // day guard and repaint, so a total carried over from yesterday never sticks on screen.
+  window.__zabbaApplySteps = (r) => { try { daily.applyNativeReading(r || {}); $("dailyCount").textContent = daily.state().steps.toLocaleString(); } catch (e) {} };
   // Foreground refresh (daily-steps.js): visible / focus / pageshow / Capacitor App resume re-read the phone total and post it via postDaily (native source only).
   DS.bindForegroundEvents(window, daily, dailyFg.run);
 }
@@ -5205,7 +5223,18 @@ getRedirectResult(auth)
   })
   .catch((e) => { showSignInError(e); });
 let dailySyncOff = null, liveWalkOff = null;
-onAuthStateChanged(auth, (u) => { showUser(u); zabOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); if (!u && wbCodeCur) wbExit(); else if (u) wbResume(u); if (!u && waCodeCur) waExit(); else if (u) waResume(u); wbPaint(); bbOnUser(u); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+// Today's dailySteps doc (Eastern day). Re-run at Eastern midnight so the listener never stays on yesterday's doc.
+function dailyDocSub(u) {
+  if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; }
+  if (!u || !daily || !DS) return;
+  const day = daily.state().date;
+  dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, day)), (d) => {
+    const x = d.exists() ? d.data() : null;
+    if (x && x.date === daily.state().date) { const n = Number(x.steps) || 0; daily.syncRemote(n, x.date); if (n > dailyPosted) dailyPosted = n; }
+    postDaily(true);
+  }, () => {});
+}
+onAuthStateChanged(auth, (u) => { showUser(u); zabOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { daily.checkDay(); dailyDocSub(u); } if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); if (!u && wbCodeCur) wbExit(); else if (u) wbResume(u); if (!u && waCodeCur) waExit(); else if (u) waResume(u); wbPaint(); bbOnUser(u); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
 /* ---- Zabba Washers Live Match (zabba-match.js): remote 1v1, real washers on camera, each player scores their own pack of 3,
    turns alternate with a 45 s clock, first to 21. Shared doc matches/{code}; both phones follow it with onSnapshot. ---- */
 const ZM = window.ZabbaMatch;
