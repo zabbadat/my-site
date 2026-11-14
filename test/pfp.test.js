@@ -19,9 +19,19 @@ const K = (o, s = 0.9) => Object.entries(o).map(([name, [x, y]]) => ({ name, x, 
 const face = K({ nose: [320, 200], left_eye: [300, 185], right_eye: [340, 185], left_ear: [280, 195], right_ear: [360, 195], left_shoulder: [240, 300], right_shoulder: [400, 300] });
 const c = PF.faceCircle(face);
 check(`circle centred on the face (x ${c && c.x.toFixed(0)}, y ${c && c.y.toFixed(0)})`, c && Math.abs(c.x - 320) < 3 && c.y > 185 && c.y < 200);
-check(`radius covers ear-to-ear and eye spread generously (r ${c && c.r.toFixed(0)} >= 50)`, c && c.r >= 50 && c.r >= (PF.P.eyeK * 40) / 2);
+check(`radius covers ear-to-ear and eye spread generously (r ${c && c.r.toFixed(0)} >= 60)`, c && c.r >= 60 && c.r >= (PF.P.eyeK * 40) / 2);
 check("every face keypoint lies inside the circle", c && face.slice(0, 5).every((k) => Math.hypot(k.x - c.x, k.y - c.y) < c.r));
-check("hood: lone nose (fabric) never makes a circle", PF.faceCircle(K({ nose: [320, 200], left_shoulder: [240, 300], right_shoulder: [400, 300] })) === null);
+{ const sh = PF.headCircle(K({ left_shoulder: [240, 300], right_shoulder: [400, 300] }), 640, 480);
+  check(`head down / hooded: logo estimated from shoulders (x ${sh && sh.x}, y ${sh && sh.y.toFixed(0)}, r ${sh && sh.r.toFixed(0)})`, sh && sh.src === "shoulders" && sh.x === 320 && Math.abs(sh.y - (300 - 160 * 0.55)) < 1e-9 && Math.abs(sh.r - 160 * 0.483) < 1e-9);
+  const hood = PF.headCircle(K({ nose: [320, 200], left_shoulder: [240, 300], right_shoulder: [400, 300] }), 640, 480);
+  check("hood fabric 'nose' is ignored: shoulders decide", hood && hood.src === "shoulders");
+  const hf = PF.headCircle(face, 640, 480); check(`face present: face decides, x1.65 padding (r ${hf.r.toFixed(1)} = ${(PF.P.eyeK * 40 / 2 * 1.65).toFixed(1)})`, hf.src === "face" && Math.abs(hf.r - (PF.P.eyeK * 40) / 2 * 1.65) < 1e-9);
+  const big = PF.headCircle(K({ left_shoulder: [0, 470], right_shoulder: [640, 470] }), 640, 480); check(`caps: r <= 0.40 x shorter side (${big.r} <= 192)`, Math.abs(big.r - 192) < 1e-9);
+  const tiny = PF.headCircle(K({ left_shoulder: [300, 300], right_shoulder: [310, 300] }), 640, 480); check("caps: min radius 10 px", tiny && tiny.r === 10);
+  check("no shoulders and no face: nothing drawn", PF.headCircle(K({ left_wrist: [100, 400] }), 640, 480) === null);
+  const mc = PF.miniCrop({ x: 320, y: 200, r: 60 }, 640, 480, 88); check(`mini crop: square around the head inside the frame, logo centred (${mc.logo.x.toFixed(0)},${mc.logo.y.toFixed(0)})`, mc.side === 192 && mc.sx === 224 && mc.sx + mc.side <= 640 && mc.sy >= 0 && Math.abs(mc.logo.x - 44) < 1e-9 && mc.logo.r < 44);
+  const edge = PF.miniCrop({ x: 10, y: 10, r: 60 }, 640, 480, 88); check("mini crop clamps at the frame edge", edge.sx === 640 - 192 && edge.sy === 0); }
+check("hood: lone nose (fabric) never makes a face circle", PF.faceCircle(K({ nose: [320, 200], left_shoulder: [240, 300], right_shoulder: [400, 300] })) === null);
 check("head down: shoulders only -> no circle (nothing blocked)", PF.faceCircle(K({ left_shoulder: [240, 300], right_shoulder: [400, 300] })) === null);
 check("low-confidence face points ignored", PF.faceCircle(K({ nose: [320, 200], left_eye: [300, 185], right_eye: [340, 185] }, 0.1)) === null);
 check("bare MoveNet-order array works", !!PF.faceCircle([[320, 200], [300, 185], [340, 185], [280, 195], [360, 195]].map(([x, y]) => ({ x, y, score: 0.9 }))));
@@ -35,7 +45,7 @@ check("empty / junk keypoints -> null, no throw", PF.faceCircle([]) === null && 
 
 // 3. browser frame(): fake DOM; switch off/on; never throws; never mutates keypoints
 function fakeDom(store) {
-  const calls = []; const ctx2d = new Proxy({}, { get: (t, k) => (k in t ? t[k] : (...a) => { calls.push(k); }), set: (t, k, v) => ((t[k] = v), true) });
+  const calls = []; const ctx2d = new Proxy({}, { get: (t, k) => (k in t ? t[k] : (...a) => { calls.push(k); return { addColorStop() {} }; }), set: (t, k, v) => ((t[k] = v), true) });
   const mk = (tag) => ({ tag, style: {}, children: [], className: "", classList: { add() {} }, setAttribute() {}, appendChild(c) { this.children.push(c); c.parentNode = this; }, insertBefore(c) { this.children.push(c); c.parentNode = this; }, removeChild() {}, getContext: () => ctx2d, querySelector: () => null });
   const parent = mk("div"); const vid = { id: "camVid", parentNode: parent, nextSibling: null, clientWidth: 320, clientHeight: 240, offsetLeft: 0, offsetTop: 40, videoWidth: 640, videoHeight: 480 };
   const document = { readyState: "complete", getElementById: () => null, createElement: mk, addEventListener() {} };
@@ -52,6 +62,12 @@ function loadPfp(w) { const ctx = Object.assign({}, w); ctx.window = ctx; vm.cre
   check("keypoints never mutated (frozen input, same values)", JSON.stringify(face) === JSON.stringify(frozen));
   let threw = false; try { P.frame(D.vid, null, 50); P.frame(null, face, 60); P.frame({}, face, 70); P.frame(D.vid, [{ x: "a" }], 80); P.frame(D.vid, face, NaN); } catch (e) { threw = true; } check("junk inputs never throw", !threw);
   const D2 = fakeDom(store); D2.vid.parentNode = { insertBefore() { throw new Error("boom"); } }; threw = false; try { P.frame(D2.vid, face, 90); } catch (e) { threw = true; } check("a DOM failure inside the overlay is swallowed", !threw);
+  { const sp = D.w.document.createElement("span"); sp.className = "pfp-av"; sp.classList = { add() { sp.live = 1; }, remove() { sp.live = 0; } }; sp.removeChild = (c) => { sp.children = sp.children.filter((x) => x !== c); c.parentNode = null; };
+    const badge = { querySelector: (q) => (q === ".pfp-av" ? sp : null) }; D.w.document.getElementById = (id) => (id === "ztBadge" ? badge : null);
+    D.vid.videoWidth = 640; D.vid.videoHeight = 480; P.frame(D.vid, face, 1000); P.frame(D.vid, face, 1010);
+    const n1 = sp.children.length; check("mini-feed: one round canvas in the top-bar avatar while frames arrive", n1 === 1 && sp.children[0].className === "pfp-mini" && sp.live === 1);
+    D.calls.length = 0; P.frame(D.vid, face, 1020); const throttled = !D.calls.includes("translate"); P.frame(D.vid, face, 1100); check("mini-feed throttled to ~15 fps (skips a frame 10 ms later, draws at +100 ms)", throttled && D.calls.includes("translate"));
+    P.setOn(false); check("switch off: mini-feed removed, static avatar back", sp.children.length === 0 && sp.live === 0); P.setOn(true); }
   P.setUser(null); check("signed out: switch reads off even if stored on", P.isOn() === false && store.zabPfpOn === "1"); }
 
 // 4. page wiring

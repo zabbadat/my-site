@@ -609,6 +609,26 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 #camWrap.cam-fs{position:fixed!important;inset:0;z-index:9999}
 #camWrap:fullscreen .arcade-strip,#camWrap:-webkit-full-screen .arcade-strip,#camWrap.cam-fs .arcade-strip{flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px))}
 #camWrap:fullscreen video,#camWrap:-webkit-full-screen video,#camWrap.cam-fs video{flex:1 1 auto;width:100%;height:auto;min-height:0;object-fit:contain;border-radius:0}
+#tbCamWrap.cam-fs,#plankWrap.cam-fs{position:fixed!important;inset:0;z-index:9999;max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start}
+#tbCamWrap.cam-fs video,#plankWrap.cam-fs video{flex:1 1 auto;width:100%;height:100%;min-height:0;object-fit:contain;border-radius:0!important}
+#plankWrap.cam-fs .arcade-strip{flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px))}
+#plankWrap.cam-fs #plankStage{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+#tbCamWrap.cam-fs{padding-top:env(safe-area-inset-top,0px)}
+.cam-fs-exit{display:none}
+.cam-fs > .cam-fs-exit{display:block;position:absolute;right:calc(8px + env(safe-area-inset-right,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:3;padding:.35rem .6rem;font-size:.85rem}
+/* Record & Share: arm before the camera starts; recording runs while the exercise is full screen */
+.rec-btn{display:inline-flex;align-items:center;gap:.45rem}
+.rec-btn[hidden],.row:has(> #tbCam[hidden]) > .rec-btn[data-rec="tbCamWrap"]{display:none!important}
+.rec-dot{width:.8rem;height:.8rem;border-radius:50%;border:2px solid #ff3b47;flex:none;box-sizing:border-box}
+.rec-btn.armed{box-shadow:0 0 0 2px #ff3b47 inset!important;color:#ff8a92!important}
+.rec-btn.armed .rec-dot{border-color:#ff3b47;background:transparent}
+.rec-btn.recording .rec-dot,.rec-stop .rec-dot{background:#ff3b47;border-color:#ff3b47;animation:recPulse 1s ease-in-out infinite}
+@keyframes recPulse{50%{opacity:.35}}
+.rec-stop{display:inline-flex;align-items:center;gap:.45rem;position:absolute;left:calc(8px + env(safe-area-inset-left,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:4;padding:.35rem .7rem;font-size:.85rem}
+.rec-preview{position:fixed;inset:0;z-index:10050;background:rgba(5,8,7,.82);display:flex;align-items:center;justify-content:center;padding:calc(1rem + env(safe-area-inset-top,0px)) 1rem calc(1rem + env(safe-area-inset-bottom,0px))}
+.rec-preview .rec-card{width:100%;max-width:26rem;background:#0e1412;border:1px solid #ff2e93;border-radius:16px;padding:1rem}
+.rec-preview video{width:100%;max-height:60vh;border-radius:10px;background:#000;display:block;margin:.5rem 0}
+.rec-preview .row{display:flex;flex-wrap:wrap;gap:.5rem}
 #camFsBtn{position:absolute;right:calc(8px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));z-index:3;padding:.35rem .6rem;font-size:.85rem}
 #pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page,#score.arcade-page,#stepsStat.arcade-page,#clock.arcade-page{font-family:"Press Start 2P",ui-monospace,"Courier New",monospace;color:#7dff7d;text-shadow:0 0 8px #2bff2b}
 @media (orientation:landscape) and (max-height:500px){
@@ -657,6 +677,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .zt-badge .zt-name{display:inline-block;max-width:7.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 .zt-badge .pfp-av{display:inline-flex;align-items:center;justify-content:center;width:1.45em;height:1.45em;margin:-.1em .38em -.1em -.3em;border-radius:50%;overflow:hidden;vertical-align:middle;background:#0e1412;color:#c6ff00;font-size:1em;font-weight:800;line-height:1;flex:none;box-shadow:0 0 0 1.5px #0e1412}
 .zt-badge .pfp-av img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
+.zt-badge .pfp-av{position:relative}.zt-badge .pfp-av .pfp-mini{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;display:block;background:#0e1412} /* live mini-feed while a camera set runs */
 /* PFP row: its own line directly below the nav links (signed in only). Switch first, label right after. */
 nav{flex-wrap:wrap}
 nav > .pfp-row{order:4;flex:0 0 100%;display:flex;align-items:center;gap:.55rem;margin:.45rem 0 0;padding:.4rem env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px);border-top:1px solid rgba(198,255,0,.16);font-size:.8rem;color:var(--text);cursor:pointer;user-select:none;-webkit-user-select:none;min-height:2rem}
@@ -1246,6 +1267,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="note" style="text-align:center;margin-top:-1rem"><span id="pushSetLabel">This set</span> &middot; <span id="pushClock">00:00</span></p>
     <div class="row">
       <label class="note" id="pushTargetWrap" for="pushTarget" style="display:inline-flex;align-items:center;gap:.4rem;margin:0">Target reps <input id="pushTarget" type="number" inputmode="numeric" min="1" max="500" step="1" value="20" style="width:4.5rem"></label>
+      <button class="btn ghost rec-btn" type="button" data-rec="camWrap" hidden aria-pressed="false"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button>
       <button class="btn" id="pushStartBtn" type="button">Start set</button>
       <button class="btn ghost" id="pushPauseBtn" type="button">Pause</button>
       <button class="btn" id="pushFinishBtn" type="button">Finish set</button>
@@ -1432,7 +1454,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="battle-count" id="tbCount" hidden></div>
       <div id="tbCamWrap" hidden style="margin:.6rem auto;max-width:16rem"><video id="tbVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video></div>
       <p class="note" id="tbCamNote" style="text-align:center"></p>
-      <div class="row"><button class="btn ghost" id="tbCam" type="button" hidden>Turn on camera</button><button class="btn" id="tbReady" type="button" hidden>I'm ready</button><button class="btn" id="tbRematch" type="button" hidden>Rematch</button><button class="btn ghost" id="tbLeave" type="button">Leave</button></div>
+      <div class="row"><button class="btn ghost rec-btn" type="button" data-rec="tbCamWrap" hidden aria-pressed="false"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button><button class="btn ghost" id="tbCam" type="button" hidden>Turn on camera</button><button class="btn" id="tbReady" type="button" hidden>I'm ready</button><button class="btn" id="tbRematch" type="button" hidden>Rematch</button><button class="btn ghost" id="tbLeave" type="button">Leave</button></div>
     </div>
     <p class="note" id="tbStatus" aria-live="polite"></p>
     <h3 style="margin-top:1.6rem">TUT battle ranking</h3>
@@ -1457,6 +1479,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
     <p class="reps-display" id="plankMsg" style="font-size:clamp(1.4rem,6vw,2rem)">Ready</p>
     <div class="row">
+      <button class="btn ghost rec-btn" type="button" data-rec="plankWrap" hidden aria-pressed="false"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button>
       <button class="btn" id="plankCamBtn" type="button">Start plank camera</button>
       <button class="btn ghost" id="plankStopBtn" type="button" hidden>End hold</button>
       <button class="btn ghost" id="plankAgainBtn" type="button" hidden>New hold</button>
@@ -1713,6 +1736,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/step-detector.js"></script>
   <script src="/push-session.js"></script>
   <script src="/pfp.js"></script>
+  <script src="/rec.js"></script>
   <script src="/push-challenge.js"></script>
   <script src="/get-set.js"></script>
   <script src="/plank-session.js"></script>
@@ -2556,6 +2580,7 @@ function voidTutSet(reason) {
     return;
   }
   pushState.running = false; pushState.finished = true;
+  if (typeof camFs === "function") camFs("camWrap", false); // set over: leave full screen
   clearInterval(pushState.tick);
   if (pushWake) pushWake.stop().catch(() => {});
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.end();
@@ -2689,6 +2714,7 @@ function finishPushSet(endedBy) {
   pushState.running = false;
   pushState.finished = true;
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.end();
+  if (typeof camFs === "function") camFs("camWrap", false); // set over: leave full screen
   clearInterval(pushState.tick);
   if (pushWake) pushWake.stop().catch(() => {});
   const ms = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
@@ -2790,6 +2816,7 @@ let pushStarting = false, pushStartSeq = 0;
 function cancelPushStart(msg) {
   if (!pushStarting) return;
   pushStartSeq += 1; pushStarting = false; cancelGetSet();
+  if (typeof camFs === "function" && !pushState.running) camFs("camWrap", false);
   if ($("pushStartBtn")) $("pushStartBtn").disabled = false;
   if (pushWake && !pushState.running) pushWake.stop().catch(() => {});
   if (msg) $("pushStatus").textContent = msg;
@@ -2806,6 +2833,7 @@ async function startPush() {
   if (typeof plankLoop !== "undefined" && plankLoop) stopPlankCam();
   const my = ++pushStartSeq; const live = () => my === pushStartSeq;
   pushStarting = true; $("pushStartBtn").disabled = true;
+  if (camOn && typeof camFs === "function") camFs("camWrap", true); // camera already on (next set): full screen at once
   const fail = (msg) => { if (!live()) return; cancelPushStart(msg); };
   try {
     const coachKind = pushMode === "long" ? "tut" : "pushups";
@@ -3130,6 +3158,7 @@ async function openCam() {
       poseLoopOn = true;
       resetPoseBaseline();
       $("camWrap").hidden = false;
+      if (typeof camFs === "function") camFs("camWrap", true); // full screen at once
       $("camStopBtn").hidden = false;
       $("camNote").textContent = "Get into a push-press plank. After Go, your first full push-up counts.";
       poseTick(++poseLoopId);
@@ -3149,6 +3178,7 @@ async function openCam() {
     const vid = $("camVid");
     await attachCam(vid, camStream);
     $("camWrap").hidden = false;
+    if (typeof camFs === "function") camFs("camWrap", true); // full screen at once (app)
     $("camStopBtn").hidden = false;
     $("camNote").textContent = "Loading camera counter…";
     await loadCamLibs();
@@ -3197,6 +3227,18 @@ function camExitFs() {
   $("camWrap").classList.remove("cam-fs");
   if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
   else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+}
+// Auto full screen: every camera exercise (push-ups / TUT #camWrap, TUT Battle #tbCamWrap, web plank #plankWrap) goes full
+// screen the moment it starts and leaves it when the set ends or stops. CSS fixed mode (.cam-fs) only, no Fullscreen API,
+// so it behaves the same in iOS Safari and the app. Layout only: never touches the session, the countdown or the counter.
+function camFs(id, on) {
+  try {
+    const w = $(id); if (!w || !w.classList) return;
+    if (!on && id === "camWrap") camExitFs(); else w.classList.toggle("cam-fs", !!on);
+    if (on && id !== "camWrap" && w.querySelector && !w.querySelector(".cam-fs-exit")) { const b = document.createElement("button"); b.type = "button"; b.className = "btn ghost cam-fs-exit"; b.textContent = "Exit full screen"; b.onclick = () => camFs(id, false); w.appendChild(b); }
+    if (id === "camWrap") camFsLabel();
+    if (window.ZabRec) window.ZabRec.onFs(id, !!on); // armed Record starts with full screen, stops when it ends
+  } catch (e) {}
 }
 function camFsLabel() { $("camFsBtn").textContent = camIsFs() ? "Exit full screen" : "Full screen"; }
 $("camFsBtn").onclick = () => {
@@ -3253,6 +3295,7 @@ function paintPlankRows(rows) {
 function plankEnded(r) {
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.end();
   sessionTouch();
+  if (typeof camFs === "function") camFs("plankWrap", false); // hold over: leave full screen
   if (plankSaved) return;
   if (!plankSessionStartedAt) return; // only a live camera session can end (and save) a hold
   plankSaved = true;
@@ -3322,6 +3365,7 @@ async function plankTick(id = plankLoopId) {
     const vid = $("plankVid"), tFrame = performance.now(); // stamped before inference; MoveNet smoothing is off, plank-session.js runs its own One Euro filter
     const poses = await det.estimatePoses(vid, { flipHorizontal: true });
     const r = plankHold.update(poses && poses[0] ? poses[0].keypoints : [], tFrame, { w: vid.videoWidth || 0, h: vid.videoHeight || 0 });
+    if (window.ZabPfp) window.ZabPfp.plankFrame(vid, poses && poses[0] ? poses[0].keypoints : [], r && r.phase, tFrame); // PFP logo pinned for the hold: visual only, never throws
     plankOutlineSet(r);
     plankCue(r);
     if (r.ended) plankEnded(r);
@@ -3368,7 +3412,7 @@ async function startPlankCam() {
       if (!live()) { stopCamTracks(stream); return; }
       plankStream = stream;
       const vid = $("plankVid"); await attachCam(vid, plankStream);
-      $("plankWrap").hidden = false;
+      $("plankWrap").hidden = false; if (typeof camFs === "function") camFs("plankWrap", true);
       await loadCamLibs();
       if (!live()) return;
       await ensurePose();
@@ -3383,7 +3427,7 @@ async function startPlankCam() {
       const vid = $("plankVid"); vid.srcObject = plankStream; await vid.play();
       await ensurePose();
       if (!live()) return;
-      $("plankWrap").hidden = false;
+      $("plankWrap").hidden = false; if (typeof camFs === "function") camFs("plankWrap", true);
     }
     if (!(await placed)) return;
     if (!live()) return;
@@ -3404,7 +3448,7 @@ async function startPlankCam() {
 let plankStarting = false, plankStartSeq = 0;
 function cancelPlankStart() {
   plankStartSeq += 1; plankStarting = false; cancelGetSet();
-  if (plankStream && !plankLoop) { plankStream.getTracks().forEach((t) => t.stop()); plankStream = null; if ($("plankVid")) $("plankVid").srcObject = null; $("plankWrap").hidden = true; }
+  if (plankStream && !plankLoop) { plankStream.getTracks().forEach((t) => t.stop()); plankStream = null; if ($("plankVid")) $("plankVid").srcObject = null; $("plankWrap").hidden = true; if (typeof camFs === "function") camFs("plankWrap", false); }
   if (plankWake && !plankLoop) plankWake.stop().catch(() => {});
   $("plankCamBtn").textContent = "Start plank camera";
   $("plankStatus").textContent = "Start cancelled.";
@@ -3418,7 +3462,7 @@ function stopPlankCam() {
   plankStream = null;
   if ($("plankVid")) $("plankVid").srcObject = null;
   if (plankWake) plankWake.stop().catch(() => {});
-  $("plankWrap").hidden = true; $("plankStopBtn").hidden = true;
+  $("plankWrap").hidden = true; $("plankStopBtn").hidden = true; if (typeof camFs === "function") camFs("plankWrap", false);
   $("plankCamBtn").textContent = "Start plank camera";
   if (typeof paintArcadeStrip === "function") paintArcadeStrip({ live: false });
 }
@@ -4388,6 +4432,7 @@ function tbTickFn() {
 function tbGoLive(r) {
   if (tbLiveT0 != null || !currentUser || !(currentUser.uid in r.players)) return;
   tbLiveT0 = performance.now() - Math.max(0, BR.serverNow(Date.now(), tb.offset) - r.startAt);
+  if (typeof camFs === "function") camFs("tbCamWrap", true); // battle live: full screen at once (lobby buttons stay reachable before Go)
   tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false; tbEnded = false; tbDraw = null; clearTimeout(tbSettleTimer); if (tbRepVoice) tbRepVoice.reset(); if (tbTimeVoice) tbTimeVoice.reset();
   tbChal = TBC.createChallenge({ durationMs: TBm.RULES.durationMs, topCapMs: TBm.RULES.topCapMs }); tbChal.start(tbLiveT0);
   tbJudge = TBm.createJudge(window.ZabbadatSession.createPostureGuard({ holdMs: TBm.RULES.postureHoldMs })); tbJudge.reset(performance.now());
@@ -4422,12 +4467,12 @@ async function tbCamOn(placed) {
     stopCamTracks(tbStream);
     tbStream = null;
     if ($("tbVid")) $("tbVid").srcObject = null;
-    $("tbCamWrap").hidden = true;
+    $("tbCamWrap").hidden = true; if (typeof camFs === "function") camFs("tbCamWrap", false);
     $("tbCamNote").textContent = camErrorText(e);
     tbPaint();
   }
 }
-function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; }
+function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; if (typeof camFs === "function") camFs("tbCamWrap", false); }
 async function tbPose() {
   if (!tbLoop) return;
   try {
