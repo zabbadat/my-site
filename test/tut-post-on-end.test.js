@@ -56,26 +56,33 @@ const complete = (p) => p.log.filter((x) => x === "say:Set complete.").length;
   check("signed out: failure saves on this device with the reason, no remote post", p.posts().length === 0 && p.log.includes("local:zabbadat-push-total-u1-d") && /^Set failed: 35 reps, 75s\. Ready for the next set\. Saved on this device\. Sign in to post\. Ended: Knees down\./.test(p.els.pushStatus.textContent));
   check("wiring: End session still calls finishPushSet in long mode; poseTick still calls voidTutSet(failed)", /pushEndBtn"\)\.onclick = \(\) => \{ if \(pushMode === "long"\) finishPushSet\(\); \}/.test(html) && /if \(failed\) voidTutSet\(failed, failWatch\.failedAt && failWatch\.failedAt\(\)\);/.test(html));
   check("copy: longNote, challengeNote and tut.html say time reps and tut sets will post", (html.match(/Time reps and tut sets will post/g) || []).length === 2 && /ends the set, and time reps and tut sets will post/.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
+  // Owner rule (Nov 13): completed TUT set = clock >= 1:20 AND >= 10 push-ups. Minimums, not a cap: full time and reps saved.
   for (const mode of ["long", "sets", "challenge"]) {
-    const q = page(mode, { ms: 75000 }); q.end(); await tick();
+    const q = page(mode, { ms: 95000 }); q.end(); await tick();
     const cat = mode === "long" ? "tut-set" : mode === "sets" ? "set" : "challenge";
-    check(mode + ": local and remote finish record preserve category and measured hold", JSON.parse(q.store["zabbadat-pushups"])[0].category === cat && q.records[0].category === cat && q.records[0].holdMs === (mode === "long" ? 12345 : 0));
+    check(mode + ": local and remote finish record keep the category (95 s, 35 reps)", JSON.parse(q.store["zabbadat-pushups"])[0].category === cat && q.records[0].category === cat);
     const sessions = JSON.parse(q.store["zabbadat-push-sessions"] || "[]");
-    check(mode + ": only clean long-mode completions enter TUT session log", mode === "long" ? sessions.length === 1 && sessions[0].category === "tut-set" && sessions[0].mode === "long" && sessions[0].holdMs === 12345 : sessions.length === 0);
+    check(mode + ": only completed long-mode TUT sets enter TUT session log", mode === "long" ? sessions.length === 1 && sessions[0].category === "tut-set" && sessions[0].mode === "long" : sessions.length === 0);
   }
-  { const q = page("long", { ms: 20000, holdMs: 12345 }); q.end(); await tick();
-    check("short clean set qualifies without a new 120-second minimum", q.records[0].category === "tut-set" && q.records[0].holdMs === 12345); }
-  { const q = page("long", { ms: 75000 }); vm.runInContext('finishPushSet("Camera stopped")', q.ctx); await tick();
-    check("manual camera stop without a form break may complete a clean TUT set", q.records[0].category === "tut-set"); }
+  { const q = page("long", { ms: 80000, reps: 10 }); q.end(); await tick();
+    check("exactly 1:20 with exactly 10 push-ups is a completed TUT set", q.records[0].category === "tut-set" && /^TUT set complete: 10 reps, 80s\. Zab posted it\./.test(q.els.pushStatus.textContent)); }
+  { const q = page("long", { ms: 247000, reps: 61 }); q.end(); await tick();
+    check("not capped at 1:20: full final time (4:07) and full reps (61) are what get posted", q.records[0].category === "tut-set" && q.records[0].ms === 247000 && q.records[0].reps === 61 && q.records[0].tutMs === 247000); }
+  { const q = page("long", { ms: 79999, reps: 40 }); q.end(); await tick();
+    check("ending before 1:20 is not a completed TUT set (still saved as a long set)", q.records[0].category === "long" && !q.store["zabbadat-push-sessions"]); }
+  { const q = page("long", { ms: 120000, reps: 9 }); q.end(); await tick();
+    check("fewer than 10 push-ups is not a completed TUT set even past 1:20", q.records[0].category === "long" && !q.store["zabbadat-push-sessions"]); }
+  { const q = page("long", { ms: 95000 }); vm.runInContext('finishPushSet("Camera stopped")', q.ctx); await tick();
+    check("camera stop after 1:20 with 10+ push-ups completes the TUT set", q.records[0].category === "tut-set"); }
   for (const reason of ["Knees down", "Collapsed", "Stood up / left plank", "Elbows down", "Form broke", "Out of frame"]) {
     const q = page("long", { ms: 75000 }); vm.runInContext('finishPushSet(' + JSON.stringify(reason) + ')', q.ctx); await tick();
-    check(reason + ": result still saves/posts but not as a TUT-set entry", q.records.length === 1 && q.records[0].category === "long" && !q.store["zabbadat-push-sessions"]);
+    check(reason + " before 1:20: result still saves/posts but not as a TUT-set entry", q.records.length === 1 && q.records[0].category === "long" && !q.store["zabbadat-push-sessions"]);
+    const r = page("long", { ms: 100000 }); vm.runInContext('finishPushSet(' + JSON.stringify(reason) + ')', r.ctx); await tick();
+    check(reason + " after 1:20 with 10+ push-ups: set already qualified, counts as completed with its full time", r.records[0].category === "tut-set" && r.records[0].ms === 100000 && /^TUT set complete: 35 reps, 100s\./.test(r.els.pushStatus.textContent));
   }
-  { const q = page("long", { ms: 75000, violations: 1 }); q.end(); await tick();
-    check("manual finish after an earlier detected form break is not TUT-set", q.records[0].category === "long" && !q.store["zabbadat-push-sessions"]); }
-  { const q = page("long", { ms: 75000, signedIn: false }); q.end(); await tick();
-    check("guest clean completion stays on device in the TUT category with hold time", JSON.parse(q.store["zabbadat-pushups"])[0].category === "tut-set" && JSON.parse(q.store["zabbadat-push-sessions"])[0].holdMs === 12345 && q.records.length === 0); }
-  { const q = page("long", { ms: 75000, reps: 0 }); q.end(); await tick();
+  { const q = page("long", { ms: 95000, signedIn: false }); q.end(); await tick();
+    check("guest completed TUT set stays on device in the TUT category, with a timestamp for the ET day", JSON.parse(q.store["zabbadat-pushups"])[0].category === "tut-set" && JSON.parse(q.store["zabbadat-pushups"])[0].at > 0 && JSON.parse(q.store["zabbadat-push-sessions"]).length === 1 && q.records.length === 0); }
+  { const q = page("long", { ms: 95000, reps: 0 }); q.end(); await tick();
     check("zero push-ups does not create a TUT-set entry", q.records[0].category !== "tut-set" && !q.store["zabbadat-push-sessions"]); }
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
 })();

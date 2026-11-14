@@ -334,7 +334,33 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
       .sort(function (a, b) { return Number(b.ms) - Number(a.ms); }).slice(0, n || 50);
   }
 
-  var api = { tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
+  // TUT set completion (owner rule, Nov 13): the clock reaches 1:20 (80 s) AND at least 10 push-ups were done. These are
+  // MINIMUMS, not a cap: the set keeps going past 1:20 and the full final time and full rep count are what get saved.
+  // Sets ending before 1:20 or with fewer than 10 push-ups are not completed TUT sets (they still save as an ordinary "long" set).
+  var TUT_DONE = { minMs: 80000, minReps: 10 };
+  function tutCompleted(mode, ms, reps) { return mode === "long" && Number(ms) >= TUT_DONE.minMs && Number(reps) >= TUT_DONE.minReps; }
+  // A saved row (Firestore pushups doc or local record) is a completed TUT set. Firestore docs carry no category field
+  // (the pushups create rule does not allow it); One long set docs are the ones with tutMs > 0 (tutMs = full set time).
+  function isTutSetDoc(r) {
+    if (!r) return false;
+    var longSet = r.category === "tut-set" || r.category === "long" || Number(r.tutMs) > 0;
+    return longSet && Number(r.ms) >= TUT_DONE.minMs && Number(r.reps) >= TUT_DONE.minReps;
+  }
+  // Lifetime completed TUT sets for one uid.
+  function tutLifetime(rows, uid) { var n = 0; (rows || []).forEach(function (r) { if (r && (!uid || r.uid === uid) && isTutSetDoc(r)) n++; }); return n; }
+  // Today's completed TUT sets per person. dayOf(row) -> day key (ET), today = today's key. Keeps row order (newest first
+  // when rows come newest first); people in order of their latest set. -> [{ key, uid, name, sets: [{ ms, reps }] }]
+  function tutDaily(rows, dayOf, today) {
+    var out = [], by = {};
+    (rows || []).forEach(function (r) {
+      if (!isTutSetDoc(r) || dayOf(r) !== today) return;
+      var k = r.uid ? "u:" + r.uid : "n:" + (r.name || "Player");
+      if (!by[k]) { by[k] = { key: k, uid: r.uid || "", name: r.name || "Player", sets: [] }; out.push(by[k]); }
+      by[k].sets.push({ ms: Number(r.ms), reps: Number(r.reps) });
+    });
+    return out;
+  }
+  var api = { TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutDaily: tutDaily, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

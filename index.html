@@ -1145,6 +1145,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div>
         <strong id="whoName">Not signed in</strong>
         <div class="note" id="zabBalanceRow" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">Balance: <span id="zabaBal" style="color:var(--accent-2)">0</span> <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg></span></div>
+        <div class="note" id="tutLifetime" hidden style="margin:.2rem 0 0;color:var(--accent);font-weight:700">TUT sets completed: <span id="tutLifetimeN" style="color:var(--accent-2)">0</span></div>
         <div class="note" style="margin:0">Google or X sign-in keeps your board name consistent.</div>
       </div>
       <button class="btn" id="signInBtn" type="button">Sign in with Google</button>
@@ -1299,11 +1300,11 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h2>Drop your tuts</h2>
     <p class="eyebrow" style="margin:-.4rem 0 .8rem">drop your tuts</p>
     <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
-    <p class="lead" data-app-copy='[["drop your tuts plus a 120-second hold", "drop your tuts plus a 120-second plank push press"], ["and hold time.", "and plank push press time."]]'>The scoreboard for drop your tuts. Each entry is a TUT set — drop your tuts plus a 120-second hold — with your push-up count and hold time. You can't fail just by holding.</p>
+    <p class="lead">Today's scoreboard for drop your tuts, reset at midnight Eastern. A TUT set is complete once the clock reaches 1:20 with at least 10 push-ups. Keep going: the full time and every push-up after 1:20 count too. Each player shows their TUT sets today, with each set's time and push-ups. You can't fail just by holding.</p>
     <h3>drop your tuts</h3>
     <table>
-      <thead><tr><th>Push-ups</th><th data-app-copy='[["Hold", "Plank Push Press"]]'>Hold</th></tr></thead>
-      <tbody id="tutBoardBody"><tr><td colspan="2">Waiting for sets…</td></tr></tbody>
+      <thead><tr><th>Player</th><th>TUT sets today</th><th>Time · push-ups</th></tr></thead>
+      <tbody id="tutBoardBody"><tr><td colspan="3">Waiting for sets…</td></tr></tbody>
     </table>
     <h3 style="margin-top:1.6rem">Your time under tension</h3>
     <p class="fine">Saved on this phone for the signed-in player (or guest).</p>
@@ -1813,6 +1814,7 @@ const HOLD_ZAB_LIVE = true;
 let pushHoldsThisSet = 0; // 30-second holds in the current set: saved with the set (pushups.holds) and credited by the server (zab-earn)
 const holdReward = window.ZabbadatSession && window.ZabbadatSession.createHoldReward ? window.ZabbadatSession.createHoldReward() : null;
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
+let pushTutQualified = false; // this One long set has reached 1:20 with 10+ push-ups (status line shown once)
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
 // ZAB (internal: zabBalance): awardZab(source, sessionId) asks the zab-earn function to credit one saved session (server-checked); no-op until sign-in setup.
 const ZT = window.ZabBalance || null;
@@ -2485,6 +2487,10 @@ function renderPush() {
   }
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice && (pushMode === "long" || pushMode === "challenge") && pushState.running && !pushState.finished) tutTimeVoice.tick(now); // TUT modes only (the running clock; the challenge returns above at 3:00, so no "3 minutes"). Regular Sets: no timed voice
   const liveTut = pushMode === "long" ? now : pushState.tut;
+  if (pushMode === "long" && pushState.running && !pushState.finished && typeof pushTutQualified !== "undefined" && !pushTutQualified && window.ZabbadatSession && window.ZabbadatSession.tutCompleted && window.ZabbadatSession.tutCompleted("long", now, pushState.reps)) {
+    pushTutQualified = true; // 1:20 + 10 push-ups reached: the set now counts as a completed TUT set. It keeps going; nothing is capped.
+    if ($("pushStatus")) $("pushStatus").textContent = "TUT set complete at 1:20 with " + pushState.reps + " push-ups. Keep going: every second and rep still counts.";
+  }
   if ($("pushTut")) $("pushTut").textContent = formatTut(savedPushTut() + (pushState.finished ? 0 : liveTut));
   if ($("pushRepsBig")) $("pushRepsBig").textContent = pushState.reps;
   if ($("pushSets")) $("pushSets").textContent = savedPushSets();
@@ -2680,17 +2686,37 @@ function renderTutHistory() {
     ? h.days.slice(0, 14).map((x) => `<tr><td>${escapeHtml(dayName(x))}</td><td>${formatTut(x.ms)}</td><td>${Number(x.reps)}</td></tr>`).join("")
     : `<tr><td colspan="3">No sets yet.</td></tr>`;
 }
+// drop your tuts: TODAY's completed TUT sets (1:20 + 10 push-ups) per person, ET-midnight day (et-day.js). Each set shows
+// its full final time and push-ups. Not ranked: people in order of their latest set.
+function tutDayOf(r) {
+  const t = Number(r && r.at) || 0;
+  if (!t) return "";
+  const ET = typeof window !== "undefined" && window.ZabbadatEtDay;
+  return ET ? ET.key(t) : new Date(t).toDateString();
+}
 function paintTutRows(rows) {
   const body = $("tutBoardBody");
   if (!body) return;
-  const sets = (rows || []).filter((r) => r.category === "tut-set" && Number(r.reps) > 0);
-  const shown = sets.slice(0, 50);
-  body.innerHTML = shown.length
-    ? shown.map((r) => `<tr><td>${Number(r.reps)}</td><td>${formatTut(r.holdMs)}</td></tr>`).join("")
-    : `<tr><td colspan="2">No finished sets yet.</td></tr>`;
+  const S = window.ZabbadatSession;
+  paintTutRows.last = rows || []; paintTutRows.day = tutDayOf({ at: Date.now() });
+  const sets = (rows || []).filter((r) => S.isTutSetDoc(r));
+  const people = S.tutDaily(rows, tutDayOf, paintTutRows.day).slice(0, 50);
+  body.innerHTML = people.length
+    ? people.map((p) => `<tr><td>${escapeHtml(publicName(p.name))}</td><td>${p.sets.length}</td><td>${p.sets.map((x) => formatTime(x.ms) + " · " + Number(x.reps)).join("<br>")}</td></tr>`).join("")
+    : `<tr><td colspan="3">No TUT sets completed today yet.</td></tr>`;
   const peopleEl = $("tutPeopleCount"), timesEl = $("tutTimesCount");
   if (peopleEl) { const seen = {}; sets.forEach((r) => { const k = r.uid || ""; if (k) seen[k] = 1; }); peopleEl.textContent = String(Object.keys(seen).length); }
   if (timesEl) timesEl.textContent = String(sets.length);
+}
+// ET midnight: repaint so yesterday's sets drop off without waiting for a new post.
+if (typeof setInterval === "function" && typeof document !== "undefined") setInterval(() => { if (paintTutRows.last && paintTutRows.day !== tutDayOf({ at: Date.now() })) paintTutRows(paintTutRows.last); }, 60000);
+// Profile: lifetime completed TUT sets (1:20 + 10 push-ups), counted from this user's own pushups docs (no new field or rule).
+function paintTutLifetime(n) {
+  const el = $("tutLifetime");
+  if (!el) return;
+  if (n == null) { el.hidden = true; return; }
+  if ($("tutLifetimeN")) $("tutLifetimeN").textContent = String(n);
+  el.hidden = false;
 }
 function paintPushRows(rows) {
   const sorted = [...(rows || [])].sort((a, b) => b.reps - a.reps || a.ms - b.ms).slice(0, 50);
@@ -2724,11 +2750,12 @@ function finishPushSet(endedBy) {
   const typed = ($("player").value || "").trim().slice(0, 20);
   const name = currentUser ? (typed || displayNameOf(currentUser)) : (typed || "Player");
   const handle = ($("xHandle").value || "").trim().replace(/^@/, "");
-  const unbroken = pushState.reps > 0 && (!endedBy || endedBy === "Camera stopped") && (!postureGuard || postureGuard.state().count === 0);
-  const category = pushMode === "long" ? (unbroken ? "tut-set" : "long") : pushMode === "challenge" ? "challenge" : "set";
+  // Completed TUT set = clock reached 1:20 AND at least 10 push-ups (minimums, not a cap: full time and reps are saved).
+  const tutDone = !!(window.ZabbadatSession && window.ZabbadatSession.tutCompleted && window.ZabbadatSession.tutCompleted(pushMode, ms, pushState.reps));
+  const category = pushMode === "long" ? (tutDone ? "tut-set" : "long") : pushMode === "challenge" ? "challenge" : "set";
   // Longest measured continuous top hold, not session elapsed time or the 30-second bonus count.
   const holdMs = pushMode === "long" && typeof holdReward !== "undefined" && holdReward ? Math.round(holdReward.state().bestMs || 0) : 0;
-  const record = { name, xHandle: handle ? "@" + handle : "", reps: pushState.reps, ms, when: new Date().toLocaleString(), category, holdMs };
+  const record = { name, xHandle: handle ? "@" + handle : "", uid: currentUser ? currentUser.uid : "", reps: pushState.reps, ms, at: Date.now(), when: new Date().toLocaleString(), category, holdMs };
   const local = localPush();
   local.push(record);
   localStorage.setItem("zabbadat-pushups", JSON.stringify(local));
@@ -2754,6 +2781,7 @@ function finishPushSet(endedBy) {
   Object.assign(pushState, { reps: 0, tut: 0, elapsed: 0, startedAt: 0 });
   if (typeof resetPoseBaseline === "function") resetPoseBaseline();
   const failedTut = !!endedBy && endedBy !== "Camera stopped" && (pushMode === "long" || pushMode === "challenge");
+  if (typeof pushTutQualified !== "undefined") pushTutQualified = false;
   if (failedTut) { // a TUT failure posts once (below), then everything is back to zero, ready for Start
     if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(null);
     if (postureGuard) postureGuard.reset();
@@ -2762,7 +2790,7 @@ function finishPushSet(endedBy) {
   renderPush();
   const why = endedBy ? " Ended: " + endedBy + "." : "";
   const what = pushMode === "long" ? "Session" : pushMode === "challenge" ? "Challenge" : "Set";
-  const head = failedTut ? "Set failed: " + record.reps + " reps, " + formatTime(ms) + ". Ready for the next set." : what + " done: " + record.reps + " reps, " + formatTime(ms) + ".";
+  const head = category === "tut-set" ? "TUT set complete: " + record.reps + " reps, " + formatTime(ms) + "." : failedTut ? "Set failed: " + record.reps + " reps, " + formatTime(ms) + ". Ready for the next set." : what + " done: " + record.reps + " reps, " + formatTime(ms) + ".";
   if (!currentUser) {
     $("pushStatus").textContent = head + " Saved on this device. Sign in to post." + why;
     return;
@@ -2772,7 +2800,7 @@ function finishPushSet(endedBy) {
   const zabFor = (id) => Promise.all([awardZab("pushups", id), record.tutMs > 0 ? awardZab("tut", id) : null, record.holds > 0 ? awardZab("hold", id) : null].map((p) => p && p.catch(() => null)))
     .then((a) => ({ credited: (window.ZabCurrency && window.ZabCurrency.roundZab ? window.ZabCurrency.roundZab : function (x) { return Math.round(Number(x) * 10) / 10; })(a.reduce((n, x) => n + ((x && x.credited) || 0), 0)) }), () => null);
   saveRemotePush(record)
-    .then((id) => zabFor(id)).then((tk) => { $("pushStatus").textContent = (failedTut ? head + " " + name + " posted it." : name + " posted " + record.reps + " reps in " + formatTime(ms) + ".") + why + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
+    .then((id) => zabFor(id)).then((tk) => { $("pushStatus").textContent = (failedTut || category === "tut-set" ? head + " " + name + " posted it." : name + " posted " + record.reps + " reps in " + formatTime(ms) + ".") + why + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
     .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
 }
 // One Start button: gate -> wake + speech unlock + spoken placement line (in the tap) -> camera -> pose -> spoken
@@ -2872,6 +2900,7 @@ function beginPushClock() {
   if ($("pushViol")) $("pushViol").textContent = "0";
   pushState.running = true;
   pushState.startedAt = Date.now();
+  if (typeof pushTutQualified !== "undefined") pushTutQualified = false;
   if (pushMode === "challenge" && pushChallenge) {
     pushChallenge.start(performance.now()); challengeFlags = { standing: 0, knees: 0 }; if (postureGuard) postureGuard.reset();
     if ($("challengeResult")) $("challengeResult").hidden = true;
@@ -3793,8 +3822,8 @@ saveRemotePush = async (record) => {
     uid: auth.currentUser.uid,
     reps: Number(record.reps),
     ms: Number(record.ms),
-    category: record.category,
-    holdMs: Math.max(0, Math.min(Math.round(Number(record.holdMs) || 0), Math.round(Number(record.ms) || 0))),
+    // Only fields firestore.rules (pushups create, keys().hasOnly) allows. category / holdMs were sent from Nov 8 and the
+    // rule refused every push-up post; TUT sets are now recognised from tutMs / ms / reps (ZabbadatSession.isTutSetDoc).
     tutMs: Math.max(0, Math.min(Math.round(Number(record.tutMs) || 0), Math.round(Number(record.ms) || 0))),
     holds: Math.max(0, Math.floor(Number(record.holds) || 0)),
     createdAt: serverTimestamp()
@@ -5076,7 +5105,17 @@ $("tbLeave").onclick = async () => {
 const boardSubs = []; let boardOffs = [];
 function signedOutRow(id) { const el = $(id); if (!el) return; const t = el.closest ? el.closest("table") : null, n = t ? t.querySelectorAll("thead th").length || 1 : 1; el.innerHTML = '<tr><td colspan="' + n + '">Sign in to see this board.</td></tr>'; }
 function boardSnap(bodyId, q, next, fail) { boardSubs.push({ bodyId, q, next, fail }); }
+let tutLifeOff = null;
+function tutLifetimeOnUser(u) {
+  if (tutLifeOff) { tutLifeOff(); tutLifeOff = null; }
+  if (!u) { paintTutLifetime(null); return; }
+  // Equality on uid only: no composite index. Allowed by the pushups read rule (signed in).
+  tutLifeOff = onSnapshot(query(collection(db, "pushups"), where("uid", "==", u.uid)),
+    (snap) => paintTutLifetime(window.ZabbadatSession.tutLifetime(snap.docs.map((d) => d.data()), u.uid)),
+    () => paintTutLifetime(null));
+}
 function boardsOnUser(u) {
+  try { tutLifetimeOnUser(u); } catch (e) {}
   boardOffs.forEach((off) => off()); boardOffs = [];
   boardSubs.forEach((b) => { if (u) boardOffs.push(onSnapshot(typeof b.q === "function" ? b.q() : b.q, b.next, b.fail)); else signedOutRow(b.bodyId); });
 }
@@ -5169,7 +5208,8 @@ boardSnap("pushBoardBody", pq, (snap) => {
 const tutRowsOf = (snap) => snap.docs.map((d) => {
   const x = d.data();
   const when = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "";
-  return { name: x.name, xHandle: x.xHandle || "", uid: x.uid || "", reps: x.reps, ms: x.ms, category: x.category, holdMs: x.holdMs, when };
+  const at = x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : 0;
+  return { name: x.name, xHandle: x.xHandle || "", uid: x.uid || "", reps: x.reps, ms: x.ms, tutMs: x.tutMs || 0, category: x.category, holdMs: x.holdMs, at, when };
 });
 boardSnap("tutBoardBody", query(collection(db, "pushups"), orderBy("createdAt", "desc"), limit(300)), (snap) => paintTutRows(tutRowsOf(snap)), () => paintTutRows(localPush().slice().reverse()));
 // Plank board: longest hold first.

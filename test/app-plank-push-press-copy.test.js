@@ -32,11 +32,11 @@ check("no hard-coded 'Top hold' / '30-second hold!' strings left outside the hel
 
 // index.html static copy: data-app-copy pairs only swap in the app; browser markup text is untouched
 const tags = [...html.matchAll(/<(\w+)([^>]*?) data-app-copy='([^']*)'([^>]*)>([\s\S]*?)<\/\1>/g)];
-check("8 app-copy elements", tags.length === 8, String(tags.length));
+check("6 app-copy elements (drop your tuts board: no Hold column / hold copy since the 1:20 TUT rule)", tags.length === 6, String(tags.length));
 let allFrom = true, allTo = true;
 for (const m of tags) { const pairs = JSON.parse(m[3].replace(/&#39;/g, "'")); for (const [f, t] of pairs) { if (m[5].indexOf(f) < 0) allFrom = false; if (!/plank push press|Plank Push Press/.test(t)) allTo = false; } }
 check("every swapped phrase exists in the browser text", allFrom);
-check("every replacement says plank push press (heading: Plank Push Press)", allTo && /\["Hold", ?"Plank Push Press"\]/.test(html));
+check("every replacement says plank push press (heading: Plank Push Press)", allTo);
 const applySrc = html.slice(html.indexOf("function applyAppCopy(doc)"), html.indexOf("\nif (typeof document !== \"undefined\") applyAppCopy(document);"));
 const runApply = (on) => {
   const els = tags.map((m) => ({ innerHTML: m[5], getAttribute: () => m[3].replace(/&#39;/g, "'") }));
@@ -46,7 +46,7 @@ const runApply = (on) => {
 };
 const rw = runApply(false), ra = runApply(true);
 check("browser: applyAppCopy changes nothing", rw.n === 0 && rw.els.every((e, i) => e.innerHTML === tags[i][5]));
-check("app: applyAppCopy swaps every phrase", ra.n === 10 && ra.els.some((e) => /Holding a plank push press never ends it\./.test(e.innerHTML)) && ra.els.some((e) => e.innerHTML === "Plank Push Press") && !ra.els.some((e) => /top hold/i.test(e.innerHTML)));
+check("app: applyAppCopy swaps every phrase", ra.n === 7 && ra.els.some((e) => /Holding a plank push press never ends it\./.test(e.innerHTML)) && !ra.els.some((e) => /top hold/i.test(e.innerHTML)));
 check("app camera note uses the name", /Get into a plank push press\. After Go, your first full push-up counts\./.test(html) && /Get into a push-press plank\. After Go, your first full push-up counts\./.test(html));
 
 // tut.html
