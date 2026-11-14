@@ -5,7 +5,10 @@ const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  $
 const rules = fsx.readFileSync(path.join(__dirname, "../firestore.rules"), "utf8"), html = fsx.readFileSync(path.join(__dirname, "../index.html"), "utf8");
 const COLS = ["games/{id}", "pushups/{id}", "planks/{id}", "plankDaily/{id}", "dailySteps/{id}", "walkSessions/{id}", "washersBattleSeason/{id}", "tutBattleStats/{uid}"];
 check("rules: the 8 boards need sign-in to read", COLS.every((c) => new RegExp("match /" + c.replace(/[{}]/g, "\\$&") + " \\{\\s*allow read: if signedIn\\(\\);").test(rules)));
-check("rules: nothing is world-readable any more", !/allow read: if true/.test(rules));
+{ // the only public reads: the Live tab (one match by its code + its video signaling docs), all nested under matches/{code}
+  const mb = rules.slice(rules.indexOf("match /matches/{code}"), rules.indexOf("match /{document=**}")), rest = rules.replace(mb, "");
+  check("rules: nothing is world-readable except the Live tab (get one match by code, its casters/peers); no public list", !/allow (read|get|list)[^;]*: if true/.test(rest)
+    && !/allow (read, )?list: if true/.test(mb) && /allow get: if true;\s*allow list: if request.auth != null;/.test(mb)); }
 const BODIES = ["boardBody", "pushBoardBody", "tbRankBody", "tutBoardBody", "plankBoardBody", "plankDailyBody", "dailyBoardBody", "walkBoardBody"];
 check("page: every board is registered through boardSnap (no top-level public onSnapshot left)", BODIES.every((b) => html.includes('boardSnap("' + b + '"'))
   && !/^onSnapshot\(query\(collection\(db, "(games|pushups|planks|plankDaily|dailySteps|walkSessions|tutBattleStats)"/m.test(html) && !/^onSnapshot\((q|pq), /m.test(html));

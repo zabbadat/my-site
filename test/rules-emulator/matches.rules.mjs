@@ -1,7 +1,7 @@
 // Emulator check of the matches/{code} rules. Needs @firebase/rules-unit-testing + firebase + Java; run from a scratch dir:
 // firebase emulators:exec --only firestore --project demo-zab "node <repo>/test/rules-emulator/matches.rules.mjs" (port 8085)
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, Timestamp, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, Timestamp, deleteDoc, arrayUnion, collection, query, where } from 'firebase/firestore';
 import fs from 'fs';
 const env = await initializeTestEnvironment({ projectId: 'demo-zab', firestore: { rules: fs.readFileSync(new URL('../../firestore.rules', import.meta.url),'utf8'), host:'127.0.0.1', port:8085 } });
 const A=env.authenticatedContext('a').firestore(), B=env.authenticatedContext('b').firestore(), C=env.authenticatedContext('c').firestore(), U=env.unauthenticatedContext().firestore();
@@ -17,7 +17,9 @@ await t('create bad code denied', assertFails(setDoc(doc(A,'matches/K0QX2'),fres
 await t('create extra field denied', assertFails(setDoc(doc(A,'matches/K7QX6'),fresh('K7QX6',{x:1}))));
 await t('overwrite existing denied', assertFails(setDoc(doc(B,'matches/K7QX2'),fresh('K7QX2',{createdBy:'b',uids:['b'],players:[sb]}))));
 await t('signed-in read ok', assertSucceeds(getDoc(doc(C,'matches/K7QX2'))));
-await t('signed-out read denied (site policy)', assertFails(getDoc(doc(U,'matches/K7QX2'))));
+await t('signed-out get by code ok (public Live tab draft)', assertSucceeds(getDoc(doc(U,'matches/K7QX2'))));
+await t('signed-out list/query of matches denied (no code enumeration)', assertFails(getDocs(query(collection(U,'matches'),where('status','==','waiting')))));
+await t('signed-in list still ok', assertSucceeds(getDocs(query(collection(C,'matches'),where('status','==','waiting')))));
 const join={uids:['a','b'],players:[sa,sb],status:'active',round:1,turn:'a',turnAt:ts,updatedAt:ts};
 await t('join wrong turn denied', assertFails(updateDoc(doc(B,'matches/K7QX2'),{...join,turn:'b'})));
 await t('join with score denied', assertFails(updateDoc(doc(B,'matches/K7QX2'),{...join,scores:[0,9]})));
@@ -48,6 +50,56 @@ await t('opponent takes timed-out turn as 0 0 0 ok', assertSucceeds(updateDoc(do
 await t('real win at end of round ok (a 21 v b 18)', assertSucceeds(updateDoc(doc(A,'matches/WIN22'),{scores:[21,18],turn:null,turnAt:ts,status:'finished',winner:'a',reason:'score',log:[{r:3,i:0,p:[3,3,0],x:false}],seq:1,updatedAt:ts})));
 await t('join expired waiting match denied', assertFails(updateDoc(doc(B,'matches/OLD22'),join)));
 await t('host cancels waiting ok', assertSucceeds(setDoc(doc(A,'matches/CAN22'),fresh('CAN22')).then(()=>updateDoc(doc(A,'matches/CAN22'),{status:'abandoned',updatedAt:ts}))));
+
+// ---- Live tab signaling (zabba-live.js): casters/{seat} + peers/{pid} under matches/{code} ----
+{
+const M='LIVE2'; await env.withSecurityRulesDisabled(async c=>{ await setDoc(doc(c.firestore(),'matches/'+M),{...late,code:M,turnAt:Timestamp.now()}); await setDoc(doc(c.firestore(),'matches/DONE2'),{...late,code:'DONE2',status:'finished',winner:'a',reason:'score',turn:null}); });
+const sid='S1d2e3f4g5h6', cast=(o)=>({uid:'a',live:true,sid,facing:'environment',updatedAt:ts,...o});
+await t('live: player a goes live on seat 0 ok', assertSucceeds(setDoc(doc(A,`matches/${M}/casters/0`),cast())));
+await t('live: b goes live on seat 1 ok', assertSucceeds(setDoc(doc(B,`matches/${M}/casters/1`),cast({uid:'b'}))));
+await t('live: b on seat 0 denied', assertFails(setDoc(doc(B,`matches/${M}/casters/0`),cast({uid:'b'}))));
+await t('live: non-player c denied', assertFails(setDoc(doc(C,`matches/${M}/casters/1`),cast({uid:'c'}))));
+await t('live: signed-out caster denied', assertFails(setDoc(doc(U,`matches/${M}/casters/0`),cast())));
+await t('live: caster extra field denied', assertFails(setDoc(doc(A,`matches/${M}/casters/0`),cast({x:1}))));
+await t('live: caster bad sid denied', assertFails(setDoc(doc(A,`matches/${M}/casters/0`),cast({sid:'short'}))));
+await t('live: seat 2 denied', assertFails(setDoc(doc(A,`matches/${M}/casters/2`),cast())));
+await t('live: caster delete denied', assertFails(deleteDoc(doc(A,`matches/${M}/casters/0`))));
+await t('live: signed-out reads caster ok', assertSucceeds(getDoc(doc(U,`matches/${M}/casters/0`))));
+const offer='v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\ns=-\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\n', exp=()=>Timestamp.fromMillis(Date.now()+2*3600e3);
+const peer=(o)=>({seat:0,sid,offer,vIce:[],answer:'',cIce:[],full:false,by:null,createdAt:ts,updatedAt:ts,expireAt:exp(),...o});
+const P1='AbCdEfGhIjKlMnOpQrSt', P2='ZyXwVuTsRqPoNmLkJiHg', P3='Q1w2E3r4T5y6U7i8O9p0';
+await t('peer: signed-out viewer creates offer ok', assertSucceeds(setDoc(doc(U,`matches/${M}/peers/${P1}`),peer())));
+await t('peer: signed-in viewer with by=self ok', assertSucceeds(setDoc(doc(C,`matches/${M}/peers/${P2}`),peer({by:'c'}))));
+await t('peer: by spoofed denied', assertFails(setDoc(doc(U,`matches/${M}/peers/${P3}`),peer({by:'c'}))));
+await t('peer: wrong session id denied', assertFails(setDoc(doc(U,`matches/${M}/peers/${P3}`),peer({sid:'Zzzzzzzzzzzz'}))));
+await t('peer: pre-filled answer denied', assertFails(setDoc(doc(U,`matches/${M}/peers/${P3}`),peer({answer:offer}))));
+await t('peer: non-SDP offer denied', assertFails(setDoc(doc(U,`matches/${M}/peers/${P3}`),peer({offer:'hello world!'}))));
+await t('peer: oversized offer denied', assertFails(setDoc(doc(U,`matches/${M}/peers/${P3}`),peer({offer:offer+'a'.repeat(20001)}))));
+await t('peer: extra field denied', assertFails(setDoc(doc(U,`matches/${M}/peers/${P3}`),peer({x:1}))));
+await t('peer: TTL too far denied', assertFails(setDoc(doc(U,`matches/${M}/peers/${P3}`),peer({expireAt:Timestamp.fromMillis(Date.now()+5*3600e3)}))));
+await t('peer: bad pid denied', assertFails(setDoc(doc(U,`matches/${M}/peers/short`),peer())));
+await t('peer: finished match denied', assertFails(setDoc(doc(U,`matches/DONE2/peers/${P3}`),peer())));
+await t('peer: seat not live denied', assertSucceeds(setDoc(doc(A,`matches/${M}/casters/0`),cast({live:false}))).then(()=>assertFails(setDoc(doc(U,`matches/${M}/peers/${P3}`),peer()))).finally(()=>setDoc(doc(A,`matches/${M}/casters/0`),cast())));
+await t('peer: viewer get own doc ok', assertSucceeds(getDoc(doc(U,`matches/${M}/peers/${P1}`))));
+await t('peer: signed-out list denied', assertFails(getDocs(query(collection(U,`matches/${M}/peers`),where('seat','==',0)))));
+await t('peer: non-player list denied', assertFails(getDocs(query(collection(C,`matches/${M}/peers`),where('seat','==',0)))));
+await t('peer: broadcaster lists its seat ok', assertSucceeds(getDocs(query(collection(A,`matches/${M}/peers`),where('seat','==',0),where('sid','==',sid)))));
+const ice='{"c":"candidate:1 1 udp 2122260223 192.168.1.2 50000 typ host","m":"0","i":0}';
+await t('peer: viewer appends one ICE ok', assertSucceeds(updateDoc(doc(U,`matches/${M}/peers/${P1}`),{vIce:arrayUnion(ice),updatedAt:ts})));
+await t('peer: viewer appends two ICE at once denied', assertFails(updateDoc(doc(U,`matches/${M}/peers/${P1}`),{vIce:arrayUnion(ice+'1',ice+'2'),updatedAt:ts})));
+await t('peer: oversized ICE denied', assertFails(updateDoc(doc(U,`matches/${M}/peers/${P1}`),{vIce:arrayUnion('x'.repeat(601)),updatedAt:ts})));
+await t('peer: viewer writes answer denied', assertFails(updateDoc(doc(U,`matches/${M}/peers/${P1}`),{answer:offer,updatedAt:ts})));
+await t('peer: other player (seat 1) answers seat 0 denied', assertFails(updateDoc(doc(B,`matches/${M}/peers/${P1}`),{answer:offer,updatedAt:ts})));
+await t('peer: broadcaster answers ok', assertSucceeds(updateDoc(doc(A,`matches/${M}/peers/${P1}`),{answer:offer,updatedAt:ts})));
+await t('peer: answer rewrite denied', assertFails(updateDoc(doc(A,`matches/${M}/peers/${P1}`),{answer:offer+'x',updatedAt:ts})));
+await t('peer: broadcaster appends ICE ok', assertSucceeds(updateDoc(doc(A,`matches/${M}/peers/${P1}`),{cIce:arrayUnion(ice),updatedAt:ts})));
+await t('peer: broadcaster touching offer denied', assertFails(updateDoc(doc(A,`matches/${M}/peers/${P1}`),{offer:offer+'x',updatedAt:ts})));
+await t('peer: someone else appends to signed-in viewer ICE denied', assertFails(updateDoc(doc(U,`matches/${M}/peers/${P2}`),{vIce:arrayUnion(ice),updatedAt:ts})));
+await t('peer: broadcaster marks full ok', assertSucceeds(updateDoc(doc(A,`matches/${M}/peers/${P2}`),{full:true,updatedAt:ts})));
+await t('peer: signed-out delete denied', assertFails(deleteDoc(doc(U,`matches/${M}/peers/${P1}`))));
+await t('peer: broadcaster delete ok', assertSucceeds(deleteDoc(doc(A,`matches/${M}/peers/${P1}`))));
+await t('peer: signed-in viewer deletes own ok', assertSucceeds(deleteDoc(doc(C,`matches/${M}/peers/${P2}`))));
+}
 // existing rules untouched: a sample
 await t('existing: battles read signed-out denied', assertFails(getDoc(doc(U,'battles/K7QX'))));
 await t('existing: default deny', assertFails(setDoc(doc(A,'nothing/x'),{a:1})));

@@ -731,6 +731,19 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 .zm-cam{margin:.5rem auto 0;max-width:22rem;position:relative}
 .zm-cam video{width:100%;border-radius:14px;background:#101816;display:block}
 .zm-cam canvas{position:absolute;left:0;top:0;pointer-events:none}
+.zl-cast{margin-top:.8rem;padding-top:.8rem;border-top:1px solid rgba(143,191,168,.18)}
+.zl-self{width:100%;max-width:320px;aspect-ratio:4/3;background:#000;border-radius:12px;object-fit:cover;display:block;margin:.4rem 0}
+.zl-live-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:var(--pink-2);margin-right:.35rem;vertical-align:middle}
+.zl-tiles{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:.4rem 0 .8rem}
+@media (max-width:560px){.zl-tiles{grid-template-columns:1fr}}
+.zl-tile{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:4/3;border:1px solid transparent;min-width:0}
+.zl-tile.turn{border-color:var(--pink-2)}
+.zl-tile video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
+.zl-over{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:.5rem;padding:.45rem .6rem;background:linear-gradient(transparent,rgba(0,0,0,.75))}
+.zl-over .zl-name{flex:1;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zl-over .zl-score{font-size:1.7rem;font-weight:800;line-height:1;color:var(--lime)}
+.zl-state{position:absolute;top:.5rem;left:.5rem;font-size:.8rem;font-weight:700;padding:.15rem .5rem;border-radius:999px;background:rgba(0,0,0,.6)}
+.zl-state.on{color:var(--lime)}
 </style> <link rel="icon" type="image/png" href="/zd-v2-icon-512.png"><link rel="apple-touch-icon" href="/zd-v2-icon-1024.png">
 <style id="palette">
 /* Electric lime + hot pink palette */
@@ -1422,6 +1435,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="grid">
       <a class="card" href="#washerbattle" data-battle="washers"><h3>Zabba Washer Battle</h3><p>First to 21, Bariboshi style. Challenge a friend with a room code, with an optional ZAB wager.</p></a>
       <a class="card" href="#zabbaMatch" data-battle="match"><h3>Live Match</h3><p>Play a friend on camera: real washers, phone to phone, packs of 3, first to 21.</p></a>
+      <a class="card" href="#zabbaLive" data-battle="live"><h3>Watch Live</h3><p>Watch a Live Match by its code: both players' cameras and the score, live. No sign-in needed.</p></a>
       <a class="card" href="#tutbattles" data-battle="tutbattles"><h3>TUT Battles</h3><p><span class="tuts-l">T</span>ime <span class="tuts-l">u</span>nder <span class="tuts-l">t</span>ension <span class="tuts-l">s</span>et, three minutes, head to head. Optional ZAB wager.</p></a>
       <a class="card" href="#battles" data-battle="battles"><h3>Plank Battles</h3><p>Longest hold wins. Challenge a friend, with an optional ZAB wager.</p></a>
     </div>
@@ -1546,9 +1560,25 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="row"><button class="btn" id="zmClaim" type="button" hidden>Time's up: take the turn</button></div>
         <ol class="zm-log" id="zmLog"></ol>
         <div class="row"><button class="btn danger" id="zmForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="zmCancel" type="button" hidden>Cancel match</button><button class="btn ghost" id="zmLeave" type="button" hidden>Close</button></div>
-        <div id="zmLiveSlot" hidden></div><!-- reserved: future public Live tab (video) mounts here; local Camera preview + PFP overlay (#zmCamWrap) can be drawn on that stream later -->
+        <div id="zmLiveSlot" class="zl-cast" hidden><!-- Live tab: this player's camera to viewers (zabba-live.js) -->
+          <p class="note" id="zlCastHelp">Go live so your opponent and anyone with the code can watch your throws. Prop the phone behind you, tilted at the board. Video goes straight to viewers (peer to peer) and is never recorded or uploaded to us.</p>
+          <div class="row"><button class="btn" id="zlGoLive" type="button">Go live</button><button class="btn ghost" id="zlFlip" type="button" hidden>Switch camera</button><button class="btn ghost" id="zlStop" type="button" hidden>Stop live</button><button class="btn ghost" id="zlWatchBoth" type="button">Watch both cameras</button></div>
+          <video class="zl-self" id="zlSelf" playsinline muted autoplay hidden></video>
+          <p class="note" id="zlCastNote" aria-live="polite"></p>
+        </div>
       </div>
       <p class="note" id="zmStatus" aria-live="polite"></p>
+    </div>
+    <div class="card zl" id="zabbaLive">
+      <h3>Watch Live: both cameras, live score</h3>
+      <p class="note">Enter a Live Match code to watch both players' cameras with the score, round and turn updating live. No sign-in needed. Video goes straight from each player's phone to you and is never recorded.</p>
+      <div class="row" id="zlPick"><input id="zlCode" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="K7QX2" aria-label="Match code to watch" style="max-width:9.5rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn" id="zlWatch" type="button">Watch</button></div>
+      <div id="zlStage" hidden>
+        <div class="zm-code-row"><div class="battle-code" id="zlCodeShow">-----</div><button class="btn ghost" id="zlShare" type="button">Share watch link</button><button class="btn ghost" id="zlStopWatch" type="button">Stop watching</button></div>
+        <div class="zm-banner" aria-live="polite"><span class="zm-banner-text" id="zlBannerText">…</span><b class="zm-timer" id="zlTimer"></b></div>
+        <div class="zl-tiles"><div class="zl-tile" id="zlTile0"><video id="zlVid0" playsinline muted autoplay></video><span class="zl-state" id="zlState0">Offline</span><div class="zl-over"><span class="zm-ph" id="zlPh0"></span><span class="zl-name" id="zlName0">Player 1</span><b class="zl-score" id="zlScore0">0</b></div></div><div class="zl-tile" id="zlTile1"><video id="zlVid1" playsinline muted autoplay></video><span class="zl-state" id="zlState1">Offline</span><div class="zl-over"><span class="zm-ph" id="zlPh1"></span><span class="zl-name" id="zlName1">Player 2</span><b class="zl-score" id="zlScore1">0</b></div></div></div>
+      </div>
+      <p class="note" id="zlStatus" aria-live="polite"></p>
     </div>
   </section>
 
@@ -1882,6 +1912,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/washers-battle.js"></script>
   <script src="/zabba-match.js"></script>
   <script src="/match-pfp-cam.js"></script>
+  <script src="/zabba-live.js"></script>
   <script src="/plank-battle.js"></script>
   <script src="/zaba-wager.js"></script>
   <script src="/reputation.js"></script>
@@ -3932,7 +3963,7 @@ const {
       setPersistence, browserLocalPersistence
     } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js");
     const {
-      getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, doc, setDoc, where, runTransaction, updateDoc, deleteField, getDocs, startAfter, getCountFromServer, documentId
+      getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, doc, setDoc, where, runTransaction, updateDoc, deleteField, getDocs, startAfter, getCountFromServer, documentId, arrayUnion, Timestamp
     } = await import("https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js");const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 // One shared session for every game on the site (and the app webview): persist in localStorage.
@@ -5371,6 +5402,7 @@ function zmPhoto(el, p) { el.textContent = ""; const letter = () => { el.textCon
   const img = document.createElement("img"); img.alt = ""; img.referrerPolicy = "no-referrer"; img.onerror = () => { img.onerror = null; img.remove(); letter(); }; img.src = src; el.appendChild(img); }
 function zmPaint() {
   if (!ZM) return;
+  if (typeof zlCastPaint === "function") zlCastPaint();
   const u = currentUser, m = zmDoc;
   $("zmSignIn").hidden = !!u; $("zmStart").hidden = !u || !!zmCode; $("zmGame").hidden = !zmCode;
   if (!zmCode) { zmCamSync(); return; }
@@ -5413,7 +5445,7 @@ function zmEnter(code) {
   if (zmOff) zmOff(); zmOff = zmc.watch(code, (m) => { zmDoc = m; zmPaint(); });
   clearInterval(zmTick); zmTick = setInterval(zmPaint, 500); zmPaint();
 }
-function zmExit() { if (zmOff) zmOff(); zmOff = null; clearInterval(zmTick); zmTick = null; zmCode = null; zmDoc = null; zmPack = []; try { localStorage.removeItem(ZM_KEY); } catch (e) {} if (window.ZabbaMatchPfpCam) window.ZabbaMatchPfpCam.stop(); zmPaint(); }
+function zmExit() { if (typeof zlCastStop === "function" && zlCastCode) zlCastStop(); if (zmOff) zmOff(); zmOff = null; clearInterval(zmTick); zmTick = null; zmCode = null; zmDoc = null; zmPack = []; try { localStorage.removeItem(ZM_KEY); } catch (e) {} if (window.ZabbaMatchPfpCam) window.ZabbaMatchPfpCam.stop(); zmPaint(); }
 async function zmJoinCode(code) { const u = zmUser(); if (!u) { requireSignIn("live match"); return void zmStat("Sign in to join a match."); }
   zmStat("Joining…"); try { zmEnter(await zmc.join(code, u)); zmStat(""); } catch (e) { try { if (localStorage.getItem(ZM_KEY) === ZM.normCode(code)) localStorage.removeItem(ZM_KEY); } catch (x) {} zmStat(e.code === "permission-denied" ? "Couldn't join that match." : e.message); } }
 if (ZM && zmc) {
@@ -5445,6 +5477,107 @@ function zmOnUser(u) {
   else zmPaint();
 }
 onAuthStateChanged(auth, zmOnUser);
+/* ---- Live tab (zabba-live.js): players "Go live" from the match panel (phone camera -> viewers, WebRTC mesh, Firestore
+   signaling under matches/{code}/casters + /peers); anyone with the code watches both cameras + live score (#zabbaLive,
+   ?live=CODE / #live=CODE, signed-out allowed). Separate camera stream: never touches push-up / plank / TUT cameras. ---- */
+const ZL = window.ZabbaLive;
+const zlToMs = (v) => (v && v.toMillis ? v.toMillis() : typeof v === "number" ? v : null);
+const zlSig = {
+  ts: () => serverTimestamp(), append: (x) => arrayUnion(x), toMs: zlToMs,
+  setCaster: (code, seat, d) => setDoc(doc(db, "matches", code, "casters", seat), d),
+  watchCaster: (code, seat, cb) => onSnapshot(doc(db, "matches", code, "casters", seat), (d) => cb(d.exists() ? d.data() : null), () => cb(null)),
+  watchPeers: (code, seat, sid, cb) => onSnapshot(query(collection(db, "matches", code, "peers"), where("seat", "==", seat), where("sid", "==", sid)), (qs) => cb(qs.docs.map((d) => ({ id: d.id, data: d.data() }))), () => {}),
+  createPeer: (code, pid, d) => setDoc(doc(db, "matches", code, "peers", pid), Object.assign({}, d, { by: auth.currentUser ? auth.currentUser.uid : null, expireAt: Timestamp.fromMillis(d.expireAt) })),
+  watchPeer: (code, pid, cb) => onSnapshot(doc(db, "matches", code, "peers", pid), (d) => cb(d.exists() ? d.data() : null), () => {}),
+  updatePeer: (code, pid, p) => updateDoc(doc(db, "matches", code, "peers", pid), p),
+  // no deletePeer from the page (site rule: no client-side deletes); old peers docs expire via the peers.expireAt TTL policy
+};
+let zlStream = null, zlFacing = "environment", zlCastCode = null, zlBusy = false, zlViewers = 0;
+const zlWake = typeof makeWake === "function" ? makeWake("zlCastNote") : null;
+const zlCaster = ZL && window.RTCPeerConnection ? ZL.caster(zlSig, { onViewers: (n) => { zlViewers = n; zlCastPaint(); } }) : null;
+const zlCastNote = (t) => { const el = $("zlCastNote"); if (el) el.textContent = t || ""; };
+const zlMySeat = () => (zmDoc && currentUser && Array.isArray(zmDoc.uids) ? zmDoc.uids.indexOf(currentUser.uid) : -1);
+function zlStopTracks() { if (zlStream) { zlStream.getTracks().forEach((t) => { try { t.stop(); } catch (e) {} }); } zlStream = null; const v = $("zlSelf"); if (v) { v.srcObject = null; v.hidden = true; } }
+async function zlCastStop(note) {
+  const was = !!zlCastCode; zlCastCode = null;
+  if (zlCaster) await zlCaster.stop().catch(() => {});
+  zlStopTracks(); if (zlWake) zlWake.stop(); if (was && zlv) zlv.refresh(); if (note) zlCastNote(note); zlCastPaint();
+}
+const zlCam = (facing) => navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } } });
+function zlCastPaint() {
+  const slot = $("zmLiveSlot"); if (!slot) return;
+  const seat = zlMySeat(), open = !!(ZL && zmCode && zmDoc && seat >= 0 && (zmDoc.status === "waiting" || zmDoc.status === "active"));
+  slot.hidden = !(ZL && zmCode && zmDoc && seat >= 0);
+  if (zlCastCode && (!open || zlCastCode !== zmCode)) { zlCastStop(zmDoc && zmDoc.status === "finished" ? "Match over: you're off the air." : ""); return; }
+  const on = !!zlCastCode;
+  $("zlGoLive").hidden = on || !open; $("zlGoLive").disabled = zlBusy || !zlCaster;
+  $("zlStop").hidden = !on; $("zlFlip").hidden = !on;
+  if (on) zlCastNote("Live · " + zlViewers + " watching (up to " + ZL.MAX_VIEWERS + ")" + (zlFacing === "user" ? " · front camera" : ""));
+  else if (!zlCaster && open) zlCastNote("This browser can't stream video (no WebRTC).");
+}
+if (ZL) {
+  $("zlGoLive").onclick = async () => {
+    const seat = zlMySeat(); if (!zlCaster || zlBusy || seat < 0 || !zmCode) return;
+    zlBusy = true; zlCastPaint(); zlCastNote("Starting camera…");
+    if (zlWake) zlWake.start();
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("This browser has no camera access.");
+      zlStream = await zlCam(zlFacing);
+      const v = $("zlSelf"); v.srcObject = zlStream; v.hidden = false; v.play && v.play().catch(() => {});
+      await zlCaster.start({ code: zmCode, seat, uid: currentUser.uid, stream: zlStream, facing: zlFacing });
+      zlCastCode = zmCode; if (zlv) zlv.refresh(); zlPaintSelf();
+    } catch (e) { zlStopTracks(); if (zlWake) zlWake.stop(); zlCastNote(e && e.name === "NotAllowedError" ? "Camera blocked. Allow camera access for zabbadat.com and try again." : (e && e.code === "permission-denied" ? "Couldn't go live on this match." : (e && e.message) || "Couldn't start the camera.")); }
+    finally { zlBusy = false; zlCastPaint(); }
+  };
+  $("zlStop").onclick = () => zlCastStop("You're off the air.");
+  $("zlFlip").onclick = async () => { if (!zlCastCode || zlBusy) return; zlBusy = true;
+    const next = zlFacing === "environment" ? "user" : "environment";
+    try { const s = await zlCam(next); const old = zlStream; zlStream = s; zlFacing = next; $("zlSelf").srcObject = s;
+      await zlCaster.setTrack(ZL.hooks.sourceTrack(s), next); if (old) old.getTracks().forEach((t) => t.stop()); zlPaintSelf(); }
+    catch (e) { zlCastNote("Couldn't switch camera."); } finally { zlBusy = false; zlCastPaint(); } };
+  $("zlWatchBoth").onclick = () => { if (!zmCode) return; zlStart(zmCode); const el = $("zabbaLive"); if (el) el.scrollIntoView({ block: "start" }); };
+  addEventListener("pagehide", () => { if (zlCastCode) zlCastStop(); });
+}
+/* viewer */
+let zlCode = null, zlMatch = null, zlMatchOff = null, zlTick = null, zlState = ["offline", "offline"];
+const ZL_STATE = { offline: "Offline", connecting: "Connecting…", live: "● Live", full: "Viewer limit reached", failed: "Couldn't connect", self: "● You (live)" };
+const zlv = ZL && window.RTCPeerConnection ? ZL.viewer(zlSig, {
+  skip: (i, code) => !!zlCastCode && code === zlCastCode && zlMySeat() === i,
+  onStream: (i, st) => { const v = $("zlVid" + i); if (!v) return; if (st) { v.srcObject = st; v.play && v.play().catch(() => {}); } else if (!(zlState[i] === "self")) v.srcObject = null; },
+  onState: (i, s) => { zlState[i] = s; if (s === "self") zlPaintSelf(); zlPaint(); },
+}) : null;
+function zlPaintSelf() { [0, 1].forEach((i) => { if (zlState[i] === "self" && zlStream) { const v = $("zlVid" + i); if (v && v.srcObject !== zlStream) { v.srcObject = zlStream; v.play && v.play().catch(() => {}); } } }); }
+const zlStat = (t) => { $("zlStatus").textContent = t || ""; };
+function zlPaint() {
+  $("zlStage").hidden = !zlCode; if (!zlCode) return;
+  $("zlCodeShow").textContent = zlCode;
+  const v = ZL.publicView(zlMatch, Date.now(), zlToMs);
+  $("zlBannerText").textContent = v.banner;
+  $("zlTimer").textContent = v.status === "active" && v.secsLeft != null ? "0:" + String(v.secsLeft).padStart(2, "0") : "";
+  v.seats.forEach((s, i) => { $("zlName" + i).textContent = s.name; $("zlScore" + i).textContent = String(s.score); $("zlTile" + i).classList.toggle("turn", s.turn);
+    const ph = $("zlPh" + i); const key = s.name + "|" + s.photo; if (ph.dataset.k !== key) { ph.dataset.k = key; zmPhoto(ph, s.empty ? null : s); if (s.empty) ph.textContent = "?"; }
+    const st = $("zlState" + i); const k = zlState[i]; st.textContent = s.empty ? "Waiting for player" : ZL_STATE[k] || "Offline"; st.classList.toggle("on", k === "live" || k === "self"); });
+}
+function zlStop() { if (zlMatchOff) zlMatchOff(); zlMatchOff = null; if (zlv) zlv.stop(); clearInterval(zlTick); zlTick = null; zlCode = null; zlMatch = null; zlState = ["offline", "offline"]; [0, 1].forEach((i) => { const v = $("zlVid" + i); if (v) v.srcObject = null; }); zlPaint(); }
+function zlStart(raw) {
+  const code = ZL.normCode(raw); if (!ZL.isValidCode(code)) return void zlStat("Enter the 5-character match code.");
+  zlStop(); zlCode = code; zlStat(""); $("zlCode").value = code;
+  zlMatchOff = onSnapshot(doc(db, "matches", code), (d) => { zlMatch = d.exists() ? d.data() : null; zlStat(zlMatch ? "" : "No match with that code yet."); zlPaint(); },
+    (e) => { zlStat(e && e.code === "permission-denied" ? (currentUser ? "Couldn't open that match." : "Sign in to watch this match (public viewing isn't switched on yet).") : "Couldn't load that match."); });
+  if (zlv) zlv.watch(code); else zlStat("This browser can't play live video (no WebRTC). Scores still update live.");
+  zlTick = setInterval(zlPaint, 1000); zlPaint();
+}
+if (ZL) {
+  $("zlWatch").onclick = () => zlStart($("zlCode").value);
+  $("zlCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("zlWatch").click(); });
+  $("zlStopWatch").onclick = () => zlStop();
+  $("zlShare").onclick = async () => { if (!zlCode) return; const url = ZL.liveLinkFor(zlCode, location.origin);
+    try { if (navigator.share) { await navigator.share({ title: "Watch Zabba Washers live", text: "Watch live: code " + zlCode, url }); return; } } catch (e) { return; }
+    try { await navigator.clipboard.writeText(url); zlStat("Link copied: " + url); } catch (e) { zlStat("Code " + zlCode + " · " + url); } };
+  /* ?live=CODE / #live=CODE: start watching once the first auth state is known (signed-out is fine) */
+  const ZL_LINK = ZL.liveCodeFromUrl(location.search, location.hash);
+  if (ZL_LINK) { let once = false; onAuthStateChanged(auth, () => { if (once) return; once = true; zlStart(ZL_LINK); const el = $("zabbaLive"); if (el) el.scrollIntoView({ block: "start" }); }); }
+}
 $("boardAllBtn").onclick = () => {
   boardFilter = "all";
   $("boardAllBtn").className = "btn";

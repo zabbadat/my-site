@@ -21,7 +21,9 @@ const tbClick = between('$("tbCam").onclick = ', "\n");
 
 function first(src, a, b) { return src.indexOf(a) >= 0 && src.indexOf(b) >= 0 && src.indexOf(a) < src.indexOf(b); }
 
-check("getUserMedia only in openCam, startPlankCam, tbCamOn (app + browser branch each: 6)", (html.match(/getUserMedia/g) || []).length === 6 && [openAll, plankAll, tbAll].every((x) => (x.match(/getUserMedia/g) || []).length === 2));
+const liveBlk = html.slice(html.indexOf("/* ---- Live tab (zabba-live.js)"), html.indexOf("/* viewer */", html.indexOf("/* ---- Live tab (zabba-live.js)")));
+check("Live tab camera (zabba-live.js) is its own getUserMedia in zlCam / Go live only", liveBlk.length > 500 && (liveBlk.match(/getUserMedia/g) || []).length === 2);
+check("getUserMedia only in openCam, startPlankCam, tbCamOn (app + browser branch each: 6) + the Live tab block", (html.replace(liveBlk, "").match(/getUserMedia/g) || []).length === 6 && [openAll, plankAll, tbAll].every((x) => (x.match(/getUserMedia/g) || []).length === 2));
 check("each camera start branches on the native app check", [openAll, plankAll, tbAll, sliceFn("async function startPush()", "function beginPushClock()")].every((x) => x.includes(NATIVE_LINE)));
 check("browser openCam: dffac32 order (loadCamLibs, then getUserMedia) and copy", first(openWeb, "loadCamLibs", "getUserMedia") && openWeb.includes('"Camera or pose blocked."') && !openWeb.includes("camErrorText"));
 check("browser startPlankCam: dffac32 order and copy", first(plankWeb, "loadCamLibs", "getUserMedia") && /native \? camErrorText\(e\) : "Camera or pose blocked\."/.test(plankAll));

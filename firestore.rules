@@ -619,8 +619,8 @@ service cloud.firestore {
     }
 
     // Zabba Washers Live Match (zabba-match.js): two remote players, real washers on camera, each scores their own pack of 3
-    // (0 out / 2 box-bound / 3 shoot / 5 bank), first to 21. Read: any signed-in user (site policy: nothing world-readable;
-    // the coming public Live tab will need a decision here). Only the two players
+    // (0 out / 2 box-bound / 3 shoot / 5 bank), first to 21. Read: GET by code is public (Live tab
+    // draft, see below); list needs sign-in. Only the two players
     // write; every write stamps updatedAt = request.time. Turn: only the current player scores, before turnAt + 45 s (+5 s grace);
     // after that only the opponent may log the late pack as 0 0 0. Scores must equal old + the logged pack. (release 2026-11-14).
     match /matches/{code} {
@@ -668,7 +668,11 @@ service cloud.firestore {
           && m.seq == o.seq + 1 && m.turnAt == request.time && m.pack == [] && m.log is list
           && m.log.size() == k + 1 && m.log.size() <= 60 && (k == 0 || m.log[0:k] == o.log)
           && turnOk(m, o, m.log[k], o.uids[0] == o.turn ? 0 : 1); }
-      allow read: if request.auth != null;
+      // Public Live tab (DRAFT, release pending): anyone may GET one match by its code (signed-out viewers watch scores live);
+      // LISTING/querying matches still needs sign-in, so codes can't be enumerated. Firestore reads are whole-document: a
+      // public get also exposes uids/createdBy (Firebase uids, not emails; names are already cleaned to first-name style).
+      allow get: if true;
+      allow list: if request.auth != null;
       allow create: if request.auth != null && newMatch();
       allow update: if request.auth != null && shapeOk() && n().updatedAt == request.time
         && n().code == d().code && n().createdBy == d().createdBy && n().createdAt == d().createdAt && n().turnMs == d().turnMs
@@ -678,6 +682,53 @@ service cloud.firestore {
           : (n().status == 'finished') ? forfeitOk()
           : liveTapOk());
       allow delete: if false;
+
+      // ---- Live tab signaling (zabba-live.js; DRAFT, release pending). WebRTC offer/answer/ICE for the video mesh. ----
+      function mt() { return get(/databases/$(database)/documents/matches/$(code)).data; }
+      // casters/{seat}: "is this player live" + session id. Public read; only the player in that seat writes; no delete.
+      match /casters/{seat} {
+        allow read: if true;
+        allow create, update: if request.auth != null && (seat == '0' || seat == '1')
+          && mt().uids.size() > int(seat) && mt().uids[int(seat)] == request.auth.uid
+          && request.resource.data.keys().hasOnly(['uid','live','sid','facing','updatedAt'])
+          && request.resource.data.keys().hasAll(['uid','live','sid','facing','updatedAt'])
+          && request.resource.data.uid == request.auth.uid && request.resource.data.live is bool
+          && request.resource.data.sid is string && request.resource.data.sid.matches('^[A-Za-z0-9]{12}$')
+          && request.resource.data.facing in ['environment', 'user'] && request.resource.data.updatedAt == request.time;
+        allow delete: if false;
+      }
+      // peers/{pid}: one viewer <-> one broadcaster. pid = 20 random chars and is the viewer's secret: GET is public,
+      // LIST only for the two players (the broadcaster queries its seat). The viewer (signed-out allowed: no anonymous auth
+      // needed) creates it with an SDP offer and appends ICE one candidate per write; ONLY the seat's player writes
+      // answer / cIce / full. Sizes: SDP <= 20000 chars, <= 30 candidates per side, each <= 600 chars. expireAt <= 3 h
+      // ahead is the TTL field (Firestore TTL policy on peers.expireAt deletes old docs).
+      match /peers/{pid} {
+        function pn() { return request.resource.data; }
+        function po() { return resource.data; }
+        function pkeys() { return ['seat','sid','offer','vIce','answer','cIce','full','by','createdAt','updatedAt','expireAt']; }
+        function sdpOk(x) { return x is string && x.size() >= 10 && x.size() <= 20000 && x.matches('(?s)v=0.*'); }
+        function lastOk(n) { return n[n.size() - 1] is string && n[n.size() - 1].size() >= 2 && n[n.size() - 1].size() <= 600; }
+        function appendOk(n, o) { return n is list && n.size() <= 30 && (n.size() == o.size() ? n == o
+          : (n.size() == o.size() + 1 && lastOk(n) && (o.size() == 0 || n[0:o.size()] == o))); }
+        function viewerUid() { return request.auth == null ? null : request.auth.uid; }
+        function isCaster(s) { return request.auth != null && mt().uids.size() > s && mt().uids[s] == request.auth.uid; }
+        allow get: if true;
+        allow list: if request.auth != null && request.auth.uid in mt().uids;
+        allow create: if pid.matches('^[A-Za-z0-9]{20}$') && pn().keys().hasOnly(pkeys()) && pn().keys().hasAll(pkeys())
+          && mt().status in ['waiting', 'active'] && pn().seat in [0, 1]
+          && get(/databases/$(database)/documents/matches/$(code)/casters/$(string(pn().seat))).data.live == true
+          && get(/databases/$(database)/documents/matches/$(code)/casters/$(string(pn().seat))).data.sid == pn().sid
+          && sdpOk(pn().offer) && pn().vIce == [] && pn().answer == '' && pn().cIce == [] && pn().full == false
+          && pn().by == viewerUid() && pn().createdAt == request.time && pn().updatedAt == request.time
+          && pn().expireAt is timestamp && pn().expireAt > request.time && pn().expireAt <= request.time + duration.value(3, 'h');
+        allow update: if pn().keys().hasOnly(pkeys()) && pn().keys().hasAll(pkeys()) && pn().updatedAt == request.time
+          && ((pn().diff(po()).affectedKeys().hasOnly(['vIce','updatedAt']) && (po().by == null || po().by == viewerUid())
+                && appendOk(pn().vIce, po().vIce))
+            || (pn().diff(po()).affectedKeys().hasOnly(['answer','cIce','full','updatedAt']) && isCaster(po().seat)
+                && (pn().answer == po().answer || (po().answer == '' && sdpOk(pn().answer)))
+                && pn().full is bool && appendOk(pn().cIce, po().cIce)));
+        allow delete: if request.auth != null && (isCaster(resource.data.seat) || resource.data.by == request.auth.uid);
+      }
     }
 
     match /{document=**} { allow read, write: if false; }
