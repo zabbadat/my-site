@@ -42,9 +42,9 @@
     .brand img { display: block; background: #0e1412; border-radius: 50%; padding: 2px; }
     .pages { font-family: system-ui, sans-serif; font-size: .92rem; display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding: .6rem 0; margin: 0 0 1rem; border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; }
     .btns { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1.2rem 0; font-family: system-ui, sans-serif; }
-    a.btn:link, a.btn:visited { display: inline-block; padding: .65rem 1.1rem; border-radius: 999px; background: #1f4d3c; color: #fff; text-decoration: none; font-weight: 700; }
-    a.btn:hover, a.btn:focus-visible { background: #2f6b55; color: #fff; }
-    a.btn.ghost:link, a.btn.ghost:visited { background: transparent; color: #1f4d3c; box-shadow: inset 0 0 0 2px #1f4d3c; }
+    a.btn:link, a.btn:visited, button.btn { display: inline-block; padding: .65rem 1.1rem; border-radius: 999px; background: linear-gradient(135deg,#C6FF00,#FF2E93); color: #0e1412; text-decoration: none; font-weight: 700; border: 0; box-shadow: 0 4px 18px rgba(255,46,147,.25); cursor: pointer; font-family: inherit; }
+    a.btn:hover, a.btn:focus-visible, button.btn:hover, button.btn:focus-visible { background: #0b1410; color: #eff4f1; }
+    a.btn.ghost:link, a.btn.ghost:visited, button.btn.ghost { background: linear-gradient(135deg,#C6FF00,#FF2E93); color: #0e1412; box-shadow: 0 4px 18px rgba(255,46,147,.25); }
     .zab { display: inline-flex; align-items: center; gap: .15em; font-weight: 700; letter-spacing: .06em; }
     .zab-ring { width: .95em; height: .95em; }
     footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; font-family: system-ui, sans-serif; font-size: .85rem; color: #444; }
@@ -62,7 +62,7 @@
     .zt-h-you { font-style: normal; font-size: .7rem; font-weight: 800; text-transform: uppercase; margin-left: .3rem; padding: .05rem .4rem; border-radius: 999px; background: #1f4d3c; color: #fff; }
     .zt-h-note { margin: .3rem 0; color: #444; }
     .zt-bal-row { display: inline-flex; flex-direction: column; align-items: flex-end; gap: .3rem; } /* Send Zab tab sits directly under the ring */
-    .zt-send-tab { display: inline-flex; align-items: center; gap: .3em; padding: .3rem .75rem; border-radius: 999px; background: #1f4d3c; color: #fff !important; text-decoration: none !important; font-weight: 700; font-family: system-ui, sans-serif; font-size: .9rem; }
+    .zt-send-tab { display: inline-flex; align-items: center; gap: .3em; padding: .3rem .75rem; border-radius: 999px; background: linear-gradient(135deg,#C6FF00,#FF2E93); color: #0e1412 !important; text-decoration: none !important; font-weight: 700; font-family: system-ui, sans-serif; font-size: .9rem; box-shadow: 0 4px 18px rgba(255,46,147,.25); }
     .sugg-wrap { position: relative; flex: 1 1 12rem; display: flex; } .sugg-wrap input { flex: 1; }
     .sugg { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; list-style: none; margin: .2rem 0 0; padding: .2rem; background: #fff; border: 1px solid #bbb; border-radius: 8px; max-height: 14rem; overflow: auto; }
     .sugg li { padding: .5rem .6rem; border-radius: 6px; cursor: pointer; } .sugg li[aria-selected="true"], .sugg li:hover { background: #eef3f1; }
