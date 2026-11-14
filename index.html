@@ -726,6 +726,10 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
       #userDash .dash-stats { grid-template-columns: repeat(4, 1fr); }
       #userDash .dash-stats.dash-summary { grid-template-columns: repeat(4, 1fr); }
     }
+.zm-cam-box{margin:.2rem 0 .6rem}
+.zm-cam{margin:.5rem auto 0;max-width:22rem;position:relative}
+.zm-cam video{width:100%;border-radius:14px;background:#101816;display:block}
+.zm-cam canvas{position:absolute;left:0;top:0;pointer-events:none}
 </style> <link rel="icon" type="image/png" href="/zd-v2-icon-512.png"><link rel="apple-touch-icon" href="/zd-v2-icon-1024.png">
 <style id="palette">
 /* Electric lime + hot pink palette */
@@ -1526,6 +1530,11 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="zm-code-row"><div class="battle-code" id="zmCodeShow">-----</div><button class="btn ghost" id="zmShare" type="button">Share link</button></div>
         <div class="zm-banner" id="zmBanner" aria-live="polite"><span class="zm-ph" id="zmBannerPh"></span><span class="zm-banner-text" id="zmBannerText">…</span><b class="zm-timer" id="zmTimer"></b></div>
         <div class="zm-seats" id="zmSeats"></div>
+        <div id="zmCamBox" class="zm-cam-box" hidden>
+          <div class="row"><button class="btn ghost" id="zmCamBtn" type="button" aria-pressed="false">Camera</button><button class="btn ghost" id="zmCamFacing" type="button" hidden>Front camera</button></div>
+          <div class="zm-cam" id="zmCamWrap" hidden><video id="zmCamVid" autoplay playsinline muted></video><canvas id="zmCamOverlay"></canvas></div>
+          <p class="note" id="zmCamNote">Local preview only. Video never leaves this phone. Tracks one person (the most confident in the frame). Accuracy drops at a distance or with your back turned.</p>
+        </div>
         <div id="zmPad" hidden>
           <div class="zm-slots" id="zmSlots" aria-label="Your pack of 3"></div>
           <div class="zm-keys" role="group" aria-label="Score a washer"><button class="btn" type="button" data-zm="5">Bank 5</button><button class="btn" type="button" data-zm="3">Shoot 3</button><button class="btn" type="button" data-zm="2">Box-bound 2</button><button class="btn ghost" type="button" data-zm="0">Out 0</button></div>
@@ -1535,7 +1544,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="row"><button class="btn" id="zmClaim" type="button" hidden>Time's up: take the turn</button></div>
         <ol class="zm-log" id="zmLog"></ol>
         <div class="row"><button class="btn danger" id="zmForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="zmCancel" type="button" hidden>Cancel match</button><button class="btn ghost" id="zmLeave" type="button" hidden>Close</button></div>
-        <div id="zmLiveSlot" hidden></div><!-- reserved: future public Live tab (video) mounts here -->
+        <div id="zmLiveSlot" hidden></div><!-- reserved: future public Live tab (video) mounts here; local Camera preview + PFP overlay (#zmCamWrap) can be drawn on that stream later -->
       </div>
       <p class="note" id="zmStatus" aria-live="polite"></p>
     </div>
@@ -1870,6 +1879,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/tut-battle.js"></script>
   <script src="/washers-battle.js"></script>
   <script src="/zabba-match.js"></script>
+  <script src="/match-pfp-cam.js"></script>
   <script src="/plank-battle.js"></script>
   <script src="/zaba-wager.js"></script>
   <script src="/reputation.js"></script>
@@ -5350,6 +5360,8 @@ const zmc = ZM ? ZM.controller(mkBattleFs("matches")) : null;
 let zmCode = null, zmDoc = null, zmOff = null, zmTick = null, zmPack = [], zmBusy = false, zmClaimAt = 0;
 const ZM_KEY = "zdLiveMatch";
 const zmStat = (t) => { $("zmStatus").textContent = t || ""; };
+function zmPlayer() { const u = currentUser; if (!u) return null; return (zmDoc && ZM && ZM.playerOf(zmDoc, u.uid)) || { name: ZM ? ZM.nameOf({ name: $("player") && $("player").value, email: u.email, displayName: u.displayName }) : (u.displayName || ""), photo: u.photoURL || "" }; }
+function zmCamSync() { if (!window.ZabbaMatchPfpCam) return; const live = !!zmCode && (!zmDoc || zmDoc.status === "waiting" || zmDoc.status === "active"); window.ZabbaMatchPfpCam.sync({ live, player: zmPlayer() }); }
 function zmUser() { if (!currentUser) return null; return { uid: currentUser.uid, name: ZM.nameOf({ name: $("player").value.trim() || currentUser.displayName, email: currentUser.email }), photo: currentUser.photoURL || "" }; }
 /* photo bubble: no-referrer (Google photos), initial letter when there's no photo or it fails to load, like #avatar */
 function zmPhoto(el, p) { el.textContent = ""; const letter = () => { el.textContent = ((p && p.name) || "?").charAt(0).toUpperCase(); };
@@ -5359,7 +5371,7 @@ function zmPaint() {
   if (!ZM) return;
   const u = currentUser, m = zmDoc;
   $("zmSignIn").hidden = !!u; $("zmStart").hidden = !u || !!zmCode; $("zmGame").hidden = !zmCode;
-  if (!zmCode) return;
+  if (!zmCode) { zmCamSync(); return; }
   const v = zmc.view(m, u ? u.uid : null);
   $("zmCodeShow").textContent = zmCode;
   $("zmBanner").classList.toggle("mine", v.mine);
@@ -5392,13 +5404,14 @@ function zmPaint() {
   $("zmLeave").hidden = !!(m && (m.status === "active" || (m.status === "waiting" && u && m.createdBy === u.uid)));
   // opponent's clock ran out: this phone takes the turn automatically (once every few seconds at most)
   if (v.canClaim && Date.now() - zmClaimAt > 4000) { zmClaimAt = Date.now(); zmc.claim(zmCode, u).catch(() => {}); }
+  zmCamSync();
 }
 function zmEnter(code) {
   zmCode = code; zmPack = []; try { localStorage.setItem(ZM_KEY, code); } catch (e) {}
   if (zmOff) zmOff(); zmOff = zmc.watch(code, (m) => { zmDoc = m; zmPaint(); });
   clearInterval(zmTick); zmTick = setInterval(zmPaint, 500); zmPaint();
 }
-function zmExit() { if (zmOff) zmOff(); zmOff = null; clearInterval(zmTick); zmTick = null; zmCode = null; zmDoc = null; zmPack = []; try { localStorage.removeItem(ZM_KEY); } catch (e) {} zmPaint(); }
+function zmExit() { if (zmOff) zmOff(); zmOff = null; clearInterval(zmTick); zmTick = null; zmCode = null; zmDoc = null; zmPack = []; try { localStorage.removeItem(ZM_KEY); } catch (e) {} if (window.ZabbaMatchPfpCam) window.ZabbaMatchPfpCam.stop(); zmPaint(); }
 async function zmJoinCode(code) { const u = zmUser(); if (!u) { requireSignIn("live match"); return void zmStat("Sign in to join a match."); }
   zmStat("Joining…"); try { zmEnter(await zmc.join(code, u)); zmStat(""); } catch (e) { try { if (localStorage.getItem(ZM_KEY) === ZM.normCode(code)) localStorage.removeItem(ZM_KEY); } catch (x) {} zmStat(e.code === "permission-denied" ? "Couldn't join that match." : e.message); } }
 if (ZM && zmc) {
