@@ -655,6 +655,20 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 :where(a):focus-visible,button:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--pink-2)!important;outline-offset:2px}
 .social-btn:not([data-brand]){border-color:rgba(198,255,0,.4)}
 .zt-badge .zt-name{display:inline-block;max-width:7.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.zt-badge .pfp-av{display:inline-flex;align-items:center;justify-content:center;width:1.45em;height:1.45em;margin:-.1em .38em -.1em -.3em;border-radius:50%;overflow:hidden;vertical-align:middle;background:#0e1412;color:#c6ff00;font-size:1em;font-weight:800;line-height:1;flex:none;box-shadow:0 0 0 1.5px #0e1412}
+.zt-badge .pfp-av img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
+/* PFP row: its own line directly below the nav links (signed in only). Switch first, label right after. */
+nav{flex-wrap:wrap}
+nav > .pfp-row{order:4;flex:0 0 100%;display:flex;align-items:center;gap:.55rem;margin:.45rem 0 0;padding:.4rem env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px);border-top:1px solid rgba(198,255,0,.16);font-size:.8rem;color:var(--text);cursor:pointer;user-select:none;-webkit-user-select:none;min-height:2rem}
+nav > .pfp-row[hidden]{display:none}
+@media (min-width: 701px){nav > div:not(.pfp-row){flex:1 1 0;min-width:0}nav > div:not(.pfp-row) a{white-space:nowrap}} /* links never pushed to their own line by the wrap */
+.pfp-row input{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.pfp-row .pfp-sw{position:relative;flex:none;width:2.4rem;height:1.35rem;border-radius:999px;background:#2a3833;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);transition:background .15s}
+.pfp-row .pfp-sw::after{content:"";position:absolute;top:.15rem;left:.15rem;width:1.05rem;height:1.05rem;border-radius:50%;background:#eef4f1;transition:transform .15s}
+.pfp-row input:checked + .pfp-sw{background:var(--grad)}
+.pfp-row input:checked + .pfp-sw::after{transform:translateX(1.05rem);background:#0e1412}
+.pfp-row input:focus-visible + .pfp-sw{outline:2px solid var(--pink-2);outline-offset:2px}
+.pfp-row .pfp-lbl{font-weight:600;letter-spacing:.02em;white-space:nowrap}
 .zt-badge{flex:0 0 auto;max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:.5rem!important;padding:.2rem .55rem;border-radius:999px;font-size:.78rem!important;font-weight:700;color:#0e1412!important;background:var(--grad);text-decoration:none}
 @media (min-width: 701px) {
   nav > div { order: 2; margin-left: auto; }
@@ -812,6 +826,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
     <a href="#order">Order</a>
     <a href="#membership">Membership</a>
     </div>
+    <label class="pfp-row" id="pfpRow" for="pfpToggle" hidden><input type="checkbox" id="pfpToggle" role="switch" aria-checked="false"><span class="pfp-sw" aria-hidden="true"></span><span class="pfp-lbl">Enable profile - PFP</span></label>
   </nav>
 <div id="sessionStrip" class="arcade-strip" hidden>
   <div class="arcade-cell session-strip-cell"><span class="arcade-num" id="sessionStripReps">0</span><span class="arcade-lbl">Reps</span></div>
@@ -1697,6 +1712,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </footer>
   <script src="/step-detector.js"></script>
   <script src="/push-session.js"></script>
+  <script src="/pfp.js"></script>
   <script src="/push-challenge.js"></script>
   <script src="/get-set.js"></script>
   <script src="/plank-session.js"></script>
@@ -3013,6 +3029,7 @@ async function poseTick(id = poseLoopId) {
     const poses = await det.estimatePoses(vid, { flipHorizontal: true });
     let pose = poses && poses[0];
     if (det && det.engine === "vision") pose = await visionRescue(pose, vid, tFrame); // app only (iOS Apple Vision)
+    if (window.ZabPfp) window.ZabPfp.frame(vid, pose ? pose.keypoints : [], tFrame); // PFP face cover: visual only (same keypoints, never changed), never throws
     const w = vid.videoWidth || 640;
     // Feed every frame (also before Start): no calibration hold, the first real dip counts.
     const r = pushCounter.update(pose ? pose.keypoints : [], tFrame, w);
@@ -3803,7 +3820,7 @@ function mirrorBoard(u, total) {
 let zabBalNow = null;
 function cornerIdentity() { if (typeof auth === "undefined" || !auth.currentUser || !ZT || !ZT.badgeParts) return ""; return ZT.badgeParts(publicName(displayNameOf(auth.currentUser)), 0).name; }
 function paintZab(n) { zabBalNow = n == null ? null : Number(n); const row = $("zabBalanceRow"); if (row) { row.hidden = n == null; if (n != null) $("zabaBal").textContent = window.ZabCurrency.fmtZab(Number(n)); } paintZabSection(n); }
-function paintZabSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; const num = on ? Number(n) : null; const nm = cornerIdentity(); const signed = !!nm; if (b) b.innerHTML = on ? window.ZabCurrency.amountHtml(num) : "—"; if (o) o.hidden = on || signed; const st = $("ztSendTab"); if (st) st.setAttribute("href", on || signed ? "/bank#bankSend" : "#play"); if (g) { g.setAttribute("href", on || signed ? "#zab" : "#play"); if (!on && !signed) { g.setAttribute("aria-label", "Sign in"); g.textContent = "Sign in"; g.title = ""; } else { const amount = on ? window.ZabCurrency.amountText(num) : ""; const label = nm ? (amount ? nm + " \u00b7 " + amount : nm) : amount; g.title = label; g.setAttribute("aria-label", label); g.innerHTML = (nm ? '<span class="zt-name">' + escapeHtml(nm) + '</span>' + (on ? " \u00b7 " : "") : "") + (on ? window.ZabCurrency.amountHtml(num) : ""); } } }
+function paintZabSection(n) { const b = $("ztBalance"), o = $("ztSignedOut"), g = $("ztBadge"); const on = n != null; const num = on ? Number(n) : null; const nm = cornerIdentity(); const signed = !!nm; if (b) b.innerHTML = on ? window.ZabCurrency.amountHtml(num) : "—"; if (o) o.hidden = on || signed; const st = $("ztSendTab"); if (st) st.setAttribute("href", on || signed ? "/bank#bankSend" : "#play"); if (g) { g.setAttribute("href", on || signed ? "#zab" : "#play"); if (!on && !signed) { g.setAttribute("aria-label", "Sign in"); g.textContent = "Sign in"; g.title = ""; } else { const amount = on ? window.ZabCurrency.amountText(num) : ""; const label = nm ? (amount ? nm + " \u00b7 " + amount : nm) : amount; g.title = label; g.setAttribute("aria-label", label); g.innerHTML = (nm ? '<span class="zt-name">' + escapeHtml(nm) + '</span>' + (on ? " \u00b7 " : "") : "") + (on ? window.ZabCurrency.amountHtml(num) : ""); } } if (window.ZabPfp) window.ZabPfp.paintBadge(); }
 // Badge: signed in -> #zab (plain link); signed out -> #play sign-in box, scrolled into view with the Google button focused.
 function ztBadgeClick(ev) {
   if (typeof auth !== "undefined" && auth.currentUser) return;
@@ -3851,6 +3868,7 @@ function zabOnUser(u) {
 
 function showUser(user) {
   currentUser = user;
+  try { if (window.ZabPfp) window.ZabPfp.setUser(user); } catch (e) {} // top-bar avatar + PFP row; visual only
   const signedIn = !!(user && user.uid);
       if (signedIn) {
     $("whoName").textContent = displayNameOf(user);
@@ -3877,7 +3895,7 @@ function showUser(user) {
         $("who").prepend(img);
       }
       img.onerror = () => { img.onerror = null; img.remove(); }; // never leave a broken-image ? in the corner
-      img.src = user.photoURL;
+      img.src = (window.ZabPfp && window.ZabPfp.photoUrl(user)) || user.photoURL;
     }
   } else {
     currentUser = null;
@@ -4414,6 +4432,7 @@ async function tbPose() {
   if (!tbLoop) return;
   try {
     const v = $("tbVid"), tFrame = performance.now(), poses = await (pushVisionDet || poseDetector).estimatePoses(v, { flipHorizontal: true }), kps = poses && poses[0] ? poses[0].keypoints : [];
+    if (window.ZabPfp) window.ZabPfp.frame(v, kps, tFrame); // PFP face cover: visual only, never throws
     const w = v.videoWidth || 640, now = tFrame, r = tbCounter.update(kps, now, w);
     if (tbLiveT0 == null) { if (!tbCoaching) $("tbCamNote").textContent = r.status; }
     else if (tbRoom && tbRoom.status === "live" && !tbLostSent) {

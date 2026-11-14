@@ -1,7 +1,7 @@
 // Harness: real push flow functions sliced from an index.html version + real modules, synthetic MoveNet frames.
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const ROOT = path.join(__dirname, "..", "..");
-module.exports = function run(htmlPath, { mode = "sets", script, ms = 30000, camAlreadyOn = false, opts = {}, spoken = null, frames = null, native = false, coach = null }) {
+module.exports = function run(htmlPath, { mode = "sets", script, ms = 30000, camAlreadyOn = false, opts = {}, spoken = null, frames = null, native = false, coach = null, setup = null }) {
   const html = fs.readFileSync(htmlPath, "utf8");
   const between = (a, b) => { const i = html.indexOf(a); if (i < 0) throw new Error("missing " + a); return html.slice(i, html.indexOf(b, i + a.length) + b.length); };
   const fnSrc = (n) => { const a = "function " + n + "("; const i = html.indexOf(a); if (i < 0) throw new Error("missing " + n); const eol = html.indexOf("\n", i); const l = html.slice(i, eol);
@@ -16,6 +16,7 @@ module.exports = function run(htmlPath, { mode = "sets", script, ms = 30000, cam
   if (spoken) { ctx.speechSynthesis = { cancel() {}, speak: (u) => { spoken.push({ w: u.text, at: now, vol: u.volume }); if (u.onend) timers.push({ at: now + 1000, f: () => u.onend() }); } }; ctx.SpeechSynthesisUtterance = function (t) { this.text = t; }; }
   if (native) ctx.Capacitor = { isNativePlatform: () => true }; // app-path runs (native: true); browsers get no Capacitor
   ctx.window = ctx; vm.createContext(ctx);
+  if (setup) setup(ctx, () => now); // optional extra page modules (e.g. pfp.js) loaded into the same vm
   for (const f of ["push-counter.js", "push-session.js", "push-challenge.js", "get-set.js", ...(native ? ["push-coach.js"] : [])]) vm.runInContext(fs.readFileSync(path.join(ROOT, f), "utf8"), ctx);
   // script(t) -> { d: depth 0 (top) .. 1 (bottom), sw?: shoulder width / frame width, y?: shoulder height at the top (px) };
   // or pass frames(t) -> keypoints directly.
