@@ -23,7 +23,7 @@
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
   const err = (status, message) => Object.assign(new Error(message), { status });
   // ---- label: word, then ring, then the number ----
-  const RING = '<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M19.918 15.833A3.84 3.84 0 0 0 19.918 8.167A0.768 0.768 0 0 1 19.278 7.059A3.84 3.84 0 0 0 12.64 3.226A0.768 0.768 0 0 1 11.36 3.226A3.84 3.84 0 0 0 4.722 7.059A0.768 0.768 0 0 1 4.082 8.167A3.84 3.84 0 0 0 4.082 15.833A0.768 0.768 0 0 1 4.722 16.941A3.84 3.84 0 0 0 11.36 20.774A0.768 0.768 0 0 1 12.64 20.774A3.84 3.84 0 0 0 19.278 16.941A0.768 0.768 0 0 1 19.918 15.833ZM8.16 12a3.84 3.84 0 1 0 7.68 0a3.84 3.84 0 1 0 -7.68 0Z"/></svg>';
+  const RING = '<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>';
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const num = (n) => (typeof n === "number" && isFinite(n) ? ZC.fmtZab(n) : esc(n));
   const labelHtml = () => '<span class="zab zab-wager">' + WORD + RING + "</span>";
