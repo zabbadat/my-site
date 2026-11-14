@@ -618,6 +618,68 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Zabba Washers Live Match (zabba-match.js): two remote players, real washers on camera, each scores their own pack of 3
+    // (0 out / 2 box-bound / 3 shoot / 5 bank), first to 21. Read: any signed-in user (site policy: nothing world-readable;
+    // the coming public Live tab will need a decision here). Only the two players
+    // write; every write stamps updatedAt = request.time. Turn: only the current player scores, before turnAt + 45 s (+5 s grace);
+    // after that only the opponent may log the late pack as 0 0 0. Scores must equal old + the logged pack. (release 2026-11-14).
+    match /matches/{code} {
+      function n() { return request.resource.data; }
+      function d() { return resource.data; }
+      function me() { return request.auth.uid; }
+      function changed() { return n().diff(d()).affectedKeys(); }
+      function allKeys() { return ['code','status','createdBy','createdAt','updatedAt','turnMs','uids','players','scores','round','first',
+        'turn','turnAt','pack','log','winner','reason','seq']; }
+      function shapeOk() { return n().keys().hasOnly(allKeys()) && n().keys().hasAll(allKeys()); }
+      function seatOk(p, uid) { return p.keys().hasOnly(['uid','name','photo']) && p.keys().hasAll(['uid','name','photo']) && p.uid == uid
+        && p.name is string && p.name.size() >= 1 && p.name.size() <= 40 && p.photo is string && p.photo.size() <= 1024; }
+      function w(x) { return x in [0, 2, 3, 5]; }
+      function partialOk(a) { return a is list && a.size() <= 3 && (a.size() < 1 || w(a[0])) && (a.size() < 2 || w(a[1])) && (a.size() < 3 || w(a[2])); }
+      function packOk(a) { return a is list && a.size() == 3 && w(a[0]) && w(a[1]) && w(a[2]); }
+      // e = the one new log entry, i = seat of the player whose turn it was (0|1), m = new doc, o = old doc
+      function scoreOk(m, o, e, i) { return m.scores is list && m.scores.size() == 2
+        && m.scores[i] == o.scores[i] + e.p[0] + e.p[1] + e.p[2] && m.scores[1 - i] == o.scores[1 - i]; }
+      function endOk(m, o) { let wi = o.uids[0] == m.winner ? 0 : 1;
+        return (m.status == 'active' && m.winner == null && m.reason == '' && m.turn in o.uids)
+          || (m.status == 'finished' && m.turn == null && ((m.reason == 'score' && m.winner in o.uids
+                && m.scores[wi] >= 21 && m.scores[wi] > m.scores[1 - wi])
+              || (m.reason == 'tie' && m.winner == null && o.round >= 30))); }
+      function turnOk(m, o, e, i) { let late = request.time > o.turnAt + duration.value(50, 's');
+        return e.keys().hasOnly(['r','i','p','x']) && e.keys().hasAll(['r','i','p','x']) && e.r == o.round && e.i == i && packOk(e.p)
+          && ((me() == o.turn && e.x == false && !late) || (me() != o.turn && e.x == true && e.p == [0, 0, 0] && late))
+          && scoreOk(m, o, e, i) && (m.round == o.round || m.round == o.round + 1) && m.first in [0, 1] && endOk(m, o); }
+      function newMatch() { return shapeOk() && code.matches('^[A-HJ-NP-Z2-9]{5}$') && n().code == code && n().status == 'waiting'
+        && n().createdBy == me() && n().createdAt == request.time && n().updatedAt == request.time && n().turnMs == 45000
+        && n().uids == [me()] && n().players.size() == 1 && seatOk(n().players[0], me()) && n().scores == [0, 0] && n().round == 0
+        && n().first == 0 && n().turn == null && n().turnAt == null && n().pack == [] && n().log == [] && n().winner == null
+        && n().reason == '' && n().seq == 0; }
+      function joinOk() { return !(me() in d().uids) && d().status == 'waiting' && d().uids.size() == 1
+        && request.time < d().createdAt + duration.value(30, 'm')
+        && changed().hasOnly(['uids','players','status','round','turn','turnAt','updatedAt'])
+        && n().uids == [d().uids[0], me()] && n().players.size() == 2 && n().players[0] == d().players[0] && seatOk(n().players[1], me())
+        && n().status == 'active' && n().round == 1 && n().turn == d().uids[0] && n().turnAt == request.time; }
+      function cancelOk() { return d().status == 'waiting' && me() == d().createdBy && changed().hasOnly(['status','updatedAt']) && n().status == 'abandoned'; }
+      function forfeitOk() { return d().status == 'active' && me() in d().uids && changed().hasOnly(['status','winner','reason','turn','updatedAt'])
+        && n().status == 'finished' && n().reason == 'forfeit' && n().turn == null && n().winner == (d().uids[0] == me() ? d().uids[1] : d().uids[0]); }
+      function liveTapOk() { return d().status == 'active' && me() == d().turn && changed().hasOnly(['pack','updatedAt']) && partialOk(n().pack); }
+      function packTurnOk() { let m = n(); let o = d(); let k = o.log.size();
+        return o.status == 'active' && me() in o.uids
+          && changed().hasOnly(['scores','round','first','turn','turnAt','pack','log','winner','reason','status','seq','updatedAt'])
+          && m.seq == o.seq + 1 && m.turnAt == request.time && m.pack == [] && m.log is list
+          && m.log.size() == k + 1 && m.log.size() <= 60 && (k == 0 || m.log[0:k] == o.log)
+          && turnOk(m, o, m.log[k], o.uids[0] == o.turn ? 0 : 1); }
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && newMatch();
+      allow update: if request.auth != null && shapeOk() && n().updatedAt == request.time
+        && n().code == d().code && n().createdBy == d().createdBy && n().createdAt == d().createdAt && n().turnMs == d().turnMs
+        && (('log' in changed()) ? packTurnOk()
+          : ('uids' in changed()) ? joinOk()
+          : (n().status == 'abandoned') ? cancelOk()
+          : (n().status == 'finished') ? forfeitOk()
+          : liveTapOk());
+      allow delete: if false;
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

@@ -649,6 +649,28 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 #startBtn,.zt-badge{outline-color:var(--accent)}
 #startBtn:hover,.zt-badge:hover{outline-color:var(--accent)}
 #nl-badge-frame,iframe[id^="nl-badge"]{display:none!important;pointer-events:none!important}
+.zm{margin-top:1.2rem}
+.zm-code-row{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.zm-banner{display:flex;align-items:center;gap:.6rem;padding:.7rem .85rem;border-radius:14px;background:var(--bg-2);border:1px solid rgba(143,191,168,.18);margin:.4rem 0 .8rem}
+.zm-banner.mine{border-color:var(--lime);box-shadow:0 0 0 1px var(--lime) inset}
+.zm-banner-text{flex:1;font-weight:700}
+.zm-banner.mine .zm-banner-text{color:var(--lime)}
+.zm-timer{font-variant-numeric:tabular-nums;font-size:1.3rem;color:var(--pink-2)}
+.zm-ph{width:40px;height:40px;flex:0 0 40px;border-radius:50%;overflow:hidden;background:var(--grad);display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#0e1412}
+.zm-ph img{width:100%;height:100%;object-fit:cover;display:block}
+.zm-seats{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.8rem}
+.zm-seat{background:var(--bg-2);border-radius:14px;padding:.7rem;display:flex;flex-direction:column;align-items:center;gap:.3rem;border:1px solid transparent;min-width:0}
+.zm-seat.turn{border-color:var(--pink-2)}
+.zm-seat .zm-name{font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zm-seat .zm-score{font-size:2.2rem;font-weight:800;line-height:1;color:var(--lime)}
+.zm-bar{width:100%;height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden}
+.zm-bar i{display:block;height:100%;background:var(--grad)}
+.zm-slots{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.6rem}
+.zm-slot{border:1px dashed rgba(143,191,168,.35);border-radius:12px;padding:.55rem .2rem;text-align:center;font-weight:700;min-height:3.1rem}
+.zm-slot.on{border-style:solid;border-color:var(--lime);color:var(--lime)}
+.zm-keys{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.6rem}
+.zm-keys .btn{width:100%}
+.zm-log{margin:.6rem 0;padding-left:1.2rem;font-size:.92rem;color:var(--muted,#a9bdb4)}
 </style> <link rel="icon" type="image/png" href="/zd-v2-icon-512.png"><link rel="apple-touch-icon" href="/zd-v2-icon-1024.png">
 <style id="palette">
 /* Electric lime + hot pink palette */
@@ -1338,6 +1360,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="lead">Every head-to-head on ZabbaDat. Pick one and jump in.</p>
     <div class="grid">
       <a class="card" href="#washerbattle" data-battle="washers"><h3>Zabba Washer Battle</h3><p>First to 21, Bariboshi style. Challenge a friend with a room code, with an optional ZAB wager.</p></a>
+      <a class="card" href="#zabbaMatch" data-battle="match"><h3>Live Match</h3><p>Play a friend on camera: real washers, phone to phone, packs of 3, first to 21.</p></a>
       <a class="card" href="#tutbattles" data-battle="tutbattles"><h3>TUT Battles</h3><p><span class="tuts-l">T</span>ime <span class="tuts-l">u</span>nder <span class="tuts-l">t</span>ension <span class="tuts-l">s</span>et, three minutes, head to head. Optional ZAB wager.</p></a>
       <a class="card" href="#battles" data-battle="battles"><h3>Plank Battles</h3><p>Longest hold wins. Challenge a friend, with an optional ZAB wager.</p></a>
     </div>
@@ -1435,6 +1458,31 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="row"><button class="btn" id="wbReady" type="button" hidden>I'm ready</button><a class="btn ghost" id="wbToGame" href="#play" hidden>Game controls</a><button class="btn danger" id="wbForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="wbLeave" type="button">Leave</button></div>
     </div>
     <p class="note" id="wbStatus" aria-live="polite"></p>
+    <div class="card zm" id="zabbaMatch">
+      <h3>Live Match: play a friend on camera</h3>
+      <p class="note">Two phones, anywhere. Throw real washers on camera while you both watch the video, then score your own pack of 3: Bank 5, Shoot 3, Box-bound 2, Out 0. Turns alternate, 45 seconds a turn, first to 21 after equal turns. No step tracking.</p>
+      <p class="note" id="zmSignIn"><a href="#play">Sign in</a> to start or join a live match.</p>
+      <div id="zmStart" hidden>
+        <div class="row"><button class="btn" id="zmCreate" type="button">Play a friend</button></div>
+        <div class="row"><input id="zmCode" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="K7QX2" aria-label="Match code" style="max-width:9.5rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="zmJoin" type="button">Join match</button></div>
+      </div>
+      <div id="zmGame" hidden>
+        <div class="zm-code-row"><div class="battle-code" id="zmCodeShow">-----</div><button class="btn ghost" id="zmShare" type="button">Share link</button></div>
+        <div class="zm-banner" id="zmBanner" aria-live="polite"><span class="zm-ph" id="zmBannerPh"></span><span class="zm-banner-text" id="zmBannerText">…</span><b class="zm-timer" id="zmTimer"></b></div>
+        <div class="zm-seats" id="zmSeats"></div>
+        <div id="zmPad" hidden>
+          <div class="zm-slots" id="zmSlots" aria-label="Your pack of 3"></div>
+          <div class="zm-keys" role="group" aria-label="Score a washer"><button class="btn" type="button" data-zm="5">Bank 5</button><button class="btn" type="button" data-zm="3">Shoot 3</button><button class="btn" type="button" data-zm="2">Box-bound 2</button><button class="btn ghost" type="button" data-zm="0">Out 0</button></div>
+          <div class="row"><button class="btn ghost" id="zmUndo" type="button">Undo</button><button class="btn" id="zmSubmit" type="button" disabled>Submit pack</button></div>
+        </div>
+        <div id="zmTheirPack" class="note" hidden></div>
+        <div class="row"><button class="btn" id="zmClaim" type="button" hidden>Time's up: take the turn</button></div>
+        <ol class="zm-log" id="zmLog"></ol>
+        <div class="row"><button class="btn danger" id="zmForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="zmCancel" type="button" hidden>Cancel match</button><button class="btn ghost" id="zmLeave" type="button" hidden>Close</button></div>
+        <div id="zmLiveSlot" hidden></div><!-- reserved: future public Live tab (video) mounts here -->
+      </div>
+      <p class="note" id="zmStatus" aria-live="polite"></p>
+    </div>
   </section>
 
   <section id="tutbattles">
@@ -1759,6 +1807,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/battle-presence.js"></script>
   <script src="/tut-battle.js"></script>
   <script src="/washers-battle.js"></script>
+  <script src="/zabba-match.js"></script>
   <script src="/plank-battle.js"></script>
   <script src="/zaba-wager.js"></script>
   <script src="/reputation.js"></script>
@@ -5156,6 +5205,93 @@ getRedirectResult(auth)
   .catch((e) => { showSignInError(e); });
 let dailySyncOff = null, liveWalkOff = null;
 onAuthStateChanged(auth, (u) => { showUser(u); zabOnUser(u); if (dailySyncOff) { dailySyncOff(); dailySyncOff = null; } if (liveWalkOff) { liveWalkOff(); liveWalkOff = null; } liveRemote = null; paintLiveRemote(); if (u && LW && WS) { liveWalkOff = onSnapshot(doc(db, "liveWalk", u.uid), (d) => { const x = d.exists() ? d.data() : null; liveRemote = x ? { d: x, u: x.updatedAt && x.updatedAt.toMillis ? x.updatedAt.toMillis() : 0, rx: Date.now() } : null; paintLiveRemote(); }, () => {}); } if (u && daily && DS) { dailySyncOff = onSnapshot(doc(db, "dailySteps", DS.docId(u.uid, DS.localDateKey())), (d) => { if (d.exists()) { const n = Number(d.data().steps) || 0; daily.syncRemote(n); if (n > dailyPosted) dailyPosted = n; } postDaily(true); }, () => {}); } if (!u && tbCodeCur) tbExit(); if (!u) { if (battleOff) battleOff(); battleOff = null; battleRoom = null; battleCode = null; paintBattle(); } else { resumeBattle(u); paintBattle(); tbResume(u); } tbPaint(); if (!u && wbCodeCur) wbExit(); else if (u) wbResume(u); if (!u && waCodeCur) waExit(); else if (u) waResume(u); wbPaint(); bbOnUser(u); renderPush(); if (window.ZabbaMembers) window.ZabbaMembers.onUser(u, { watch: (uid, cb) => onSnapshot(doc(db, "members", uid), (d) => cb(d.exists() ? d.data() : null), () => cb(null)) }); });
+/* ---- Zabba Washers Live Match (zabba-match.js): remote 1v1, real washers on camera, each player scores their own pack of 3,
+   turns alternate with a 45 s clock, first to 21. Shared doc matches/{code}; both phones follow it with onSnapshot. ---- */
+const ZM = window.ZabbaMatch;
+const zmc = ZM ? ZM.controller(mkBattleFs("matches")) : null;
+let zmCode = null, zmDoc = null, zmOff = null, zmTick = null, zmPack = [], zmBusy = false, zmClaimAt = 0;
+const ZM_KEY = "zdLiveMatch";
+const zmStat = (t) => { $("zmStatus").textContent = t || ""; };
+function zmUser() { if (!currentUser) return null; return { uid: currentUser.uid, name: ZM.nameOf({ name: $("player").value.trim() || currentUser.displayName, email: currentUser.email }), photo: currentUser.photoURL || "" }; }
+/* photo bubble: no-referrer (Google photos), initial letter when there's no photo or it fails to load, like #avatar */
+function zmPhoto(el, p) { el.textContent = ""; const letter = () => { el.textContent = ((p && p.name) || "?").charAt(0).toUpperCase(); };
+  const src = p && ZM.hooks.photoFor(p); if (!src) return letter();
+  const img = document.createElement("img"); img.alt = ""; img.referrerPolicy = "no-referrer"; img.onerror = () => { img.onerror = null; img.remove(); letter(); }; img.src = src; el.appendChild(img); }
+function zmPaint() {
+  if (!ZM) return;
+  const u = currentUser, m = zmDoc;
+  $("zmSignIn").hidden = !!u; $("zmStart").hidden = !u || !!zmCode; $("zmGame").hidden = !zmCode;
+  if (!zmCode) return;
+  const v = zmc.view(m, u ? u.uid : null);
+  $("zmCodeShow").textContent = zmCode;
+  $("zmBanner").classList.toggle("mine", v.mine);
+  $("zmBannerText").textContent = v.banner + (v.overtime ? " · Overtime" : "");
+  zmPhoto($("zmBannerPh"), v.who || (m && m.players && m.players[0]));
+  $("zmTimer").textContent = m && m.status === "active" && v.secsLeft != null ? "0:" + String(v.secsLeft).padStart(2, "0") : "";
+  const seats = $("zmSeats"); seats.textContent = "";
+  (v.seats.length ? v.seats : []).concat(v.seats.length === 1 ? [{ name: "Waiting…", score: 0 }] : []).forEach((s) => {
+    const d = document.createElement("div"); d.className = "zm-seat" + (s.turn ? " turn" : "");
+    const ph = document.createElement("span"); ph.className = "zm-ph"; zmPhoto(ph, s.uid ? s : null); if (!s.uid) ph.textContent = "?";
+    const nm = document.createElement("span"); nm.className = "zm-name"; nm.textContent = s.name + (s.me ? " (you)" : "");
+    const sc = document.createElement("b"); sc.className = "zm-score"; sc.textContent = String(s.score);
+    const bar = document.createElement("span"); bar.className = "zm-bar"; const fill = document.createElement("i"); fill.style.width = Math.min(100, (s.score / ZM.TARGET) * 100) + "%"; bar.appendChild(fill);
+    d.append(ph, nm, sc, bar); seats.appendChild(d); });
+  const mine = !!(m && m.status === "active" && v.mine);
+  if (!mine) zmPack = [];
+  $("zmPad").hidden = !mine;
+  const slots = $("zmSlots"); slots.textContent = "";
+  for (let i = 0; i < ZM.PACK; i++) { const s = document.createElement("div"); const w = zmPack[i]; s.className = "zm-slot" + (w != null ? " on" : ""); s.textContent = w != null ? ZM.POINTS[w] + " " + w : "Washer " + (i + 1); slots.appendChild(s); }
+  $("zmSubmit").disabled = zmBusy || zmPack.length !== ZM.PACK || !v.canSubmit;
+  $("zmSubmit").textContent = zmPack.length === ZM.PACK ? "Submit pack (" + ZM.sum(zmPack) + ")" : "Submit pack";
+  const theirs = m && m.status === "active" && !v.mine && Array.isArray(m.pack) && m.pack.length;
+  $("zmTheirPack").hidden = !theirs; if (theirs) $("zmTheirPack").textContent = (v.who ? v.who.name : "Opponent") + " so far: " + ZM.packText(m.pack);
+  $("zmClaim").hidden = !v.canClaim;
+  const log = $("zmLog"); log.textContent = "";
+  ((m && m.log) || []).slice(-8).reverse().forEach((e) => { const li = document.createElement("li"); const p = m.players[e.i];
+    li.textContent = "Round " + e.r + " · " + (p ? p.name : "Player") + ": " + (e.x ? "time ran out, 0" : ZM.packText(e.p) + " = " + ZM.sum(e.p)); log.appendChild(li); });
+  $("zmForfeit").hidden = !(m && m.status === "active");
+  $("zmCancel").hidden = !(m && m.status === "waiting" && u && m.createdBy === u.uid);
+  $("zmLeave").hidden = !!(m && (m.status === "active" || (m.status === "waiting" && u && m.createdBy === u.uid)));
+  // opponent's clock ran out: this phone takes the turn automatically (once every few seconds at most)
+  if (v.canClaim && Date.now() - zmClaimAt > 4000) { zmClaimAt = Date.now(); zmc.claim(zmCode, u).catch(() => {}); }
+}
+function zmEnter(code) {
+  zmCode = code; zmPack = []; try { localStorage.setItem(ZM_KEY, code); } catch (e) {}
+  if (zmOff) zmOff(); zmOff = zmc.watch(code, (m) => { zmDoc = m; zmPaint(); });
+  clearInterval(zmTick); zmTick = setInterval(zmPaint, 500); zmPaint();
+}
+function zmExit() { if (zmOff) zmOff(); zmOff = null; clearInterval(zmTick); zmTick = null; zmCode = null; zmDoc = null; zmPack = []; try { localStorage.removeItem(ZM_KEY); } catch (e) {} zmPaint(); }
+async function zmJoinCode(code) { const u = zmUser(); if (!u) { requireSignIn("live match"); return void zmStat("Sign in to join a match."); }
+  zmStat("Joining…"); try { zmEnter(await zmc.join(code, u)); zmStat(""); } catch (e) { try { if (localStorage.getItem(ZM_KEY) === ZM.normCode(code)) localStorage.removeItem(ZM_KEY); } catch (x) {} zmStat(e.code === "permission-denied" ? "Couldn't join that match." : e.message); } }
+if (ZM && zmc) {
+  $("zmCreate").onclick = async () => { const u = zmUser(); if (!u) { requireSignIn("live match"); return void zmStat("Sign in to start a match."); }
+    $("zmCreate").disabled = true; zmStat("Making a match…");
+    try { zmEnter(await zmc.create(u)); zmStat("Share the link or code with your friend."); } catch (e) { zmStat(e.message || "Couldn't make a match."); } finally { $("zmCreate").disabled = false; } };
+  $("zmJoin").onclick = () => zmJoinCode($("zmCode").value);
+  $("zmCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("zmJoin").click(); });
+  $("zmShare").onclick = async () => { if (!zmCode) return; const url = ZM.linkFor(zmCode, location.origin);
+    try { if (navigator.share) { await navigator.share({ title: "Zabba Washers live match", text: "Play me in Zabba Washers. Code " + zmCode, url }); return; } } catch (e) { return; }
+    try { await navigator.clipboard.writeText(url); zmStat("Link copied: " + url); } catch (e) { zmStat("Code " + zmCode + " · " + url); } };
+  document.querySelectorAll("[data-zm]").forEach((b) => (b.onclick = () => { if (zmPack.length >= ZM.PACK) return; zmPack.push(Number(b.dataset.zm)); zmc.setPack(zmCode, currentUser, zmPack).catch(() => {}); zmPaint(); }));
+  $("zmUndo").onclick = () => { zmPack.pop(); if (zmCode && currentUser) zmc.setPack(zmCode, currentUser, zmPack).catch(() => {}); zmPaint(); };
+  $("zmSubmit").onclick = async () => { if (zmBusy || !currentUser) return; zmBusy = true; zmPaint();
+    try { await zmc.submit(zmCode, currentUser, zmPack.slice()); zmPack = []; zmStat(""); } catch (e) { zmStat(e.code === "permission-denied" ? "Your turn time ran out." : e.message); } finally { zmBusy = false; zmPaint(); } };
+  $("zmClaim").onclick = () => { zmClaimAt = Date.now(); zmc.claim(zmCode, currentUser).catch((e) => zmStat(e.message)); };
+  $("zmForfeit").onclick = () => { if (confirm("Forfeit this match? Your opponent wins.")) zmc.forfeit(zmCode, currentUser).catch((e) => zmStat(e.message)); };
+  $("zmCancel").onclick = async () => { await zmc.cancel(zmCode, currentUser).catch(() => {}); zmExit(); zmStat("Match cancelled."); };
+  $("zmLeave").onclick = () => zmExit();
+}
+/* A shared link (?match=CODE or #match=CODE) joins after sign-in; otherwise reopen this phone's last match. */
+const ZM_LINK = ZM ? ZM.codeFromUrl(location.search, location.hash) : "";
+function zmOnUser(u) {
+  if (!ZM || !zmc) return;
+  if (!u) { if (zmCode) zmExit(); else zmPaint(); if (ZM_LINK) zmStat("Sign in to join match " + ZM_LINK + "."); return; }
+  let saved = null; try { saved = localStorage.getItem(ZM_KEY); } catch (e) {}
+  const code = ZM_LINK || saved;
+  if (code && code !== zmCode) { zmJoinCode(code).then(() => { if (ZM_LINK) { const el = document.getElementById("zabbaMatch"); if (el) el.scrollIntoView({ block: "start" }); } }); }
+  else zmPaint();
+}
+onAuthStateChanged(auth, zmOnUser);
 $("boardAllBtn").onclick = () => {
   boardFilter = "all";
   $("boardAllBtn").className = "btn";

@@ -1,0 +1,54 @@
+// Emulator check of the matches/{code} rules. Needs @firebase/rules-unit-testing + firebase + Java; run from a scratch dir:
+// firebase emulators:exec --only firestore --project demo-zab "node <repo>/test/rules-emulator/matches.rules.mjs" (port 8085)
+import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, Timestamp, deleteDoc } from 'firebase/firestore';
+import fs from 'fs';
+const env = await initializeTestEnvironment({ projectId: 'demo-zab', firestore: { rules: fs.readFileSync(new URL('../../firestore.rules', import.meta.url),'utf8'), host:'127.0.0.1', port:8085 } });
+const A=env.authenticatedContext('a').firestore(), B=env.authenticatedContext('b').firestore(), C=env.authenticatedContext('c').firestore(), U=env.unauthenticatedContext().firestore();
+let ok=0,bad=0; const t=async(n,p)=>{try{await p;ok++;console.log('PASS',n)}catch(e){bad++;console.log('FAIL',n,String(e.message).slice(0,200))}};
+const sa={uid:'a',name:'Ann',photo:'https://lh3.googleusercontent.com/a/x'}, sb={uid:'b',name:'Bo',photo:''};
+const ts=serverTimestamp();
+const fresh=(code,o)=>({code,status:'waiting',createdBy:'a',createdAt:ts,updatedAt:ts,turnMs:45000,uids:['a'],players:[sa],scores:[0,0],round:0,first:0,turn:null,turnAt:null,pack:[],log:[],winner:null,reason:'',seq:0,...o});
+await t('create ok', assertSucceeds(setDoc(doc(A,'matches/K7QX2'),fresh('K7QX2'))));
+await t('create signed-out denied', assertFails(setDoc(doc(U,'matches/K7QX3'),fresh('K7QX3'))));
+await t('create as someone else denied', assertFails(setDoc(doc(B,'matches/K7QX4'),fresh('K7QX4'))));
+await t('create pre-scored denied', assertFails(setDoc(doc(A,'matches/K7QX5'),fresh('K7QX5',{scores:[21,0]}))));
+await t('create bad code denied', assertFails(setDoc(doc(A,'matches/K0QX2'),fresh('K0QX2'))));
+await t('create extra field denied', assertFails(setDoc(doc(A,'matches/K7QX6'),fresh('K7QX6',{x:1}))));
+await t('overwrite existing denied', assertFails(setDoc(doc(B,'matches/K7QX2'),fresh('K7QX2',{createdBy:'b',uids:['b'],players:[sb]}))));
+await t('signed-in read ok', assertSucceeds(getDoc(doc(C,'matches/K7QX2'))));
+await t('signed-out read denied (site policy)', assertFails(getDoc(doc(U,'matches/K7QX2'))));
+const join={uids:['a','b'],players:[sa,sb],status:'active',round:1,turn:'a',turnAt:ts,updatedAt:ts};
+await t('join wrong turn denied', assertFails(updateDoc(doc(B,'matches/K7QX2'),{...join,turn:'b'})));
+await t('join with score denied', assertFails(updateDoc(doc(B,'matches/K7QX2'),{...join,scores:[0,9]})));
+await t('join ok', assertSucceeds(updateDoc(doc(B,'matches/K7QX2'),join)));
+await t('third player join denied', assertFails(updateDoc(doc(C,'matches/K7QX2'),{uids:['a','c'],players:[sa,{uid:'c',name:'C',photo:''}],updatedAt:ts})));
+await t('live tap by current ok', assertSucceeds(updateDoc(doc(A,'matches/K7QX2'),{pack:[5,3],updatedAt:ts})));
+await t('live tap by opponent denied', assertFails(updateDoc(doc(B,'matches/K7QX2'),{pack:[5],updatedAt:ts})));
+await t('live tap bad value denied', assertFails(updateDoc(doc(A,'matches/K7QX2'),{pack:[4],updatedAt:ts})));
+const p1={scores:[10,0],turn:'b',turnAt:ts,pack:[],log:[{r:1,i:0,p:[5,3,2],x:false}],seq:1,updatedAt:ts};
+await t('opponent scoring for current denied', assertFails(updateDoc(doc(B,'matches/K7QX2'),p1)));
+await t('inflated score denied', assertFails(updateDoc(doc(A,'matches/K7QX2'),{...p1,scores:[20,0]})));
+await t('bad washer denied', assertFails(updateDoc(doc(A,'matches/K7QX2'),{...p1,log:[{r:1,i:0,p:[5,3,4],x:false}],scores:[12,0]})));
+await t('early time-out claim denied', assertFails(updateDoc(doc(B,'matches/K7QX2'),{...p1,scores:[0,0],log:[{r:1,i:0,p:[0,0,0],x:true}]})));
+await t('fake win denied', assertFails(updateDoc(doc(A,'matches/K7QX2'),{...p1,status:'finished',winner:'a',reason:'score',turn:null})));
+await t('current player scores own pack ok', assertSucceeds(updateDoc(doc(A,'matches/K7QX2'),p1)));
+await t('history rewrite denied', assertFails(updateDoc(doc(B,'matches/K7QX2'),{scores:[10,0],round:2,turn:'a',turnAt:ts,log:[{r:1,i:0,p:[5,5,5],x:false},{r:1,i:1,p:[0,0,0],x:false}],seq:2,updatedAt:ts})));
+await t('b scores round 1 ok', assertSucceeds(updateDoc(doc(B,'matches/K7QX2'),{scores:[10,2],round:2,first:0,turn:'a',turnAt:ts,log:[{r:1,i:0,p:[5,3,2],x:false},{r:1,i:1,p:[2,0,0],x:false}],seq:2,updatedAt:ts})));
+await t('forfeit naming self winner denied', assertFails(updateDoc(doc(A,'matches/K7QX2'),{status:'finished',winner:'a',reason:'forfeit',turn:null,updatedAt:ts})));
+await t('delete denied', assertFails(deleteDoc(doc(A,'matches/K7QX2'))));
+// a timed-out turn: seed a match whose turn began 60 s ago
+const old=Timestamp.fromMillis(Date.now()-60000), oldC=Timestamp.fromMillis(Date.now()-120000);
+const late={code:'LATE2',status:'active',createdBy:'a',createdAt:oldC,updatedAt:old,turnMs:45000,uids:['a','b'],players:[sa,sb],scores:[18,15],round:3,first:0,turn:'a',turnAt:old,pack:[],log:[],winner:null,reason:'',seq:0};
+await env.withSecurityRulesDisabled(async c=>{ await setDoc(doc(c.firestore(),'matches/LATE2'),late); await setDoc(doc(c.firestore(),'matches/WIN22'),{...late,code:'WIN22',turnAt:Timestamp.now(),scores:[15,18],turn:'a'}); await setDoc(doc(c.firestore(),'matches/OLD22'),{...fresh('OLD22'),createdAt:Timestamp.fromMillis(Date.now()-31*60000),updatedAt:oldC}); });
+const claim={scores:[18,15],turn:'b',turnAt:ts,pack:[],log:[{r:3,i:0,p:[0,0,0],x:true}],seq:1,updatedAt:ts};
+await t('late pack by current player denied', assertFails(updateDoc(doc(A,'matches/LATE2'),{...claim,scores:[33,15],log:[{r:3,i:0,p:[5,5,5],x:false}]})));
+await t('late claim with points denied', assertFails(updateDoc(doc(B,'matches/LATE2'),{...claim,scores:[23,15],log:[{r:3,i:0,p:[5,0,0],x:true}]})));
+await t('opponent takes timed-out turn as 0 0 0 ok', assertSucceeds(updateDoc(doc(B,'matches/LATE2'),claim)));
+await t('real win at end of round ok (a 21 v b 18)', assertSucceeds(updateDoc(doc(A,'matches/WIN22'),{scores:[21,18],turn:null,turnAt:ts,status:'finished',winner:'a',reason:'score',log:[{r:3,i:0,p:[3,3,0],x:false}],seq:1,updatedAt:ts})));
+await t('join expired waiting match denied', assertFails(updateDoc(doc(B,'matches/OLD22'),join)));
+await t('host cancels waiting ok', assertSucceeds(setDoc(doc(A,'matches/CAN22'),fresh('CAN22')).then(()=>updateDoc(doc(A,'matches/CAN22'),{status:'abandoned',updatedAt:ts}))));
+// existing rules untouched: a sample
+await t('existing: battles read signed-out denied', assertFails(getDoc(doc(U,'battles/K7QX'))));
+await t('existing: default deny', assertFails(setDoc(doc(A,'nothing/x'),{a:1})));
+console.log(`\n${ok} passed, ${bad} failed`); await env.cleanup(); process.exit(bad?1:0);
