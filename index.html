@@ -984,25 +984,23 @@ nav > .pfp-row[hidden]{display:none}
       padding: .2rem 0 .55rem;
       margin: 0 0 .3rem;
     }
-    #play-and-earn .pe-chrome h2 { margin: 0 0 .7rem; }
+    #play-and-earn .pe-chrome h2 { margin: 0 0 .35rem; }
+    #play-and-earn .pe-motto {
+      margin: 0 0 .45rem; min-height: 1.35em; color: var(--muted);
+      font-size: clamp(.72rem, 2.55vw, .9rem); line-height: 1.3; letter-spacing: .02em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      opacity: 1; transition: opacity .35s ease;
+    }
+    #play-and-earn .pe-motto.is-fade { opacity: 0; }
+    #play-and-earn .pe-motto .zab { font-size: inherit; }
+    @media (prefers-reduced-motion: reduce) {
+      #play-and-earn .pe-motto { transition: none; }
+    }
     #play-and-earn > section[role="tabpanel"] {
       padding-left: 0; padding-right: 0; padding-top: 1.8rem; padding-bottom: 2.4rem;
       background-image: none;
     }
     #play-and-earn > section[role="tabpanel"][hidden] { display: none !important; }
-    .pe-10k { margin: 0 0 1.1rem; }
-    .pe-10k-main {
-      display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-      text-decoration: none; color: inherit;
-      background: var(--card, #1b2723); border: 1px solid rgba(198,255,0,.35);
-      border-radius: 16px; padding: .85rem 1rem; box-shadow: 0 0 22px rgba(198,255,0,.12);
-    }
-    .pe-10k-count { display: flex; flex-direction: column; min-width: 7rem; }
-    .pe-10k-count b { font-family: 'Outfit', sans-serif; font-weight: 600; font-variant-numeric: tabular-nums; font-size: clamp(1.6rem, 6vw, 2.2rem); line-height: 1.1; }
-    .pe-10k-count span, .pe-10k-label { color: var(--muted); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; }
-    .pe-10k-goal { flex: 1 1 12rem; min-width: 10rem; }
-    .pe-10k-track { display: block; height: .7rem; border-radius: 999px; background: rgba(143,191,168,.15); overflow: hidden; border: 1px solid rgba(198,255,0,.28); margin-bottom: .4rem; }
-    .pe-10k-track i { display: block; height: 100%; width: 0; background: var(--grad, linear-gradient(90deg,#c6ff00,#ff8a00,#ff2e93)); border-radius: inherit; }
     .pe-tabs {
       display: flex; gap: .4rem; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
       margin: 0 0 .4rem; padding: .15rem 0 .4rem; scrollbar-width: thin;
@@ -1585,15 +1583,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="play-and-earn">
     <div class="pe-chrome">
     <h2>Activate &amp; Earn</h2>
-    <div class="pe-10k" id="playEarn10k">
-      <a class="pe-10k-main" href="#steps">
-        <span class="pe-10k-count"><b id="playEarnSteps">0</b><span>Steps today</span></span>
-        <span class="pe-10k-goal">
-          <span class="pe-10k-track" aria-hidden="true"><i id="playEarn10kFill"></i></span>
-          <span class="pe-10k-label" id="playEarn10kLabel"><span id="playEarn10kText">0 / 10,000 · 4 </span><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></span>
-        </span>
-      </a>
-    </div>
+    <p class="pe-motto" id="peMotto" aria-hidden="true">Breathe. Activate. Score.</p>
     <div class="pe-tabs" role="tablist" aria-label="Activate &amp; Earn">
       <button type="button" role="tab" id="pe-tab-zab" aria-controls="zab" aria-selected="false" tabindex="-1">ZAB</button><button type="button" role="tab" id="pe-tab-washerbattle" aria-controls="washerbattle" aria-selected="false" tabindex="-1">Washer Battle</button><button type="button" role="tab" id="pe-tab-steps" aria-controls="steps" aria-selected="true" tabindex="0">Steps</button><button type="button" role="tab" id="pe-tab-tutbattles" aria-controls="tutbattles" aria-selected="false" tabindex="-1">TUT Battles</button><button type="button" role="tab" id="pe-tab-plank" aria-controls="plank" aria-selected="false" tabindex="-1">Plank House</button><button type="button" role="tab" id="pe-tab-battles" aria-controls="battles" aria-selected="false" tabindex="-1">Battles</button>
     </div>
@@ -2060,14 +2050,34 @@ const scoreVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ?
 const $ = (id) => document.getElementById(id);
 // Play and Earn tabs: CSS-hide panels (never remove them). Default tab is Steps.
 const PE_TABS = ["zab", "washerbattle", "steps", "tutbattles", "plank", "battles"];
-function paintPlayEarn10k(steps) {
-  const n = Math.max(0, Math.floor(Number(steps) || 0));
-  const count = $("playEarnSteps"), fill = $("playEarn10kFill"), lab = $("playEarn10kLabel");
-  if (count) count.textContent = n.toLocaleString();
-  if (fill) fill.style.width = Math.min(100, (n / 10000) * 100) + "%";
-  const text = $("playEarn10kText");
-  if (text) text.textContent = n >= 10000 ? "10K hit · 4 " : (n.toLocaleString() + " / 10,000 · 4 ");
-}
+(function peMottoRotate() {
+  if (typeof window !== "undefined" && window.PE_SKIP) return;
+  const el = document.getElementById("peMotto");
+  if (!el) return;
+  const lines = [
+    "Breathe. Activate. Score.",
+    "Every rep stacks ZAB.",
+    "Hit your daily 10K, win rank & reward.",
+    "Hold the line. Earn the minute.",
+    "One more set. One more step."
+  ];
+  const html = (t) => (window.ZabCurrency && typeof window.ZabCurrency.html === "function") ? window.ZabCurrency.html(t) : String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  let i = 0, timer = null, fadeTimer = null;
+  const reduce = () => !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const show = (n) => { el.innerHTML = html(lines[n]); };
+  const clearFade = () => { if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; } el.classList.remove("is-fade"); };
+  const tick = () => {
+    if (document.hidden) return;
+    i = (i + 1) % lines.length;
+    if (reduce()) { clearFade(); show(i); return; }
+    el.classList.add("is-fade");
+    fadeTimer = setTimeout(() => { fadeTimer = null; show(i); el.classList.remove("is-fade"); }, 350);
+  };
+  const start = () => { if (!timer) timer = setInterval(tick, 4000); };
+  const stop = () => { if (timer) { clearInterval(timer); timer = null; } clearFade(); };
+  document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); else start(); });
+  start();
+})();
 function peShowTab(id, opts) {
   if (PE_TABS.indexOf(id) < 0) return false;
   opts = opts || {};
@@ -3934,7 +3944,7 @@ function dailyNewDay() {
   try { if (currentUser) boardsOnUser(currentUser); } catch (e) {} // boards re-query with today's date key
 }
 const daily = DS ? DS.createController(window, { onDayChange: () => dailyNewDay(), onChange: (s) => {
-  $("dailyCount").textContent = s.steps.toLocaleString(); if (typeof paintPlayEarn10k === "function") paintPlayEarn10k(s.steps);
+  $("dailyCount").textContent = s.steps.toLocaleString();
   $("dailySource").textContent = s.kind === "native" ? "Phone" : s.kind === "web" ? "Live walk" : "None";
   $("dailyWalkBtn").textContent = s.walking ? "Hold to stop" : (s.kind === "native" ? "Start walk" : "Start live walk");
   if (s.msg) $("dailyStatus").textContent = s.msg;
@@ -4023,7 +4033,7 @@ if (daily) {
   ["visibilitychange", "focus", "pageshow"].forEach((ev) => (ev === "visibilitychange" ? document : window).addEventListener(ev, () => { if (!document.hidden) daily.checkDay(); }));
   // App: the native plugin paints dailyCount itself on resume, then calls this hook; route it through the same
   // day guard and repaint, so a total carried over from yesterday never sticks on screen.
-  window.__zabbaApplySteps = (r) => { try { daily.applyNativeReading(r || {}); $("dailyCount").textContent = daily.state().steps.toLocaleString(); if (typeof paintPlayEarn10k === "function") paintPlayEarn10k(daily.state().steps); } catch (e) {} };
+  window.__zabbaApplySteps = (r) => { try { daily.applyNativeReading(r || {}); $("dailyCount").textContent = daily.state().steps.toLocaleString(); } catch (e) {} };
   // Foreground refresh (daily-steps.js): visible / focus / pageshow / Capacitor App resume re-read the phone total and post it via postDaily (native source only).
   DS.bindForegroundEvents(window, daily, dailyFg.run);
 }
