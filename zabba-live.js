@@ -9,9 +9,11 @@
  *     { seat, sid, offer, vIce: [..], answer, cIce: [..], full, by (viewer uid or null), createdAt, updatedAt, expireAt }
  *   The VIEWER creates the doc with a recvonly SDP offer and appends its ICE candidates (vIce, one per write); only the
  *   BROADCASTER of that seat writes answer / cIce / full. expireAt (createdAt + 2 h) is for a Firestore TTL policy (cleanup).
- * ICE: public STUN only. TURN hook: set window.ZABBA_LIVE_TURN = [{ urls: "turn:...", username, credential }] (or
- * ZabbaLive.config.turn) before going live. WITHOUT TURN some networks (symmetric NAT, many cellular carriers, strict
- * corporate wifi) cannot connect at all; the tile then shows "Couldn't connect".
+ * ICE: Google public STUN + Cloudflare TURN relay. Before creating any RTCPeerConnection, loadTurn() POSTs to
+ * /.netlify/functions/turn-creds (short-lived Cloudflare Realtime TURN credentials, ~2 h; waits at most TURN_TIMEOUT_MS)
+ * and the result is merged after STUN. If that fails or returns [], it is STUN only, and some networks (symmetric NAT,
+ * many cellular carriers, strict corporate wifi) cannot connect; the tile then shows "Couldn't connect". Manual override:
+ * window.ZABBA_LIVE_TURN = [{ urls, username, credential }] or ZabbaLive.config.turn (used instead of the fetched list).
  * Overlay hook: ZabbaLive.hooks.sourceTrack(stream) picks the video track to send (default: the camera track). A later PFP
  * overlay can return canvas.captureStream(24).getVideoTracks()[0]; caster.setTrack(track) swaps it live for every viewer.
  * Browser: window.ZabbaLive. Node: require("./zabba-live.js"). Signaling adapter + RTCPeerConnection are injected (tests).
@@ -26,6 +28,7 @@
     // Public STUN works for most home wifi. For symmetric NAT / cellular, add a TURN relay here (or set
     // window.ZABBA_LIVE_TURN before going live). Never commit paid TURN credentials; use short-lived ones from a function.
     turn: null, // e.g. [{ urls: ["turn:turn.example.com:3478?transport=udp", "turns:turn.example.com:443"], username: "u", credential: "p" }]
+    turnUrl: "/.netlify/functions/turn-creds", // short-lived Cloudflare TURN credentials (netlify/functions/turn-creds.js); "" = off
     // ============================================================================================================
   };
   const ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -42,9 +45,38 @@
     const c = m ? normCode(m[1]) : ""; return isValidCode(c) ? c : "";
   }
   const liveLinkFor = (code, origin) => (origin || "https://zabbadat.com") + "/?live=" + code + "#zabbaLive";
+  /* fetched TURN list (turn-creds), reused until TURN_REFRESH_MS (credentials live 2 h) */
+  const TURN_TIMEOUT_MS = 3000, TURN_REFRESH_MS = 90 * 60 * 1000, TURN_RETRY_MS = 60000;
+  const turnState = { list: null, at: 0, p: null };
   function iceServers(extra) {
-    const t = extra || config.turn || (root && root.ZABBA_LIVE_TURN) || null;
+    const t = extra || config.turn || (root && root.ZABBA_LIVE_TURN) || turnState.list || null;
     return STUN.concat(Array.isArray(t) ? t : t ? [t] : []);
+  }
+  function turnEndpoint() {
+    const u = config.turnUrl; if (!u) return "";
+    const proto = root && root.location && root.location.protocol;
+    // bundled Capacitor page (capacitor://localhost): relative URLs don't reach Netlify
+    return /^\//.test(u) && proto && !/^https?:$/.test(proto) ? "https://zabbadat.com" + u : u;
+  }
+  /* Resolves (never rejects) within TURN_TIMEOUT_MS with the TURN servers to add after STUN ([] = STUN only).
+   * opts: { fetch, now, timeoutMs } (tests). Concurrent callers share one request. */
+  function loadTurn(opts = {}) {
+    const now = opts.now || (() => Date.now()), f = opts.fetch || (root && root.fetch && root.fetch.bind(root));
+    if (config.turn || (root && root.ZABBA_LIVE_TURN)) return Promise.resolve(iceServers().slice(STUN.length));
+    if (turnState.list && now() - turnState.at < (turnState.list.length ? TURN_REFRESH_MS : TURN_RETRY_MS)) return Promise.resolve(turnState.list);
+    if (turnState.p) return turnState.p;
+    const url = turnEndpoint();
+    if (!url || typeof f !== "function") return Promise.resolve([]);
+    const ac = root && typeof root.AbortController === "function" ? new root.AbortController() : null;
+    let timer = null;
+    const done = (list) => { clearTimeout(timer); turnState.list = list; turnState.at = now(); turnState.p = null; return list; };
+    const req = Promise.resolve().then(() => f(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", cache: "no-store", signal: ac ? ac.signal : undefined }))
+      .then((r) => (r && r.ok ? r.json() : null))
+      .then((d) => (d && Array.isArray(d.iceServers) ? d.iceServers.filter((x) => x && x.urls && (!Array.isArray(x.urls) || x.urls.length)) : []))
+      .catch(() => []);
+    const to = new Promise((r) => { timer = setTimeout(() => { try { ac && ac.abort(); } catch (e) {} r([]); }, opts.timeoutMs || TURN_TIMEOUT_MS); });
+    turnState.p = Promise.race([req, to]).then(done, () => done([]));
+    return turnState.p;
   }
   const pidOk = (s) => typeof s === "string" && new RegExp("^[A-Za-z0-9]{" + PID_LEN + "}$").test(s);
   const sidOk = (s) => typeof s === "string" && new RegExp("^[A-Za-z0-9]{" + SID_LEN + "}$").test(s);
@@ -141,6 +173,9 @@
         p = { q: queue(), nIce: 0, closed: false, full: false }; peers.set(id, p);
         if (d.full || d.answer) { p.closed = true; return; } // someone else's / stale
         if (count() > MAX_VIEWERS) { p.full = true; p.q(() => sig.updatePeer(code, id, { full: true, updatedAt: sig.ts() })); viewers(); return; }
+        p.last = d; viewers();
+        await loadTurn(opts.turn);
+        if (p.closed || !peers.has(id) || peers.get(id) !== p) return;
         const pc = new RTC({ iceServers: iceServers() }); p.pc = pc; p.sentIce = 0;
         pc.onicecandidate = (e) => { if (e.candidate && e.candidate.candidate && !p.closed && p.sentIce < ICE_COUNT) { p.sentIce++; const s = iceStr(e.candidate); if (iceOk(s)) p.q(() => sig.updatePeer(code, id, { cIce: sig.append(s), updatedAt: sig.ts() })); } };
         pc.onconnectionstatechange = () => { const s = pc.connectionState; clearTimeout(p.dt);
@@ -153,11 +188,12 @@
           limitBitrate(p.sender);
           const ans = await pc.createAnswer(); await pc.setLocalDescription(ans);
           p.ready = true; await sig.updatePeer(code, id, { answer: pc.localDescription ? pc.localDescription.sdp : ans.sdp, updatedAt: sig.ts() });
-          addIce(p, d);
+          addIce(p);
         });
         viewers(); return;
       }
       if (p.pc && !p.closed) p.q(async () => addIce(p, d));
+      else if (!p.closed && d) p.last = d; // still waiting for TURN: keep the newest snapshot (viewer ICE) for addIce
     }
     async function addIce(p, d) { if (d) p.last = d; if (!p.ready) return; d = p.last; const l = (d && d.vIce) || []; while (p.nIce < l.length) { const c = iceObj(l[p.nIce++]); if (c) { try { await p.pc.addIceCandidate(c); } catch (e) {} } } p.last = d; }
     function limitBitrate(sender) { try { if (!sender || !sender.getParameters) return; const prm = sender.getParameters(); if (!prm.encodings || !prm.encodings.length) prm.encodings = [{}]; prm.encodings[0].maxBitrate = MAX_KBPS * 1000; const r = sender.setParameters(prm); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
@@ -165,6 +201,7 @@
       if (code) await stop();
       code = o.code; seat = o.seat; uid = o.uid; facing = o.facing || "environment"; sid = randId(SID_LEN, opts.rand);
       track = hooks.sourceTrack(o.stream); if (!track) throw new Error("No camera video to send.");
+      loadTurn(opts.turn); // warm the TURN credentials before the first viewer arrives
       await sig.setCaster(code, String(seat), { uid, live: true, sid, facing, updatedAt: sig.ts() });
       off = sig.watchPeers(code, seat, sid, (list) => { list.forEach((x) => onPeer(x.id, x.data)); });
       beat = setInterval(() => { if (code) sig.setCaster(code, String(seat), { uid, live: true, sid, facing, updatedAt: sig.ts() }).catch(() => {}); }, HEARTBEAT_MS);
@@ -197,6 +234,9 @@
     function close(i) { const s = seats[i]; if (!s) return; s.dead = true; if (s.off) s.off(); try { s.pc && s.pc.close(); } catch (e) {} clearTimeout(s.retry); seats[i] = null; try { opts.onStream && opts.onStream(i, null); } catch (e) {} }
     async function connect(i, sid, tries) {
       close(i);
+      const ph = { pending: true, sid, state: "connecting", dead: false }; seats[i] = ph; state(i, "connecting");
+      await loadTurn(opts.turn);
+      if (seats[i] !== ph) return; // closed or superseded while waiting for TURN
       const pid = randId(PID_LEN, opts.rand), q = queue(), pc = new RTC({ iceServers: iceServers() });
       const s = { pid, sid, pc, q, nIce: 0, created: false, pending: [], dead: false, tries: tries | 0, state: "connecting" }; seats[i] = s; state(i, "connecting");
       pc.addTransceiver("video", { direction: "recvonly" });
@@ -217,7 +257,7 @@
           if (!s.answered) return; const l = d.cIce || []; while (s.nIce < l.length) { const c = iceObj(l[s.nIce++]); if (c) { try { await pc.addIceCandidate(c); } catch (e) {} } } }); });
     }
     function watch(c) {
-      stop(); code = c;
+      stop(); code = c; loadTurn(opts.turn);
       [0, 1].forEach((i) => { offs[i] = sig.watchCaster(code, String(i), (doc) => {
         if (opts.skip && opts.skip(i, code)) { if (seats[i]) close(i); state(i, casterLive(doc, now(), sig.toMs) ? "self" : "offline"); return; }
         const live = casterLive(doc, now(), sig.toMs);
@@ -231,7 +271,7 @@
     return { watch, stop, refresh, get code() { return code; }, _seats: seats };
   }
   const api = { CODE_LEN, MAX_VIEWERS, MAX_KBPS, SDP_MAX, ICE_MAX, ICE_COUNT, PID_LEN, SID_LEN, STALE_MS, HEARTBEAT_MS, PEER_TTL_MS, STUN, PEER_KEYS, config, hooks,
-    randId, normCode, isValidCode, liveCodeFromUrl, liveLinkFor, iceServers, pidOk, sidOk, sdpOk, iceOk, iceStr, iceObj, casterLive, newPeer, checkWrite, publicView, caster, viewer };
+    randId, normCode, isValidCode, liveCodeFromUrl, liveLinkFor, iceServers, loadTurn, turnState, TURN_TIMEOUT_MS, pidOk, sidOk, sdpOk, iceOk, iceStr, iceObj, casterLive, newPeer, checkWrite, publicView, caster, viewer };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.ZabbaLive = api;
 })(typeof window !== "undefined" ? window : null);
