@@ -1734,6 +1734,12 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn danger" id="dailyResetBtn" type="button">Reset</button>
     </div>
     <div class="card" id="tenKBonus" style="margin-top:1rem"><h3>Ten thousand steps. Breathe, stride, collect.</h3><p>Hit 10K in a day and stack a 4 <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> bonus on top of every step you've earned.</p></div>
+    <h3 style="margin-top:1.6rem">Daily Earn Steps Board</h3>
+    <p class="lead">Top steps today.</p>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>Steps</th><th>Source</th></tr></thead>
+      <tbody id="dailyBoardBody"><tr><td colspan="4">Waiting for walkers…</td></tr></tbody>
+    </table>
     <div class="card" id="userDash" style="margin-top:1rem">
       <h3>Your dashboard</h3>
       <p class="note" id="userDashSignIn">Sign in to track your 10K days</p>
@@ -1754,12 +1760,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Steps</th></tr></thead>
       <tbody id="walkBoardBody"><tr><td colspan="4">Waiting for walkers…</td></tr></tbody>
-    </table>
-    <h3 style="margin-top:1.6rem">Daily Earn Steps Board</h3>
-    <p class="lead">Top steps today.</p>
-    <table>
-      <thead><tr><th>#</th><th>Player</th><th>Steps</th><th>Source</th></tr></thead>
-      <tbody id="dailyBoardBody"><tr><td colspan="4">Waiting for walkers…</td></tr></tbody>
     </table>
   </section>
 
