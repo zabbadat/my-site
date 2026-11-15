@@ -40,6 +40,24 @@ check("empty / junk keypoints -> null, no throw", PF.faceCircle([]) === null && 
   check("tracker holds the last spot ~1 s, enlarged, then clears", a && b && b.held && b.r > a.r && Math.abs(b.x - a.x) < 1e-9 && d === null);
   tr.reset(); tr.step(face, 0); const moved = K({ nose: [420, 200], left_eye: [400, 185], right_eye: [440, 185], left_ear: [380, 195], right_ear: [460, 195] });
   const m = tr.step(moved, 33); check(`tracker smooths position (moved 100 px -> ${m && (m.x - 320).toFixed(0)} px step)`, m && m.x > 330 && m.x < 410); }
+// Follow speed (Nov 15): One Euro + latency lead. Fast moves follow in ~1 frame, a still head stays steady, no runaway lead.
+{ const F = (x, n) => K({ nose: [x + n(), 210 + n()], left_eye: [x - 20 + n(), 200 + n()], right_eye: [x + 20 + n(), 200 + n()], left_ear: [x - 40 + n(), 208 + n()], right_ear: [x + 40 + n(), 208 + n()] });
+  let sd = 7; const rnd = () => ((sd = (sd * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff - 0.5) * 4, z = () => 0;
+  const tr = PF.createTracker(); let t = 0; for (; t < 1000; t += 66) tr.step(F(320, z), t, 640, 480);
+  let n = 0, c; do { c = tr.step(F(420, z), t, 640, 480); t += 66; n++; } while (n < 10 && (c.x - 320) < 90);
+  check(`tracker: a quick 100 px move reaches 90% in ${n} frame(s) at 15 fps (old EMA took 3)`, n <= 2);
+  const st = PF.createTracker(); let prev = null, sum = 0, k = 0; for (t = 0; t < 4000; t += 66) { const s = st.step(F(320, rnd), t, 640, 480); if (t > 1000 && prev) { sum += Math.hypot(s.x - prev.x, s.y - prev.y); k++; } prev = s; }
+  check(`tracker: still head with ±2 px keypoint noise moves ${(sum / k).toFixed(2)} px/frame (< 1.5)`, sum / k < 1.5);
+  const ld = PF.createTracker(); for (t = 0; t < 1000; t += 33) ld.step(F(320 + t * 0.4, z), t, 640, 480, t + 1000); const lc = ld.step(F(720, z), 1000, 640, 480, 1100);
+  check(`tracker: lead is capped at ${PF.P.leadCap} r (ahead ${(lc.x - 720).toFixed(1)} px, r ${lc.r.toFixed(0)})`, lc.x - 720 <= PF.P.leadCap * lc.r + 1e-6 && lc.x > 720);
+  const sp = PF.createTracker(); for (t = 0; t < 1000; t += 33) sp.step(F(320 + t * 0.4, z), t, 640, 480, t + 50); for (; t < 1400; t += 33) c = sp.step(F(720, z), t, 640, 480, t + 50);
+  check(`tracker: after the head stops the lead is gone (off by ${(c.x - 720).toFixed(2)} px)`, Math.abs(c.x - 720) < 1);
+  const noDraw = PF.createTracker(); noDraw.step(F(320, z), 0, 640, 480); const nd = noDraw.step(F(320, z), 33, 640, 480); check("tracker: no draw time -> no lead (old callers unchanged)", Math.abs(nd.x - 320) < 1e-9); }
+// Side-on (plank / plank push press from the side): shoulders overlap, so the head goes on the body line, not a tiny circle.
+{ const so = PF.headCircle(K({ left_shoulder: [200, 250], right_shoulder: [205, 252], left_hip: [380, 270], right_hip: [383, 271] }), 640, 480);
+  check(`side-on, no face: head past the shoulder on the hip->shoulder line (x ${so && so.x.toFixed(0)}, r ${so && so.r.toFixed(0)}, ${so && so.src})`, so && so.src === "side" && so.x < 200 && so.r > 30);
+  const fr = PF.headCircle(K({ left_shoulder: [240, 300], right_shoulder: [400, 300], left_hip: [260, 480], right_hip: [380, 480] }), 640, 480);
+  check("front-on shoulders still use the shoulder estimate", fr && fr.src === "shoulders" && Math.abs(fr.x - 320) < 1e-9); }
 { const fill = PF.mapToBox({ x: 320, y: 240, r: 40 }, 640, 480, 320, 240, "fill"), cont = PF.mapToBox({ x: 0, y: 0, r: 10 }, 640, 480, 400, 400, "contain");
   check("mapToBox: fill scales, contain letterboxes", fill.x === 160 && fill.y === 120 && fill.r === 20 && cont.x === 0 && Math.abs(cont.y - 50) < 1e-9 && cont.r === 6.25); }
 
