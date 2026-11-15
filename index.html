@@ -1439,6 +1439,12 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <thead><tr><th>Player</th><th>Today</th><th>Best day</th><th>All-time</th></tr></thead>
       <tbody id="tutBoardBody"><tr><td colspan="4">Waiting for sets…</td></tr></tbody>
     </table>
+    <h3 style="margin-top:1.6rem" id="tutAllBoardTitle">All-time TUT sets</h3>
+    <p class="fine">Every player's completed TUT sets (1:20 with at least 10 push-ups), all time, most first. Sets done signed out stay on that phone and aren't counted.</p>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>TUT sets</th></tr></thead>
+      <tbody id="tutAllBoardBody"><tr><td colspan="3">Waiting for sets…</td></tr></tbody>
+    </table>
     <h3 style="margin-top:1.6rem">Your time under tension</h3>
     <p class="fine">Saved on this phone for the signed-in player (or guest).</p>
     <div class="stats">
@@ -2890,6 +2896,17 @@ function paintTutRows(rows) {
   body.innerHTML = people.length
     ? people.map((p) => `<tr><td>${escapeHtml(publicName(p.name))}</td><td>${p.today}</td><td>${p.bestDay}</td><td>${p.allTime}</td></tr>`).join("")
     : `<tr><td colspan="4">No TUT sets completed yet.</td></tr>`;
+}
+// All-time TUT sets board: every completed TUT set ever posted (query: all pushups docs with tutMs >= 80000, no limit),
+// counted per player with ZabbadatSession.tutAllTime (1:20 + 10 push-ups), most first, ties share a rank.
+function paintTutAllRows(rows) {
+  const body = $("tutAllBoardBody");
+  if (!body) return;
+  if (rows == null) { body.innerHTML = `<tr><td colspan="3">Board unavailable right now.</td></tr>`; return; }
+  const ranked = window.ZabbadatSession.tutAllTime(rows, 50);
+  body.innerHTML = ranked.length
+    ? ranked.map((p) => `<tr><td>${p.rank}</td><td>${escapeHtml(publicName(p.name))}</td><td>${p.sets}</td></tr>`).join("")
+    : `<tr><td colspan="3">No TUT sets completed yet.</td></tr>`;
 }
 // ET midnight: repaint so Today's column resets; best day and all-time stay.
 if (typeof setInterval === "function" && typeof document !== "undefined") setInterval(() => { if (paintTutRows.last && paintTutRows.day !== tutDayOf({ at: Date.now() })) paintTutRows(paintTutRows.last); }, 60000);
@@ -5662,7 +5679,15 @@ const tutRowsOf = (snap) => snap.docs.map((d) => {
   const at = x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : 0;
   return { name: x.name, xHandle: x.xHandle || "", uid: x.uid || "", reps: x.reps, ms: x.ms, tutMs: x.tutMs || 0, category: x.category, holdMs: x.holdMs, at, when };
 });
-boardSnap("tutBoardBody", query(collection(db, "pushups"), orderBy("createdAt", "desc"), limit(300)), (snap) => paintTutRows(tutRowsOf(snap)), () => paintTutRows(localPush().slice().reverse()));
+// TRUE all-time (no 300 cap): One long set docs store tutMs = the full set time, so tutMs >= 80000 is every pushups doc that
+// reached 1:20, i.e. every possible completed TUT set (the 10 push-up rule is applied by isTutSetDoc). Single-field inequality =
+// automatic index, existing signed-in read rule; reads = only those docs. Both boards use this same query (the SDK shares one
+// listener for identical queries): drop your tuts (Today / Best day / All-time, so Best day and All-time are kept forever) and
+// the All-time TUT sets ranking. Newest first client-side, so drop your tuts keeps people in order of their latest set.
+const tutAllQ = query(collection(db, "pushups"), where("tutMs", ">=", 80000));
+const tutAllRowsOf = (snap) => tutRowsOf(snap).sort((a, b) => (b.at || 9e15) - (a.at || 9e15)); // pending (unsaved) sets first
+boardSnap("tutBoardBody", tutAllQ, (snap) => paintTutRows(tutAllRowsOf(snap)), () => paintTutRows(localPush().slice().reverse()));
+boardSnap("tutAllBoardBody", tutAllQ, (snap) => paintTutAllRows(tutAllRowsOf(snap)), () => paintTutAllRows(null));
 // Plank board: longest hold first.
 const plankRowsOf = (snap) => snap.docs.map((d) => { const x = d.data(); return { name: x.name, xHandle: x.xHandle || "", ms: x.ms, when: x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "" }; });
 boardSnap("plankBoardBody", query(collection(db, "planks"), orderBy("ms", "desc"), limit(80)), (snap) => paintPlankRows(plankRowsOf(snap)), () => paintPlankRows(localPlanks()));

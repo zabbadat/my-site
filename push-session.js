@@ -348,6 +348,25 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
   }
   // Lifetime completed TUT sets for one uid.
   function tutLifetime(rows, uid) { var n = 0; (rows || []).forEach(function (r) { if (r && (!uid || r.uid === uid) && isTutSetDoc(r)) n++; }); return n; }
+  // All-time TUT sets board (owner, Nov 14): completed TUT sets per person across ALL pushups docs (the page reads every
+  // One long set doc with tutMs >= 80000, no limit; this filters with isTutSetDoc so 1:20 + 10 push-ups is the one rule).
+  // One row per uid (rows without a uid are skipped: every posted set is signed in). Name = that person's latest name.
+  // Ranked by sets, most first; ties share a rank (1, 1, 3) and sort by name. -> [{ rank, uid, name, sets }]
+  function tutAllTime(rows, n) {
+    var by = {}, list = [];
+    (rows || []).forEach(function (r) {
+      if (!r || !r.uid || !isTutSetDoc(r)) return;
+      var p = by[r.uid];
+      if (!p) { p = by[r.uid] = { uid: r.uid, name: r.name || "Player", sets: 0, at: -1 }; list.push(p); }
+      p.sets++;
+      var at = Number(r.at) || 0;
+      if (at >= p.at) { p.at = at; if (r.name) p.name = r.name; }
+    });
+    list.sort(function (a, b) { return b.sets - a.sets || String(a.name).localeCompare(String(b.name)) || (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0); });
+    var out = list.slice(0, n || 50);
+    out.forEach(function (p, i) { p.rank = i > 0 && p.sets === out[i - 1].sets ? out[i - 1].rank : i + 1; delete p.at; });
+    return out;
+  }
   // Today's completed TUT sets per person. dayOf(row) -> day key (ET), today = today's key. Keeps row order (newest first
   // when rows come newest first); people in order of their latest set. -> [{ key, uid, name, sets: [{ ms, reps }] }]
   function tutDaily(rows, dayOf, today) {
@@ -381,7 +400,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     });
     return out.map(function (p) { return { key: p.key, uid: p.uid, name: p.name, today: p.today, bestDay: p.bestDay, allTime: p.allTime }; });
   }
-  var api = { TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
+  var api = { TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);
