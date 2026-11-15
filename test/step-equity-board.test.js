@@ -6,7 +6,7 @@ const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
 let pass = 0, fail = 0;
 const check = (n, ok) => { ok ? pass++ : fail++; console.log((ok ? "PASS " : "FAIL ") + n); };
 
-const steps = (html.match(/<section id="steps">[\s\S]*?<\/section>/) || [""])[0];
+const steps = (html.match(/<section id="steps"[^>]*>[\s\S]*?<\/section>/) || [""])[0];
 const tutCss = html.slice(html.indexOf("/* Drop your tuts:"), html.indexOf("#push #tut-board"));
 check("Daily Earn cabinet shares the Drop Your Tuts arcade selectors", /#tut-board, #dailyStepBoard \{/.test(html) && /#dailyStepBoard table/.test(html) && /#dailyStepBoard th/.test(html) && /#dailyStepBoard td/.test(html) && /#dailyStepBoard h3/.test(html));
 check("cabinet chrome (gold/cyan/pink pulse, Press Start 2P) applies to #dailyStepBoard", /#tut-board, #dailyStepBoard \{/.test(tutCss + html.slice(html.indexOf("#tut-board, #dailyStepBoard"), html.indexOf("#tut-board h2"))) && /Press Start 2P/.test(html) && /#steps #dailyStepBoard/.test(html));

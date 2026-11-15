@@ -10,7 +10,7 @@ check("entry card exists once", !!m && html.split('id="washerBattleEntry"').leng
 check("heading is 'Zabba Washer Battle'", /<h3>Zabba Washer Battle<\/h3>/.test(sec));
 const a = sec.match(/<a class="btn" id="washerBattleEntryBtn" href="#washerbattle">Play a Zabba Washer Battle<\/a>/);
 check("button 'Play a Zabba Washer Battle' links to #washerbattle", !!a);
-check("target section #washerbattle exists", /<section id="washerbattle">/.test(html));
+check("target section #washerbattle exists", /<section id="washerbattle"[^>]*>/.test(html));
 check("order: single-player game section, then the Live board table, then the entry, all inside the board section", iPlay > 0 && iPlay < iBoard && iBoard < iTable && iTable < iEntry && iEntry < iBoardEnd);
 check("entry comes right after the board table (nothing between)", html.slice(iTable + 8, iEntry).replace(/<div class="card" $/, "").trim() === "<" || /<\/table>\s*<div class="card" id="washerBattleEntry"/.test(html));
 check("no new section added (entry is not its own section)", !/<section[^>]*washerBattleEntry/.test(html));

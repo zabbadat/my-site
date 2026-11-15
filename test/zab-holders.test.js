@@ -41,7 +41,7 @@ check("'ok' with no usable rows falls back to the empty state", /No ZAB holders 
 check("no location text in the scoreboard copy", !/jersey|yardley|south nj/i.test(Z.holdersHtml("empty") + Z.holdersHtml("error") + Z.holdersHtml("signedout")));
 
 // ---- placement in the page (index.html #zab), above Recent earnings
-const s = html.indexOf('<section id="zab">'), sec = html.slice(s, html.indexOf("</section>", s));
+const s = html.search(/<section id="zab"[^>]*>/), sec = html.slice(s, html.indexOf("</section>", s));
 const at = (needle) => sec.indexOf(needle);
 check("scoreboard is inside the ZAB section, after the ZAB heading and balance", at('id="ztHolders"') > at("<h2>") && at('id="ztHolders"') > at('id="ztBalance"') && at('id="ztHolders"') > 0);
 check("scoreboard comes ABOVE the 'Recent earnings' heading and its table", at('id="ztHolders"') < at("<h3>Recent earnings</h3>") && at('id="ztHolders"') < at('id="ztTxBody"'));

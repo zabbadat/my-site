@@ -972,6 +972,50 @@ nav > .pfp-row[hidden]{display:none}
 .home-games a{flex-direction:column;align-items:flex-start;justify-content:space-between;gap:.6rem}
 .home-games .tile-ic{width:60px;height:60px;color:#fff;flex:0 0 auto}
 .home-games + .hero{padding-top:2.4rem}
+
+    /* Play and Earn: tabbed shell for ZAB, Washer Battle, Steps, TUT Battles, Plank House, Battles. */
+    #live-cameras { padding: 0 8% 1.2rem; }
+    @media (max-width: 700px) { #live-cameras { padding-left: 6%; padding-right: 6%; } }
+    #live-cameras .card { margin-top: 1rem; }
+    #play-and-earn { padding-top: 2.4rem; }
+    #play-and-earn .pe-chrome {
+      position: sticky; top: var(--navh, 4.5rem); z-index: 6;
+      background: var(--bg, #0e1412);
+      padding: .2rem 0 .55rem;
+      margin: 0 0 .3rem;
+    }
+    #play-and-earn .pe-chrome h2 { margin: 0 0 .7rem; }
+    #play-and-earn > section[role="tabpanel"] {
+      padding-left: 0; padding-right: 0; padding-top: 1.8rem; padding-bottom: 2.4rem;
+      background-image: none;
+    }
+    #play-and-earn > section[role="tabpanel"][hidden] { display: none !important; }
+    .pe-10k { margin: 0 0 1.1rem; }
+    .pe-10k-main {
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+      text-decoration: none; color: inherit;
+      background: var(--card, #1b2723); border: 1px solid rgba(198,255,0,.35);
+      border-radius: 16px; padding: .85rem 1rem; box-shadow: 0 0 22px rgba(198,255,0,.12);
+    }
+    .pe-10k-count { display: flex; flex-direction: column; min-width: 7rem; }
+    .pe-10k-count b { font-family: 'Outfit', sans-serif; font-weight: 600; font-variant-numeric: tabular-nums; font-size: clamp(1.6rem, 6vw, 2.2rem); line-height: 1.1; }
+    .pe-10k-count span, .pe-10k-label { color: var(--muted); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; }
+    .pe-10k-goal { flex: 1 1 12rem; min-width: 10rem; }
+    .pe-10k-track { display: block; height: .7rem; border-radius: 999px; background: rgba(143,191,168,.15); overflow: hidden; border: 1px solid rgba(198,255,0,.28); margin-bottom: .4rem; }
+    .pe-10k-track i { display: block; height: 100%; width: 0; background: var(--grad, linear-gradient(90deg,#c6ff00,#ff8a00,#ff2e93)); border-radius: inherit; }
+    .pe-tabs {
+      display: flex; gap: .4rem; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      margin: 0 0 .4rem; padding: .15rem 0 .4rem; scrollbar-width: thin;
+    }
+    .pe-tabs [role="tab"] {
+      flex: 0 0 auto; font: inherit; font-weight: 600; font-size: .88rem; cursor: pointer;
+      padding: .55rem .9rem; border-radius: 999px; border: 1px solid rgba(239,244,241,.22);
+      background: transparent; color: var(--text); white-space: nowrap;
+    }
+    .pe-tabs [role="tab"][aria-selected="true"] {
+      background: var(--accent); color: #0e1412; border-color: transparent;
+    }
+
 </style>
 </head>
 <body>
@@ -1488,7 +1532,73 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
   </section>
 
-  <section id="zab">
+    <div id="live-cameras">
+    <div class="card zm" id="zabbaMatch">
+      <h3>Live Match: play a friend on camera</h3>
+      <p class="note">Two phones, anywhere. Throw real washers on camera while you both watch the video, then score your own pack of 3: Bank 5, Shoot 3, Box-bound 2, Out 0. Turns alternate, 45 seconds a turn, first to 21 after equal turns. No step tracking.</p>
+      <p class="note" id="zmSignIn"><a href="#play">Sign in</a> to start or join a live match.</p>
+      <div id="zmStart" hidden>
+        <div class="row"><button class="btn" id="zmCreate" type="button">Play a friend</button></div>
+        <div class="row"><input id="zmCode" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="K7QX2" aria-label="Match code" style="max-width:9.5rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="zmJoin" type="button">Join match</button></div>
+      </div>
+      <div id="zmGame" hidden>
+        <div class="zm-code-row"><div class="battle-code" id="zmCodeShow">-----</div><button class="btn ghost" id="zmShare" type="button">Share link</button></div>
+        <div class="zm-banner" id="zmBanner" aria-live="polite"><span class="zm-ph" id="zmBannerPh"></span><span class="zm-banner-text" id="zmBannerText">…</span><b class="zm-timer" id="zmTimer"></b></div>
+        <div class="zm-seats" id="zmSeats"></div>
+        <div id="zmCamBox" class="zm-cam-box" hidden>
+          <div class="row"><button class="btn ghost" id="zmCamBtn" type="button" aria-pressed="false">Camera</button><button class="btn ghost" id="zmCamFacing" type="button" hidden>Front camera</button></div>
+          <label class="pfp-row zm-pfp-row" id="zmShowPfpRow" for="zmShowPfp" title="Same setting as Enable profile - PFP at the top. When on, your profile picture (or the Zabbadat logo) floats above your head here, follows you, and shows in recordings. Off turns all of that off."><input type="checkbox" id="zmShowPfp" role="switch" aria-checked="true" checked><span class="pfp-sw" aria-hidden="true"></span><span class="pfp-lbl">Show my PFP</span><span class="pfp-hint">Picture floats above your head</span></label>
+          <div class="zm-cam" id="zmCamWrap" hidden><video id="zmCamVid" autoplay playsinline muted></video><canvas id="zmCamOverlay"></canvas></div>
+          <p class="note" id="zmCamNote">Local preview only. Video never leaves this phone. Tracks one person (the most confident in the frame). Accuracy drops at a distance or with your back turned.</p>
+        </div>
+        <div id="zmPad" hidden>
+          <div class="zm-slots" id="zmSlots" aria-label="Your pack of 3"></div>
+          <div class="zm-keys" role="group" aria-label="Score a washer"><button class="btn" type="button" data-zm="5">Bank 5</button><button class="btn" type="button" data-zm="3">Shoot 3</button><button class="btn" type="button" data-zm="2">Box-bound 2</button><button class="btn ghost" type="button" data-zm="0">Out 0</button></div>
+          <div class="row"><button class="btn ghost" id="zmUndo" type="button">Undo</button><button class="btn" id="zmSubmit" type="button" disabled>Submit pack</button></div>
+        </div>
+        <div id="zmTheirPack" class="note" hidden></div>
+        <div class="row"><button class="btn" id="zmClaim" type="button" hidden>Time's up: take the turn</button></div>
+        <ol class="zm-log" id="zmLog"></ol>
+        <div class="row"><button class="btn danger" id="zmForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="zmCancel" type="button" hidden>Cancel match</button><button class="btn ghost" id="zmLeave" type="button" hidden>Close</button></div>
+        <div id="zmLiveSlot" class="zl-cast" hidden><!-- Live tab: this player's camera to viewers (zabba-live.js) -->
+          <p class="note" id="zlCastHelp">Go live so your opponent and anyone with the code can watch your throws. Prop the phone behind you, tilted at the board. Video goes straight to viewers (peer to peer) and is never recorded or uploaded to us.</p>
+          <div class="row"><button class="btn" id="zlGoLive" type="button">Go live</button><button class="btn ghost" id="zlFlip" type="button" hidden>Switch camera</button><button class="btn ghost" id="zlStop" type="button" hidden>Stop live</button><button class="btn ghost" id="zlWatchBoth" type="button">Watch both cameras</button></div>
+          <video class="zl-self" id="zlSelf" playsinline muted autoplay hidden></video>
+          <p class="note" id="zlCastNote" aria-live="polite"></p>
+        </div>
+      </div>
+      <p class="note" id="zmStatus" aria-live="polite"></p>
+    </div>
+    <div class="card zl" id="zabbaLive">
+      <h3>Watch Live: both cameras, live score</h3>
+      <p class="note">Enter a Live Match code to watch both players' cameras with the score, round and turn updating live. No sign-in needed. Video goes straight from each player's phone to you and is never recorded.</p>
+      <div class="row" id="zlPick"><input id="zlCode" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="K7QX2" aria-label="Match code to watch" style="max-width:9.5rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn" id="zlWatch" type="button">Watch</button></div>
+      <div id="zlStage" hidden>
+        <div class="zm-code-row"><div class="battle-code" id="zlCodeShow">-----</div><button class="btn ghost" id="zlShare" type="button">Share watch link</button><button class="btn ghost" id="zlStopWatch" type="button">Stop watching</button></div>
+        <div class="zm-banner" aria-live="polite"><span class="zm-banner-text" id="zlBannerText">…</span><b class="zm-timer" id="zlTimer"></b></div>
+        <div class="zl-tiles"><div class="zl-tile" id="zlTile0"><video id="zlVid0" playsinline muted autoplay></video><span class="zl-state" id="zlState0">Offline</span><div class="zl-over"><span class="zm-ph" id="zlPh0"></span><span class="zl-name" id="zlName0">Player 1</span><b class="zl-score" id="zlScore0">0</b></div></div><div class="zl-tile" id="zlTile1"><video id="zlVid1" playsinline muted autoplay></video><span class="zl-state" id="zlState1">Offline</span><div class="zl-over"><span class="zm-ph" id="zlPh1"></span><span class="zl-name" id="zlName1">Player 2</span><b class="zl-score" id="zlScore1">0</b></div></div></div>
+      </div>
+      <p class="note" id="zlStatus" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <section id="play-and-earn">
+    <div class="pe-chrome">
+    <h2>Play and Earn</h2>
+    <div class="pe-10k" id="playEarn10k">
+      <a class="pe-10k-main" href="#steps">
+        <span class="pe-10k-count"><b id="playEarnSteps">0</b><span>Steps today</span></span>
+        <span class="pe-10k-goal">
+          <span class="pe-10k-track" aria-hidden="true"><i id="playEarn10kFill"></i></span>
+          <span class="pe-10k-label" id="playEarn10kLabel"><span id="playEarn10kText">0 / 10,000 · 4 </span><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></span>
+        </span>
+      </a>
+    </div>
+    <div class="pe-tabs" role="tablist" aria-label="Play and Earn">
+      <button type="button" role="tab" id="pe-tab-zab" aria-controls="zab" aria-selected="false" tabindex="-1">ZAB</button><button type="button" role="tab" id="pe-tab-washerbattle" aria-controls="washerbattle" aria-selected="false" tabindex="-1">Washer Battle</button><button type="button" role="tab" id="pe-tab-steps" aria-controls="steps" aria-selected="true" tabindex="0">Steps</button><button type="button" role="tab" id="pe-tab-tutbattles" aria-controls="tutbattles" aria-selected="false" tabindex="-1">TUT Battles</button><button type="button" role="tab" id="pe-tab-plank" aria-controls="plank" aria-selected="false" tabindex="-1">Plank House</button><button type="button" role="tab" id="pe-tab-battles" aria-controls="battles" aria-selected="false" tabindex="-1">Battles</button>
+    </div>
+    </div> <!-- pe-chrome -->
+<section id="zab" role="tabpanel" aria-labelledby="pe-tab-zab" hidden>
     <h2><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></h2>
     <p class="lead">Earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> for the work you log.</p>
     <div class="stats"><div class="stat"><span class="zt-bag-label" id="ztBagLabel">ZAB bag</span><span class="zt-bal-row"><b id="ztBalance">—</b><a class="zt-send-tab" id="ztSendTab" href="#play" aria-label="Send Zab">Send <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a></span><span>Your balance</span></div></div>
@@ -1505,8 +1615,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <h3>Recent earnings</h3>
     <table><thead><tr><th>Source</th><th><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></th><th>Activity</th><th>When</th></tr></thead><tbody id="ztTxBody"><tr><td colspan="4">Sign in to see your earnings.</td></tr></tbody></table>
   </section>
-
-  <section id="washerbattle">
+<section id="washerbattle" role="tabpanel" aria-labelledby="pe-tab-washerbattle" hidden>
     <h2>Zabba Washer Battle</h2>
     <p class="lead">One on one, or two teams of two, phone to phone, Bariboshi style. No video: you pitch at your own box and report each pitch, your opponent confirms or disputes, and the first to 21 wins. Make an arena, share the code, everyone taps ready, and a shared countdown starts the match. Pick 1v1 or 2v2: in 2v2 the team score is the sum of both teammates' packs, and the first team to 21 wins. The opening pitch (closest to the cup goes first), then rounds of one pack of 3 washers each, scored Bank 5, Shoot 3, Box-bound 2, Out 0. Your phone counts your steps as an optional extra. Forfeit, leave, or go silent for 30 seconds and your opponent wins. Optional ZAB wager: set the amount when you make the room, both players put in the same amount, and the winner takes the pot. See the <a href="/rules">official regulations</a>.</p>
     <p class="note" id="wbSignIn"><a href="#play">Sign in</a> to create or join a Zabba Washer Battle, with an optional ZAB wager.</p>
@@ -1580,56 +1689,57 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="row"><button class="btn" id="wbReady" type="button" hidden>I'm ready</button><a class="btn ghost" id="wbToGame" href="#play" hidden>Game controls</a><button class="btn danger" id="wbForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="wbLeave" type="button">Leave</button></div>
     </div>
     <p class="note" id="wbStatus" aria-live="polite"></p>
-    <div class="card zm" id="zabbaMatch">
-      <h3>Live Match: play a friend on camera</h3>
-      <p class="note">Two phones, anywhere. Throw real washers on camera while you both watch the video, then score your own pack of 3: Bank 5, Shoot 3, Box-bound 2, Out 0. Turns alternate, 45 seconds a turn, first to 21 after equal turns. No step tracking.</p>
-      <p class="note" id="zmSignIn"><a href="#play">Sign in</a> to start or join a live match.</p>
-      <div id="zmStart" hidden>
-        <div class="row"><button class="btn" id="zmCreate" type="button">Play a friend</button></div>
-        <div class="row"><input id="zmCode" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="K7QX2" aria-label="Match code" style="max-width:9.5rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="zmJoin" type="button">Join match</button></div>
-      </div>
-      <div id="zmGame" hidden>
-        <div class="zm-code-row"><div class="battle-code" id="zmCodeShow">-----</div><button class="btn ghost" id="zmShare" type="button">Share link</button></div>
-        <div class="zm-banner" id="zmBanner" aria-live="polite"><span class="zm-ph" id="zmBannerPh"></span><span class="zm-banner-text" id="zmBannerText">…</span><b class="zm-timer" id="zmTimer"></b></div>
-        <div class="zm-seats" id="zmSeats"></div>
-        <div id="zmCamBox" class="zm-cam-box" hidden>
-          <div class="row"><button class="btn ghost" id="zmCamBtn" type="button" aria-pressed="false">Camera</button><button class="btn ghost" id="zmCamFacing" type="button" hidden>Front camera</button></div>
-          <label class="pfp-row zm-pfp-row" id="zmShowPfpRow" for="zmShowPfp" title="Same setting as Enable profile - PFP at the top. When on, your profile picture (or the Zabbadat logo) floats above your head here, follows you, and shows in recordings. Off turns all of that off."><input type="checkbox" id="zmShowPfp" role="switch" aria-checked="true" checked><span class="pfp-sw" aria-hidden="true"></span><span class="pfp-lbl">Show my PFP</span><span class="pfp-hint">Picture floats above your head</span></label>
-          <div class="zm-cam" id="zmCamWrap" hidden><video id="zmCamVid" autoplay playsinline muted></video><canvas id="zmCamOverlay"></canvas></div>
-          <p class="note" id="zmCamNote">Local preview only. Video never leaves this phone. Tracks one person (the most confident in the frame). Accuracy drops at a distance or with your back turned.</p>
-        </div>
-        <div id="zmPad" hidden>
-          <div class="zm-slots" id="zmSlots" aria-label="Your pack of 3"></div>
-          <div class="zm-keys" role="group" aria-label="Score a washer"><button class="btn" type="button" data-zm="5">Bank 5</button><button class="btn" type="button" data-zm="3">Shoot 3</button><button class="btn" type="button" data-zm="2">Box-bound 2</button><button class="btn ghost" type="button" data-zm="0">Out 0</button></div>
-          <div class="row"><button class="btn ghost" id="zmUndo" type="button">Undo</button><button class="btn" id="zmSubmit" type="button" disabled>Submit pack</button></div>
-        </div>
-        <div id="zmTheirPack" class="note" hidden></div>
-        <div class="row"><button class="btn" id="zmClaim" type="button" hidden>Time's up: take the turn</button></div>
-        <ol class="zm-log" id="zmLog"></ol>
-        <div class="row"><button class="btn danger" id="zmForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="zmCancel" type="button" hidden>Cancel match</button><button class="btn ghost" id="zmLeave" type="button" hidden>Close</button></div>
-        <div id="zmLiveSlot" class="zl-cast" hidden><!-- Live tab: this player's camera to viewers (zabba-live.js) -->
-          <p class="note" id="zlCastHelp">Go live so your opponent and anyone with the code can watch your throws. Prop the phone behind you, tilted at the board. Video goes straight to viewers (peer to peer) and is never recorded or uploaded to us.</p>
-          <div class="row"><button class="btn" id="zlGoLive" type="button">Go live</button><button class="btn ghost" id="zlFlip" type="button" hidden>Switch camera</button><button class="btn ghost" id="zlStop" type="button" hidden>Stop live</button><button class="btn ghost" id="zlWatchBoth" type="button">Watch both cameras</button></div>
-          <video class="zl-self" id="zlSelf" playsinline muted autoplay hidden></video>
-          <p class="note" id="zlCastNote" aria-live="polite"></p>
-        </div>
-      </div>
-      <p class="note" id="zmStatus" aria-live="polite"></p>
-    </div>
-    <div class="card zl" id="zabbaLive">
-      <h3>Watch Live: both cameras, live score</h3>
-      <p class="note">Enter a Live Match code to watch both players' cameras with the score, round and turn updating live. No sign-in needed. Video goes straight from each player's phone to you and is never recorded.</p>
-      <div class="row" id="zlPick"><input id="zlCode" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="K7QX2" aria-label="Match code to watch" style="max-width:9.5rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn" id="zlWatch" type="button">Watch</button></div>
-      <div id="zlStage" hidden>
-        <div class="zm-code-row"><div class="battle-code" id="zlCodeShow">-----</div><button class="btn ghost" id="zlShare" type="button">Share watch link</button><button class="btn ghost" id="zlStopWatch" type="button">Stop watching</button></div>
-        <div class="zm-banner" aria-live="polite"><span class="zm-banner-text" id="zlBannerText">…</span><b class="zm-timer" id="zlTimer"></b></div>
-        <div class="zl-tiles"><div class="zl-tile" id="zlTile0"><video id="zlVid0" playsinline muted autoplay></video><span class="zl-state" id="zlState0">Offline</span><div class="zl-over"><span class="zm-ph" id="zlPh0"></span><span class="zl-name" id="zlName0">Player 1</span><b class="zl-score" id="zlScore0">0</b></div></div><div class="zl-tile" id="zlTile1"><video id="zlVid1" playsinline muted autoplay></video><span class="zl-state" id="zlState1">Offline</span><div class="zl-over"><span class="zm-ph" id="zlPh1"></span><span class="zl-name" id="zlName1">Player 2</span><b class="zl-score" id="zlScore1">0</b></div></div></div>
-      </div>
-      <p class="note" id="zlStatus" aria-live="polite"></p>
-    </div>
   </section>
-
-  <section id="tutbattles">
+<section id="steps" role="tabpanel" aria-labelledby="pe-tab-steps">
+    <h2>Step Equity</h2>
+    <p class="lead" id="stepsLead">Step Equity: stopping posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk, put the phone in your pocket and walk: the page keeps the screen awake and locked, and steps count from the pocket. Same login as washers.</p>
+    <div class="stats duo session-hud" id="stepsHud">
+      <div class="stat"><b id="dailyCount">0</b><span>Steps today</span></div>
+      <div class="stat"><b id="walkClock">00:00</b><span>Session time</span></div>
+      <div class="stat"><b id="walkSteps">0</b><span>Session steps</span></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="dailyWalkBtn" type="button">Start live walk</button>
+      <button class="btn danger" id="dailyResetBtn" type="button">Reset</button>
+    </div>
+    <div class="card" id="tenKBonus" style="margin-top:1rem"><h3>Ten thousand steps. Breathe, stride, collect.</h3><p>Hit 10K in a day and stack a 4 <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> bonus on top of every step you've earned.</p></div>
+    <div class="washers" id="dailyStepBoard">
+      <h3>Daily Earn Steps Board</h3>
+      <p class="lead">Top steps today.</p>
+      <table>
+        <thead><tr><th>#</th><th>Player</th><th>Steps</th></tr></thead>
+        <tbody id="dailyBoardBody"><tr><td colspan="3">Waiting for walkers…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card" id="userDash" style="margin-top:1rem">
+      <h3>Your dashboard</h3>
+      <p class="note" id="userDashSignIn">Sign in to track your 10K days</p>
+      <div id="userDashBody" hidden></div>
+    </div>
+    <p class="note" id="dailyStatus" aria-live="polite">Signed-in totals post to the daily board. Unsigned stays on this phone.</p>
+    <p class="note" id="stepsDebug" hidden></p>
+    <h3 style="margin-top:1.6rem">Live walk sessions</h3>
+    <p class="lead" id="walkLead">Start a live walk and the session clock runs. Stop it to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap. Hiding the page pauses the clock; hidden over 2 minutes ends the session.</p>
+    <div class="stats">
+      <div class="stat"><b id="dailySource">—</b><span>Source</span></div>
+    </div>
+    <p class="note" id="walkStatus" aria-live="polite">Signed-in sessions post to the board. Signed out, your session time stays on this phone.</p>
+    <div class="row">
+      <button class="btn ghost" id="walkAllBtn" type="button" aria-pressed="true">All-time top 20</button>
+      <button class="btn ghost" id="walkTodayBtn" type="button" aria-pressed="false">Today</button>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Steps</th></tr></thead>
+      <tbody id="walkBoardBody"><tr><td colspan="4">Waiting for walkers…</td></tr></tbody>
+    </table>
+    <h3 style="margin-top:1.6rem" id="stepAllBoardTitle">Step Equity scoreboard</h3>
+    <p class="lead" id="stepAllBoardSub">All-time steps. Every player's total, most first. Steps walked signed out stay on that phone and aren't counted.</p>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>Total steps</th></tr></thead>
+      <tbody id="stepAllBoardBody"><tr><td colspan="3">Waiting for walkers…</td></tr></tbody>
+    </table>
+  </section>
+<section id="tutbattles" role="tabpanel" aria-labelledby="pe-tab-tutbattles" hidden>
     <h2>TUT Battles</h2>
     <p class="lead" data-app-copy='[["each top hold counts for at most 10 seconds", "each plank push press counts for at most 10 seconds"]]'>Three minutes, head to head. Both tap ready, a shared countdown ("Set up, go on three. One, two, three, go.") starts the clock, then a 3:00 clock runs on both phones and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Drop a knee or leave the frame for 10 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins (then more reps; still tied is a draw). Video never uploads. Optional ZAB wager: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. A tie refunds both stakes, and leaving or 30 seconds of silence counts as a forfeit.</p>
     <p class="note" id="tbSignIn"><a href="#play">Sign in</a> to create or join a TUT battle.</p>
@@ -1658,8 +1768,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <tbody id="tbRankBody"><tr><td colspan="6">Waiting for battles…</td></tr></tbody>
     </table>
   </section>
-
-  <section id="plank">
+<section id="plank" role="tabpanel" aria-labelledby="pe-tab-plank" hidden>
     <h2>Plank House</h2>
     <p class="lead">Longest good plank in the House wins. The camera times your hold. Same login as washers and pushups. Honor system. Not a form judge and not medical treatment.</p>
     <p class="note" id="plankSetup"><b>Set up:</b> Prop your phone on the floor, off to your side, sideways or upright. Step back until the dashed outline shows your whole body, head to heels, and turn so the camera sees your side.<br>Clock starts when you start a proper plank.</p>
@@ -1710,8 +1819,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <tbody id="plankDailyBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
     </table>
   </section>
-
-  <section id="battles">
+<section id="battles" role="tabpanel" aria-labelledby="pe-tab-battles" hidden>
     <h2>Plank Battles</h2>
     <p class="lead">Challenge a friend to a plank, phone to phone. Make a room, share the 4-letter code, and you both get the same countdown. Hold from GO; when you drop, tap I dropped. Last one holding wins. Forfeit or leave and your opponent wins. Keep this page open: switching away marks your hold unverified. Honor system. Optional ZAB wager: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. With a wager, the longest hold wins, holds within 1 second are a draw and both stakes come back, and 30 seconds of silence counts as a forfeit.</p>
     <p class="note" id="battleSignIn"><a href="#play">Sign in</a> to create or join a battle.</p>
@@ -1733,56 +1841,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
     <p class="note" id="battleStatus" aria-live="polite"></p>
   </section>
-
-  <section id="steps">
-    <h2>Step Equity</h2>
-    <p class="lead" id="stepsLead">Step Equity: stopping posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk, put the phone in your pocket and walk: the page keeps the screen awake and locked, and steps count from the pocket. Same login as washers.</p>
-    <div class="stats duo session-hud" id="stepsHud">
-      <div class="stat"><b id="dailyCount">0</b><span>Steps today</span></div>
-      <div class="stat"><b id="walkClock">00:00</b><span>Session time</span></div>
-      <div class="stat"><b id="walkSteps">0</b><span>Session steps</span></div>
-    </div>
-    <div class="row">
-      <button class="btn" id="dailyWalkBtn" type="button">Start live walk</button>
-      <button class="btn danger" id="dailyResetBtn" type="button">Reset</button>
-    </div>
-    <div class="card" id="tenKBonus" style="margin-top:1rem"><h3>Ten thousand steps. Breathe, stride, collect.</h3><p>Hit 10K in a day and stack a 4 <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> bonus on top of every step you've earned.</p></div>
-    <div class="washers" id="dailyStepBoard">
-      <h3>Daily Earn Steps Board</h3>
-      <p class="lead">Top steps today.</p>
-      <table>
-        <thead><tr><th>#</th><th>Player</th><th>Steps</th></tr></thead>
-        <tbody id="dailyBoardBody"><tr><td colspan="3">Waiting for walkers…</td></tr></tbody>
-      </table>
-    </div>
-    <div class="card" id="userDash" style="margin-top:1rem">
-      <h3>Your dashboard</h3>
-      <p class="note" id="userDashSignIn">Sign in to track your 10K days</p>
-      <div id="userDashBody" hidden></div>
-    </div>
-    <p class="note" id="dailyStatus" aria-live="polite">Signed-in totals post to the daily board. Unsigned stays on this phone.</p>
-    <p class="note" id="stepsDebug" hidden></p>
-    <h3 style="margin-top:1.6rem">Live walk sessions</h3>
-    <p class="lead" id="walkLead">Start a live walk and the session clock runs. Stop it to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap. Hiding the page pauses the clock; hidden over 2 minutes ends the session.</p>
-    <div class="stats">
-      <div class="stat"><b id="dailySource">—</b><span>Source</span></div>
-    </div>
-    <p class="note" id="walkStatus" aria-live="polite">Signed-in sessions post to the board. Signed out, your session time stays on this phone.</p>
-    <div class="row">
-      <button class="btn ghost" id="walkAllBtn" type="button" aria-pressed="true">All-time top 20</button>
-      <button class="btn ghost" id="walkTodayBtn" type="button" aria-pressed="false">Today</button>
-    </div>
-    <table>
-      <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Steps</th></tr></thead>
-      <tbody id="walkBoardBody"><tr><td colspan="4">Waiting for walkers…</td></tr></tbody>
-    </table>
-    <h3 style="margin-top:1.6rem" id="stepAllBoardTitle">Step Equity scoreboard</h3>
-    <p class="lead" id="stepAllBoardSub">All-time steps. Every player's total, most first. Steps walked signed out stay on that phone and aren't counted.</p>
-    <table>
-      <thead><tr><th>#</th><th>Player</th><th>Total steps</th></tr></thead>
-      <tbody id="stepAllBoardBody"><tr><td colspan="3">Waiting for walkers…</td></tr></tbody>
-    </table>
   </section>
+
 
   <section class="washers" id="league">
     <h2>League night</h2>
@@ -1996,7 +2056,108 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 const TARGET = 21;
 // Washers: spoken score after each scoring tap (cancels any queued callout; silent fallback).
 const scoreVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? window.ZabbadatGetSet.makeRepVoice() : null;
+
 const $ = (id) => document.getElementById(id);
+// Play and Earn tabs: CSS-hide panels (never remove them). Default tab is Steps.
+const PE_TABS = ["zab", "washerbattle", "steps", "tutbattles", "plank", "battles"];
+function paintPlayEarn10k(steps) {
+  const n = Math.max(0, Math.floor(Number(steps) || 0));
+  const count = $("playEarnSteps"), fill = $("playEarn10kFill"), lab = $("playEarn10kLabel");
+  if (count) count.textContent = n.toLocaleString();
+  if (fill) fill.style.width = Math.min(100, (n / 10000) * 100) + "%";
+  const text = $("playEarn10kText");
+  if (text) text.textContent = n >= 10000 ? "10K hit · 4 " : (n.toLocaleString() + " / 10,000 · 4 ");
+}
+function peShowTab(id, opts) {
+  if (PE_TABS.indexOf(id) < 0) return false;
+  opts = opts || {};
+  PE_TABS.forEach((tid) => {
+    const panel = $(tid), tab = $("pe-tab-" + tid), on = tid === id;
+    if (panel) { panel.hidden = !on; if (on) panel.removeAttribute("hidden"); else panel.setAttribute("hidden", ""); }
+    if (tab) { tab.setAttribute("aria-selected", on ? "true" : "false"); tab.tabIndex = on ? 0 : -1; }
+  });
+  if (opts.focusTab) { const t = $("pe-tab-" + id); if (t) t.focus(); }
+  if (opts.scroll) {
+    const el = opts.scrollEl || $("play-and-earn") || $(id);
+    if (el) {
+      const go = () => {
+        const navh = parseFloat((document.documentElement && getComputedStyle(document.documentElement).getPropertyValue("--navh")) || "72") || 72;
+        const y = el.getBoundingClientRect().top + (window.scrollY || 0) - navh - 8;
+        window.scrollTo({ top: Math.max(0, y), behavior: opts.smooth ? "smooth" : "auto" });
+      };
+      go();
+      if (!opts.smooth) { setTimeout(go, 50); setTimeout(go, 200); }
+    }
+  }
+  return true;
+}
+function peHashName(hash) {
+  const raw = String(hash || "").replace(/^#/, "");
+  if (!raw) return "";
+  return raw.split("&")[0].split("?")[0].split("=")[0];
+}
+function peTabFor(name) {
+  if (!name) return "";
+  if (PE_TABS.indexOf(name) >= 0) return name;
+  if (name === "play-and-earn" || name === "playEarn10k") return "steps";
+  const el = document.getElementById(name);
+  if (!el) return "";
+  const panel = el.closest && el.closest(PE_TABS.map((id) => "#" + id).join(","));
+  return panel ? panel.id : "";
+}
+function peApplyHash(opts) {
+  const name = peHashName(location.hash);
+  if (name === "live" || name === "zabbaMatch" || name === "zabbaLive" || name === "live-cameras") return; // live cameras stay above the tabs
+  const tab = peTabFor(name);
+  if (tab) {
+    const deep = name && name !== tab && name !== "play-and-earn" && name !== "playEarn10k" && document.getElementById(name);
+    peShowTab(tab, Object.assign({ scrollEl: deep || $("play-and-earn") }, opts || {}));
+  } else if (!name) peShowTab("steps", { scroll: false });
+}
+document.addEventListener("click", (e) => {
+  const tabBtn = e.target.closest && e.target.closest("#play-and-earn [role='tab']");
+  if (tabBtn && tabBtn.id) {
+    const id = tabBtn.getAttribute("aria-controls");
+    if (id) {
+      e.preventDefault();
+      peShowTab(id, { focusTab: true, scroll: false });
+      if (history && history.replaceState) history.replaceState(null, "", "#" + id);
+      else location.hash = id;
+    }
+    return;
+  }
+  const a = e.target.closest && e.target.closest("a[href^='#']");
+  if (!a) return;
+  const href = a.getAttribute("href") || "";
+  const name = peHashName(href);
+  const tab = peTabFor(name);
+  if (!tab) return;
+  e.preventDefault();
+  const deep = name && name !== tab && name !== "play-and-earn" && name !== "playEarn10k" && document.getElementById(name);
+  peShowTab(tab, { scroll: true, smooth: false, scrollEl: deep || $("play-and-earn") });
+  if (history && history.replaceState) history.replaceState(null, "", "#" + name);
+  else location.hash = name;
+}, true);
+document.addEventListener("keydown", (e) => {
+  const t = e.target.closest && e.target.closest("#play-and-earn [role='tab']");
+  if (!t) return;
+  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft" && e.key !== "Home" && e.key !== "End") return;
+  const tabs = PE_TABS.map((id) => $("pe-tab-" + id)).filter(Boolean);
+  let i = tabs.indexOf(t);
+  if (i < 0) return;
+  e.preventDefault();
+  if (e.key === "Home") i = 0;
+  else if (e.key === "End") i = tabs.length - 1;
+  else i = (i + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+  const id = tabs[i].getAttribute("aria-controls");
+  peShowTab(id, { focusTab: true });
+  if (history && history.replaceState) history.replaceState(null, "", "#" + id);
+});
+window.peShowTab = peShowTab; window.peApplyHash = peApplyHash;
+window.addEventListener("hashchange", () => peApplyHash({ scroll: true, smooth: true }));
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => peApplyHash({ scroll: !!peHashName(location.hash) }));
+else peApplyHash({ scroll: !!peHashName(location.hash) });
+
 const configured = firebaseConfig.apiKey !== "PASTE_API_KEY";
 
 const state = { score: 0, steps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false };
@@ -3773,7 +3934,7 @@ function dailyNewDay() {
   try { if (currentUser) boardsOnUser(currentUser); } catch (e) {} // boards re-query with today's date key
 }
 const daily = DS ? DS.createController(window, { onDayChange: () => dailyNewDay(), onChange: (s) => {
-  $("dailyCount").textContent = s.steps.toLocaleString();
+  $("dailyCount").textContent = s.steps.toLocaleString(); if (typeof paintPlayEarn10k === "function") paintPlayEarn10k(s.steps);
   $("dailySource").textContent = s.kind === "native" ? "Phone" : s.kind === "web" ? "Live walk" : "None";
   $("dailyWalkBtn").textContent = s.walking ? "Hold to stop" : (s.kind === "native" ? "Start walk" : "Start live walk");
   if (s.msg) $("dailyStatus").textContent = s.msg;
@@ -3862,7 +4023,7 @@ if (daily) {
   ["visibilitychange", "focus", "pageshow"].forEach((ev) => (ev === "visibilitychange" ? document : window).addEventListener(ev, () => { if (!document.hidden) daily.checkDay(); }));
   // App: the native plugin paints dailyCount itself on resume, then calls this hook; route it through the same
   // day guard and repaint, so a total carried over from yesterday never sticks on screen.
-  window.__zabbaApplySteps = (r) => { try { daily.applyNativeReading(r || {}); $("dailyCount").textContent = daily.state().steps.toLocaleString(); } catch (e) {} };
+  window.__zabbaApplySteps = (r) => { try { daily.applyNativeReading(r || {}); $("dailyCount").textContent = daily.state().steps.toLocaleString(); if (typeof paintPlayEarn10k === "function") paintPlayEarn10k(daily.state().steps); } catch (e) {} };
   // Foreground refresh (daily-steps.js): visible / focus / pageshow / Capacitor App resume re-read the phone total and post it via postDaily (native source only).
   DS.bindForegroundEvents(window, daily, dailyFg.run);
 }

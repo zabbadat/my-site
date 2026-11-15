@@ -2,7 +2,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert');
 const ZT=require('../zab-balance.js');
 const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 let n=0;const ok=(c,m)=>{assert(c,m);n++;};
-const s=html.indexOf('<section id="zab">'),sec=html.slice(s,html.indexOf('</section>',s));
+const s=html.search(/<section id="zab"[^>]*>/),sec=html.slice(s,html.indexOf('</section>',s));
 ok(s>0,'ZAB section present');
 ok(/<h2><span class="zab">ZAB<svg class="zab-ring"[^>]*aria-hidden="true"[\s\S]*?<\/svg><\/span><\/h2>/.test(sec),'heading is ZAB + ring');
 ok(/<nav>[\s\S]*<a href="#zab"><span class="zab">ZAB<svg class="zab-ring"[\s\S]*?<\/a>[\s\S]*<\/nav>/.test(html),'nav link is ZAB + ring');
