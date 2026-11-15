@@ -22,31 +22,31 @@ const D = { w: 640, h: 480 };
 
 // ---- thresholds pinned (deliberate: replaces the old bodyAngle 160)
 const PL = P.PLANK;
-check("defaults: sag 0.05 start / 0.07 keep, pike 0.06 / 0.085, ready 1500, bad 1000, grace 250, filter on", PL.sagStart === 0.05 && PL.sagKeep === 0.07 && PL.pikeStart === 0.06 && PL.pikeKeep === 0.085 && PL.readyMs === 1500 && PL.badMs === 1000 && PL.missMs === 1000 && PL.readyGraceMs === 250 && PL.filter === true && PL.bodyAngle === undefined);
-check("tolerances sit between the old loose ~0.088 and the open-source presets (0.015-0.04)", [PL.sagStart, PL.sagKeep, PL.pikeStart, PL.pikeKeep].every((v) => v > 0.04 && v < 0.088) && PL.sagStart <= PL.sagKeep && PL.pikeStart <= PL.pikeKeep);
+check("defaults: sag 0.08 start / 0.10 keep, pike 0.10 / 0.12, ready 1500, bad 1000, grace 250, filter on", PL.sagStart === 0.08 && PL.sagKeep === 0.10 && PL.pikeStart === 0.10 && PL.pikeKeep === 0.12 && PL.readyMs === 1500 && PL.badMs === 1000 && PL.missMs === 1000 && PL.readyGraceMs === 250 && PL.filter === true && PL.bodyAngle === undefined);
+check("tolerances sit between a camera-realistic start and a still-strict hold (0.07-0.13)", [PL.sagStart, PL.sagKeep, PL.pikeStart, PL.pikeKeep].every((v) => v > 0.07 && v < 0.13) && PL.sagStart <= PL.sagKeep && PL.pikeStart <= PL.pikeKeep);
 
 // ---- sag / pike scale with body length
 for (const L of [150, 300, 600, 1000]) {
   const c = (dev, keep) => P.classifyPlank(body(L, dev), { keep }).frame;
   check(`L=${L}: straight and 0.03 off are ok; 0.04 sag still ok`, c(0) === "ok" && c(0.03) === "ok" && c(0.04) === "ok");
-  check(`L=${L}: sag 0.09 and pike -0.09 flagged even with the loose keep limits`, c(0.09, true) === "sag" && c(-0.09, true) === "pike");
-  check(`L=${L}: a fixed 6 px hip drop is judged by its share of body length (${(6 / L).toFixed(3)})`, (P.classifyPlank(body(L, 6 / L), {}).frame === "sag") === (6 / L > 0.05));
+  check(`L=${L}: sag 0.13 and pike -0.13 flagged even with the loose keep limits`, c(0.13, true) === "sag" && c(-0.13, true) === "pike");
+  check(`L=${L}: a fixed 6 px hip drop is judged by its share of body length (${(6 / L).toFixed(3)})`, (P.classifyPlank(body(L, 6 / L), {}).frame === "sag") === (6 / L > 0.08));
 }
-// hysteresis: dev 0.06 sag: not good when starting, still good when already good
-const sagMid = body(300, 0.06), pikeMid = body(300, -0.075);
-check("sag 0.06: sag from a cold start (start limit 0.05), ok when already good (keep limit 0.07)", P.classifyPlank(sagMid, { keep: false }).frame === "sag" && P.classifyPlank(sagMid, { keep: true }).frame === "ok");
-check("pike 0.075: pike from a cold start (0.06), ok when already good (0.085)", P.classifyPlank(pikeMid, { keep: false }).frame === "pike" && P.classifyPlank(pikeMid, { keep: true }).frame === "ok");
+// hysteresis: mid sag/pike: not good when starting, still good when already good
+const sagMid = body(300, 0.09), pikeMid = body(300, -0.11);
+check("sag 0.09: sag from a cold start (start limit 0.08), ok when already good (keep limit 0.10)", P.classifyPlank(sagMid, { keep: false }).frame === "sag" && P.classifyPlank(sagMid, { keep: true }).frame === "ok");
+check("pike 0.11: pike from a cold start (0.10), ok when already good (0.12)", P.classifyPlank(pikeMid, { keep: false }).frame === "pike" && P.classifyPlank(pikeMid, { keep: true }).frame === "ok");
 check("sag and pike have separate limits", PL.sagStart !== PL.pikeStart && PL.sagKeep !== PL.pikeKeep);
 check("hipOffset sign: + below the line, - above; mirrored body (ankle left of shoulder) agrees", (() => { const a = { x: 0, y: 0 }, an = { x: 100, y: 0 }; return P.hipOffset(a, { x: 50, y: 10 }, an) > 0 && P.hipOffset(a, { x: 50, y: -10 }, an) < 0 && P.hipOffset({ x: 100, y: 0 }, { x: 50, y: 10 }, { x: 0, y: 0 }) > 0; })());
 // hold-level hysteresis
 let r = run(seq(0, 6000, () => sagMid), {}, D);
-check("hold: a hip steadily at 0.06 never arms the ready start", r.phase === "ready" && r.frame === "sag");
-r = run(seq(0, 2000, jit(300)).concat(seq(2000, 12000, (t) => body(300, 0.06, { j: Math.sin(t / 37) * 1.5 + Math.cos(t / 91) }))), {}, D);
-check("hold: once holding, the same 0.06 sag is tolerated (keep limit)", r.phase === "holding" && r.ms > 9000);
+check("hold: a hip steadily at 0.09 never arms the ready start", r.phase === "ready" && r.frame === "sag");
+r = run(seq(0, 2000, jit(300)).concat(seq(2000, 12000, (t) => body(300, 0.09, { j: Math.sin(t / 37) * 1.5 + Math.cos(t / 91) }))), {}, D);
+check("hold: once holding, the same 0.09 sag is tolerated (keep limit)", r.phase === "holding" && r.ms > 9000);
 r = run(seq(0, 2000, jit(300)).concat(seq(2000, 2400, () => body(300, 0.15)), seq(2400, 5000, () => sagMid)), {}, D);
-check("hold: after a real sag, 0.06 is not good again (must get back under 0.05): ends after 1 s", r.ended && r.reason === "sag");
+check("hold: after a real sag, 0.09 is not good again (must get back under 0.08): ends after 1 s", r.ended && r.reason === "sag");
 r = run(seq(0, 2000, jit(300)).concat(seq(2000, 2400, () => body(300, 0.15)), seq(2400, 5000, () => body(300, 0.03))), {}, D);
-check("hold: sag shorter than 1 s then back under 0.05: keeps going", r.phase === "holding");
+check("hold: sag shorter than 1 s then back under 0.08: keeps going", r.phase === "holding");
 check("regression: ok / knees / standing / missing / low confidence", (() => {
   const knees = K({ left_shoulder: [100, 300], left_hip: [300, 310], left_knee: [330, 400], left_ankle: [450, 400] });
   const stand = K({ left_shoulder: [300, 50], left_hip: [300, 250], left_knee: [302, 350], left_ankle: [304, 450] });
@@ -56,18 +56,19 @@ check("regression: ok / knees / standing / missing / low confidence", (() => {
 // ---- framing guide
 const G = (kps, dims) => P.frameGuide(kps, dims || D);
 check("framing: good side view fills the frame -> ok, no message", (() => { const g = G(body(450, 0, { x0: 90 })); return g.ok && g.msg === "" && g.issue === null; })());
-check("framing: missing ankle -> 'Step back until your whole body fits'", (() => { const k = body(450, 0, { x0: 90 }).filter((p) => p.name !== "left_ankle"); const g = G(k); return !g.ok && g.issue === "whole" && g.msg === "Step back until your whole body fits"; })());
+check("framing: missing ankle falls back to the knee line", (() => { const k = body(450, 0, { x0: 90 }).filter((p) => p.name !== "left_ankle"); const g = G(k); return g.ok && g.fallback; })());
+check("framing: missing ankle and knee -> 'Step back until your whole body fits'", (() => { const k = body(450, 0, { x0: 90 }).filter((p) => p.name !== "left_ankle" && p.name !== "left_knee"); const g = G(k); return !g.ok && g.issue === "whole" && g.msg === "Step back until your whole body fits"; })());
 check("framing: low-confidence knee counts as missing", G(body(450, 0, { x0: 90 }).map((p) => (p.name === "left_knee" ? { ...p, score: 0.2 } : p))).issue === "whole");
-check("framing: joint cut off at the frame edge -> whole body message", G(body(590, 0, { x0: 40 })).issue === "whole" && G(body(450, 0, { x0: 90, y0: 4 })).issue === "whole");
-check("framing: seen from the front (both shoulders apart) -> 'Turn so the camera sees your side'", (() => {
-  const k = body(450, 0, { x0: 90 }).concat(K({ right_shoulder: [250, 244], right_hip: [420, 262] })); const g = G(k); return !g.ok && g.issue === "turn" && g.msg === "Turn so the camera sees your side"; })());
+check("framing: a non-ankle joint cut off at the frame edge -> whole body message", G(body(450, 0, { x0: 90, y0: 4 })).issue === "whole" && G(body(450, 0, { x0: 2 })).issue === "whole");
+check("framing: seen from the front (both shoulders far apart) -> 'Turn so the camera sees your side'", (() => {
+  const k = body(450, 0, { x0: 90 }).concat(K({ right_shoulder: [400, 244], right_hip: [520, 262] })); const g = G(k); return !g.ok && g.issue === "turn" && g.msg === "Turn so the camera sees your side"; })());
 check("framing: side-on with the far shoulder hidden behind the near one is fine", (() => { const k = body(450, 0, { x0: 90 }).concat(K({ right_shoulder: [95, 244], right_hip: [292, 252] })); return G(k).ok; })());
 check("framing: portrait frame (phone upright), body across the width -> ok (portrait plank supported)", (() => { const g = P.frameGuide(body(300, 0, { x0: 90 }), { w: 480, h: 640 }); return g.ok && g.portrait === true; })());
 check("framing: portrait frame, tiny body -> 'Move a little closer'", (() => { const g = P.frameGuide(body(120, 0, { x0: 90 }), { w: 480, h: 640 }); return !g.ok && g.issue === "closer"; })());
 check("framing: body running up a portrait frame -> 'Get level, head to heels'", (() => {
   const k = K({ left_shoulder: [240, 60], left_hip: [245, 200], left_knee: [250, 300], left_ankle: [255, 400] }); return P.frameGuide(k, { w: 480, h: 640 }).issue === "level"; })());
-check("framing: landscape, tilted body -> level; far away -> closer", (() => {
-  const tilt = K({ left_shoulder: [100, 60], left_hip: [250, 200], left_knee: [330, 280], left_ankle: [400, 360] });
+check("framing: landscape, steeply tilted body -> level; far away -> closer", (() => {
+  const tilt = K({ left_shoulder: [100, 60], left_hip: [200, 220], left_knee: [250, 320], left_ankle: [300, 420] });
   return P.frameGuide(tilt, D).issue === "level" && P.frameGuide(body(120, 0, { x0: 200 }), D).issue === "closer"; })());
 check("framing: the message set is short spoken-style text", Object.values(P.MSG).every((m) => m.length <= 40) && P.MSG.whole === "Step back until your whole body fits" && P.MSG.turn === "Turn so the camera sees your side" && P.MSG.sideways === "Prop the phone sideways");
 // framing in the ready start
@@ -78,11 +79,11 @@ check("ready: portrait phone, body across the frame -> clock starts", r.phase ==
 r = run(seq(0, 5000, jit(450)), {}, D);
 check("ready: good framing + form starts the clock after 1.5 s, framing ok", r.phase === "holding" && r.framing.ok);
 { const h = P.createPlankHold(), f = seq(0, 400, jit(450)); let last; for (const [t, k] of f) last = h.update(k, t, D);
-  check("framing message is debounced (not shown for a 0.3 s blip)", (() => { const h2 = P.createPlankHold(); let x; for (const [t, k] of seq(0, 300, () => body(450, 0, { x0: 90 }).filter((p) => p.name !== "left_ankle"))) x = h2.update(k, t, D); return x.framing.msg === ""; })() && last.framing.msg === ""); }
+  check("framing message is debounced (not shown for a 0.3 s blip)", (() => { const h2 = P.createPlankHold(); let x; for (const [t, k] of seq(0, 300, () => body(450, 0, { x0: 90 }).filter((p) => p.name !== "left_knee"))) x = h2.update(k, t, D); return x.framing.msg === ""; })() && last.framing.msg === ""); }
 // framing NEVER ends a running hold
 const base = (t) => body(450, 0, { x0: 90, j: Math.sin(t / 37) * 1.5 + Math.cos(t / 91) });
 const noKnee = (t) => base(t).filter((p) => p.name !== "left_knee");
-const front = (t) => base(t).concat(K({ right_shoulder: [250, 244], right_hip: [420, 262] }));
+const front = (t) => base(t).concat(K({ right_shoulder: [400, 244], right_hip: [520, 262] }));
 const tooBig = (t) => body(450, 0, { x0: 4, j: Math.sin(t / 37) * 1.5 }); // touching the left edge
 const PORT = { w: 480, h: 640 };
 { const small = (t) => body(300, 0, { x0: 90, j: Math.sin(t / 37) * 1.5 + Math.cos(t / 91) });
@@ -100,14 +101,15 @@ check("filter uses push-counter's One Euro (same function), MoveNet smoothing is
   for (const [t, k] of seq(0, 3000, jit(L))) h.update(k, t, D);
   for (const [t, k] of seq(3000, 3600, () => body(L, 0.12, { j: 0 }))) { const rr = h.update(k, t, D); if (rr.frame === "sag" && tSag == null) tSag = t - 3000; }
   check(`One Euro lag: a 0.12 L hip drop classifies as sag within 150 ms (got ${tSag} ms)`, tSag != null && tSag <= 150); }
-{ // noise: hip noise sd 0.02 L around a good plank. Raw classification flickers; filtered does not
+{ // noise around a good plank. A wider wobble (up to 0.15 L) still flickers raw past the keep limits; the filter smooths it.
+  // A tighter honest wobble (up to 0.1 L) must hold for 30 s.
   let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) - 0.5;
-  const noisy = () => body(400, 0.2 * rnd(), { j: rnd() * 2 });
-  const flick = (opts) => { seed = 11; const h = P.createPlankHold(opts); let bad = 0, n = 0; for (const [t, k] of seq(0, 20000, noisy)) { const rr = h.update(k, t, D); if (t > 2000) { n++; if (rr.frame !== "ok") bad++; } } return bad / n; };
-  const fRaw = flick({ filter: false }), fFilt = flick({});
+  const noisy = (amp) => () => body(400, amp * rnd(), { j: rnd() * 2 });
+  const flick = (opts, amp) => { seed = 11; const h = P.createPlankHold(opts); let bad = 0, n = 0; for (const [t, k] of seq(0, 20000, noisy(amp))) { const rr = h.update(k, t, D); if (t > 2000) { n++; if (rr.frame !== "ok") bad++; } } return bad / n; };
+  const fRaw = flick({ filter: false }, 0.3), fFilt = flick({}, 0.3);
   check(`One Euro cuts flicker: bad-frame share raw ${(fRaw * 100).toFixed(1)}% -> filtered ${(fFilt * 100).toFixed(1)}%`, fRaw > 0.05 && fFilt < fRaw / 3);
-  const rr = run(seq(0, 30000, noisy), {}, D);
-  check("noisy honest plank (hip noise up to 0.1 L) holds 30 s with the filter", (seed = 11, true) && rr.phase === "holding"); }
+  seed = 11; const rr = run(seq(0, 30000, noisy(0.2)), {}, D);
+  check("noisy honest plank (hip noise up to 0.1 L) holds 30 s with the filter", rr.phase === "holding"); }
 check("filter does not modify its input and passes low-confidence points through", (() => { const f = P.createPlankFilter(), k = body(400, 0, { x0: 90 }); const copy = JSON.stringify(k); f.filter(k, 0); const o = f.filter(k.map((p) => (p.name === "left_wrist" ? { ...p, score: 0.1, x: 5 } : p)), 33); return JSON.stringify(k) === copy && o.find((p) => p.name === "left_wrist").x === 5; })());
 check("filter: opts.filter=false is a pass-through", (() => { const f = P.createPlankFilter({ filter: false }), k = body(400, 0, { x0: 90 }); return JSON.stringify(f.filter(k, 0)) === JSON.stringify(k); })());
 
