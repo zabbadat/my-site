@@ -182,16 +182,19 @@
     };
   }
 
-  /* Battles (shared 5 s room countdown from battle-rooms.js): speak "Ready, get set" once when the countdown
-   * appears and "Go" once at GO, per room start. voice.phase(key, phase) with phase from countdownState(). */
+  /* Washer Battle (1v1 + 2v2) shared countdown: speak "Ready, get set" once when the countdown
+   * appears, then "three", "two", "one" as n hits 3-2-1, and "Go" once at GO, per room start.
+   * voice.phase(key, phase, n) with phase/n from countdownState(). */
+  var BATTLE_COUNT = { 3: "three", 2: "two", 1: "one" };
   function makeBattleVoice(opts) {
     opts = opts || {};
     var speak = safe(opts.speak || defaultSpeak), unlock = safe(opts.unlock || defaultUnlock), said = {};
     return {
       unlock: function () { unlock(); },
-      phase: function (key, ph) {
+      phase: function (key, ph, n) {
         if (!key) return null;
         if (ph === "countdown" && !said[key + ":r"]) { said[key + ":r"] = 1; speak(READY); return READY; }
+        if (ph === "countdown" && BATTLE_COUNT[n] && !said[key + ":" + n]) { said[key + ":" + n] = 1; speak(BATTLE_COUNT[n]); return BATTLE_COUNT[n]; }
         if ((ph === "go" || ph === "live") && !said[key + ":g"]) { said[key + ":r"] = 1; said[key + ":g"] = 1; if (ph === "go") { speak("Go"); return "Go"; } }
         return null;
       }

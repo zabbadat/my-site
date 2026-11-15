@@ -28,7 +28,7 @@
   const BR = NODE ? require("./battle-rooms.js") : root && root.ZabbaBattles;
   const WB = NODE ? require("./washers-battle.js") : root && root.ZabbaWasherBattle;
   const TARGET = 21, PTS = [0, 2, 3, 5], PACK = 3, MAX_ROUNDS = 30, MAX_BARI = 8, MAX_CM = 2000, MAX_STEPS = 100000, MAX_REPS = 200;
-  const GONE_MS = 30000, BEAT_MS = 10000, PUBLISH_MS = 2000, EXPIRE_MS = 30 * 60 * 1000, LIVE_REUSE_MS = 6 * 60 * 60 * 1000, LEAD_MS = 5000;
+  const GONE_MS = 30000, BEAT_MS = 10000, PUBLISH_MS = 2000, EXPIRE_MS = 30 * 60 * 1000, LIVE_REUSE_MS = 6 * 60 * 60 * 1000, LEAD_MS = 6000; // 3 s get-set (READY/SET) + 3-2-1, then GO
   const SIZES = [2, 4], TEAM_NAME_MAX = 20, DEFAULT_TEAM = { a: "Team A", b: "Team B" };
   const isInt = (v) => typeof v === "number" && Number.isInteger(v);
   const isValidSize = (n) => isInt(n) && SIZES.indexOf(n) >= 0;
@@ -336,7 +336,7 @@
     return { createArena, joinArena, setReady, maybeStart, markLive, setTeamName, leave, resume, watch: fs.watch,
       get offset() { return offset; }, set offset(v) { offset = v; }, state: (s) => BR.countdownState(s, now(), offset) };
   }
-  const api = { TARGET, PTS, PACK, GONE_MS, BEAT_MS, PUBLISH_MS, MAX_ROUNDS, MAX_BARI, SIZES, TEAM_NAME_MAX, DEFAULT_TEAM, isValidSize, teamOfSlot, otherTeam, seatOf, seatIds, started, isExpired,
+  const api = { TARGET, PTS, PACK, GONE_MS, BEAT_MS, PUBLISH_MS, MAX_ROUNDS, MAX_BARI, LEAD_MS, SIZES, TEAM_NAME_MAX, DEFAULT_TEAM, isValidSize, teamOfSlot, otherTeam, seatOf, seatIds, started, isExpired,
     orderedSeats, teamSeats, teamOf, full, allReady, sanitizeTeamName, teamName, nameOf, freeSlot, joinError, validEntry, validPack, ent, forfeitedSeat, seatOut, teamOut, analyze, decide,
     matchState, canWrite, allowed, report, forfeit, staleSeat, staleTargets, claimGone, heartbeat, publishPatch, publishLive, resultText, boardStatus, controller, sum };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

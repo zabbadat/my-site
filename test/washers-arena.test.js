@@ -112,7 +112,7 @@ check("boardStatus names who must act; no email can appear", /Everyone pitches|O
   await c.setReady(code, U("u1", "Ann"), true); await c.setReady(code, U("u2", "Bo2"), true); await c.setReady(code, U("u3", "Cy"), true);
   check("three ready is not enough; ready refreshes the saved name (pubName) on the seat", doc().status === "waiting" && doc().startAt === null && doc().seats.u2.pubName === "Bo2" && doc().seats.u2.name === "Bo");
   await c.setReady(code, U("u4", "Di"), true);
-  check("all four ready: countdown with startAt ~5 s ahead, written once", doc().status === "countdown" && doc().startAt > S.T && doc().startAt <= S.T + 6000);
+  check("all four ready: countdown with startAt 6 s ahead (3 s get-set + 3-2-1), written once", doc().status === "countdown" && AR.LEAD_MS === 6000 && doc().startAt === S.T + AR.LEAD_MS);
   const start = doc().startAt; await c.maybeStart(code); check("start is idempotent", doc().startAt === start);
   check("ready cannot change after the start; team names locked after the start", (await c.setReady(code, U("u1", "Ann"), false)) === false && (await c.setTeamName(code, U("u1", "Ann"), "Late")) === false && doc().teamNames.b === undefined);
   check("markLive: not before startAt, live after", (await c.markLive(code)) === false && (S.T = start + 10, await c.markLive(code)) === true && doc().status === "live");

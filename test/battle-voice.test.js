@@ -2,8 +2,11 @@
 const G = require("../get-set.js"), B = require("../battle-rooms.js"), fs = require("fs");
 const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
 const said = []; const v = G.makeBattleVoice({ speak: (w) => said.push(w) });
-for (let t = 0; t <= 7000; t += 100) v.phase("tut:K7QX:10000", B.countdownState(10000, 5000 + t, 0).phase);
-check("one 'Ready, get set' when the 5 s countdown appears, one 'Go' at GO", said.join("|") === "Ready, get set|Go" && B.LEAD_MS === 5000);
+for (let t = 0; t <= 8000; t += 100) { const st = B.countdownState(11000, 5000 + t, 0); v.phase("washers:K7QX:11000", st.phase, st.n); }
+check("Washer Battle 6 s lead: 'Ready, get set', then three, two, one, then Go (plank/TUT default lead stays 5 s)", said.join("|") === "Ready, get set|three|two|one|Go" && B.LEAD_MS === 5000);
+const said5 = []; const v5 = G.makeBattleVoice({ speak: (w) => said5.push(w) });
+for (let t = 0; t <= 7000; t += 100) { const st = B.countdownState(10000, 5000 + t, 0); v5.phase("old5s:K7QX:10000", st.phase, st.n); }
+check("same voice on a 5 s startAt still speaks the 3-2-1 and Go", said5.join("|") === "Ready, get set|three|two|one|Go");
 v.phase("tut:K7QX:99000", "countdown"); check("rematch / new start speaks again", said.slice(-1)[0] === "Ready, get set");
 const late = []; const v2 = G.makeBattleVoice({ speak: (w) => late.push(w) }); v2.phase("x", "live"); check("rejoin after GO: silent", late.length === 0);
 const v3 = G.makeBattleVoice({ speak: () => { throw new Error("no speech"); } }); let ok = true; try { v3.phase("y", "countdown"); v3.phase("y", "go"); } catch (e) { ok = false; } check("silent fallback when speech throws", ok);

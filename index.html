@@ -4819,7 +4819,8 @@ async function tbResume(u) { let code = null; try { code = localStorage.getItem(
    No video: each player pitches at their own box and reports; the opponent confirms or disputes. Phones count steps (optional extra). ---- */
 const WB = window.ZabbaWasherBattle, ARC = window.ZabbaArcade;
 const wbFs = mkBattleFs("washersBattles");
-const wbc = BR.controller(wbFs, Object.assign({}, wagerGate("washers"), { seatExtra: (u) => (u && u.pubName ? { pubName: String(u.pubName).slice(0, 24) } : null) })); // seats carry the saved account name (pubName)
+const WB_LEAD_MS = (window.ZabbaArena && window.ZabbaArena.LEAD_MS) || 6000; // 3 s get-set + 3-2-1, then GO (pitching; not a floor drop)
+const wbc = BR.controller(wbFs, Object.assign({}, wagerGate("washers"), { leadMs: WB_LEAD_MS, seatExtra: (u) => (u && u.pubName ? { pubName: String(u.pubName).slice(0, 24) } : null) })); // seats carry the saved account name (pubName)
 let waCodeCur = null; // 2v2 arena code (see the Arena block below); null = no arena
 let wbRoom = null, wbCodeCur = null, wbOff = null, wbTick = null, wbBeat = null, wbPlayingFor = null, wbLastSteps = -1, wbLastBeat = 0, wbSettledKey = null, wbMatchHtml = "";
 const wbReps = repMap, wbArcSound = ARC ? ARC.makeSound(window) : null;
@@ -4941,9 +4942,9 @@ function wbStartGame() {
 function wbStopGame() { if (state.running && !state.finished) { setPocket(false); $("pauseBtn").onclick(); setStatus("Battle over. " + WB.resultText(wbRoom, currentUser && currentUser.uid)); } wbPlayingFor = null; }
 function wbTickFn() {
   const st = wbc.state(wbRoom && wbRoom.startAt), c = $("wbCount");
-  if (battleVoice && wbRoom) battleVoice.phase("washers:" + wbCodeCur + ":" + wbRoom.startAt, st.phase);
+  if (battleVoice && wbRoom) battleVoice.phase("washers:" + wbCodeCur + ":" + wbRoom.startAt, st.phase, st.n);
   c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
-  if (st.phase === "countdown") { c.textContent = st.n; wbStat("Get set to pitch…"); }
+  if (st.phase === "countdown") { c.textContent = (ARC && ARC.countdownLabel(st)) || st.n; wbStat("Get set to pitch…"); }
   else if (st.phase === "go" || st.phase === "live") {
     c.textContent = st.phase === "go" ? "GO!" : "Battle on.";
     if (wbRoom.status === "countdown") wbc.markLive(wbCodeCur).catch(() => {});
@@ -5170,9 +5171,9 @@ function waStartGame() {
 function waStopGame() { if (state.running && !state.finished) { setPocket(false); $("pauseBtn").onclick(); setStatus("Battle over. " + AR.resultText(waArena, currentUser && currentUser.uid)); } waPlayingFor = null; }
 function waTickFn() {
   const a = waArena; if (!a) return; const st = wac.state(a.startAt), c = $("waCount");
-  if (battleVoice) battleVoice.phase("arena:" + waCodeCur + ":" + a.startAt, st.phase);
+  if (battleVoice) battleVoice.phase("arena:" + waCodeCur + ":" + a.startAt, st.phase, st.n);
   c.hidden = st.phase === "wait"; c.className = "battle-count" + (st.phase === "live" ? " live" : "");
-  if (st.phase === "countdown") { c.textContent = st.n; wbStat("Get set to pitch…"); }
+  if (st.phase === "countdown") { c.textContent = (ARC && ARC.countdownLabel(st)) || st.n; wbStat("Get set to pitch…"); }
   else if (st.phase === "go" || st.phase === "live") {
     c.textContent = st.phase === "go" ? "GO!" : "Battle on.";
     if (a.status === "countdown") wac.markLive(waCodeCur).catch(() => {});
