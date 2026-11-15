@@ -20,6 +20,10 @@ check("long name rejected", !D.validateRecord({ ...rec, name: "x".repeat(41) }, 
 const rows = [{ name: "a", date: "2026-10-20", steps: 10 }, { name: "b", date: "2026-10-19", steps: 99 }, { name: "c", date: "2026-10-20", steps: 50 }, { name: "d", date: "2026-10-20", steps: 0 }];
 const top = D.rankDaily(rows, "2026-10-20");
 check("rank today only, desc", top.length === 2 && top[0].name === "c");
+const life = D.rankAllTime([{ uid: "a", name: "a", date: "2026-10-19", steps: 10 }, { uid: "a", name: "a", date: "2026-10-20", steps: 50 }, { uid: "b", name: "b", date: "2026-10-20", steps: 40 }, { uid: "c", name: "c", date: "2026-10-20", steps: 0 }, { name: "x", date: "2026-10-20", steps: 99 }]);
+check("all-time sums per uid, skips uid-less and zero", life.length === 2 && life[0].uid === "a" && life[0].steps === 60 && life[1].steps === 40 && life[0].rank === 1 && life[1].rank === 2);
+const ties = D.rankAllTime([{ uid: "z", name: "Zed", date: "2026-01-01", steps: 5 }, { uid: "y", name: "Amy", date: "2026-01-01", steps: 5 }, { uid: "x", name: "Cal", date: "2026-01-01", steps: 1 }]);
+check("all-time ties share a rank (1, 1, 3)", ties.map((p) => p.rank).join(",") === "1,1,3" && ties[0].name === "Amy" && ties[1].name === "Zed");
 const cap = (plugins, native = true) => ({ Capacitor: { isNativePlatform: () => native, Plugins: plugins } });
 check("picks ZabbaSteps", D.pickSource(cap({ ZabbaSteps: { getTodaySteps() {} } })).name === "ZabbaSteps");
 check("picks Pedometer", D.pickSource(cap({ Pedometer: { getTodaySteps() {} } })).name === "Pedometer");

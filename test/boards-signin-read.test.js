@@ -9,10 +9,10 @@ check("rules: the 8 boards need sign-in to read", COLS.every((c) => new RegExp("
   const mb = rules.slice(rules.indexOf("match /matches/{code}"), rules.indexOf("match /{document=**}")), rest = rules.replace(mb, "");
   check("rules: nothing is world-readable except the Live tab (get one match by code, its casters/peers); no public list", !/allow (read|get|list)[^;]*: if true/.test(rest)
     && !/allow (read, )?list: if true/.test(mb) && /allow get: if true;\s*allow list: if request.auth != null;/.test(mb)); }
-const BODIES = ["boardBody", "pushBoardBody", "tbRankBody", "tutBoardBody", "plankBoardBody", "plankDailyBody", "dailyBoardBody", "walkBoardBody"];
+const BODIES = ["boardBody", "pushBoardBody", "tbRankBody", "tutBoardBody", "plankBoardBody", "plankDailyBody", "dailyBoardBody", "walkBoardBody", "stepAllBoardBody"];
 check("page: every board is registered through boardSnap (no top-level public onSnapshot left)", BODIES.every((b) => html.includes('boardSnap("' + b + '"'))
   && !/^onSnapshot\(query\(collection\(db, "(games|pushups|planks|plankDaily|dailySteps|walkSessions|tutBattleStats)"/m.test(html) && !/^onSnapshot\((q|pq), /m.test(html));
-check("page: boardsOnUser registered after the boards; season board gated on sign-in", html.lastIndexOf("onAuthStateChanged(auth, boardsOnUser)") > html.lastIndexOf('boardSnap("walkBoardBody"')
+check("page: boardsOnUser registered after the boards; season board gated on sign-in", html.lastIndexOf("onAuthStateChanged(auth, boardsOnUser)") > html.lastIndexOf('boardSnap("stepAllBoardBody"')
   && /function bbStart\(\) \{\s*if \(!BT \|\| !\$\("bbBody"\)\) return;\s*if \(!auth\.currentUser\)/.test(html) && /if \(!auth\.currentUser\) \{ signedOutRow\("bbBody"\); return; \}/.test(html));
 const decl = html.indexOf("const boardSubs = [];");
 const firstCall = html.indexOf('boardSnap("');

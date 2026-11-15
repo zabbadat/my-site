@@ -87,6 +87,25 @@
       .sort(function (a, b) { return Number(b.steps) - Number(a.steps) || String(a.name).localeCompare(String(b.name)); })
       .slice(0, n || 50);
   }
+  // All-time steps: sum every dailySteps doc per uid (all days). Latest name wins by date; rows without a uid are skipped.
+  // Ranked most steps first; ties share a rank (1, 2, 2, 4) and sort by name, then uid. Same convention as tutAllTime.
+  function rankAllTime(rows, n) {
+    var by = {}, list = [];
+    (rows || []).forEach(function (r) {
+      if (!r || !r.uid) return;
+      var steps = Math.floor(Number(r.steps));
+      if (!isFinite(steps) || steps <= 0) return;
+      var p = by[r.uid];
+      if (!p) { p = by[r.uid] = { uid: r.uid, name: r.name || "Player", steps: 0, date: "" }; list.push(p); }
+      p.steps += steps;
+      var d = String(r.date || "");
+      if (d >= p.date) { p.date = d; if (r.name) p.name = r.name; }
+    });
+    list.sort(function (a, b) { return b.steps - a.steps || String(a.name).localeCompare(String(b.name)) || (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0); });
+    var out = list.slice(0, n || 50);
+    out.forEach(function (p, i) { p.rank = i > 0 && p.steps === out[i - 1].steps ? out[i - 1].rank : i + 1; delete p.date; });
+    return out;
+  }
   function pickSource(win) {
     var C = win && win.Capacitor;
     if (C && typeof C.isNativePlatform === "function" && C.isNativePlatform() && C.Plugins) {
@@ -290,7 +309,7 @@
 
   var api = { MAX_STEPS: MAX_STEPS, localDateKey: localDateKey, docId: docId, clampSteps: clampSteps, addWeb: addWeb,
               mergeNative: mergeNative, nextDisplayed: nextDisplayed, debugLine: debugLine, readCache: readCache, writeCache: writeCache,
-              readWalk: readWalk, writeWalk: writeWalk, buildRecord: buildRecord, validateRecord: validateRecord, rankDaily: rankDaily,
+              readWalk: readWalk, writeWalk: writeWalk, buildRecord: buildRecord, validateRecord: validateRecord, rankDaily: rankDaily, rankAllTime: rankAllTime,
               pickSource: pickSource, readLocal: readLocal, writeLocal: writeLocal, createController: createController,
               createForegroundRefresh: createForegroundRefresh, bindForegroundEvents: bindForegroundEvents,
               CACHE_KEY: CACHE_KEY, WALK_KEY: WALK_KEY };

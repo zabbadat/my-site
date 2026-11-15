@@ -401,7 +401,7 @@
           3px 3px 0 #3a1030;
       }
     }
-    #tut-board {
+    #tut-board, #dailyStepBoard {
       --arcade-pink: #ff2d95;
       --arcade-cyan: #2de2e6;
       --arcade-gold: #ffe566;
@@ -476,7 +476,8 @@
     #tut-board h2 > .tuts-hl:nth-of-type(3) { animation-delay: .3s; }
     #tut-board h2 .tuts-sets .tuts-hl { animation-delay: .45s; }
     #tut-board .eyebrow,
-    #tut-board h3 {
+    #tut-board h3,
+    #dailyStepBoard h3 {
       font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
       font-size: clamp(.48rem, 1.6vw, .62rem);
       line-height: 1.6;
@@ -497,29 +498,36 @@
       text-shadow: 0 0 12px rgba(255,45,149,.75), 0 0 28px rgba(255,45,149,.4);
     }
     #tut-board .lead,
-    #tut-board .fine {
+    #tut-board .fine,
+    #dailyStepBoard .lead,
+    #dailyStepBoard .fine {
       color: #d5cce8;
       text-align: center;
       max-width: 36rem;
       margin-left: auto;
       margin-right: auto;
     }
-    #tut-board table {
+    #tut-board table,
+    #dailyStepBoard table {
       background: rgba(6, 4, 14, .72);
       border: 3px solid var(--arcade-cyan);
       box-shadow: 0 0 0 3px #140c22, 0 0 36px rgba(45,226,230,.45), 0 0 64px rgba(255,45,149,.2), inset 0 0 40px rgba(255,45,149,.08);
       margin-top: 1.1rem;
     }
     #tut-board th,
-    #tut-board td { border-bottom: 1px solid rgba(45,226,230,.22); text-align: center; }
-    #tut-board th {
+    #tut-board td,
+    #dailyStepBoard th,
+    #dailyStepBoard td { border-bottom: 1px solid rgba(45,226,230,.22); text-align: center; }
+    #tut-board th,
+    #dailyStepBoard th {
       font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
       font-size: .55rem;
       letter-spacing: .12em;
       color: var(--arcade-gold);
       padding: .85rem .4rem .7rem;
     }
-    #tut-board td {
+    #tut-board td,
+    #dailyStepBoard td {
       font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
       font-size: clamp(.58rem, 2.2vw, .78rem);
       color: var(--arcade-lime);
@@ -546,9 +554,14 @@
       padding-bottom: 2.4rem;
       margin: 1.6rem 0;
     }
+    #steps #dailyStepBoard {
+      padding: 2.4rem 1.2rem;
+      margin: 1.6rem 0 1rem;
+    }
     @media (prefers-reduced-motion: reduce) {
       #tut-board, #tut-board .eyebrow { animation: none; }
       #tut-board h2 .tuts-hl { animation: none; transform: none; }
+      #dailyStepBoard { animation: none; }
     }
     .zt-bal-row { display: inline-flex; flex-direction: column; align-items: flex-end; gap: .3rem; } /* Send Zab tab sits directly under the ring */
     .stat .zt-bal-row { color: inherit; font-size: inherit; letter-spacing: normal; text-transform: none; }
@@ -1734,12 +1747,14 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn danger" id="dailyResetBtn" type="button">Reset</button>
     </div>
     <div class="card" id="tenKBonus" style="margin-top:1rem"><h3>Ten thousand steps. Breathe, stride, collect.</h3><p>Hit 10K in a day and stack a 4 <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span> bonus on top of every step you've earned.</p></div>
-    <h3 style="margin-top:1.6rem">Daily Earn Steps Board</h3>
-    <p class="lead">Top steps today.</p>
-    <table>
-      <thead><tr><th>#</th><th>Player</th><th>Steps</th><th>Source</th></tr></thead>
-      <tbody id="dailyBoardBody"><tr><td colspan="4">Waiting for walkers…</td></tr></tbody>
-    </table>
+    <div class="washers" id="dailyStepBoard">
+      <h3>Daily Earn Steps Board</h3>
+      <p class="lead">Top steps today.</p>
+      <table>
+        <thead><tr><th>#</th><th>Player</th><th>Steps</th></tr></thead>
+        <tbody id="dailyBoardBody"><tr><td colspan="3">Waiting for walkers…</td></tr></tbody>
+      </table>
+    </div>
     <div class="card" id="userDash" style="margin-top:1rem">
       <h3>Your dashboard</h3>
       <p class="note" id="userDashSignIn">Sign in to track your 10K days</p>
@@ -1760,6 +1775,12 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <table>
       <thead><tr><th>#</th><th>Player</th><th>Time</th><th>Steps</th></tr></thead>
       <tbody id="walkBoardBody"><tr><td colspan="4">Waiting for walkers…</td></tr></tbody>
+    </table>
+    <h3 style="margin-top:1.6rem" id="stepAllBoardTitle">Step Equity scoreboard</h3>
+    <p class="lead" id="stepAllBoardSub">All-time steps. Every player's total, most first. Steps walked signed out stay on that phone and aren't counted.</p>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>Total steps</th></tr></thead>
+      <tbody id="stepAllBoardBody"><tr><td colspan="3">Waiting for walkers…</td></tr></tbody>
     </table>
   </section>
 
@@ -3802,11 +3823,23 @@ async function postDaily(quiet) {
   }
 }
 function paintDailyRows(rows) {
-  if (!DS) return;
+  const body = $("dailyBoardBody");
+  if (!body || !DS) return;
   const ranked = DS.rankDaily(rows, DS.localDateKey(), 50);
-  $("dailyBoardBody").innerHTML = ranked.length
-    ? ranked.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(publicName(r.name))}${r.xHandle ? " " + escapeHtml(r.xHandle) : ""}</td><td>${Number(r.steps).toLocaleString()}</td><td>${r.source === "native" ? "Phone" : "Walk"}</td></tr>`).join("")
-    : '<tr><td colspan="4">No steps posted today yet.</td></tr>';
+  ranked.forEach((r, i) => { r.rank = i > 0 && Number(r.steps) === Number(ranked[i - 1].steps) ? ranked[i - 1].rank : i + 1; });
+  body.innerHTML = ranked.length
+    ? ranked.map((r) => `<tr><td>${r.rank}</td><td>${escapeHtml(publicName(r.name))}</td><td>${Number(r.steps).toLocaleString()}</td></tr>`).join("")
+    : '<tr><td colspan="3">No steps posted today yet.</td></tr>';
+}
+// All-time Step Equity board: sum every dailySteps doc per uid, most first, ties share a rank (same convention as All-time TUT sets).
+function paintStepAllRows(rows) {
+  const body = $("stepAllBoardBody");
+  if (!body || !DS) return;
+  if (rows == null) { body.innerHTML = '<tr><td colspan="3">Board unavailable right now.</td></tr>'; return; }
+  const ranked = DS.rankAllTime(rows, 50);
+  body.innerHTML = ranked.length
+    ? ranked.map((r) => `<tr><td>${r.rank}</td><td>${escapeHtml(publicName(r.name))}</td><td>${Number(r.steps).toLocaleString()}</td></tr>`).join("")
+    : '<tr><td colspan="3">No steps posted yet.</td></tr>';
 }
 const dailyFg = daily ? DS.createForegroundRefresh(daily, { afterRefresh: () => postDaily(true) }) : null;
 if (daily) {
@@ -5690,6 +5723,8 @@ boardSnap("plankDailyBody", () => query(collection(db, "plankDaily"), where("dat
 // Daily steps board: today's docs (equality only, no composite index), ranked client-side.
 boardSnap("dailyBoardBody", () => query(collection(db, "dailySteps"), where("date", "==", DS ? DS.localDateKey() : ""), limit(300)), (snap) => paintDailyRows(snap.docs.map((d) => d.data())), () => paintDailyRows([]));
 boardSnap("walkBoardBody", query(collection(db, "walkSessions"), orderBy("ms", "desc"), limit(200)), (snap) => paintWalkRows(snap.docs.map((d) => { const x = d.data(); return { ...x, at: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.now() }; })), () => paintWalkRows([]));
+// All-time steps board: every dailySteps doc (collection list, no where / orderBy / limit, no new index), summed per uid client-side. Signed-in read only, same as the other boards.
+boardSnap("stepAllBoardBody", query(collection(db, "dailySteps")), (snap) => paintStepAllRows(snap.docs.map((d) => d.data())), () => paintStepAllRows(null));
 onAuthStateChanged(auth, boardsOnUser); // after every boardSnap above is registered
 </script> 
 </body>
