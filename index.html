@@ -952,6 +952,18 @@ nav > .pfp-row[hidden]{display:none}
 /* ARC-END */
 
 /* Home layout layer (Nov 10 2026): B&W art flush on Fall Frenzy, lockup, game tiles. */
+/* 10K strip: first in-flow page content, directly under the fixed nav. Not fixed; scrolls away. --navh tracks signed-in PFP row height. */
+#playEarn10k.pe-10k{margin:calc(var(--navh,4.6rem) + .2rem) 8% .55rem;position:relative;z-index:1}
+@media (max-width:700px){#playEarn10k.pe-10k{margin-left:6%;margin-right:6%}}
+body.arcade-live #playEarn10k{display:none}
+.pe-10k-main{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;text-decoration:none;color:inherit;background:var(--card,#1b2723);border:1px solid rgba(198,255,0,.35);border-radius:14px;padding:.55rem .85rem;box-shadow:0 0 16px rgba(198,255,0,.12)}
+.pe-10k-count{display:flex;flex-direction:column;min-width:6rem}
+.pe-10k-count b{font-family:'Outfit',sans-serif;font-weight:600;font-variant-numeric:tabular-nums;font-size:clamp(1.25rem,5vw,1.7rem);line-height:1.1}
+.pe-10k-count span,.pe-10k-label{color:var(--muted);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+.pe-10k-goal{flex:1 1 12rem;min-width:10rem}
+.pe-10k-track{display:block;height:.55rem;border-radius:999px;background:rgba(143,191,168,.15);overflow:hidden;border:1px solid rgba(198,255,0,.28);margin-bottom:.3rem}
+.pe-10k-track i{display:block;height:100%;width:0;background:var(--grad,linear-gradient(90deg,#c6ff00,#ff8a00,#ff2e93));border-radius:inherit}
+.pe-10k + .home-art{margin-top:0}
 .home-art{position:relative;height:250px;overflow:hidden;margin-top:calc(var(--navh,4.6rem) + .2rem);background:#000;background-image:radial-gradient(circle,rgba(255,255,255,.22) 1.1px,transparent 1.4px),repeating-linear-gradient(135deg,rgba(255,255,255,.07) 0 1px,transparent 1px 9px);background-size:7px 7px,auto;border-bottom:2px solid #fff}
 .home-art img.big{position:absolute;width:330px;height:330px;right:-110px;top:-50px;filter:grayscale(1) contrast(1.2);opacity:.95}
 .home-art img.small{position:absolute;width:46px;height:46px;left:18px;top:32px;filter:grayscale(1)}
@@ -986,10 +998,13 @@ nav > .pfp-row[hidden]{display:none}
     }
     #play-and-earn .pe-chrome h2 { margin: 0 0 .35rem; }
     #play-and-earn .pe-motto {
-      margin: 0 0 .45rem; min-height: 1.35em; color: var(--muted);
-      font-size: clamp(.72rem, 2.55vw, .9rem); line-height: 1.3; letter-spacing: .02em;
+      margin: 0 0 .45rem; min-height: 1.5em; color: var(--lime, #C6FF00);
+      font-weight: 700; font-size: clamp(1.02rem, 2.4vw + .6rem, 1.15rem); line-height: 1.3; letter-spacing: .01em;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       opacity: 1; transition: opacity .35s ease;
+    }
+    @media (min-width: 701px) {
+      #play-and-earn .pe-motto { font-size: 1.3rem; }
     }
     #play-and-earn .pe-motto.is-fade { opacity: 0; }
     #play-and-earn .pe-motto .zab { font-size: inherit; }
@@ -1053,6 +1068,15 @@ nav > .pfp-row[hidden]{display:none}
 function f(){var m=n.scrollWidth-n.clientWidth;n.classList.toggle("fade-l",n.scrollLeft>2);n.classList.toggle("fade-r",m>2&&n.scrollLeft<m-2);}
 n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f);f();})();
 </script>
+  <div class="pe-10k" id="playEarn10k">
+    <a class="pe-10k-main" href="#steps">
+      <span class="pe-10k-count"><b id="playEarnSteps">0</b><span>Steps today</span></span>
+      <span class="pe-10k-goal">
+        <span class="pe-10k-track" aria-hidden="true"><i id="playEarn10kFill"></i></span>
+        <span class="pe-10k-label" id="playEarn10kLabel"><span id="playEarn10kText">0 / 10,000 · 4 </span><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></span>
+      </span>
+    </a>
+  </div>
   <div class="home-art" aria-hidden="true">
     <img class="big" src="/zd-v2-mark.svg" width="330" height="330" alt="">
     <img class="small" src="/zd-v2-mark.svg" width="46" height="46" alt="">
@@ -2048,6 +2072,14 @@ const TARGET = 21;
 const scoreVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? window.ZabbadatGetSet.makeRepVoice() : null;
 
 const $ = (id) => document.getElementById(id);
+function paintPlayEarn10k(steps) {
+  const n = Math.max(0, Math.floor(Number(steps) || 0));
+  const count = $("playEarnSteps"), fill = $("playEarn10kFill"), lab = $("playEarn10kLabel");
+  if (count) count.textContent = n.toLocaleString();
+  if (fill) fill.style.width = Math.min(100, (n / 10000) * 100) + "%";
+  const text = $("playEarn10kText");
+  if (text) text.textContent = n >= 10000 ? "10K hit · 4 " : (n.toLocaleString() + " / 10,000 · 4 ");
+}
 // Play and Earn tabs: CSS-hide panels (never remove them). Default tab is Steps.
 const PE_TABS = ["zab", "washerbattle", "steps", "tutbattles", "plank", "battles"];
 (function peMottoRotate() {
@@ -3032,7 +3064,7 @@ function endPushOnCameraStop() {
   return true;
 }
 // Hero CTAs: jump to the counter and preselect a mode (never mid-session; the camera still loads only from the counter).
-(function navHeightVar() { const set = () => { const n = document.querySelector("nav"); if (n) document.documentElement.style.setProperty("--navh", n.offsetHeight + "px"); }; set(); window.addEventListener("resize", set); window.addEventListener("load", set); })();
+(function navHeightVar() { const set = () => { const n = document.querySelector("nav"); if (n) document.documentElement.style.setProperty("--navh", n.offsetHeight + "px"); }; set(); window.addEventListener("resize", set); window.addEventListener("load", set); try { const n = document.querySelector("nav"); if (n && window.ResizeObserver) new ResizeObserver(set).observe(n); } catch (e) {} })();
 function heroGo(mode, e) {
   if (e) e.preventDefault();
   if (pushMode !== mode) {
@@ -3944,7 +3976,7 @@ function dailyNewDay() {
   try { if (currentUser) boardsOnUser(currentUser); } catch (e) {} // boards re-query with today's date key
 }
 const daily = DS ? DS.createController(window, { onDayChange: () => dailyNewDay(), onChange: (s) => {
-  $("dailyCount").textContent = s.steps.toLocaleString();
+  $("dailyCount").textContent = s.steps.toLocaleString(); if (typeof paintPlayEarn10k === "function") paintPlayEarn10k(s.steps);
   $("dailySource").textContent = s.kind === "native" ? "Phone" : s.kind === "web" ? "Live walk" : "None";
   $("dailyWalkBtn").textContent = s.walking ? "Hold to stop" : (s.kind === "native" ? "Start walk" : "Start live walk");
   if (s.msg) $("dailyStatus").textContent = s.msg;
@@ -4033,7 +4065,7 @@ if (daily) {
   ["visibilitychange", "focus", "pageshow"].forEach((ev) => (ev === "visibilitychange" ? document : window).addEventListener(ev, () => { if (!document.hidden) daily.checkDay(); }));
   // App: the native plugin paints dailyCount itself on resume, then calls this hook; route it through the same
   // day guard and repaint, so a total carried over from yesterday never sticks on screen.
-  window.__zabbaApplySteps = (r) => { try { daily.applyNativeReading(r || {}); $("dailyCount").textContent = daily.state().steps.toLocaleString(); } catch (e) {} };
+  window.__zabbaApplySteps = (r) => { try { daily.applyNativeReading(r || {}); $("dailyCount").textContent = daily.state().steps.toLocaleString(); if (typeof paintPlayEarn10k === "function") paintPlayEarn10k(daily.state().steps); } catch (e) {} };
   // Foreground refresh (daily-steps.js): visible / focus / pageshow / Capacitor App resume re-read the phone total and post it via postDaily (native source only).
   DS.bindForegroundEvents(window, daily, dailyFg.run);
 }

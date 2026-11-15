@@ -30,7 +30,7 @@ check("tablist with the six labels, default tab Steps (aria-selected), others hi
     && /id="plank"[^>]*hidden/.test(pe)
     && /id="battles"[^>]*hidden/.test(pe);
 })());
-check("motto sits between the Activate & Earn heading and the tab row, with no 10K strip", (() => {
+check("motto sits between the Activate & Earn heading and the tab row, with no 10K strip in the section", (() => {
   const pe = html.slice(start, html.indexOf('<section id="league">'));
   const h2 = pe.indexOf("<h2>Activate &amp; Earn</h2>"), motto = pe.indexOf('id="peMotto"'), tabs = pe.indexOf('role="tablist"'), steps = pe.indexOf('<section id="steps"');
   const between = pe.slice(h2, tabs);
@@ -38,22 +38,47 @@ check("motto sits between the Activate & Earn heading and the tab row, with no 1
     && /<p class="pe-motto" id="peMotto" aria-hidden="true">Breathe\. Activate\. Score\.<\/p>/.test(between)
     && !/aria-live/.test(between)
     && !pe.includes('id="playEarn10k"') && !pe.includes("pe-10k") && !pe.includes('id="playEarnSteps"')
-    && !/class="pe-10k"/.test(html) && !/\.pe-10k\b/.test(html)
     && pe.includes("id=\"tenKBonus\"") && pe.includes("id=\"dailyCount\"") && pe.includes("id=\"dailyStepBoard\"");
 })());
-check("motto CSS is one tight muted line with a fade and a reduced-motion swap", /#play-and-earn \.pe-motto/.test(html) && /min-height: 1\.35em/.test(html) && /white-space: nowrap/.test(html) && /\.pe-motto\.is-fade \{ opacity: 0; \}/.test(html) && /prefers-reduced-motion: reduce/.test(html) && /#play-and-earn \.pe-motto \{ transition: none; \}/.test(html));
+check("10K strip sits in page content just after the nav, not inside the nav, not fixed, and not in Activate & Earn", (() => {
+  const navStart = html.indexOf("<nav>"), navEnd = html.indexOf("</nav>");
+  const strip = html.indexOf('id="playEarn10k"'), home = html.indexOf('class="home-art"'), pe = html.indexOf('id="play-and-earn"');
+  const block = html.slice(strip, strip + 900);
+  const css = (html.match(/#playEarn10k\.pe-10k\{[^}]+\}/) || [""])[0];
+  return navStart > 0 && navEnd > navStart && strip > navEnd && strip < home && home < pe
+    && !html.slice(navStart, navEnd).includes("playEarn10k")
+    && /href="#steps"/.test(block)
+    && /id="playEarnSteps"/.test(block) && /Steps today/.test(block)
+    && /var\(--navh/.test(css) && !/position:\s*fixed/.test(css)
+    && !/#playEarn10k[^}]*position:\s*fixed/.test(html)
+    && /function paintPlayEarn10k/.test(html);
+})());
+check("motto CSS is a tight bold full-contrast line with a fade and a reduced-motion swap", (() => {
+  const block = (html.match(/#play-and-earn \.pe-motto \{[\s\S]*?\}/) || [""])[0];
+  return /#play-and-earn \.pe-motto/.test(html)
+    && /font-weight:\s*700/.test(block)
+    && /1\.15rem/.test(block)
+    && /@media \(min-width: 701px\) \{[\s\S]*#play-and-earn \.pe-motto \{ font-size: 1\.3rem; \}/.test(html)
+    && /min-height: 1\.5em/.test(block)
+    && /white-space: nowrap/.test(block)
+    && /color: var\(--lime, #C6FF00\)/.test(block)
+    && !/var\(--muted\)/.test(block)
+    && /\.pe-motto\.is-fade \{ opacity: 0; \}/.test(html)
+    && /prefers-reduced-motion: reduce/.test(html)
+    && /#play-and-earn \.pe-motto \{ transition: none; \}/.test(html);
+})());
 check("original IDs and camera/start controls are still in the document (not removed)", html.includes('id="pushStartBtn"') && html.includes('id="plankCamBtn"') && html.includes('id="plankVid"') && html.includes('id="camVid"') && html.includes('id="tbVid"') && html.includes('id="zmCamVid"') && html.includes('id="dailyWalkBtn"') && html.includes('id="wbCreate"'));
 check("CSS hides hidden tab panels (display:none) instead of a script that removes them", /#play-and-earn > section\[role="tabpanel"\]\[hidden\] \{ display: none !important; \}/.test(html) && !/panel\.remove\(\)|removeChild\(.*tabpanel/.test(html));
 check("hash routing: load + hashchange, unhide on in-page anchors, default Steps", /window\.addEventListener\("hashchange", \(\) => peApplyHash/.test(html) && /peShowTab\("steps"/.test(html) && /a\[href\^='#'\]/.test(html) && /PE_TABS = \["zab", "washerbattle", "steps", "tutbattles", "plank", "battles"\]/.test(html));
-check("paintPlayEarn10k and its daily-step call sites are gone", !/function paintPlayEarn10k/.test(html) && !/paintPlayEarn10k\(/.test(html));
+check("10K strip paint is wired to the daily steps onChange and native resume hook", /paintPlayEarn10k\(s\.steps\)/.test(html) && /paintPlayEarn10k\(daily\.state\(\)\.steps\)/.test(html));
 check("#tut-board and #push stay outside Play and Earn", html.indexOf('<section class="washers" id="tut-board">') < html.indexOf('id="play-and-earn"') && html.indexOf('<section id="push">') < html.indexOf('id="play-and-earn"'));
 check("Washer Battle countdown (get-set + 3-2-1) is still present", /get set|get-set|3-2-1|three, go/i.test(html) || fs.existsSync(path.join(__dirname, "../test/washers-prompt-timing.test.js")));
 
 // routing helpers
 const src = html.slice(html.indexOf("const PE_TABS ="), html.indexOf("window.addEventListener(\"hashchange\", () => peApplyHash"));
 const els = {};
-const parentOf = { tenKBonus: "steps", dailyCount: "steps", plankVid: "plank", wbCreate: "washerbattle" };
-const mk = (id) => els[id] || (els[id] = { id, hidden: id !== "steps" && !id.startsWith("pe-tab-"), attrs: {}, style: {}, childNodes: [], querySelector(){ return this._ring || null; }, appendChild(n){ this.childNodes.push(n); if (n && n.className==="zab") this._ring=n; this.textContent = (this.textContent||"") + (n.textContent||""); return n; }, getAttribute(n){return this.attrs[n];}, setAttribute(n,v){ this.attrs[n]=v; if(n==="hidden") this.hidden = v !== null && v !== false; }, removeAttribute(n){ delete this.attrs[n]; if(n==="hidden") this.hidden=false; }, focus(){ this.focused=true; }, scrollIntoView(){ this.scrolled=true; }, closest(sel){ const pid = parentOf[id]; if (!pid) return null; const ids = sel.split(",").map((s)=>s.replace("#","").trim()); return ids.includes(pid) ? mk(pid) : null; } });
+const parentOf = { tenKBonus: "steps", playEarn10k: "play-and-earn", dailyCount: "steps", plankVid: "plank", wbCreate: "washerbattle" };
+const mk = (id) => els[id] || (els[id] = { id, hidden: id !== "steps" && !id.startsWith("pe-tab-") && id !== "playEarnSteps" && id !== "playEarn10kFill" && id !== "playEarn10kLabel", attrs: {}, style: {}, childNodes: [], querySelector(){ return this._ring || null; }, appendChild(n){ this.childNodes.push(n); if (n && n.className==="zab") this._ring=n; this.textContent = (this.textContent||"") + (n.textContent||""); return n; }, getAttribute(n){return this.attrs[n];}, setAttribute(n,v){ this.attrs[n]=v; if(n==="hidden") this.hidden = v !== null && v !== false; }, removeAttribute(n){ delete this.attrs[n]; if(n==="hidden") this.hidden=false; }, focus(){ this.focused=true; }, scrollIntoView(){ this.scrolled=true; }, closest(sel){ const pid = parentOf[id]; if (!pid) return null; const ids = sel.split(",").map((s)=>s.replace("#","").trim()); return ids.includes(pid) ? mk(pid) : null; } });
 const ctx = {
   PE_SKIP: true,
   document: { getElementById: mk, addEventListener(){}, readyState: "complete" },
@@ -63,7 +88,7 @@ const ctx = {
   $: mk
 };
 // extract just the functions
-const fns = html.match(/const PE_TABS = \[[\s\S]*?function peApplyHash\(opts\) \{[\s\S]*?\n\}/)[0];
+const fns = html.match(/function paintPlayEarn10k\(steps\) \{[\s\S]*const PE_TABS = \[[\s\S]*?function peApplyHash\(opts\) \{[\s\S]*?\n\}/)[0];
 vm.createContext(ctx);
 vm.runInContext(fns, ctx);
 ctx.peShowTab("zab", {});
@@ -156,6 +181,11 @@ check("motto script lists all five lines in order and paints ZAB with the ring b
   r.advance(4000 + 350);
   check("motto rotation pauses while the document is hidden and resumes after", stopped && unchanged && resumed && /Every rep stacks/.test(r.el.innerHTML));
 }
+
+ctx.paintPlayEarn10k(2500);
+check("10K strip shows today's steps and a 25% fill", els.playEarnSteps.textContent === "2,500" && els.playEarn10kFill.style.width === "25%" && /2,500 \/ 10,000/.test(els.playEarn10kText.textContent));
+ctx.paintPlayEarn10k(10000);
+check("10K strip announces a completed 10K", els.playEarn10kText.textContent.indexOf("10K hit") === 0 && els.playEarn10kFill.style.width === "100%");
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
