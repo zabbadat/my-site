@@ -360,7 +360,28 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     });
     return out;
   }
-  var api = { TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutDaily: tutDaily, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
+  // Public drop-your-tuts scoreboard stats: per person, reps from completed TUT sets grouped by ET day.
+  // today = reps on the given day key; bestDay = highest single-day total ever; allTime = sum of all days.
+  // People appear in order of their latest set (newest-first rows). today is 0 after an ET midnight if they have no sets that day.
+  function tutBoardStats(rows, dayOf, today) {
+    var out = [], by = {};
+    (rows || []).forEach(function (r) {
+      if (!isTutSetDoc(r)) return;
+      var k = r.uid ? "u:" + r.uid : "n:" + (r.name || "Player");
+      var day = dayOf(r);
+      var reps = Number(r.reps) || 0;
+      if (!by[k]) { by[k] = { key: k, uid: r.uid || "", name: r.name || "Player", today: 0, bestDay: 0, allTime: 0, days: {} }; out.push(by[k]); }
+      var p = by[k];
+      p.allTime += reps;
+      if (day) {
+        p.days[day] = (p.days[day] || 0) + reps;
+        if (p.days[day] > p.bestDay) p.bestDay = p.days[day];
+      }
+      if (day === today) p.today += reps;
+    });
+    return out.map(function (p) { return { key: p.key, uid: p.uid, name: p.name, today: p.today, bestDay: p.bestDay, allTime: p.allTime }; });
+  }
+  var api = { TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

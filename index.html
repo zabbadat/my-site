@@ -427,9 +427,9 @@
     }
     #tut-board h2 {
       font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
-      font-size: clamp(1.05rem, 3.6vw, 1.85rem);
+      font-size: clamp(0.72rem, 3.8vw, 1.85rem);
       line-height: 1.45;
-      letter-spacing: .06em;
+      letter-spacing: .04em;
       text-transform: uppercase;
       text-align: center;
       color: var(--arcade-gold);
@@ -440,6 +440,23 @@
         0 0 48px rgba(255,45,149,.9),
         3px 3px 0 #3a1030;
       margin-bottom: 1rem;
+      max-width: 100%;
+      box-sizing: border-box;
+      padding-inline: .2rem;
+    }
+    #tut-board h2 .tuts-sets { display: block; }
+    #tut-board .tuts-stat-lbl {
+      font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
+      font-size: clamp(.38rem, 1.5vw, .52rem);
+      line-height: 1.6;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      text-align: center;
+      color: var(--arcade-cyan);
+      text-shadow: 0 0 10px rgba(45,226,230,.65);
+      margin: -.2rem 0 .8rem;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     #tut-board h2 .tuts-hl {
       display: inline-block;
@@ -453,10 +470,10 @@
         3px 3px 0 #3a1030;
       animation: tuts-hl-pulse 1.8s ease-in-out infinite;
     }
-    #tut-board h2 .tuts-hl:nth-child(1) { animation-delay: 0s; }
-    #tut-board h2 .tuts-hl:nth-child(2) { animation-delay: .15s; }
-    #tut-board h2 .tuts-hl:nth-child(3) { animation-delay: .3s; }
-    #tut-board h2 .tuts-hl:nth-child(4) { animation-delay: .45s; }
+    #tut-board h2 > .tuts-hl:nth-of-type(1) { animation-delay: 0s; }
+    #tut-board h2 > .tuts-hl:nth-of-type(2) { animation-delay: .15s; }
+    #tut-board h2 > .tuts-hl:nth-of-type(3) { animation-delay: .3s; }
+    #tut-board h2 .tuts-sets .tuts-hl { animation-delay: .45s; }
     #tut-board .eyebrow,
     #tut-board h3 {
       font-family: "Press Start 2P", ui-monospace, "Courier New", monospace;
@@ -636,7 +653,7 @@ body.zabba-snapshot #dailyCount, body.zabba-snapshot #walkSteps, body.zabba-snap
 #stepsDebug { margin-top:.4rem; font-size:.82rem; color:#8a8a8a; }
 .arcade-strip{display:flex;align-items:stretch;justify-content:center;gap:1.2rem;width:100%;box-sizing:border-box;padding:.45rem .75rem calc(.45rem + env(safe-area-inset-bottom,0px));background:#080612;border-bottom:2px solid #3a2a7a;box-shadow:0 0 18px rgba(120,80,255,.35), inset 0 0 18px rgba(0,0,0,.45);color:#ffe14d;font-family:"Press Start 2P",ui-monospace,"Courier New",monospace;text-align:center;pointer-events:none;z-index:4}
 .arcade-strip .arcade-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:6.5rem}
-.arcade-strip .arcade-num{display:block;font-size:clamp(1.15rem,6.5vw,2.15rem);line-height:1.25;letter-spacing:.08em;color:#7dff7d;text-shadow:0 0 6px #fff6a8,0 0 14px #2bff2b,0 0 24px rgba(45,255,45,.7);font-variant-numeric:tabular-nums}
+.arcade-strip .arcade-num{display:block;font-size:24px;line-height:1.25;letter-spacing:1px;color:#7dff7d;text-shadow:none;filter:none;opacity:1;font-variant-numeric:tabular-nums;-webkit-font-smoothing:none;transform:none}
 .arcade-strip .arcade-lbl{display:block;margin-top:.25rem;font-size:clamp(.38rem,1.5vw,.52rem);letter-spacing:.14em;text-transform:uppercase;color:#ffe14d;text-shadow:0 0 8px rgba(255,225,77,.7)}
 #sessionStrip{position:fixed;top:0;left:0;right:0;z-index:10000;padding-top:calc(.45rem + env(safe-area-inset-top,0px));padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
@@ -667,10 +684,29 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 .rec-preview video{width:100%;max-height:60vh;border-radius:10px;background:#000;display:block;margin:.5rem 0}
 .rec-preview .row{display:flex;flex-wrap:wrap;gap:.5rem}
 #camFsBtn{position:absolute;right:calc(8px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));z-index:3;padding:.35rem .6rem;font-size:.85rem}
-#pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page,#score.arcade-page,#stepsStat.arcade-page,#clock.arcade-page{font-family:"Press Start 2P",ui-monospace,"Courier New",monospace;color:#7dff7d;text-shadow:0 0 8px #2bff2b}
+#pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page,#score.arcade-page,#stepsStat.arcade-page,#clock.arcade-page{
+  font-family:ui-monospace,"Courier New",monospace;
+  color:#7dff7d;
+  font-size:32px;
+  line-height:1;
+  letter-spacing:1px;
+  text-shadow:none;
+  filter:none;
+  opacity:1;
+  -webkit-font-smoothing:none;
+  transform:none;
+}
+@media (max-width:700px){
+  #pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page,#score.arcade-page,#stepsStat.arcade-page,#clock.arcade-page{font-size:24px}
+}
+.arcade-crisp-on{position:relative;display:block;min-height:1em;color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;filter:none!important;opacity:1;transform:none}
+.arcade-src{position:absolute!important;left:0;top:0;width:1px;height:1px;padding:0;margin:0;overflow:hidden!important;clip:rect(0,0,0,0);clip-path:inset(50%);border:0;white-space:nowrap;color:transparent!important;-webkit-text-fill-color:transparent!important;font-size:0!important;line-height:0;opacity:0!important;pointer-events:none}
+.arcade-crisp-on>svg.arcade-crisp{position:absolute;pointer-events:none;display:block;overflow:visible;filter:none;opacity:1;transform:none}
+.arcade-crisp .arcade-glow{filter:none}
+.arcade-crisp .arcade-digits{filter:none;opacity:1}
 @media (orientation:landscape) and (max-height:500px){
   .arcade-strip{flex-direction:row;gap:.8rem;padding:.3rem .6rem}
-  .arcade-strip .arcade-num{font-size:clamp(1rem,8vh,1.6rem)}
+  .arcade-strip .arcade-num{font-size:24px}
   body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 3.6rem)}
 }
 .tut-hero.unboxed{background:none!important;border:0!important;box-shadow:none!important;padding:.4rem 0 0!important}
@@ -837,7 +873,7 @@ nav > .pfp-row[hidden]{display:none}
 .arc-name em { font-style:normal; font-size:.6rem; color:#7dff7d; }
 .arc-badge { font-size:.62rem; font-weight:800; padding:.05rem .35rem; border-radius:4px; border:1px solid currentColor; }
 .arc-rep-shaky { color:#ff7a7a; } .arc-rep-steady { color:#ffe14d; } .arc-rep-trusted { color:#7dff7d; }
-.arc-score { font-size:3.2rem; font-weight:800; line-height:1.05; color:#fff; text-shadow:0 0 12px currentColor; margin:.2rem 0; }
+.arc-score { font-family:ui-monospace,"Courier New",monospace; font-size:32px; font-weight:800; line-height:1.05; letter-spacing:1px; color:#fff; text-shadow:none; filter:none; opacity:1; margin:.2rem 0; -webkit-font-smoothing:none; transform:none; }
 .arc-p1 .arc-score { color:#7fe3ff; } .arc-p2 .arc-score { color:#ff9ae9; }
 .arc-score small { font-size:1rem; color:#9fb4ff; text-shadow:none; }
 .arc-score .c { display:none; --arc-n:var(--to); }
@@ -1393,14 +1429,15 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="note" id="pushStatus">Ready. Get set, then tap Start.</p>
     <p class="fine">Signed-in finishes post to the push board. Unsigned stays on this phone. Video never uploads.</p>
   <section class="washers" id="tut-board">
-    <h2><span class="tuts-hl">T</span>ime <span class="tuts-hl">U</span>nder <span class="tuts-hl">T</span>ension <span class="tuts-hl">S</span>ets</h2>
+    <h2><span class="tuts-hl">T</span>ime <span class="tuts-hl">U</span>nder <span class="tuts-hl">T</span>ension <span class="tuts-sets"><span class="tuts-hl">S</span>ets</span></h2>
     <p class="eyebrow" style="margin:-.4rem 0 .8rem">drop your tuts</p>
     <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
-    <p class="lead">Today's scoreboard for drop your tuts, reset at midnight Eastern. A TUT set is complete once the clock reaches 1:20 with at least 10 push-ups. Keep going: the full time and every push-up after 1:20 count too. Each player shows their TUT sets today, with each set's time and push-ups. You can't fail just by holding.</p>
-    <h3>drop your tuts</h3>
+    <p class="lead" id="tutBoardSub">Drop Your Tuts scoreboard</p>
+    <p class="tuts-stat-lbl">Today · Best day · All-time</p>
+    <p class="lead">A TUT set is complete once the clock reaches 1:20 with at least 10 push-ups. Keep going: the full time and every push-up after 1:20 count too. You can't fail just by holding.</p>
     <table>
-      <thead><tr><th>Player</th><th>TUT sets today</th><th>Time · push-ups</th></tr></thead>
-      <tbody id="tutBoardBody"><tr><td colspan="3">Waiting for sets…</td></tr></tbody>
+      <thead><tr><th>Player</th><th>Today</th><th>Best day</th><th>All-time</th></tr></thead>
+      <tbody id="tutBoardBody"><tr><td colspan="4">Waiting for sets…</td></tr></tbody>
     </table>
     <h3 style="margin-top:1.6rem">Your time under tension</h3>
     <p class="fine">Saved on this phone for the signed-in player (or guest).</p>
@@ -1413,12 +1450,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <thead><tr><th>Day</th><th>Time</th><th>Reps</th></tr></thead>
       <tbody id="tutDaysBody"><tr><td colspan="3">No sets yet.</td></tr></tbody>
     </table>
-    <h3 style="margin-top:1.6rem">Tuts dropped</h3>
-    <p class="fine">People who finished a TUT set — push-ups and or a 120-second hold.</p>
-    <div class="stats">
-      <div class="stat"><b id="tutPeopleCount">0</b><span>People</span></div>
-      <div class="stat"><b id="tutTimesCount">0</b><span>Times done</span></div>
-    </div>
   </section>
 
     <h3 style="margin-top:1.6rem">Push board</h3>
@@ -1920,6 +1951,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/washers-pot.js"></script>
   <script src="/washers-battlers.js"></script>
   <script src="/washers-arcade.js"></script>
+  <script src="/arcade-crisp.js"></script>
   <script src="/app-bridge.js" defer></script>
   <script type="module">
     const PHONE_GIS_HASH = (typeof location !== "undefined" && location.hash) || "";
@@ -2840,8 +2872,9 @@ function renderTutHistory() {
     ? h.days.slice(0, 14).map((x) => `<tr><td>${escapeHtml(dayName(x))}</td><td>${formatTut(x.ms)}</td><td>${Number(x.reps)}</td></tr>`).join("")
     : `<tr><td colspan="3">No sets yet.</td></tr>`;
 }
-// drop your tuts: TODAY's completed TUT sets (1:20 + 10 push-ups) per person, ET-midnight day (et-day.js). Each set shows
-// its full final time and push-ups. Not ranked: people in order of their latest set.
+// drop your tuts public board: per person Today / Best day / All-time push-up totals from completed TUT sets
+// (1:20 + 10 push-ups). Today is the current Eastern day (resets at ET midnight); best day and all-time never reset.
+// Not ranked: people in order of their latest set. Personal #tutToday/#tutBestDay/#tutAll block is separate.
 function tutDayOf(r) {
   const t = Number(r && r.at) || 0;
   if (!t) return "";
@@ -2853,16 +2886,12 @@ function paintTutRows(rows) {
   if (!body) return;
   const S = window.ZabbadatSession;
   paintTutRows.last = rows || []; paintTutRows.day = tutDayOf({ at: Date.now() });
-  const sets = (rows || []).filter((r) => S.isTutSetDoc(r));
-  const people = S.tutDaily(rows, tutDayOf, paintTutRows.day).slice(0, 50);
+  const people = S.tutBoardStats(rows, tutDayOf, paintTutRows.day).slice(0, 50);
   body.innerHTML = people.length
-    ? people.map((p) => `<tr><td>${escapeHtml(publicName(p.name))}</td><td>${p.sets.length}</td><td>${p.sets.map((x) => formatTime(x.ms) + " · " + Number(x.reps)).join("<br>")}</td></tr>`).join("")
-    : `<tr><td colspan="3">No TUT sets completed today yet.</td></tr>`;
-  const peopleEl = $("tutPeopleCount"), timesEl = $("tutTimesCount");
-  if (peopleEl) { const seen = {}; sets.forEach((r) => { const k = r.uid || ""; if (k) seen[k] = 1; }); peopleEl.textContent = String(Object.keys(seen).length); }
-  if (timesEl) timesEl.textContent = String(sets.length);
+    ? people.map((p) => `<tr><td>${escapeHtml(publicName(p.name))}</td><td>${p.today}</td><td>${p.bestDay}</td><td>${p.allTime}</td></tr>`).join("")
+    : `<tr><td colspan="4">No TUT sets completed yet.</td></tr>`;
 }
-// ET midnight: repaint so yesterday's sets drop off without waiting for a new post.
+// ET midnight: repaint so Today's column resets; best day and all-time stay.
 if (typeof setInterval === "function" && typeof document !== "undefined") setInterval(() => { if (paintTutRows.last && paintTutRows.day !== tutDayOf({ at: Date.now() })) paintTutRows(paintTutRows.last); }, 60000);
 // Profile: lifetime completed TUT sets (1:20 + 10 push-ups), counted from this user's own pushups docs (no new field or rule).
 function paintTutLifetime(n) {
