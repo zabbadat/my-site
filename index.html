@@ -336,6 +336,7 @@
     .card h3 { font-size: 1.4rem; margin-bottom: .45rem; }
     .card p, .note { color: var(--muted); }
     .note { font-size: .88rem; margin-top: 1rem; }
+    #status:empty, #phoneStepsNote:empty, #gameStepsDebug:empty { display: none; }
     /* Plank framing outline: a plain dashed box to fit your whole body into (just a box, nothing is drawn from the pose). Amber until the framing guide is happy, then green; faint once the clock runs. */
     .plank-outline { position: absolute; left: 4%; right: 4%; top: 28%; bottom: 28%; border: 2px dashed #f0b429; border-radius: 14px; pointer-events: none; display: flex; align-items: flex-start; justify-content: center; transition: border-color .2s, opacity .3s; }
     .plank-outline span { font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: #f0b429; background: rgba(16,24,22,.7); padding: .05rem .4rem; border-radius: 0 0 8px 8px; }
@@ -1323,7 +1324,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
 <p class="note" id="phoneStepsNote" aria-live="polite"></p>
 <p class="note" id="gameStepsDebug" hidden aria-live="polite"></p>
-<p class="note" id="status">Ready. Sign in, then press start.</p>
+<p class="note" id="status"></p>
 <p><a class="btn ghost" id="shareX" hidden target="_blank" rel="noopener">Share this game on X</a></p>
 <div class="card" id="pvpWasherEntry" style="margin-top:1.15rem">
   <h3>Zabba Washer Battle PvP</h3>
@@ -4181,7 +4182,6 @@ function showUser(user) {
     if (screen) $("xHandle").value = "@" + screen;
     $("cloudStatus").className = "note ok";
     $("cloudStatus").textContent = "Signed in. Finished games post under this name.";
-    if (/Sign in, then/.test($("status").textContent)) $("status").textContent = "Ready. Press start.";
     if (user.photoURL) {
       let img = document.getElementById("avatar");
       if (!img) {
@@ -4210,7 +4210,6 @@ function showUser(user) {
       $("cloudStatus").className = "note";
       $("cloudStatus").textContent = "Live board is on. Pitch & post your legacy.";
     }
-    if ($("status").textContent === "Ready. Press start.") $("status").textContent = "Ready. Sign in, then press start.";
   }
 }
 
