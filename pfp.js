@@ -133,7 +133,13 @@
   }
   function store() { try { return root.localStorage; } catch (e) { return null; } }
   function isOn() { try { var s = store(); return !!user && !!s && s.getItem(KEY) === "1"; } catch (e) { return false; } }
-  function setOn(v) { try { var s = store(); if (s) s.setItem(KEY, v ? "1" : "0"); } catch (e) {} syncRow(); if (!v) clearAll(); }
+  // ONE shared PFP setting (KEY, this device only): the top-bar "Enable profile - PFP" switch and the Live Match camera's
+  // "Show my PFP" switch both read and write it. It drives, together: the avatar on camera, the head tracking that moves it,
+  // and the avatar in recordings. Listeners (onChange) hear every flip so an open camera updates live.
+  var changeFns = [];
+  function onChange(fn) { if (typeof fn === "function") changeFns.push(fn); return function () { changeFns = changeFns.filter(function (f) { return f !== fn; }); }; }
+  function emit() { var on = isOn(); for (var i = 0; i < changeFns.length; i++) { try { changeFns[i](on); } catch (e) {} } }
+  function setOn(v) { try { var s = store(); if (s) s.setItem(KEY, v ? "1" : "0"); } catch (e) {} syncRow(); if (!v) clearAll(); emit(); }
   function loadImg(url) {
     if (url === imgUrl) return;
     imgUrl = url; imgOk = false; img = null;
@@ -185,8 +191,9 @@
     o = overlays[id] = { cv: cv, vid: vid, tr: createTracker(), timer: null };
     return o;
   }
-  function clearOne(o) { try { var x = o.cv.getContext("2d"); x.clearRect(0, 0, o.cv.width, o.cv.height); o.cv.style.display = "none"; o.tr.reset(); } catch (e) {} }
-  function clearAll() { for (var k in overlays) clearOne(overlays[k]); miniStop(); }
+  function clearOne(o) { try { if (o.timer) clearTimeout(o.timer); o.timer = null; var x = o.cv.getContext("2d"); x.clearRect(0, 0, o.cv.width, o.cv.height); o.cv.style.display = "none"; o.tr.reset(); } catch (e) {} }
+  // Switch off: no overlay, no pending clear timers, no mini-feed, no pinned plank logo, no head spot left for recordings.
+  function clearAll() { for (var k in overlays) clearOne(overlays[k]); miniStop(); for (var p in pins) pins[p] = null; for (var h in heads) heads[h] = null; }
   function draw(o, c) {
     var vid = o.vid, cv = o.cv, bw = vid.clientWidth, bh = vid.clientHeight;
     if (!(bw > 0 && bh > 0)) { clearOne(o); return; }
@@ -223,8 +230,9 @@
     try {
       if (!doc || !vid || !vid.parentNode) return;
       var id = vid.id || "v", tt = typeof t === "number" && isFinite(t) ? t : Date.now();
-      var hc = heads[id] || (heads[id] = { tr: createTracker(), c: null, t: 0 }); hc.c = hc.tr.step(kps, tt, vid.videoWidth, vid.videoHeight); hc.t = tt; // head spot for the recording watermark (pure maths)
-      if (!isOn()) { var o0 = overlays[id]; if (o0) clearOne(o0); miniStop(); return; }
+      // Switch off: avatar, its head tracking and the recording avatar all stop (rep counting never depends on this).
+      if (!isOn()) { heads[id] = null; var o0 = overlays[id]; if (o0) clearOne(o0); miniStop(); return; }
+      var hc = heads[id] || (heads[id] = { tr: createTracker(), c: null, t: 0 }); hc.c = hc.tr.step(kps, tt, vid.videoWidth, vid.videoHeight); hc.t = tt; // head spot for the avatar, the recording and the watermark hop
       ensureLogo();
       var o = overlayFor(vid), c = hc.c;
       draw(o, c);
@@ -237,13 +245,13 @@
   // fixed for the whole hold; release when the hold ends. Same visual-only, never-throws contract as frame().
   var pins = {}, heads = {};
   // Last head circle (video px, display/mirrored space) for a video, and whether the logo is showing - read by rec.js.
-  function lastHead(id, now) { var h = heads[id]; if (pins[id] && isOn()) return pins[id]; return h && h.c && (now == null || now - h.t < P.clearMs) ? h.c : null; }
+  function lastHead(id, now) { if (!isOn()) return null; var h = heads[id]; if (pins[id]) return pins[id]; return h && h.c && (now == null || now - h.t < P.clearMs) ? h.c : null; }
   api.lastHead = lastHead; api.drawLogo = function (x, m) { try { ensureLogo(); drawLogo(x, m); } catch (e) {} };
   function plankFrame(vid, kps, phase, t) {
     try {
       if (!doc || !vid || !vid.parentNode) return;
       var id = vid.id || "v";
-      if (!isOn()) { pins[id] = null; var o0 = overlays[id]; if (o0) clearOne(o0); miniStop(); return; }
+      if (!isOn()) { pins[id] = null; heads[id] = null; var o0 = overlays[id]; if (o0) clearOne(o0); miniStop(); return; }
       if (phase !== "holding") { pins[id] = null; frame(vid, kps, t); return; }
       ensureLogo();
       var o = overlayFor(vid), tt = typeof t === "number" && isFinite(t) ? t : Date.now();
@@ -255,11 +263,13 @@
     } catch (e) {}
   }
   api.plankFrame = plankFrame; api._pin = function (id) { return pins[id || "plankVid"] || null; };
-  api.setUser = setUser; api.frame = frame; api.isOn = isOn; api.setOn = setOn; api.paintBadge = paintBadge;
+  api.setUser = setUser; api.frame = frame; api.isOn = isOn; api.setOn = setOn; api.onChange = onChange; api.paintBadge = paintBadge;
   if (root) root.ZabPfp = api;
   if (doc) {
     var wire = function () {
       try { var t = doc.getElementById("pfpToggle"); if (t && !t._pfp) { t._pfp = 1; t.addEventListener("change", function () { setOn(t.checked); }); } syncRow(); } catch (e) {}
+      // Same setting flipped in another tab of this site: follow it here too.
+      try { if (root.addEventListener && !root._zabPfpStore) { root._zabPfpStore = 1; root.addEventListener("storage", function (e) { if (e && e.key === KEY) { syncRow(); if (!isOn()) clearAll(); emit(); } }); } } catch (e) {}
     };
     if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", wire); else wire();
   }

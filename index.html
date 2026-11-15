@@ -727,6 +727,7 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
       #userDash .dash-stats.dash-summary { grid-template-columns: repeat(4, 1fr); }
     }
 .zm-cam-box{margin:.2rem 0 .6rem}
+.zm-pfp-row{display:flex;align-items:center;gap:.55rem;margin:.55rem 0 .2rem;font-size:.85rem;cursor:pointer;position:relative}
 .zm-cam{margin:.5rem auto 0;max-width:22rem;position:relative}
 .zm-cam video{width:100%;border-radius:14px;background:#101816;display:block}
 .zm-cam canvas{position:absolute;left:0;top:0;pointer-events:none}
@@ -1532,6 +1533,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="zm-seats" id="zmSeats"></div>
         <div id="zmCamBox" class="zm-cam-box" hidden>
           <div class="row"><button class="btn ghost" id="zmCamBtn" type="button" aria-pressed="false">Camera</button><button class="btn ghost" id="zmCamFacing" type="button" hidden>Front camera</button></div>
+          <label class="pfp-row zm-pfp-row" id="zmShowPfpRow" for="zmShowPfp" title="Same setting as Enable profile - PFP at the top. When on, your profile picture (or the Zabbadat logo) floats above your head here, follows you, and shows in recordings. Off turns all of that off."><input type="checkbox" id="zmShowPfp" role="switch" aria-checked="true" checked><span class="pfp-sw" aria-hidden="true"></span><span class="pfp-lbl">Show my PFP</span><span class="pfp-hint">Picture floats above your head</span></label>
           <div class="zm-cam" id="zmCamWrap" hidden><video id="zmCamVid" autoplay playsinline muted></video><canvas id="zmCamOverlay"></canvas></div>
           <p class="note" id="zmCamNote">Local preview only. Video never leaves this phone. Tracks one person (the most confident in the frame). Accuracy drops at a distance or with your back turned.</p>
         </div>

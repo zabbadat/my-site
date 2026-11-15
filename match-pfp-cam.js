@@ -86,11 +86,32 @@
     return { kind: "logo", src: P.logo, text: initialOf(player) };
   }
 
-  var api = { P: P, floatAnchor: floatAnchor, createFloater: createFloater, pickPerson: pickPerson, overlaySrc: overlaySrc, initialOf: initialOf };
+  // "Show my PFP" (#zmShowPfp) is NOT a separate setting: it is the site-wide "Enable profile - PFP" switch (pfp.js KEY,
+  // localStorage on this device, "1" = on). Same key, same default as the top-bar switch (off until turned on), and flipping
+  // either one updates the other and this camera live.
+  var SHOW_KEY = "zabPfpOn";
+  function readShow(store) { try { return !!store && store.getItem(SHOW_KEY) === "1"; } catch (e) { return false; } }
+  function saveShow(store, v) { try { if (store) store.setItem(SHOW_KEY, v ? "1" : "0"); } catch (e) {} return !!v; }
+
+  var api = { P: P, SHOW_KEY: SHOW_KEY, readShow: readShow, saveShow: saveShow, floatAnchor: floatAnchor, createFloater: createFloater, pickPerson: pickPerson, overlaySrc: overlaySrc, initialOf: initialOf };
 
   // ---- browser side (own camera, never the push-up / TUT / plank stream or pose loop) ----
   var doc = root && root.document, stream = null, facing = "environment", on = false, loopId = 0, floater = null;
-  var photo = null, logoImg = null, player = null, live = false, noteDefault = "";
+  var photo = null, logoImg = null, player = null, live = false, noteDefault = "", looping = false;
+  function lsStore() { try { return root.localStorage || null; } catch (e) { return null; } }
+  function isShow() { return readShow(lsStore()); } // read every time: one source of truth, never a stale copy
+  // Off = plain preview: avatar loop stopped (no pose tracking for it), floater reset, overlay cleared. On = loop restarts.
+  function applyShow() {
+    if (!isShow()) { loopId += 1; looping = false; if (floater) floater.reset(); clearOverlay(); }
+    else if (on && !looping) { looping = true; tick(++loopId); }
+    paintButtons();
+  }
+  function setShow(v) {
+    var lib = pfp();
+    if (lib && typeof lib.setOn === "function") lib.setOn(!!v); else saveShow(lsStore(), v); // pfp.js syncs the top-bar switch and notifies us
+    applyShow();
+    return isShow();
+  }
 
   function $(id) { return doc && doc.getElementById(id); }
   function setNote(t) { var n = $("zmCamNote"); if (n) n.textContent = t || noteDefault; }
@@ -100,6 +121,7 @@
     if (wrap) wrap.hidden = !on;
     if (b) { b.setAttribute("aria-pressed", on ? "true" : "false"); b.textContent = on ? "Turn off camera" : "Camera"; }
     if (f) { f.hidden = !live; f.textContent = facing === "user" ? "Rear camera" : "Front camera"; }
+    var sw = $("zmShowPfp"); if (sw) { sw.checked = isShow(); sw.setAttribute("aria-checked", sw.checked ? "true" : "false"); }
     var vid = $("zmCamVid");
     if (vid) vid.style.transform = facing === "user" ? "scaleX(-1)" : "none";
   }
@@ -154,12 +176,13 @@
     throw new Error("Pose engine not available");
   }
   async function tick(id) {
-    if (id !== loopId || !on) return;
+    if (id !== loopId || !on || !isShow()) { if (id === loopId) looping = false; return; }
     var vid = $("zmCamVid"), cv = $("zmCamOverlay");
     try {
       if (vid && vid.readyState >= 2 && vid._zmDet) {
         var flip = facing === "user";
         var poses = await vid._zmDet.estimatePoses(vid, { flipHorizontal: flip });
+        if (id !== loopId || !on || !isShow()) { if (id === loopId) looping = false; clearOverlay(); return; } // switched off mid-frame: draw nothing
         var person = pickPerson(poses), kps = person ? person.keypoints : [];
         var t = Date.now(), fw = vid.videoWidth || 0, fh = vid.videoHeight || 0;
         if (!floater) floater = createFloater();
@@ -177,7 +200,7 @@
         }
       }
     } catch (e) {}
-    if (id === loopId && on) root.requestAnimationFrame(function () { tick(id); });
+    if (id === loopId && on && isShow()) root.requestAnimationFrame(function () { tick(id); }); else if (id === loopId) looping = false;
   }
   function stopTracks() {
     if (stream) { try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} stream = null; }
@@ -197,18 +220,18 @@
     try { await vid.play(); } catch (e) {}
     on = true; floater = createFloater(); paintButtons();
     try { vid._zmDet = await getDetector(); setNote(noteDefault); } catch (e) { setNote("Preview on. Pose model couldn't load, so the picture won't follow your head yet."); }
-    tick(++loopId);
+    applyShow(); // starts the avatar loop only when the PFP setting is on
     return true;
   }
   function stop() {
-    loopId += 1; on = false; stopTracks(); if (floater) floater.reset(); clearOverlay(); paintButtons();
+    loopId += 1; looping = false; on = false; stopTracks(); if (floater) floater.reset(); clearOverlay(); paintButtons();
     if (live) setNote(noteDefault);
   }
   async function setFacing(next) {
     facing = next === "user" ? "user" : "environment";
     paintButtons();
     if (!on) return;
-    stopTracks(); on = false;
+    stopTracks(); on = false; loopId += 1; looping = false;
     await start();
   }
   function sync(opts) {
@@ -222,9 +245,13 @@
     var n = $("zmCamNote"); if (n && !noteDefault) noteDefault = n.textContent || "";
     var b = $("zmCamBtn"); if (b && !b._zm) { b._zm = 1; b.addEventListener("click", function () { if (on) stop(); else start(); }); }
     var f = $("zmCamFacing"); if (f && !f._zm) { f._zm = 1; f.addEventListener("click", function () { setFacing(facing === "user" ? "environment" : "user"); }); }
+    var sw = $("zmShowPfp"); if (sw && !sw._zm) { sw._zm = 1; sw.addEventListener("change", function () { setShow(sw.checked); }); }
+    var lib = pfp(); if (lib && lib.onChange && !wire._sub) { wire._sub = 1; lib.onChange(function () { applyShow(); }); } // top-bar switch flipped
+    if (root.addEventListener && !wire._st) { wire._st = 1; root.addEventListener("storage", function (e) { if (e && e.key === SHOW_KEY) applyShow(); }); }
     paintButtons();
   }
 
+  api.isShow = isShow; api.setShow = setShow;
   api.start = start; api.stop = stop; api.isOn = function () { return on; }; api.facing = function () { return facing; };
   api.setFacing = setFacing; api.sync = sync; api.wire = wire; api.setPlayer = setPlayer;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

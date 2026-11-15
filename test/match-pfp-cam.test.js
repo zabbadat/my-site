@@ -64,4 +64,55 @@ check("default facing is the rear camera", /facing = "environment"/.test(src));
 check("Google / X sign-in buttons and same-tab startPhoneGoogle are intact", /<button class="btn" id="signInBtn" type="button">Sign in with Google<\/button>/.test(html) && /<button class="btn ghost" id="signInXBtn" type="button">Sign in with X<\/button>/.test(html) && /startPhoneGoogle\(\)/.test(html));
 check("firestore.rules / netlify / OAuth files were not required for this feature (rules block still present, unchanged keys)", fs.readFileSync(path.join(__dirname, "..", "firestore.rules"), "utf8").includes("match /matches/{code}") && /mkBattleFs\("matches"\)/.test(html));
 
-const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); if (ok !== R.length) process.exit(1);
+
+// 6. ONE shared PFP setting: "Show my PFP" (Live Match camera) == top-bar "Enable profile - PFP" (pfp.js KEY, this device)
+const mem = (o = {}) => ({ d: Object.assign({}, o), getItem(k) { return k in this.d ? this.d[k] : null; }, setItem(k, v) { this.d[k] = String(v); } });
+check("same storage key as the top-bar switch (single source of truth)", CAM.SHOW_KEY === PF.KEY && PF.KEY === "zabPfpOn" && !/zdMatchShowPfp/.test(fs.readFileSync(path.join(__dirname, "..", "match-pfp-cam.js"), "utf8")));
+check("follows the global setting: on -> on, off -> off, never set -> off (same default as the top-bar switch)", CAM.readShow(mem({ zabPfpOn: "1" })) === true && CAM.readShow(mem({ zabPfpOn: "0" })) === false && CAM.readShow(mem()) === false && CAM.readShow(null) === false);
+const m1 = mem(); CAM.saveShow(m1, true);
+check("the choice persists in localStorage on this device", m1.d.zabPfpOn === "1" && CAM.readShow(m1) === true && (CAM.saveShow(m1, false), CAM.readShow(m1) === false));
+check("page: 'Show my PFP' switch inside #zmCamBox, styled like the Enable profile - PFP row", /<label class="pfp-row zm-pfp-row" id="zmShowPfpRow" for="zmShowPfp"[^>]*><input type="checkbox" id="zmShowPfp" role="switch"[^>]*><span class="pfp-sw" aria-hidden="true"><\/span><span class="pfp-lbl">Show my PFP<\/span>/.test(html) && html.indexOf('id="zmShowPfp"') > html.indexOf('id="zmCamBox"') && html.indexOf('id="zmShowPfp"') < html.indexOf('id="zmCamWrap"'));
+(async () => {
+  // Browser side in a sandbox (pfp.js + match-pfp-cam.js together): fake DOM, camera and pose detector.
+  const vm = require("vm");
+  const ops = [], els = {}, raf = [];
+  let poseCalls = 0;
+  const ctx2d = { setTransform() {}, clearRect() { ops.push("clear"); }, save() {}, restore() {}, beginPath() {}, closePath() {}, clip() {}, arc() { ops.push("arc"); }, stroke() {}, fillRect() {}, fillText() {}, drawImage() { ops.push("img"); }, createLinearGradient() { return { addColorStop() {} }; } };
+  const el = (id, extra) => (els[id] = Object.assign({ id, hidden: false, textContent: "", style: {}, attrs: {}, listeners: {}, classList: { add() {}, remove() {}, toggle() {} }, setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.listeners[t] = f; }, querySelector() { return null; } }, extra || {}));
+  ["zmCamBtn", "zmCamFacing", "zmCamBox", "zmCamWrap", "zmCamNote", "pfpRow", "ztBadge"].forEach((id) => el(id));
+  el("zmShowPfp", { checked: false }); el("pfpToggle", { checked: false });
+  el("zmCamOverlay", { width: 0, height: 0, getContext: () => ctx2d });
+  el("zmCamVid", { readyState: 4, videoWidth: 640, videoHeight: 480, clientWidth: 320, clientHeight: 240, offsetLeft: 0, offsetTop: 0, parentNode: {}, play: async () => {} });
+  const store = mem({ zabPfpOn: "1" }), winL = {};
+  const win = { document: { readyState: "complete", getElementById: (id) => els[id] || null, createElement: () => el("x" + Math.random()) }, localStorage: store, devicePixelRatio: 1,
+    navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } },
+    addEventListener: (t, f) => { winL[t] = f; }, requestAnimationFrame: (f) => raf.push(f), getComputedStyle: () => ({ objectFit: "fill" }),
+    ensurePushPose: async () => ({ estimatePoses: async () => { poseCalls++; return [{ score: 0.9, keypoints: face }]; } }) };
+  win.window = win;
+  const sb = vm.createContext(Object.assign(win, { console, Promise, Math, Date, Object, String, Number, isFinite, Array, setTimeout, clearTimeout }));
+  vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "pfp.js"), "utf8"), sb);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "match-pfp-cam.js"), "utf8"), sb);
+  const B = sb.ZabbaMatchPfpCam, G = sb.ZabPfp;
+  G.setUser({ uid: "u1", displayName: "Ann" });
+  const flush = async (n = 3) => { for (let i = 0; i < n; i++) { const f = raf.splice(0); f.forEach((g) => g()); await new Promise((r) => setImmediate(r)); } };
+  B.sync({ live: true, player: { name: "Ann" } });
+  check("browser: Show my PFP starts from the shared setting (on) and both switches show on", B.isShow() === true && els.zmShowPfp.checked === true && els.pfpToggle.checked === true && G.isOn() === true);
+  await B.start(); await new Promise((r) => setImmediate(r)); await flush();
+  const onCalls = poseCalls, onArcs = ops.filter((o) => o === "arc").length;
+  check(`ON: avatar tracking runs and the floating PFP is drawn (${onCalls} pose calls, ${onArcs} arcs)`, B.isOn() && onCalls > 0 && onArcs > 0);
+  ops.length = 0; let before = poseCalls; els.zmShowPfp.checked = false; els.zmShowPfp.listeners.change();
+  await flush(4);
+  check("OFF via Show my PFP mid-camera: overlay cleared, no avatar drawn, avatar tracking skipped, no rAF loop left", B.isOn() && B.isShow() === false && ops.includes("clear") && poseCalls === before && !ops.includes("arc") && raf.length === 0);
+  check("…and it is the same setting: top-bar switch now off too, stored off on this device", store.d.zabPfpOn === "0" && G.isOn() === false && els.pfpToggle.checked === false && els.zmShowPfp.attrs["aria-checked"] === "false");
+  ops.length = 0; before = poseCalls; els.pfpToggle.checked = true; els.pfpToggle.listeners.change();
+  await flush(4);
+  check("ON via the top-bar switch mid-camera: Show my PFP flips on live, tracking and the floating PFP resume", els.zmShowPfp.checked === true && poseCalls > before && ops.includes("arc") && store.d.zabPfpOn === "1");
+  ops.length = 0; before = poseCalls; els.pfpToggle.checked = false; els.pfpToggle.listeners.change();
+  await flush(4);
+  check("OFF via the top-bar switch mid-camera: match overlay cleared and its loop stops", els.zmShowPfp.checked === false && poseCalls === before && ops.includes("clear") && !ops.includes("arc") && raf.length === 0);
+  store.d.zabPfpOn = "1"; winL.storage && winL.storage({ key: "zabPfpOn" }); await flush(3);
+  check("flipped in another tab (storage event): camera follows", poseCalls > before && els.zmShowPfp.checked === true);
+  B.stop(); await flush(2);
+  check("camera off: no rAF loop left", raf.length === 0 && B.isOn() === false);
+  const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); if (ok !== R.length) process.exit(1);
+})().catch((e) => { console.log("FAIL  browser sandbox threw: " + (e && e.stack)); process.exit(1); });
