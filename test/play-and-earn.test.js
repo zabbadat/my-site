@@ -7,7 +7,7 @@ const check = (n, ok) => { ok ? pass++ : fail++; console.log((ok ? "PASS " : "FA
 const start = html.indexOf('id="play-and-earn"');
 const live = html.indexOf('id="live-cameras"');
 const hub = html.indexOf('<section id="battles-hub">');
-check("Play and Earn section and live cameras block exist", start > 0 && live > 0 && html.includes("<h2>Play and Earn</h2>"));
+check("Play and Earn section and live cameras block exist", start > 0 && live > 0 && html.includes("<h2>Activate and Earn</h2>"));
 check("live cameras sit after Battles hub and before Play and Earn", hub > 0 && live > hub && start > live);
 check("Live Match and Watch Live cards are in the live cameras block, not in the Washer Battle tab", (() => {
   const cam = html.slice(live, start);
