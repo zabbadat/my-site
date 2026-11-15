@@ -2,6 +2,7 @@
  * Phone propped on the floor off to the side, body seen side-on.
  * - frameGuide: is the whole body (shoulder, hip, knee, ankle) in frame, side-on and roughly level? -> short message.
  *     Framing only delays the READY start; it never ends a running hold.
+ *     Ankles missing or on the edge fall back to the shoulder-hip-knee line in any orientation.
  * - classifyPlank: one frame -> "ok" | "sag" | "pike" | "knees" | "standing" | "missing". Sag and pike are the hip's
  *     perpendicular offset from the shoulder-ankle line divided by that line's length (body length), each with a tight
  *     "start" limit and a looser "keep" limit (hysteresis: easier to keep good form than to regain it).
@@ -14,10 +15,10 @@
   "use strict";
   var PLANK = {
     minScore: 0.3,      // keypoint confidence gate
-    sagStart: 0.05,     // hip below the shoulder-ankle line by more than this x body length = sag (when not already good)
-    sagKeep: 0.07,      // ...but an already-good frame only turns sag beyond this (hysteresis)
-    pikeStart: 0.06,    // hip above the line by more than this x body length = pike (when not already good)
-    pikeKeep: 0.085,    // ...already-good frames only turn pike beyond this
+    sagStart: 0.08,     // hip below the shoulder-ankle line by more than this x body length = sag (when not already good)
+    sagKeep: 0.10,      // ...but an already-good frame only turns sag beyond this (hysteresis)
+    pikeStart: 0.10,    // hip above the line by more than this x body length = pike (when not already good)
+    pikeKeep: 0.12,     // ...already-good frames only turn pike beyond this
     kneeAngle: 150,     // hip-knee-ankle below this = resting on the knees
     flat: 1.0,          // shoulder->ankle rise must be <= flat * run (else standing/upright)
     readyMs: 1500,      // good plank (and good framing) before the clock starts
@@ -30,14 +31,14 @@
     frozenTol: 0.0003,  // max per-frame motion (fraction of body length) that counts as "frozen"
     repeatFrac: 0.9,    // share of frames in the window that exactly repeat an earlier frame
     frameScore: 0.35,   // framing guide: every one of shoulder, hip, knee, ankle needs at least this confidence
-    edgeFrac: 0.02,     // framing: a joint this close to the frame edge (fraction of the frame) counts as cut off
+    edgeFrac: 0.06,     // framing: a joint this close to the frame edge (fraction of the frame) counts as cut off
     minSpan: 0.35,      // framing: shoulder-to-ankle span must be at least this fraction of the frame width (landscape)
     minSpanPortrait: 0.35, // portrait (phone upright): same share of the frame WIDTH (the short side) as landscape
     portraitMinScore: 0.25, // portrait: the body is smaller in a tall frame, so keypoints are accepted a little lower
     portraitFrameScore: 0.25, // portrait framing guide confidence (landscape keeps frameScore)
     kneeFrac: 0.75,     // shoulder->knee is about this share of shoulder->ankle (used when ankles are out of a portrait frame)
-    sideSep: 0.3,       // framing: left/right shoulder or hip farther apart than this x body length = seen from the front
-    maxTilt: 35,        // framing: shoulder-ankle line steeper than this many degrees from horizontal = not level
+    sideSep: 0.5,       // framing: left/right shoulder or hip farther apart than this x body length = seen from the front
+    maxTilt: 50,        // framing: shoulder-ankle line steeper than this many degrees from horizontal = not level
     frameShowMs: 500,   // framing message shows after the issue lasts this long ...
     frameClearMs: 250,  // ... and clears after it has been gone this long
     filter: true,       // One Euro on the keypoints for form classification (liveness stays on raw points)
@@ -118,8 +119,9 @@
     ["shoulder", "hip", "knee", "ankle"].forEach(function (j) { J[j] = pt(kps, side + "_" + j, n); });
     var ex = o.edgeFrac * W, ey = o.edgeFrac * H;
     function cut(p) { return W && H && (p.x < ex || p.x > W - ex || p.y < ey || p.y > H - ey); }
-    // Portrait (phone upright): ankles out of frame are allowed; the shoulder-hip-knee line stands in (scaled by kneeFrac).
-    var fb = portrait && J.shoulder && J.hip && J.knee && (!J.ankle || cut(J.ankle));
+    // Ankles out of frame or on the edge are allowed in any orientation (portrait phones often report landscape
+    // video sizes); the shoulder-hip-knee line stands in (scaled by kneeFrac).
+    var fb = J.shoulder && J.hip && J.knee && (!J.ankle || cut(J.ankle));
     if (fb) delete J.ankle;
     if (!J.shoulder || !J.hip || !J.knee || (!fb && !J.ankle)) return { ok: false, issue: "whole", msg: MSG.whole, span: null };
     for (var k in J) if (cut(J[k])) return { ok: false, issue: "whole", msg: MSG.whole, span: null };
@@ -250,7 +252,7 @@
     }
     function update(kps, t, dims) {
       var raw = kps || [], fk = pf.filter(raw, t), por = !!(dims && dims.h > dims.w && dims.w > 0);
-      var c = classifyPlank(fk, { keep: h.wasOk, sagStart: o.sagStart, sagKeep: o.sagKeep, pikeStart: o.pikeStart, pikeKeep: o.pikeKeep, minScore: por ? Math.min(o.minScore, o.portraitMinScore) : o.minScore, kneeAngle: o.kneeAngle, flat: o.flat, kneeFallback: por, kneeFrac: o.kneeFrac }), f = c.frame;
+      var c = classifyPlank(fk, { keep: h.wasOk, sagStart: o.sagStart, sagKeep: o.sagKeep, pikeStart: o.pikeStart, pikeKeep: o.pikeKeep, minScore: por ? Math.min(o.minScore, o.portraitMinScore) : o.minScore, kneeAngle: o.kneeAngle, flat: o.flat, kneeFallback: true, kneeFrac: o.kneeFrac }), f = c.frame;
       if (f !== "missing") h.wasOk = f === "ok";
       var g = frameGuide(fk, dims, o);
       framing(g, t);

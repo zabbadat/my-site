@@ -31,13 +31,13 @@ for (const dev of [0, 0.03, 0.09, -0.09]) {
 }
 // Missing ankles (cut off at the bottom/side of a tall frame): fall back to shoulder-hip-knee.
 const na = (L, dev, o = {}) => body(L, dev, { ...o, noAnkle: true });
-check("classify: no ankle, no fallback (landscape) -> missing (unchanged)", P.classifyPlank(na(300, 0)).frame === "missing");
+check("classify: no ankle, no fallback option -> missing (unchanged)", P.classifyPlank(na(300, 0)).frame === "missing");
 check("classify: no ankle, portrait fallback -> ok on a straight line", (() => { const c = P.classifyPlank(na(300, 0), { kneeFallback: true }); return c.frame === "ok" && c.end === "knee"; })());
 check("classify: fallback still flags sag and pike", P.classifyPlank(na(300, 0.15), { kneeFallback: true }).frame === "sag" && P.classifyPlank(na(300, -0.15), { kneeFallback: true }).frame === "pike");
 check("classify: fallback flags standing (knee straight below shoulder)", P.classifyPlank(K({ left_shoulder: [200, 100], left_hip: [205, 300], left_knee: [208, 420] }), { kneeFallback: true }).frame === "standing");
 check("framing: portrait, ankle missing -> ok via knee", (() => { const g = P.frameGuide(na(380, 0, { x0: 50, y0: 320 }), PORT); return g.ok && g.fallback; })());
 check("framing: portrait, ankle at the frame edge -> ok via knee", P.frameGuide(body(470, 0, { x0: 40, y0: 320 }), PORT).ok);
-check("framing: landscape, ankle missing -> still asks for the whole body", P.frameGuide(na(450, 0, { x0: 90 }), LAND).issue === "whole");
+check("framing: landscape, ankle missing -> ok via knee (same fallback as portrait)", (() => { const g = P.frameGuide(na(450, 0, { x0: 90 }), LAND); return g.ok && g.fallback; })());
 check("framing: portrait, knee missing too -> whole body message", P.frameGuide(na(380, 0, { x0: 50 }).filter((p) => p.name !== "left_knee"), PORT).issue === "whole");
 let r = run(seq(0, 8000, (t) => na(380, 0, { x0: 50, j: jit(t) })), PORT);
 check("hold: portrait without ankles runs the clock", r.phase === "holding" && r.ms > 6000);
@@ -48,7 +48,7 @@ r = run(seq(0, 8000, (t) => body(380, 0, { x0: 50, j: jit(t), score: 0.28 })), P
 check("hold: portrait accepts slightly lower confidence (0.28)", r.phase === "holding");
 r = run(seq(0, 8000, (t) => body(450, 0, { x0: 90, y0: 240, j: jit(t), score: 0.28 })), LAND);
 check("hold: landscape keeps its 0.3 confidence gate (0.28 never starts)", r.phase === "ready");
-check("thresholds pinned", P.PLANK.minSpanPortrait === 0.35 && P.PLANK.portraitMinScore === 0.25 && P.PLANK.portraitFrameScore === 0.25 && P.PLANK.kneeFrac === 0.75 && P.PLANK.sagStart === 0.05 && P.PLANK.pikeStart === 0.06);
+check("thresholds pinned", P.PLANK.minSpanPortrait === 0.35 && P.PLANK.portraitMinScore === 0.25 && P.PLANK.portraitFrameScore === 0.25 && P.PLANK.kneeFrac === 0.75 && P.PLANK.sagStart === 0.08 && P.PLANK.pikeStart === 0.10 && P.PLANK.maxTilt === 50 && P.PLANK.sideSep === 0.5 && P.PLANK.edgeFrac === 0.06);
 // Copy: upright phone works; no rotate prompt; no location text.
 const idx = fs.readFileSync(__dirname + "/../index.html", "utf8"), pl = fs.readFileSync(__dirname + "/../plank.html", "utf8");
 check("copy: plank setup says sideways or upright", /sideways or upright/.test(idx) && /sideways or upright/.test(pl) && /sideways or upright/.test(require("../get-set.js").POSITION.plank[0]));

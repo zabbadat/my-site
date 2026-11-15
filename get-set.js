@@ -20,6 +20,7 @@
   function utter(text, volume, voice) {
     var w = g();
     if (!w || !w.speechSynthesis || typeof w.SpeechSynthesisUtterance !== "function") return;
+    try { if (typeof w.speechSynthesis.resume === "function") w.speechSynthesis.resume(); } catch (e) {}
     var u = new w.SpeechSynthesisUtterance(say(text)); u.rate = voice && voice.rate || VOICE.rate; if (volume !== undefined) u.volume = volume;
     w.speechSynthesis.speak(u);
   }
