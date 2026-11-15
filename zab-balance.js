@@ -138,7 +138,7 @@
     steps10k: function (n) { return Number(n).toLocaleString("en-US") + " steps in a day"; } };
   var OF = { pushups: "", plank: " of plank", tut: " of TUT", walk: " of walking", hold: "", steps10k: "" };
   // Display lines built from RATES so the page always matches the earn math.
-  function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { var r = RATES[k]; var line = UNIT[k](r.per) + OF[k] + " = " + ZC.fmtZab(r.zab || 1) + " ZAB"; return k === "plank" ? line + ", once per set" : line; }).concat(["10K steps in a day = 4 ZAB", "Won Zabba Washers game = 1 ZAB"]); }
+  function rateLines() { return ["pushups", "plank", "tut", "walk"].map(function (k) { var r = RATES[k]; var line = UNIT[k](r.per) + OF[k] + " = " + ZC.fmtZab(r.zab || 1) + " ZAB"; return k === "plank" ? line + ", once per set" : line; }).concat(["Daily 10K steps = 4 ZAB", "Won Zabba Washers game = 1 ZAB"]); }
   function txLine(t) {
     t = t || {};
     var src = LABEL[t.source] || String(t.source || "?"), q = Number(t.qty) || 0;
