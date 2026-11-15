@@ -12,10 +12,15 @@
 (function (root) {
   "use strict";
   var KEY = "zabPfpOn";
-  var P = { minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: 1000, holdGrow: 1.18, alpha: 0.55, clearMs: 1200,
-    shUp: 0.55, shR: 0.483, minR: 10, maxRFrac: 0.40, plankR: 0.25, miniFps: 15, miniSize: 44, logo: "/zd-square.png" };
+  var P = { minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: 1000, holdGrow: 1.18, clearMs: 1200,
+    minCut: 0.8, beta: 4, dCut: 1.5, leadMax: 120, leadCap: 0.2, leadV0: 0.5, leadV1: 1.5, fitMs: 1000,
+    shUp: 0.55, shR: 0.483, sideK: 0.35, minR: 10, maxRFrac: 0.40, plankR: 0.25, miniFps: 15, miniSize: 44, logo: "/zd-square.png" };
   // Sizes: face r = (ear-to-ear or eye spread x2.7)/2 x padK 1.65; shoulders r = shoulder width x shR 0.483 (0.42 x1.15),
   // centre shUp 0.55 shoulder widths above the shoulder midpoint; r capped to [minR px, maxRFrac 0.40 (0.35 x1.15) x the shorter frame side].
+  // Follow speed (Nov 15): One Euro filter on the centre, speed measured in head radii per second: minCut Hz when still (steady,
+  // no shimmer), + beta x speed when moving (near-raw, little lag). Lead: the drawn spot is pushed ahead along the filtered
+  // velocity by the time the pose took to come back (frame stamp -> draw, max leadMax ms), only once the head is really
+  // moving (leadV0..leadV1 r/s ramp) and never more than leadCap x r. Visual only: the counter's keypoints are never touched.
 
   function photoUrl(user) {
     if (!user) return "";
@@ -60,41 +65,69 @@
   function headCircle(kps, frameW, frameH) {
     var c = faceCircle(kps), src = "face";
     if (!c && kps && kps.length) {
-      var by = {}; for (var i = 0; i < kps.length; i++) if (kps[i] && kps[i].name) by[kps[i].name] = kps[i];
+      var by = byName(kps);
       var ls = by.left_shoulder || (kps[5] && !kps[5].name ? kps[5] : null), rs = by.right_shoulder || (kps[6] && !kps[6].name ? kps[6] : null);
-      if (ok(ls) && ok(rs)) { var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y); if (sw > 8) { c = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 - sw * P.shUp, r: sw * P.shR }; src = "shoulders"; } }
+      var so = sideOn(by);
+      if (ok(ls) && ok(rs)) { var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y); if (sw > 8 && !(so && sw < so.L * P.sideK)) { c = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 - sw * P.shUp, r: sw * P.shR }; src = "shoulders"; } }
+      if (!c && so) { c = so; src = "side"; } // side-on (plank, plank push press from the side): shoulders overlap, so use the body line
     }
     if (!c) return null;
     var maxR = frameW > 0 && frameH > 0 ? P.maxRFrac * Math.min(frameW, frameH) : Infinity;
     return { x: c.x, y: c.y, r: Math.max(P.minR, Math.min(maxR, c.r)), src: src };
   }
+  function byName(kps) { var by = {}; for (var i = 0; i < kps.length; i++) if (kps[i] && kps[i].name) by[kps[i].name] = kps[i]; return by; }
+  // Side-on head estimate: just past the shoulder on the hip->shoulder line, r from the torso length. null without a
+  // shoulder+hip pair on one side (or a torso under 20 px).
+  function sideOn(by) {
+    var pick = function (a, b) { return ok(by[a]) && ok(by[b]) ? [by[a], by[b]] : null; }, pr = pick("left_shoulder", "left_hip") || pick("right_shoulder", "right_hip");
+    if (!pr) return null;
+    var sh = pr[0], hp = pr[1], L = Math.hypot(sh.x - hp.x, sh.y - hp.y);
+    return L > 20 ? { x: sh.x + (sh.x - hp.x) * 0.45, y: sh.y + (sh.y - hp.y) * 0.45, r: L * P.plankR, L: L } : null;
+  }
   // Plank (side-on): the face cluster if it shows; else the head sits on the hip->shoulder line just past the shoulder
   // (side-on shoulders overlap, so the shoulder-width estimate is useless there); else the usual shoulder estimate.
   function plankHead(kps, frameW, frameH) {
     var c = faceCircle(kps);
-    if (!c && kps && kps.length) {
-      var by = {}; for (var i = 0; i < kps.length; i++) if (kps[i] && kps[i].name) by[kps[i].name] = kps[i];
-      var pick = function (a, b) { return ok(by[a]) && ok(by[b]) ? [by[a], by[b]] : null; }, pr = pick("left_shoulder", "left_hip") || pick("right_shoulder", "right_hip");
-      if (pr) { var sh = pr[0], hp = pr[1], L = Math.hypot(sh.x - hp.x, sh.y - hp.y); if (L > 20) c = { x: sh.x + (sh.x - hp.x) * 0.45, y: sh.y + (sh.y - hp.y) * 0.45, r: L * P.plankR }; }
-    }
+    if (!c && kps && kps.length) { var so = sideOn(byName(kps)); if (so) c = { x: so.x, y: so.y, r: so.r, src: "plank" }; }
     if (!c) return headCircle(kps, frameW, frameH);
     var maxR = frameW > 0 && frameH > 0 ? P.maxRFrac * Math.min(frameW, frameH) : Infinity;
     return { x: c.x, y: c.y, r: Math.max(P.minR, Math.min(maxR, c.r)), src: c.src || "plank" };
   }
-  // Smoothed tracker: hold the last spot ~1 s (slightly bigger) when the face drops, then clear (never blocks a hood).
+  // One Euro low-pass (Casiez et al. 2012): alpha from a cutoff that rises with speed. Pure.
+  function lpA(cut, dtS) { var tau = 1 / (2 * Math.PI * cut); return 1 / (1 + tau / dtS); }
+  // Head tracker: adaptive smoothing + latency lead; hold the last spot ~1 s (slightly bigger) when the face drops, then clear
+  // (never blocks a hood). step(kps, t, fw, fh, drawT): t = frame stamp (before inference), drawT = now (optional, same clock).
   function createTracker(opts) {
-    var o = Object.assign({}, P, opts || {}), last = null, lastT = -1e9;
+    var o = Object.assign({}, P, opts || {}), last = null, lastT = -1e9, f = null; // f: filter state {x, y, dx, dy} (px, px/s)
+    function place(head, src, t, drawT) {
+      var dtS = f ? (t - f.t) / 1000 : 0;
+      if (!f || !(dtS > 0) || dtS > o.holdMs / 1000 * 2) f = { x: head.x, y: head.y, dx: 0, dy: 0, k: 0, t: t, r: head.r };
+      else {
+        var rx = (head.x - f.x) / dtS, ry = (head.y - f.y) / dtS, ad = lpA(o.dCut, dtS);
+        f.dx += (rx - f.dx) * ad; f.dy += (ry - f.dy) * ad;
+        var vv = f.dx * f.dx + f.dy * f.dy; f.k = vv > 0 ? Math.max(0, Math.min(1, (rx * f.dx + ry * f.dy) / vv)) : 0; // lead only while this frame still moves that way (stops -> no overshoot)
+        var rr = Math.max(o.minR, head.r), sp = Math.hypot(f.dx, f.dy) / rr, a = lpA(o.minCut + o.beta * sp, dtS);
+        f.x += (head.x - f.x) * a; f.y += (head.y - f.y) * a;
+        f.r = Math.max(head.r, f.r + (head.r - f.r) * a); f.t = t; // grows at once (always covers), shrinks smoothly
+      }
+      var x = f.x, y = f.y, lead = typeof drawT === "number" && isFinite(drawT) ? Math.max(0, Math.min(o.leadMax, drawT - t)) / 1000 : 0;
+      if (lead > 0) {
+        var v = Math.hypot(f.dx, f.dy), vr = v / Math.max(o.minR, f.r), g = Math.max(0, Math.min(1, (vr - o.leadV0) / (o.leadV1 - o.leadV0)));
+        g *= f.k;
+        var lx = f.dx * lead * g, ly = f.dy * lead * g, ll = Math.hypot(lx, ly), cap = o.leadCap * f.r;
+        if (ll > cap) { lx *= cap / ll; ly *= cap / ll; }
+        x += lx; y += ly;
+      }
+      return { x: x, y: y, r: f.r, held: false, src: src };
+    }
     return {
-      step: function (kps, t, fw, fh) {
-        var c = headCircle(kps, fw, fh);
-        if (c) { var src = c.src;
-          if (last && t - lastT < o.holdMs * 2) { var a = o.alpha; c = { x: last.x + (c.x - last.x) * a, y: last.y + (c.y - last.y) * a, r: Math.max(c.r, last.r + (c.r - last.r) * a) }; }
-          last = c; lastT = t; return { x: c.x, y: c.y, r: c.r, held: false, src: src };
-        }
+      step: function (kps, t, fw, fh, drawT, where) {
+        var c = (where || headCircle)(kps, fw, fh);
+        if (c) { var out = place(c, c.src, t, drawT); last = out; lastT = t; return out; }
         if (last && t - lastT <= o.holdMs) return { x: last.x, y: last.y, r: Math.min(last.r * o.holdGrow, fw > 0 && fh > 0 ? o.maxRFrac * Math.min(fw, fh) * o.holdGrow : Infinity), held: true };
-        last = null; return null;
+        last = null; f = null; return null;
       },
-      reset: function () { last = null; lastT = -1e9; }
+      reset: function () { last = null; lastT = -1e9; f = null; }
     };
   }
   // Video pixels -> CSS pixels of the element box (object-fit fill/contain/cover).
@@ -192,15 +225,15 @@
     return o;
   }
   function clearOne(o) { try { if (o.timer) clearTimeout(o.timer); o.timer = null; var x = o.cv.getContext("2d"); x.clearRect(0, 0, o.cv.width, o.cv.height); o.cv.style.display = "none"; o.tr.reset(); } catch (e) {} }
-  // Switch off: no overlay, no pending clear timers, no mini-feed, no pinned plank logo, no head spot left for recordings.
-  function clearAll() { for (var k in overlays) clearOne(overlays[k]); miniStop(); for (var p in pins) pins[p] = null; for (var h in heads) heads[h] = null; }
+  // Switch off: no overlay, no pending clear timers, no mini-feed, no head spot left for recordings.
+  function clearAll() { for (var k in overlays) clearOne(overlays[k]); miniStop(); for (var h in heads) heads[h] = null; }
   function draw(o, c) {
     var vid = o.vid, cv = o.cv, bw = vid.clientWidth, bh = vid.clientHeight;
     if (!(bw > 0 && bh > 0)) { clearOne(o); return; }
     var dpr = Math.min(root.devicePixelRatio || 1, 2), W = Math.round(bw * dpr), H = Math.round(bh * dpr);
     if (cv.width !== W) cv.width = W; if (cv.height !== H) cv.height = H;
     cv.style.left = vid.offsetLeft + "px"; cv.style.top = vid.offsetTop + "px"; cv.style.width = bw + "px"; cv.style.height = bh + "px"; cv.style.display = "block";
-    var fit = "fill"; try { fit = root.getComputedStyle(vid).objectFit || "fill"; } catch (e) {}
+    var now = Date.now(), fit = o.fit; if (!fit || !(now - o.fitT < P.fitMs)) { fit = "fill"; try { fit = root.getComputedStyle(vid).objectFit || "fill"; } catch (e) {} o.fit = fit; o.fitT = now; } // style read ~1/s, not every frame
     var m = mapToBox(c, vid.videoWidth, vid.videoHeight, bw, bh, fit);
     var x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, bw, bh);
     if (!m) return;
@@ -226,13 +259,15 @@
     if (mini.timer) clearTimeout(mini.timer); mini.timer = setTimeout(miniStop, P.clearMs);
   }
   // Called from the pose loops with the SAME keypoints the counter got. Returns undefined, never throws.
-  function frame(vid, kps, t) {
+  // t = the loop's frame stamp (performance.now() before inference); the gap to now is the lead the tracker makes up.
+  function frame(vid, kps, t, where) {
     try {
       if (!doc || !vid || !vid.parentNode) return;
-      var id = vid.id || "v", tt = typeof t === "number" && isFinite(t) ? t : Date.now();
+      var id = vid.id || "v", given = typeof t === "number" && isFinite(t), tt = given ? t : Date.now();
       // Switch off: avatar, its head tracking and the recording avatar all stop (rep counting never depends on this).
       if (!isOn()) { heads[id] = null; var o0 = overlays[id]; if (o0) clearOne(o0); miniStop(); return; }
-      var hc = heads[id] || (heads[id] = { tr: createTracker(), c: null, t: 0 }); hc.c = hc.tr.step(kps, tt, vid.videoWidth, vid.videoHeight); hc.t = tt; // head spot for the avatar, the recording and the watermark hop
+      var drawT = given && root.performance && typeof root.performance.now === "function" ? root.performance.now() : tt;
+      var hc = heads[id] || (heads[id] = { tr: createTracker(), c: null, t: 0 }); hc.c = hc.tr.step(kps, tt, vid.videoWidth, vid.videoHeight, drawT, where); hc.t = tt; // head spot for the avatar, the recording and the watermark hop
       ensureLogo();
       var o = overlayFor(vid), c = hc.c;
       draw(o, c);
@@ -241,28 +276,15 @@
       o.timer = setTimeout(function () { clearOne(o); }, P.clearMs); // loop stopped (camera off): no stale picture
     } catch (e) {}
   }
-  // Web plank: track the head while getting set; when the hold starts ("holding") pin the logo where the head was and keep it
-  // fixed for the whole hold; release when the hold ends. Same visual-only, never-throws contract as frame().
-  var pins = {}, heads = {};
+  // Web plank (Nov 15): the logo follows the head through the whole plank - getting set, the hold, and after - like push-ups
+  // and TUT. Placement is plankHead (face cluster, else the side-on body line, else shoulders), same tracker as frame().
+  // phase is accepted for the existing call but no longer changes anything. Same visual-only, never-throws contract.
+  var heads = {};
   // Last head circle (video px, display/mirrored space) for a video, and whether the logo is showing - read by rec.js.
-  function lastHead(id, now) { if (!isOn()) return null; var h = heads[id]; if (pins[id]) return pins[id]; return h && h.c && (now == null || now - h.t < P.clearMs) ? h.c : null; }
+  function lastHead(id, now) { if (!isOn()) return null; var h = heads[id]; return h && h.c && (now == null || now - h.t < P.clearMs) ? h.c : null; }
   api.lastHead = lastHead; api.drawLogo = function (x, m) { try { ensureLogo(); drawLogo(x, m); } catch (e) {} };
-  function plankFrame(vid, kps, phase, t) {
-    try {
-      if (!doc || !vid || !vid.parentNode) return;
-      var id = vid.id || "v";
-      if (!isOn()) { pins[id] = null; heads[id] = null; var o0 = overlays[id]; if (o0) clearOne(o0); miniStop(); return; }
-      if (phase !== "holding") { pins[id] = null; frame(vid, kps, t); return; }
-      ensureLogo();
-      var o = overlayFor(vid), tt = typeof t === "number" && isFinite(t) ? t : Date.now();
-      if (!pins[id]) { var c = plankHead(kps, vid.videoWidth, vid.videoHeight) || o.tr.step(kps, tt, vid.videoWidth, vid.videoHeight); if (c) pins[id] = { x: c.x, y: c.y, r: c.r }; }
-      draw(o, pins[id] || null);
-      try { miniFrame(vid, pins[id] || null, tt); } catch (e) { miniStop(); }
-      if (o.timer) clearTimeout(o.timer);
-      o.timer = setTimeout(function () { pins[id] = null; clearOne(o); }, P.clearMs);
-    } catch (e) {}
-  }
-  api.plankFrame = plankFrame; api._pin = function (id) { return pins[id || "plankVid"] || null; };
+  function plankFrame(vid, kps, phase, t) { frame(vid, kps, t, plankHead); }
+  api.plankFrame = plankFrame;
   api.setUser = setUser; api.frame = frame; api.isOn = isOn; api.setOn = setOn; api.onChange = onChange; api.paintBadge = paintBadge;
   if (root) root.ZabPfp = api;
   if (doc) {

@@ -40,16 +40,17 @@ check("countdown / counter untouched: camFs is never called from poseTick or the
   const w = { document: { readyState: "complete", getElementById: () => null, createElement: mk, addEventListener() {} }, localStorage: { getItem: (k) => store[k] || null, setItem() {} }, getComputedStyle: () => ({ objectFit: "fill" }), Image: function () {}, setTimeout, clearTimeout, Date, Math };
   const ctx = Object.assign({}, w); ctx.window = ctx; vm.createContext(ctx); vm.runInContext(fs.readFileSync(path.join(ROOT, "pfp.js"), "utf8"), ctx); const P = ctx.ZabPfp; P.setUser({ uid: "u" });
   const side = (dx) => [{ name: "left_shoulder", x: 200 + dx, y: 250, score: 0.9 }, { name: "left_hip", x: 380 + dx, y: 270, score: 0.9 }, { name: "left_ankle", x: 590, y: 300, score: 0.9 }];
-  P.plankFrame(vid, side(0), "ready", 0); check("plank getting set: no pin yet", P._pin("plankVid") === null);
-  P.plankFrame(vid, side(0), "holding", 40); const pin = P._pin("plankVid");
-  check(`plank hold start: logo pinned at the head past the shoulder on the hip->shoulder line (x ${pin && pin.x.toFixed(0)}, y ${pin && pin.y.toFixed(0)}, r ${pin && pin.r.toFixed(0)})`, pin && Math.abs(pin.x - (200 - 180 * 0.45)) < 1e-6 && Math.abs(pin.y - (250 - 20 * 0.45)) < 1e-6 && Math.abs(pin.r - Math.hypot(180, 20) * 0.25) < 1e-6);
-  for (let t = 80; t < 2000; t += 40) P.plankFrame(vid, side(30 * Math.sin(t / 200)), "holding", t);
-  const p2 = P._pin("plankVid"); check("plank hold: the pin stays fixed while the body sways", p2 && p2.x === pin.x && p2.y === pin.y && p2.r === pin.r);
-  P.plankFrame(vid, side(0), "ended", 2100); check("plank hold over: pin released", P._pin("plankVid") === null);
+  // Nov 15: the logo follows the head through the whole plank (no pin), placed by plankHead.
+  P.plankFrame(vid, side(0), "ready", 0); const h0 = P.lastHead("plankVid", 0);
+  check(`plank getting set: logo on the head past the shoulder on the hip->shoulder line (x ${h0 && h0.x.toFixed(0)}, y ${h0 && h0.y.toFixed(0)}, r ${h0 && h0.r.toFixed(0)})`, h0 && Math.abs(h0.x - (200 - 180 * 0.45)) < 1e-6 && Math.abs(h0.y - (250 - 20 * 0.45)) < 1e-6 && Math.abs(h0.r - Math.hypot(180, 20) * 0.25) < 1e-6);
+  for (let t = 40; t < 1000; t += 40) P.plankFrame(vid, side(0), "holding", t);
+  for (let t = 1000; t < 1600; t += 40) P.plankFrame(vid, side(60), "holding", t);
+  const h1 = P.lastHead("plankVid", 1560); check(`plank hold: the logo follows the body when it shifts 60 px (x ${h1 && h1.x.toFixed(1)})`, h1 && Math.abs(h1.x - (h0.x + 60)) < 3 && h1.src === "plank");
+  P.plankFrame(vid, side(0), "ended", 2100); check("plank over: still tracked (shows until the camera loop stops)", !!P.lastHead("plankVid", 2100));
   const face = [{ name: "nose", x: 150, y: 230, score: 0.9 }, { name: "left_eye", x: 160, y: 220, score: 0.9 }, { name: "left_ear", x: 185, y: 225, score: 0.9 }].concat(side(0));
-  P.plankFrame(vid, face, "holding", 2200); const pf = P._pin("plankVid"); check("plank: a visible face cluster wins for the pin", pf && Math.abs(pf.x - 165) < 1 && pf.r >= 10);
+  const pfTr = P.createTracker(); const pf = pfTr.step(face, 0, 640, 480, 0, P.plankHead); check("plank: a visible face cluster wins for the placement", pf && Math.abs(pf.x - 165) < 1 && pf.r >= 10);
   let threw = false; try { P.plankFrame(vid, null, "holding", 2300); P.plankFrame(null, face, "holding", 2400); } catch (e) { threw = true; } check("plankFrame never throws", !threw);
-  has(/plankHold\.update\([^\n]*\n\s+if \(window\.ZabPfp\) window\.ZabPfp\.plankFrame\(vid, poses && poses\[0\] \? poses\[0\]\.keypoints : \[\], r && r\.phase, tFrame\);/, "plankTick feeds the pin after plankHold.update with the same keypoints"); }
+  has(/plankHold\.update\([^\n]*\n\s+if \(window\.ZabPfp\) window\.ZabPfp\.plankFrame\(vid, poses && poses\[0\] \? poses\[0\]\.keypoints : \[\], r && r\.phase, tFrame\);/, "plankTick feeds the PFP after plankHold.update with the same keypoints"); }
 
 // 3. Record & Share controller
 { const log = []; const io = { start: (id) => { log.push("start:" + id); return true; }, stop: (id) => log.push("stop:" + id), paint() {} };

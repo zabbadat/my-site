@@ -44,7 +44,7 @@ check("OFF: head tracking for the avatar skipped (no head spot)", P.lastHead("ca
 f = recFrame(120);
 check("OFF mid-recording: no avatar and no pixelation, plain video; watermark still recorded", !f.logo && !f.pix && f.wm);
 P.plankFrame(vid, face, "holding", 130);
-check("OFF: plank pin not set", P._pin("camVid") === null && timers.size === 0);
+check("OFF: plank head not tracked", P.lastHead("camVid", 130) === null && timers.size === 0);
 
 // ON again mid-recording
 P.setOn(true);
