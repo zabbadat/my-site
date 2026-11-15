@@ -14,13 +14,13 @@ const fnSrc = html.slice(html.indexOf("function deleteAcctMailto(user)"), html.i
 const deleteAcctMailto = new Function("displayNameOf", fnSrc + "; return deleteAcctMailto;")((u) => (u.displayName || u.email || "Player").trim().slice(0, 40));
 const m = deleteAcctMailto({ uid: "abc123", displayName: "Zed & Co" });
 const q = new URLSearchParams(m.split("?")[1]);
-check("mailto goes to the contact address", m.startsWith("mailto:zabbadat@mail.grokbot.com?"));
+check("mailto goes to the contact address", m.startsWith("mailto:zabbadat@gmail.com?"));
 check("mailto subject", q.get("subject") === "Delete my Zabbadat account");
 check("mailto body has uid, display name, and the deletion page", /Account id \(uid\): abc123/.test(q.get("body")) && /Display name: Zed & Co/.test(q.get("body")) && q.get("body").includes("https://www.zabbadat.com/delete-account"));
 check("mailto is a plain main-frame link (no target), so Capacitor opens the mail app", /<a class="btn danger" id="deleteAcctMail" href="mailto:[^"]+">/.test(html));
 check("footer links Delete account", /<a href="\/privacy">Privacy<\/a>\s*<a href="\/delete-account">Delete account<\/a>/.test(html));
 check("sitemap lists /delete-account", sm.includes("<loc>https://www.zabbadat.com/delete-account</loc>"));
-check("deletion page names the app, the request path, what is deleted, what is kept, and 30 days", /Zabbadat/.test(del) && /Delete my account/.test(del) && /zabbadat@mail\.grokbot\.com/.test(del) && /step records/i.test(del) && /X handle/.test(del) && /ZAB/.test(del) && /What we keep/.test(del) && /within 30 days/.test(del));
-check("privacy page covers Android, Health Connect READ_STEPS, activity recognition, not sold/ads, sign-in, forms, retention, deletion link", ["Android", "Health Connect", "READ_STEPS", "activity recognition", "not sold", "advertising", "X handle", "Formspree", "Google Analytics", "How long we keep data", 'href="/delete-account"', "zabbadat@mail.grokbot.com"].every((w) => priv.includes(w)));
+check("deletion page names the app, the request path, what is deleted, what is kept, and 30 days", /Zabbadat/.test(del) && /Delete my account/.test(del) && /zabbadat@gmail\.com/.test(del) && /step records/i.test(del) && /X handle/.test(del) && /ZAB/.test(del) && /What we keep/.test(del) && /within 30 days/.test(del));
+check("privacy page covers Android, Health Connect READ_STEPS, activity recognition, not sold/ads, sign-in, forms, retention, deletion link", ["Android", "Health Connect", "READ_STEPS", "activity recognition", "not sold", "advertising", "X handle", "Formspree", "Google Analytics", "How long we keep data", 'href="/delete-account"', "zabbadat@gmail.com"].every((w) => priv.includes(w)));
 check("no personal legal names on the new pages", !/Lutric/i.test(del + priv));
 console.log(`\n${R.filter(Boolean).length}/${R.length} passed`); process.exit(R.every(Boolean) ? 0 : 1);

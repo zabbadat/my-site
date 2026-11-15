@@ -1237,8 +1237,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn danger" id="deleteAcctBtn" type="button" aria-controls="deleteAcctPanel" aria-expanded="false">Delete my account</button>
       <div class="del-acct" id="deleteAcctPanel" role="region" aria-label="Delete my account" hidden>
         <p class="note" style="margin:0 0 .4rem"><strong>Delete your Zabbadat account?</strong> This asks us to delete your sign-in account, board name, X handle, scores, step records, and battle and ZAB data. ZAB has no cash value and cannot be restored. We finish within 30 days and reply by email.</p>
-        <p class="note" style="margin:0 0 .6rem">Tap below to open an email to <a href="mailto:zabbadat@mail.grokbot.com">zabbadat@mail.grokbot.com</a> with your account id filled in, then send it. <a href="/delete-account">How account deletion works</a></p>
-        <div class="row"><a class="btn danger" id="deleteAcctMail" href="mailto:zabbadat@mail.grokbot.com?subject=Delete%20my%20Zabbadat%20account">Email my deletion request</a> <button class="btn ghost" id="deleteAcctCancel" type="button">Cancel</button></div>
+        <p class="note" style="margin:0 0 .6rem">Tap below to open an email to <a href="mailto:zabbadat@gmail.com">zabbadat@gmail.com</a> with your account id filled in, then send it. <a href="/delete-account">How account deletion works</a></p>
+        <div class="row"><a class="btn danger" id="deleteAcctMail" href="mailto:zabbadat@gmail.com?subject=Delete%20my%20Zabbadat%20account">Email my deletion request</a> <button class="btn ghost" id="deleteAcctCancel" type="button">Cancel</button></div>
       </div>
     </div>
     <form class="email-auth" id="emailAuth" novalidate>
@@ -5322,7 +5322,7 @@ $("signOutBtn").onclick = () => {
 function deleteAcctMailto(user) {
   const name = user ? displayNameOf(user) : "";
   const body = "Please delete my Zabbadat account and its data.\n\nAccount id (uid): " + (user ? user.uid : "") + "\nDisplay name: " + name + "\n\nHow deletion works: https://www.zabbadat.com/delete-account\n";
-  return "mailto:zabbadat@mail.grokbot.com?subject=" + encodeURIComponent("Delete my Zabbadat account") + "&body=" + encodeURIComponent(body);
+  return "mailto:zabbadat@gmail.com?subject=" + encodeURIComponent("Delete my Zabbadat account") + "&body=" + encodeURIComponent(body);
 }
 function deleteAcctShow(open) {
   const p = document.getElementById("deleteAcctPanel"), b = document.getElementById("deleteAcctBtn");
