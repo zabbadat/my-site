@@ -22,7 +22,7 @@
 // and MoveNet both report half-guessed legs at low scores when the legs are hidden behind the body on a front camera).
 // minFrames: a knees / standing call needs this many consecutive frames as well as holdMs, so one or two odd frames
 // (a landmark flicker, a missed frame) never add up to a fail.
-var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 300, kneeAngle: 130, foldFrac: 0.45, upright: 2, shrink: 0.55 };
+var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 300, kneeAngle: 130, foldFrac: 0.45, upright: 2, shrink: 0.55, weakKneeMin: 0.28, floorFrac: 0.12, hipUpFrac: 0.18, frontHipFrac: 0.22, frontSwFrac: 0.4 };
   function pt(kps, name, min) {
     for (var i = 0; i < (kps || []).length; i++) {
       var k = kps[i];
@@ -45,6 +45,58 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     var gap = Math.abs((kn.y || 0) - (hip.y || 0));
     return gap < (o.foldFrac || 0.45) * s;
   }
+
+  function rawPt(kps, name) {
+    for (var i = 0; i < (kps || []).length; i++) { var k = kps[i]; if (k && k.name === name) return k; }
+    return null;
+  }
+  function scored(k, min) { return k && (k.score == null || k.score >= min) ? k : null; }
+  // Planted-hand height (the floor line in a push-up or plank). Missing wrists: no floor line, never guess from the ankle.
+  function floorY(kps, min) {
+    var lw = pt(kps, "left_wrist", min), rw = pt(kps, "right_wrist", min);
+    if (lw && rw) return Math.max(lw.y, rw.y);
+    return lw ? lw.y : rw ? rw.y : null;
+  }
+  function bodyScale(sh, hip, an, sw) {
+    var s = 0;
+    if (sh && an) s = Math.max(s, Math.hypot(an.x - sh.x, an.y - sh.y));
+    if (sh && hip) s = Math.max(s, Math.hypot(hip.x - sh.x, hip.y - sh.y) * 2);
+    if (sw > 1) s = Math.max(s, sw * 2);
+    return s > 1 ? s : 80;
+  }
+  function nearFloor(p, fy, scale, frac) {
+    return !!(p && fy != null && scale > 0 && p.y >= fy - (frac == null ? 0.12 : frac) * scale);
+  }
+  function isFrontView(sw, sh, hip, o) {
+    if (!(sw > 40 && sh && hip)) return false;
+    var torso = Math.hypot(hip.x - sh.x, hip.y - sh.y);
+    return torso > 0 && sw > (o.frontSwFrac == null ? 0.4 : o.frontSwFrac) * torso;
+  }
+  // Knees-down when the knee landmark is missing or below kneeMin. A weak knee is only trusted with a
+  // confident hip and the knee or ankle on the floor line (wrist height). Hidden-leg guesses at very
+  // low scores (hip and knee both ~0.2) never qualify. Front-facing: hips dropped to the hands.
+  function kneesFallback(hip, knRaw, an, sh, fy, sw, o) {
+    o = o || GUARD;
+    var weakMin = o.weakKneeMin == null ? 0.28 : o.weakKneeMin;
+    var legMin = Math.max(o.minScore || 0, o.kneeMin == null ? 0 : o.kneeMin);
+    var kn = scored(knRaw, legMin), knWeak = scored(knRaw, weakMin);
+    var sc = bodyScale(sh, hip, an || knWeak, sw);
+    var floorF = o.floorFrac == null ? 0.12 : o.floorFrac;
+    if (hip && knWeak && an) {
+      var a = angle(hip, knWeak, an);
+      var knFloor = nearFloor(knWeak, fy != null ? fy : an.y, sc, floorF) || (an && Math.abs((knWeak.y || 0) - an.y) < floorF * sc);
+      if (a != null && a < (o.kneeAngle || 140) && knFloor) return true;
+    }
+    if (hip && an && !kn && fy != null) {
+      var hipUp = (fy - hip.y) > (o.hipUpFrac == null ? 0.18 : o.hipUpFrac) * sc;
+      if (hipUp && nearFloor(an, fy, sc, floorF)) return true;
+    }
+    if (isFrontView(sw, sh, hip, o) && hip && fy != null) {
+      var gap = Math.abs(fy - hip.y);
+      if (gap < (o.frontHipFrac == null ? 0.22 : o.frontHipFrac) * (sw > 1 ? sw : sc)) return true;
+    }
+    return false;
+  }
   function minKnee3D(k3) {
     if (!k3) return null;
     var vals = [k3.left, k3.right, k3.L, k3.R].map(Number).filter(function (n) { return isFinite(n); });
@@ -58,10 +110,11 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     var foldScale = w || (topWidth > 0 ? topWidth : null);
     var known = false;
     var sides = ["left", "right"], knees = false, upright = false;
+    var fy = floorY(kps, o.minScore);
     for (var i = 0; i < 2; i++) {
       var legMin = Math.max(o.minScore, o.kneeMin == null ? 0 : o.kneeMin);
       var s = sides[i], sh = pt(kps, s + "_shoulder", o.minScore), hip = pt(kps, s + "_hip", legMin),
-          kn = pt(kps, s + "_knee", legMin), an = pt(kps, s + "_ankle", legMin);
+          kn = pt(kps, s + "_knee", legMin), an = pt(kps, s + "_ankle", legMin), knRaw = rawPt(kps, s + "_knee");
       if (hip && kn && an) {
         known = true;
         var a = angle(hip, kn, an);
@@ -72,6 +125,8 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
         known = true;
         if (foldedLegs(hip, kn, null, o, foldScale)) knees = true;
       }
+      // Occluded or low-visibility knees: hip-to-ankle / floor line / front hip-drop, never a low-score full-leg guess.
+      if (!knees && hip && kneesFallback(hip, knRaw, an, sh, fy, foldScale, o)) { known = true; knees = true; }
     }
     // A camera looking along the plank sees the legs running straight down the frame, so an upright-looking
     // line only counts when the shoulders have also moved away from the camera.
@@ -203,7 +258,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     return !!(upright && (!(w && topWidth > 0) || w < 0.8 * topWidth));
   }
   // Failure watch (One long set, 3:00 challenge, Sets): the set ends when the camera sees
-  //  - "knees": hip-knee-ankle bent like kneeling or a collapse (softer than the on-screen flag, still needs the legs),
+  //  - "knees": hip-knee-ankle bent like kneeling or a collapse (softer than the on-screen flag), or, when the knee is occluded or below kneeMin, a confident hip plus the ankle/knee on the floor line or a front-view hip drop to the hands,
   //  - "collapse": shoulders dropped through the hands,
   //  - "standing": stood up or took the hands off the floor (shoulders rose, or the hands came up; a clean top hold uses a wider allowance so lockout / wrist jitter is not a stand-up), or an upright body when not held at the top,
   //  - "elbows": the arms gave out, elbows down at wrist / floor height (not a normal bend, never while atTop),
@@ -218,7 +273,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
   // once a form-break window is open it stays open while the break is at least formKeep x the threshold (noise near the line).
   // okGraceMs / badRatio: a form-break window survives good-looking frames shorter than okGraceMs (one noisy "good" frame
   // inside a real break), but only ends the set when at least badRatio of its frames were bad.
-  var FAIL = { gapMs: 300, formKeep: 0.8, okGraceMs: 150, badRatio: 0.75, badMs: 1000, frameMs: 10000, minScore: 0.3, kneeMin: 0.5, minFrames: 5, kneeAngle: 140, foldFrac: 0.45, endOn: { knees: true, frame: true, standing: false, lifted: false, left: true, upright: true, elbows: true, form: true }, elbowFrac: 0.12, lineDeg: 30, kneeDeg: 35, baseSamples: 8 };
+  var FAIL = { gapMs: 300, formKeep: 0.8, okGraceMs: 150, badRatio: 0.75, badMs: 1000, frameMs: 10000, minScore: 0.3, kneeMin: 0.5, minFrames: 5, kneeAngle: 140, foldFrac: 0.45, endOn: { knees: true, frame: true, standing: false, lifted: false, left: true, upright: true, elbows: true, form: true }, elbowFrac: 0.12, lineDeg: 30, kneeDeg: 35, baseSamples: 8, weakKneeMin: 0.28, floorFrac: 0.12, hipUpFrac: 0.18, frontHipFrac: 0.22, frontSwFrac: 0.4 };
   function createFailureWatch(opts) {
     var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed, failAt, view, upSince, upN, base, acc, badSince, foldSince, k3Since, k3N;
     o.endOn = Object.assign({}, FAIL.endOn, (opts && opts.endOn) || {});
@@ -234,7 +289,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     function avgFeats(a) { var r = {}; ["line", "knee"].forEach(function (k) { var n = 0, v = 0; a.forEach(function (x) { if (x[k] != null) { n++; v += x[k]; } }); r[k] = n ? v / n : null; }); r.samples = a.length; return r; }
     function mark(reason, at) { failed = reason; failAt = at != null ? at : null; return failed; }
     function reset(t0) {
-      guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs, minScore: o.minScore, kneeMin: o.kneeMin, minFrames: o.minFrames, kneeAngle: o.kneeAngle, foldFrac: o.foldFrac }));
+      guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs, minScore: o.minScore, kneeMin: o.kneeMin, minFrames: o.minFrames, kneeAngle: o.kneeAngle, foldFrac: o.foldFrac, weakKneeMin: o.weakKneeMin, floorFrac: o.floorFrac, hipUpFrac: o.hipUpFrac, frontHipFrac: o.frontHipFrac, frontSwFrac: o.frontSwFrac }));
       seen = t0 == null ? null : t0; failed = null; failAt = null; upSince = null; upN = 0; base = null; acc = []; badSince = null; foldSince = null; k3Since = null; k3N = 0; view = createViewWatch({ minScore: o.minScore, badMs: o.badMs }); view.reset();
     }
     reset(null);
@@ -442,7 +497,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     }
     return { update: update, reset: reset, ended: function () { return ended; }, options: o };
   }
-  var api = { SET_END: SET_END, createSetEnd: createSetEnd, TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, isUpright: isUpright, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
+  var api = { SET_END: SET_END, createSetEnd: createSetEnd, TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, rawPt: rawPt, floorY: floorY, kneesFallback: kneesFallback, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, isUpright: isUpright, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

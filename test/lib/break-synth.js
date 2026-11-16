@@ -55,6 +55,37 @@ function scenarios(sd) {
   S.push({ name: "ok: hidden legs guessed bent at low confidence (0.2)", label: "ok", kinds: ["push"], frame: (t) => kpsOf(t < B ? POSE.top : POSE.knees, { lowLegs: true }) });
   S.push({ name: "ok: brief 300 ms hip wobble then back", label: "ok", kinds: ["push", "plank"], frame: (t) => kpsOf(t >= B && t < B + 300 ? POSE.sag : POSE.top) });
   S.push({ name: "ok: phone pickup (whole picture moves + tilts 30 deg, then set down)", label: "ok", kinds: ["push", "plank"], frame: (t) => { const f = t < B ? 0 : t < B + 500 ? (t - B) / 500 : t < B + 2500 ? 1 : t < B + 3000 ? 1 - (t - B - 2500) / 500 : 0; return kpsOf(POSE.top, { rot: f * 0.52, tx: f * 60, ty: f * -50 }); } });
+  // ---- harder knee-down cases (must fail); front-facing is push-up only (plank is side-view) ----
+  S.push({ name: "break: knees down, knees occluded (landmarks removed)", label: "break", onset: B, kinds: ["push", "plank"], frame: (t) => { const k = kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.knees, B, 400)(t)); return t < B ? k : dropJoints(k, /_knee$/); } });
+  S.push({ name: "break: knees down, low-confidence knees (0.32)", label: "break", onset: B, kinds: ["push", "plank"], frame: (t) => { const k = kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.knees, B, 400)(t)); return t < B ? k : setScore(k, /_knee$/, 0.32); } });
+  S.push({ name: "break: knees down, low-confidence knees (0.28)", label: "break", onset: B, kinds: ["push", "plank"], frame: (t) => { const k = kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.knees, B, 400)(t)); return t < B ? k : setScore(k, /_knee$/, 0.28); } });
+  S.push({ name: "break: front-facing kneel", label: "break", onset: B, kinds: ["push"], topWidth: 128, frame: (t) => frontKps(t >= B) });
+  S.push({ name: "break: front-facing kneel, knees occluded", label: "break", onset: B, kinds: ["push"], topWidth: 128, frame: (t) => frontKps(t >= B, { noKnee: true }) });
+  S.push({ name: "break: front-facing kneel, low-confidence knees (0.32)", label: "break", onset: B, kinds: ["push"], topWidth: 128, frame: (t) => frontKps(t >= B, { lowKnee: 0.32 }) });
+  S.push({ name: "break: knees down, portrait frame (phone upright, body still side-on)", label: "break", onset: B, kinds: ["push", "plank"], dims: { w: 480, h: 640 }, frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.knees, B, 400)(t)) });
+  S.push({ name: "break: knees down, slow sink (2.5 s)", label: "break", onset: B, window: 3500, kinds: ["push", "plank"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.knees, B, 2500)(t)) });
+  S.push({ name: "break: knees down, fast drop (120 ms)", label: "break", onset: B, kinds: ["push", "plank"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.knees, B, 120)(t)) });
+  S.push({ name: "break: partial left-knee rest", label: "break", onset: B, kinds: ["push", "plank"], frame: (t) => oneSideKnees(t, "left") });
+  S.push({ name: "ok: front-facing plank (foreshorened, straight legs)", label: "ok", kinds: ["push"], topWidth: 128, frame: (t) => frontKps(false) });
   return S;
 }
-module.exports = { scenarios, POSE, kpsOf, lerp, B };
+function setScore(kps, re, score) { return kps.map((k) => re.test(k.name) ? Object.assign({}, k, { score: score }) : k); }
+function dropJoints(kps, re) { return kps.filter((k) => !re.test(k.name)); }
+function frontKps(kneel, opt) {
+  opt = opt || {};
+  const plank = { left_shoulder: [256, 170], right_shoulder: [384, 170], left_elbow: [248, 270], right_elbow: [392, 270], left_wrist: [240, 370], right_wrist: [400, 370], nose: [320, 140], left_hip: [230, 330], left_knee: [235, 400], left_ankle: [238, 470], right_hip: [400, 330], right_knee: [405, 400], right_ankle: [408, 470] };
+  const down = { left_shoulder: [256, 210], right_shoulder: [384, 210], left_elbow: [248, 300], right_elbow: [392, 300], left_wrist: [240, 370], right_wrist: [400, 370], nose: [320, 180], left_hip: [300, 360], left_knee: [310, 370], left_ankle: [300, 430], right_hip: [340, 360], right_knee: [350, 370], right_ankle: [348, 430] };
+  const src = kneel ? down : plank, out = [];
+  for (const n of Object.keys(src)) out.push({ name: n, x: src[n][0], y: src[n][1], score: 0.85 });
+  if (opt.noKnee) return out.filter((k) => !/_knee$/.test(k.name));
+  if (opt.lowKnee) return out.map((k) => /_knee$/.test(k.name) ? Object.assign({}, k, { score: opt.lowKnee }) : k);
+  return out;
+}
+function oneSideKnees(t, side) {
+  const p = t < B ? POSE.top : moveTo(POSE.top, POSE.knees, B, 400)(t);
+  const kps = kpsOf(p);
+  const other = side === "left" ? "right" : "left";
+  const keep = kpsOf(POSE.top);
+  return kps.map((k) => k.name.startsWith(other + "_") ? (keep.find((x) => x.name === k.name) || k) : k);
+}
+module.exports = { scenarios, POSE, kpsOf, lerp, B, setScore, dropJoints, frontKps, oneSideKnees };

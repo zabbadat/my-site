@@ -91,7 +91,10 @@ const rep = (t0, per, n) => (t) => { if (t < t0) return { d: 0 }; const k = Math
   check("plank / plank push press camera (#plankWrap) has End set", btn("plankEndBtn", "plankWrap"));
   check("End set buttons are wired", /\$\("camEndBtn"\)\.onclick = endSetNow;/.test(html) && /\$\("tbEndBtn"\)\.onclick = tbEndSetNow;/.test(html) && /\$\("plankEndBtn"\)\.onclick = plankEndSetNow;/.test(html));
   const css = (html.match(/\.cam-end-btn\{[^}]*\}/) || [""])[0];
-  check("End set: large tap target, safe-area aware, bottom-left (clear of the top counters / PFP row and the bottom-right Full screen button)", /min-height:52px/.test(css) && /env\(safe-area-inset-bottom/.test(css) && /env\(safe-area-inset-left/.test(css) && /left:/.test(css) && /bottom:/.test(css) && !/right:/.test(css));
+  check("End set: large 52px tap target, safe-area aware, bottom-left (clear of the top counters / PFP row and the bottom-right Full screen button)", /min-height:52px/.test(css) && /env\(safe-area-inset-bottom/.test(css) && /env\(safe-area-inset-left/.test(css) && /left:/.test(css) && /bottom:/.test(css) && !/right:/.test(css));
+  check("End set is visually secondary (muted/outline, not a solid primary fill) but clearly visible", /background:rgba\(/.test(css) && /border:2px solid/.test(css) && !/#ff2d55/.test(css) && !/display:\s*none/.test(css));
+  check("End set buttons are in the camera wraps without a hidden attribute (visible whenever the camera screen is on)", ["camEndBtn", "tbEndBtn", "plankEndBtn"].every((id) => { const m = html.match(new RegExp('<button class="btn cam-end-btn" id="' + id + '"[^>]*>')); return m && !/\bhidden\b/.test(m[0]); }));
+  check("auto-end is primary: detectors end a set with no End set tap", (() => { const w = SS.createFailureWatch(); w.reset(0); const SY = require("./lib/break-synth.js"); let hit = null; for (let t = 0; t <= 8000; t += 1000 / 30) { const r = w.update(SY.kpsOf(t < 2000 ? SY.POSE.top : SY.POSE.knees), t, 0, { frameW: 640, atTop: false, reps: 2 }); if (r) { hit = r; break; } } return hit === "knees"; })());
   // push End set: real endSetNow in a small vm
   const endSrc = between("function endSetNow() {", "// Leave push-up camera mode") || "";
   const realEndSet = html.slice(html.indexOf("function endSetNow() {"), html.indexOf("\n}", html.indexOf("function endSetNow() {")) + 2);

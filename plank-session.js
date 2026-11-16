@@ -20,6 +20,7 @@
     pikeStart: 0.10,    // hip above the line by more than this x body length = pike (when not already good)
     pikeKeep: 0.12,     // ...already-good frames only turn pike beyond this
     kneeAngle: 150,     // hip-knee-ankle below this = resting on the knees
+    weakKneeMin: 0.28,  // occluded-knee fallback: a weaker knee is trusted only with a confident hip and floor corroboration
     flat: 1.0,          // shoulder->ankle rise must be <= flat * run (else standing/upright)
     readyMs: 1500,      // good plank (and good framing) before the clock starts
     readyGraceMs: 250,  // a bad stretch shorter than this does not reset the ready countdown
@@ -87,11 +88,32 @@
   // opts.keep = true when the previous frame was already "ok": the looser sagKeep / pikeKeep limits apply.
   // opts.kneeFallback = true (portrait frames): with the ankle out of frame, judge the shoulder-hip-knee line instead;
   // the hip offset is rescaled to full body length (shoulder-knee / kneeFrac) so the same sag/pike limits apply.
+  function sessionFns() {
+    try { if (typeof module !== "undefined" && module.exports && typeof require === "function") return require("./push-session.js"); } catch (e) {}
+    return root.ZabbadatSession || null;
+  }
+  function sideIsKnees(kps, side, o, S, sw, fy) {
+    var sh = pt(kps, side + "_shoulder", o.minScore), hip = pt(kps, side + "_hip", o.minScore),
+        an = pt(kps, side + "_ankle", o.minScore), kn = pt(kps, side + "_knee", o.minScore);
+    if (hip && kn && an) { var a = angle(hip, kn, an); if (a != null && a < o.kneeAngle) return true; }
+    if (S && S.kneesFallback && hip) {
+      var kf = { minScore: o.minScore, kneeMin: o.minScore, kneeAngle: o.kneeAngle, weakKneeMin: o.weakKneeMin, floorFrac: o.floorFrac, hipUpFrac: o.hipUpFrac, frontHipFrac: o.frontHipFrac, frontSwFrac: o.frontSwFrac };
+      if (S.kneesFallback(hip, S.rawPt(kps, side + "_knee"), an, sh, fy, sw, kf)) return true;
+    }
+    return false;
+  }
   function classifyPlank(kps, opts) {
     var o = merge(opts);
     var side = pickSide(kps);
     var sh = pt(kps, side + "_shoulder", o.minScore), hip = pt(kps, side + "_hip", o.minScore),
         an = pt(kps, side + "_ankle", o.minScore), kn = pt(kps, side + "_knee", o.minScore);
+    // Either leg down counts as knees (partial-knee rest). Occluded / low-visibility knees use the same
+    // floor-line and front hip-drop fallbacks as push-ups. Start-gate sag/pike limits are unchanged.
+    var S = sessionFns();
+    var ls = pt(kps, "left_shoulder", o.minScore), rs = pt(kps, "right_shoulder", o.minScore);
+    var sw = ls && rs ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : null;
+    var fy = S && S.floorY ? S.floorY(kps, o.minScore) : null;
+    if (sideIsKnees(kps, "left", o, S, sw, fy) || sideIsKnees(kps, "right", o, S, sw, fy)) return { frame: "knees", side: side, end: an ? "ankle" : "knee" };
     if (sh && hip && !an && kn && o.kneeFallback) {
       var kr = Math.abs(kn.x - sh.x), kz = Math.abs(kn.y - sh.y);
       if (kz > o.flat * kr) return { frame: "standing", side: side, end: "knee" };

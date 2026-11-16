@@ -698,9 +698,10 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 .rec-preview video{width:100%;max-height:60vh;border-radius:10px;background:#000;display:block;margin:.5rem 0}
 .rec-preview .row{display:flex;flex-wrap:wrap;gap:.5rem}
 #camFsBtn{position:absolute;right:calc(8px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));z-index:3;padding:.35rem .6rem;font-size:.85rem}
-/* End set (every exercise camera screen): bottom-left over the video, large tap target, clear of the top counters, the PFP row
+/* End set (every exercise camera screen): secondary fallback only — auto fail/end is primary and never depends on this button.
+   Bottom-left over the video, muted outline, large 52px tap target, always visible while the camera is on; clear of the top counters, the PFP row
    (nav, top) and the bottom-right Full screen / Exit full screen button; safe-area aware in full screen on phones. */
-.cam-end-btn{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:4;min-height:52px;min-width:8.5rem;max-width:45%;padding:.7rem 1.1rem;font-size:1.05rem;font-weight:800;letter-spacing:.02em;border-radius:14px;background:#ff2d55!important;color:#fff!important;border:2px solid #fff!important;box-shadow:0 2px 12px rgba(0,0,0,.55)}
+.cam-end-btn{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:4;min-height:52px;min-width:8.5rem;max-width:45%;padding:.7rem 1.1rem;font-size:1.05rem;font-weight:700;letter-spacing:.02em;border-radius:14px;background:rgba(8,12,10,.45)!important;color:#f2f5f3!important;border:2px solid rgba(255,255,255,.85)!important;box-shadow:0 2px 10px rgba(0,0,0,.4)}
 .cam-end-btn[hidden]{display:none!important}
 #tbCamWrap,#plankWrap{position:relative}
 .cam-fs > .cam-end-btn{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
