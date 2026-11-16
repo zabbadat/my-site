@@ -76,7 +76,7 @@ check("the end-of-set line is exactly 'Set complete.'", G.SET_DONE_LINE === "Set
 
 // ---- page wiring pins
 const pt = html.slice(html.indexOf("async function poseTick(id = poseLoopId)"), html.indexOf("async function openCam()"));
-check("failure check: TUT block voids via voidTutSet; Sets block ends only via finishPushSet (knees / 10 s out of frame)", /if \(\(pushMode === "long" \|\| pushMode === "challenge"\) && postureGuard && pushState\.running && !pushState\.finished\) \{[\s\S]*failWatch\.update\([\s\S]*voidTutSet\(failed/.test(pt) && /pushMode === "sets" && pushState\.running[\s\S]*failWatch\.update\([\s\S]*finishPushSet\(why\)/.test(pt) && pt.split("failWatch.update(").length === 3);
+check("failure check: TUT block voids via voidTutSet; Sets block ends only via finishPushSet (knees / 10 s out of frame)", /if \(\(pushMode === "long" \|\| pushMode === "challenge"\) && postureGuard && pushState\.running && !pushState\.finished\) \{[\s\S]*(failWatch|fw)\.update\([\s\S]*voidTutSet\(failed/.test(pt) && /pushMode === "sets" && pushState\.running[\s\S]*failWatch\.update\([\s\S]*finishPushSet\(why\)/.test(pt) && (pt.match(/\b(failWatch|fw)\.update\(/g) || []).length === 2 /* TUT / challenge block (challenge: its own twoMinWatch via modeWatch) + Sets block */);
 check("TUT camera skips the 10 s out-of-frame end; Sets path does not", /failExtra\(st, w, pose, pushMode === "challenge" \? twoMinFailExtra\(performance\.now\(\)\) : \{ skipFrame: true \}\)/.test(pt) && !/pushMode === "sets"[\s\S]{0,400}skipFrame/.test(pt));
 const longNote = (html.match(/id="longNote"[^>]*>([\s\S]*?)<\/p>/) || [])[1] || "";
 const challengeNote = (html.match(/id="challengeNote"[^>]*>([\s\S]*?)<\/p>/) || [])[1] || "";

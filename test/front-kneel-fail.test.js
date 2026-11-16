@@ -42,7 +42,7 @@ check("minKnee3D takes the more bent knee", SS.minKnee3D({ left: 170, right: 90 
   check("TUT skipFrame still does not end on 10 s out of frame", out === null); }
 
 check("pose-vision asks Apple Vision for 3D knees on iOS and exposes knee3D", /include3D: true/.test(poseSrc) && /pose\.knee3D = res\.pose3d\.kneeAngleDeg/.test(poseSrc));
-check("page failExtra forwards knee3D into both watches", /function failExtra\(st, w, pose, more\)/.test(html) && /o.knee3D = pose.knee3D/.test(html) && /voidTutSet\(failed, failWatch.failedAt && failWatch.failedAt\(\)\)/.test(html) && /freezePushClock\(failWatch.failedAt && failWatch.failedAt\(\)\)/.test(html));
+check("page failExtra forwards knee3D into both watches", /function failExtra\(st, w, pose, more\)/.test(html) && /o.knee3D = pose.knee3D/.test(html) && /voidTutSet\(failed, (failWatch|fw).failedAt && (failWatch|fw).failedAt\(\)\)/.test(html) && /freezePushClock\(failWatch.failedAt && failWatch.failedAt\(\)\)/.test(html));
 
 { // freeze at last valid moment: 1 s window starting at failedAt
   let now = 5000, elapsed = 8000, startedAt = 1000;

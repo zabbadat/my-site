@@ -65,6 +65,9 @@
   }
   // ---- Two-minute challenge (solo hold) ----
   var HOLD_CHALLENGE = { durationMs: 120000 };
+  // Form-break watch for the hold (owner spec: sag, pike, knees down, collapse / arms giving out, stood up all end it). Push-up
+  // sets end only on a definitive break (push-session.js FAIL.endOn: form / elbows off); the plank hold opts back in to both.
+  var HOLD_FAIL_OPTS = { endOn: { form: true, elbows: true } };
   // Start-button intro: the card and the spoken line go up together, before the One, two, three, Go count.
   var INTRO = {
     spoken: "Hold yourself up in a push press plank position. Hold for two minutes.",
@@ -114,7 +117,7 @@
     return "Today: " + st.tries + " tr" + (st.tries === 1 ? "y" : "ies") + ", " + st.done + " complete, best hold " + clock(st.bestMs) + ".";
   }
   var api = { createChallenge: createChallenge, atTopFrom: atTopFrom, flagSummary: flagSummary,
-    HOLD_CHALLENGE: HOLD_CHALLENGE, INTRO: INTRO, createHoldChallenge: createHoldChallenge, holdResultText: holdResultText, clock: clock,
+    HOLD_CHALLENGE: HOLD_CHALLENGE, HOLD_FAIL_OPTS: HOLD_FAIL_OPTS, INTRO: INTRO, createHoldChallenge: createHoldChallenge, holdResultText: holdResultText, clock: clock,
     dayStatsKey: dayStatsKey, addDayStats: addDayStats, dayStatsText: dayStatsText };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatChallenge = api;

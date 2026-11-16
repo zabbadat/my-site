@@ -31,18 +31,18 @@ check("intro speaks at the plank pace (VOICE rate 0.88) and resumes the speech e
 // ---- 3. labels / panel
 check("mode button says Two-minute challenge; no three-minute copy left in the solo challenge", /id="modeChallengeBtn"[^>]*>Two-minute challenge</.test(html) && !/Three-minute|three-minute challenge/.test(html + fs.readFileSync(path.join(ROOT, "tut.html"), "utf8")));
 check("challenge note: 2:00 down, hold a push-up plank, what ends it, today's line", /id="challengeNote"[^>]*>Two-minute challenge: the clock runs from 2:00 down to 0:00\. Hold a push-up plank, arms straight, the whole two minutes\./.test(html) && /id="twoMinToday"/.test(html));
-check("I give up removed (DOM + handler); Reset total kept for the other modes only; End set stays on the camera", !/pushGiveUpBtn|I give up/.test(html) && /id="pushTotalResetBtn"/.test(html) && /<button class="btn cam-end-btn" id="camEndBtn" type="button"[^>]*>End set<\/button>/.test(html));
+check("I give up removed (DOM + handler); no Pause / Finish set / Reset total in the panel (Start-set-only panel on main); End set stays on the camera", !/pushGiveUpBtn|I give up/.test(html) && !/id="(pushPauseBtn|pushFinishBtn|pushTotalResetBtn)"/.test(html) && /<button class="btn cam-end-btn" id="camEndBtn" type="button"[^>]*>End set<\/button>/.test(html));
 { // renderPushMode in challenge: only Start challenge is visible in the panel row
   const els = {}; const $ = (id) => els[id] || (els[id] = { id, hidden: false, disabled: false, textContent: "", setAttribute() {} });
   const recs = [{ style: {} }];
   const ctx = vm.createContext({ $, pushMode: "challenge", pushState: { running: false, finished: false, elapsed: 0, reps: 0 }, postureGuard: null, currentUser: null, localStorage: { getItem: () => null, setItem() {} }, JSON, Date,
     document: { querySelectorAll: () => recs }, window: { ZabbadatSession: SS, ZabbadatChallenge: C, ZabbadatEtDay: ET } });
   vm.runInContext([fnSrc("renderPushMode"), fnSrc("pushRecBtns"), fnSrc("twoMinDayKey"), fnSrc("twoMinToday"), fnSrc("paintTwoMinToday")].join("\n") + "\nrenderPushMode();", ctx);
-  const visible = ["pushStartBtn", "pushPauseBtn", "pushFinishBtn", "pushEndBtn", "pushTotalResetBtn"].filter((id) => !els[id].hidden);
-  check("challenge panel: Start challenge is the only button (Pause / Finish / End session / Reset total / Record hidden)", visible.join() === "pushStartBtn" && els.pushStartBtn.textContent === "Start challenge" && els.pushTargetWrap.hidden && recs[0].style.display === "none", visible.join());
+  const visible = ["pushStartBtn", "pushEndBtn"].filter((id) => !els[id].hidden);
+  check("challenge panel: Start challenge is the only button (End session / Record hidden)", visible.join() === "pushStartBtn" && els.pushStartBtn.textContent === "Start challenge" && els.pushTargetWrap.hidden && recs[0].style.display === "none", visible.join());
   check("challenge panel: label Time left; today's line painted", els.pushSetLabel.textContent === "Time left" && els.twoMinToday.textContent === "Today: no tries yet.");
   vm.runInContext('pushMode = "sets"; renderPushMode();', ctx);
-  check("Sets panel: Reset total and Record come back", !els.pushTotalResetBtn.hidden && recs[0].style.display === ""); }
+  check("Sets panel: Start set only (End session hidden), Record comes back", els.pushEndBtn.hidden && els.pushStartBtn.textContent === "Start set" && recs[0].style.display === ""); }
 
 // ---- 4. today's totals reset at Eastern midnight on their own
 { const before = Date.UTC(2026, 10, 17, 4, 59), after = Date.UTC(2026, 10, 17, 5, 1); // 11:59 PM / 12:01 AM Eastern (EST, UTC-5)
@@ -93,11 +93,12 @@ const tick = () => new Promise((r) => setTimeout(r, 5));
   check("clock shows 2:00 and counts down (HUD + page clock)", /const shown = pushMode === "challenge" \? Math\.max\(0, TWO_MIN_MS - now\) : now;/.test(html) && /"Challenge on\. 2:00 on the clock: hold your push-up plank, arms straight\."/.test(html));
   check("End set and Stop camera end the challenge as failed with time held", /if \(open && pushMode === "challenge" && pushChallenge\) \{ if \(pushState\.running\) endHoldChallenge\("ended"\); \}/.test(html) && /endHoldChallenge\("stopped"\)/.test(fnSrc("endPushOnCameraStop")));
 
+  check("challenge uses its own watch with the plank-hold breaks on (form + elbows); push-up sets keep the definitive-break watch", /createFailureWatch\(window\.ZabbadatChallenge\.HOLD_FAIL_OPTS\)/.test(html) && /pushMode === "challenge" && typeof twoMinWatch !== "undefined" && twoMinWatch \? twoMinWatch : failWatch/.test(html) && C.HOLD_FAIL_OPTS.endOn.form === true && C.HOLD_FAIL_OPTS.endOn.elbows === true && SS.FAIL.endOn.form === false);
   // ---- 7. failure watch with the challenge settings: a steady hold never ends; knees / sag / collapse / stand do
   const X = vm.createContext({ pushChallenge: (() => { const h = C.createHoldChallenge(); h.start(0); return h; })() }); vm.runInContext("const TWO_MIN_BASE_MS = 1500;\n" + fnSrc("twoMinFailExtra"), X);
-  const hold = (pose, from) => { const w = SS.createFailureWatch(); w.reset(0); for (let t = 0; t <= 125000; t += 1000 / 15) { const k = SY.kpsOf(t < from ? SY.POSE.top : SY.POSE[pose]); const f = w.update(k, t, 0, Object.assign({ frameW: 640 }, X.twoMinFailExtra(t))); if (f) return { f, t }; } return null; };
+  const hold = (pose, from) => { const w = SS.createFailureWatch(C.HOLD_FAIL_OPTS); w.reset(0); for (let t = 0; t <= 125000; t += 1000 / 15) { const k = SY.kpsOf(t < from ? SY.POSE.top : SY.POSE[pose]); const f = w.update(k, t, 0, Object.assign({ frameW: 640 }, X.twoMinFailExtra(t))); if (f) return { f, t }; } return null; };
   check("a steady 2:00 high-plank hold never ends", hold("top", 1e9) === null);
-  { const w = SS.createFailureWatch(); w.reset(0); let f = null; for (let t = 0; t <= 125000 && !f; t += 1000 / 15) f = w.update(SY.kpsOf(SY.POSE.top, { hood: true }), t, 0, Object.assign({ frameW: 640 }, X.twoMinFailExtra(t)));
+  { const w = SS.createFailureWatch(C.HOLD_FAIL_OPTS); w.reset(0); let f = null; for (let t = 0; t <= 125000 && !f; t += 1000 / 15) f = w.update(SY.kpsOf(SY.POSE.top, { hood: true }), t, 0, Object.assign({ frameW: 640 }, X.twoMinFailExtra(t)));
     check("hood / head down (no nose) for the full 2:00 never ends it", f === null, f); }
   for (const [pose, want] of [["knees", "knees"], ["sag", "form"], ["pike", "form"], ["collapse", "collapse|elbows"], ["stand", "standing"]]) {
     const r = hold(pose, 20000); check(`${pose} at 0:20 ends it as '${want}' within ~1.5 s`, r && new RegExp("^(" + want + ")$").test(r.f) && r.t - 20000 < 2500, JSON.stringify(r)); }

@@ -2271,6 +2271,9 @@ let challengeFlags = { standing: 0, knees: 0 };
 const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostureGuard() : null;
 // TUT failure watch (One long set + Two-minute challenge only): knees / stood up / form ends the set. Out of frame does not (skipFrame). Regular Sets still end on 10 s out of frame.
 const failWatch = window.ZabbadatSession && window.ZabbadatSession.createFailureWatch ? window.ZabbadatSession.createFailureWatch() : null;
+// Two-minute challenge: its own watch with the plank-hold breaks on (sag / pike / arms giving out), push-up sets untouched.
+const twoMinWatch = window.ZabbadatSession && window.ZabbadatSession.createFailureWatch && window.ZabbadatChallenge && window.ZabbadatChallenge.HOLD_FAIL_OPTS ? window.ZabbadatSession.createFailureWatch(window.ZabbadatChallenge.HOLD_FAIL_OPTS) : null;
+function modeWatch() { return pushMode === "challenge" && typeof twoMinWatch !== "undefined" && twoMinWatch ? twoMinWatch : failWatch; }
 // End-of-set watch shared by every push-up mode (push-session.js createSetEnd): a stall after the last rep ends the set. The rep target never does.
 const pushSetEnd = window.ZabbadatSession && window.ZabbadatSession.createSetEnd ? window.ZabbadatSession.createSetEnd() : null;
 function pwOpt(st, w) { const C = window.ZabbadatChallenge; return { frameW: w, atTop: !!(C && C.atTopFrom(st)), reps: st && typeof st.reps === "number" ? st.reps : null }; }
@@ -3113,6 +3116,7 @@ function freshPushSet(opts) {
   Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 });
   clearPushPrompts(opts);
   if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(null);
+  if (typeof twoMinWatch !== "undefined" && twoMinWatch) twoMinWatch.reset(null);
   if (typeof pushSetEnd !== "undefined" && pushSetEnd) pushSetEnd.reset(null);
   if (typeof resetPoseBaseline === "function") resetPoseBaseline();
   if (typeof postureGuard !== "undefined" && postureGuard) postureGuard.reset();
@@ -3349,6 +3353,7 @@ function finishPushSet(endedBy) {
   if (typeof pushTutQualified !== "undefined") pushTutQualified = false;
   if (failedTut) { // a TUT failure posts once (below), then everything is back to zero, ready for Start
     if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(null);
+    if (typeof twoMinWatch !== "undefined" && twoMinWatch) twoMinWatch.reset(null);
     if (postureGuard) postureGuard.reset();
     if (typeof pushChallenge !== "undefined" && pushChallenge) pushChallenge.reset();
   }
@@ -3460,6 +3465,7 @@ function beginPushClock() {
   if (typeof repVoice !== "undefined" && repVoice) repVoice.reset();
   if (typeof tutTimeVoice !== "undefined" && tutTimeVoice) tutTimeVoice.reset();
   if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(performance.now());
+  if (typeof twoMinWatch !== "undefined" && twoMinWatch) twoMinWatch.reset(performance.now());
   if (typeof holdReward !== "undefined" && holdReward) holdReward.reset();
   // Go: wipe the counter and the set numbers here, so movement during the countdown never carries into the set.
   resetPoseBaseline();
@@ -3667,8 +3673,9 @@ async function poseTick(id = poseLoopId) {
       const g = postureGuard.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0);
       if (g.event && pushMode === "challenge") challengeFlags[g.event] = (challengeFlags[g.event] || 0) + 1;
       if (g.event) $("pushStatus").textContent = (g.event === "knees" ? "Knees down" : "Stood up / left plank") + " flagged: fix it now or the set ends.";
-      const failed = typeof failWatch !== "undefined" && failWatch ? failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, failExtra(st, w, pose, pushMode === "challenge" ? twoMinFailExtra(performance.now()) : { skipFrame: true })) : null;
-      if (failed) voidTutSet(failed, failWatch.failedAt && failWatch.failedAt()); // clock stops at the last valid moment
+      const fw = typeof modeWatch === "function" ? modeWatch() : (typeof failWatch !== "undefined" ? failWatch : null);
+      const failed = fw ? fw.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, failExtra(st, w, pose, pushMode === "challenge" ? twoMinFailExtra(performance.now()) : { skipFrame: true })) : null;
+      if (failed) voidTutSet(failed, fw.failedAt && fw.failedAt()); // clock stops at the last valid moment
       const f = $("pushViolFlag");
       if (f) { f.hidden = !g.active; if (g.active) f.textContent = (g.active === "knees" ? "Knees down" : "Standing") + " · " + g.count; }
       if ($("pushViol")) $("pushViol").textContent = String(g.count);
