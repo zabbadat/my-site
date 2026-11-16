@@ -133,7 +133,9 @@
       var restart = H.sessionPlan("squats") === "restart";
       var C = GS && GS.coachLines ? GS.coachLines("squats") : null;
       if (!restart && C) { status(C.place); speak(C.place); } else status("Starting camera…");
-      var stream = await navigator.mediaDevices.getUserMedia(H.CAM_CONSTRAINTS);
+      var gum = navigator.mediaDevices.getUserMedia(H.CAM_CONSTRAINTS);
+      H.ensurePose().catch(function () {}); // instant lock: the pose model loads (and warms up) while the camera opens
+      var stream = await gum;
       if (!live()) { H.stopCamTracks(stream); return; }
       st.stream = stream;
       var vid = $("sqVid"); await H.attachCam(vid, stream);
