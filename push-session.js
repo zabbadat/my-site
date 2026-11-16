@@ -299,7 +299,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     }
     return { update: update, reset: reset, options: o, state: function () { return s; } };
   }
-  var FAIL_TEXT = { knees: "Knees down", collapse: "Collapsed", standing: "Stood up / left plank", frame: "Out of frame", gaveup: "Gave up", elbows: "Elbows down", form: "Form broke" };
+  var FAIL_TEXT = { knees: "Knees down", collapse: "Collapsed", standing: "Stood up / left plank", frame: "Out of frame", gaveup: "Gave up", elbows: "Elbows down", form: "Form broke", stalled: "No push-up for a while", target: "Target reached", ended: "Ended by you" };
   // Personal history from localStorage entries [[key, value], ...]: per-day time under tension
   // (tutPrefix, e.g. "zabbadat-push-tut-guest-") and reps (repsPrefix, "zabbadat-push-total-guest-").
   // Returns today, best day (by time), all-time totals and days (newest first).
@@ -400,7 +400,43 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     });
     return out.map(function (p) { return { key: p.key, uid: p.uid, name: p.name, today: p.today, bestDay: p.bestDay, allTime: p.allTime }; });
   }
-  var api = { TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
+
+  // End-of-set watch (Nov 16, owner): the one shared rule every push-up camera view (Sets, One long set / TUT, 3:00 challenge,
+  // TUT Battle) runs each frame next to its form-failure watch, so a set can never stay open in camera mode.
+  //  - "target": Sets only, the rep count reached the target (default 20). The set completes.
+  //  - "stalled": at least 1 rep, then no new rep for stallMs (15 s) while the body is SEEN (a shoulder confidently in view)
+  //    and NOT at the top. Lying at the bottom / sitting back / walking off without a clean stand-up call ends it.
+  //    Holding the top (plank push press) never stalls, and frames with no body in view never count (out of frame keeps its
+  //    own rule: 10 s in Sets, off in TUT), so a hood or head down (shoulders still seen) is fine.
+  //    "Off the top" is the counter's own top call, OR (when s.counter is passed) the body sitting in the lower part (> lowFrac) of the
+  //    rep range frozen at the last counted rep: the counter re-bases its top after ~6 s parked at a new level, so a body parked
+  //    at the bottom would otherwise read as a top hold forever.
+  //  - "stalled" (Sets only): no new rep for setsIdleMs (45 s) at all, top hold included. 45 s leaves the 30 s top-hold bonus reachable.
+  // Never fires before the first rep (a 0-rep set keeps going until Finish / End set), and never on the start frame.
+  var SET_END = { stallMs: 15000, setsIdleMs: 45000, minScore: 0.3, lowFrac: 0.6 };
+  function createSetEnd(opts) {
+    var o = Object.assign({}, SET_END, opts || {}), lastRepT, lastReps, offSince, ended, rom;
+    function reset(t0) { lastRepT = t0 == null ? null : t0; lastReps = 0; offSince = null; ended = null; rom = null; }
+    reset(null);
+    function bodySeen(kps) { for (var i = 0; i < (kps || []).length; i++) { var k = kps[i]; if (k && /shoulder$/.test(k.name) && (k.score == null || k.score >= o.minScore)) return true; } return false; }
+    // s: { mode, reps, target, t, atTop, kps (or seen) } -> null | "target" | "stalled". Sticky once it fires (until reset).
+    function update(s) {
+      if (ended) return ended;
+      var t = Number(s.t), reps = Number(s.reps) || 0, seen = s.seen != null ? !!s.seen : bodySeen(s.kps);
+      if (lastRepT == null) lastRepT = t;
+      var c = s.counter;
+      if (reps !== lastReps) { lastReps = reps; lastRepT = t; offSince = null; if (c && isFinite(c.top) && isFinite(c.bottom) && c.bottom !== c.top) rom = { top: c.top, bottom: c.bottom }; }
+      var low = !!(rom && c && isFinite(c.smooth) && (c.smooth - rom.top) / (rom.bottom - rom.top) > o.lowFrac);
+      if (s.mode === "sets" && Number(s.target) >= 1 && reps >= Number(s.target)) return (ended = "target");
+      if (reps < 1) return null;
+      if (!seen || (s.atTop && !low)) offSince = null; else if (offSince == null) offSince = t;
+      if (offSince != null && t - offSince >= o.stallMs && t - lastRepT >= o.stallMs) return (ended = "stalled");
+      if (s.mode === "sets" && t - lastRepT >= o.setsIdleMs) return (ended = "stalled");
+      return null;
+    }
+    return { update: update, reset: reset, ended: function () { return ended; }, options: o };
+  }
+  var api = { SET_END: SET_END, createSetEnd: createSetEnd, TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

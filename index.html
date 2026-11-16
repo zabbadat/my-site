@@ -698,6 +698,12 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 .rec-preview video{width:100%;max-height:60vh;border-radius:10px;background:#000;display:block;margin:.5rem 0}
 .rec-preview .row{display:flex;flex-wrap:wrap;gap:.5rem}
 #camFsBtn{position:absolute;right:calc(8px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));z-index:3;padding:.35rem .6rem;font-size:.85rem}
+/* End set (every exercise camera screen): bottom-left over the video, large tap target, clear of the top counters, the PFP row
+   (nav, top) and the bottom-right Full screen / Exit full screen button; safe-area aware in full screen on phones. */
+.cam-end-btn{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:4;min-height:52px;min-width:8.5rem;max-width:45%;padding:.7rem 1.1rem;font-size:1.05rem;font-weight:800;letter-spacing:.02em;border-radius:14px;background:#ff2d55!important;color:#fff!important;border:2px solid #fff!important;box-shadow:0 2px 12px rgba(0,0,0,.55)}
+.cam-end-btn[hidden]{display:none!important}
+#tbCamWrap,#plankWrap{position:relative}
+.cam-fs > .cam-end-btn{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
 #pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page,#score.arcade-page,#stepsStat.arcade-page,#clock.arcade-page{
   font-family:ui-monospace,"Courier New",monospace;
   color:#7dff7d;
@@ -1498,6 +1504,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       </div>
       <div class="violation" id="pushViolFlag" hidden></div>
       <button class="btn ghost" id="camFsBtn" type="button">Full screen</button>
+      <button class="btn cam-end-btn" id="camEndBtn" type="button" aria-label="End set and turn the camera off">End set</button>
       <video id="camVid" autoplay playsinline muted style="width:100%;border-radius:0 0 14px 14px;background:#101816;transform:scaleX(-1);display:block"></video>
     </div>
     <div class="note" id="challengeResult" hidden></div>
@@ -1773,7 +1780,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       </div>
       <div id="tbBoard" class="card wb-board" hidden aria-live="off"><div class="arc-head"><strong>TUT Battle live board</strong></div><div id="tbBoardBody" class="arc"><div class="arc-fx"></div><div class="arc-main"></div></div></div>
       <div class="battle-count" id="tbCount" hidden></div>
-      <div id="tbCamWrap" hidden style="margin:.6rem auto;max-width:16rem"><video id="tbVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video></div>
+      <div id="tbCamWrap" hidden style="margin:.6rem auto;max-width:16rem"><video id="tbVid" autoplay playsinline muted style="width:100%;border-radius:14px;background:#101816;transform:scaleX(-1)"></video><button class="btn cam-end-btn" id="tbEndBtn" type="button" aria-label="End set and turn the camera off">End set</button></div>
       <p class="note" id="tbCamNote" style="text-align:center"></p>
       <div class="row"><button class="btn ghost rec-btn" type="button" data-rec="tbCamWrap" hidden aria-pressed="false"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button><button class="btn ghost" id="tbCam" type="button" hidden>Turn on camera</button><button class="btn" id="tbReady" type="button" hidden>I'm ready</button><button class="btn" id="tbRematch" type="button" hidden>Rematch</button><button class="btn ghost" id="tbLeave" type="button">Leave</button></div>
     </div>
@@ -1813,6 +1820,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <video id="plankVid" autoplay playsinline muted style="width:100%;border-radius:0 0 14px 14px;background:#101816;transform:scaleX(-1);display:block"></video>
         <div id="plankOutline" class="plank-outline" aria-hidden="true"><span>head to heels</span></div>
       </div>
+      <button class="btn cam-end-btn" id="plankEndBtn" type="button" aria-label="End set and turn the camera off">End set</button>
     </div>
     <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. Clock starts when you start a proper plank.<br>Hips sagging, hips piking up, dropping to your knees, standing up, or leaving the frame for more than a second ends the hold. A framing tip only delays the start; it never ends a hold.</p>
     <p class="fine">Every camera hold of 10 seconds or more counts as one set. New hold starts the next set without stopping the camera. Signed-in holds post to the Plank House board and today's sets board. Unsigned stays on this phone. Video never uploads.</p>
@@ -2222,6 +2230,8 @@ let challengeFlags = { standing: 0, knees: 0 };
 const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostureGuard() : null;
 // TUT failure watch (One long set + 3:00 challenge only): knees / stood up / form ends the set. Out of frame does not (skipFrame). Regular Sets still end on 10 s out of frame.
 const failWatch = window.ZabbadatSession && window.ZabbadatSession.createFailureWatch ? window.ZabbadatSession.createFailureWatch() : null;
+// End-of-set watch shared by every push-up mode (push-session.js createSetEnd): Sets complete at the target; any mode ends after a stall.
+const pushSetEnd = window.ZabbadatSession && window.ZabbadatSession.createSetEnd ? window.ZabbadatSession.createSetEnd() : null;
 function pwOpt(st, w) { const C = window.ZabbadatChallenge; return { frameW: w, atTop: !!(C && C.atTopFrom(st)), reps: st && typeof st.reps === "number" ? st.reps : null }; }
 let lastViolFlag = 0;
 // 30-second top-hold bonus (all push-up modes), once per set. Each hold credits 0.5 ZAB ("hold" earn; ZAB amounts are tenths).
@@ -3011,6 +3021,7 @@ function voidTutSet(reason) {
   $("pushStatus").textContent = "Set failed: 0 reps, " + formatTime(lasted) + " (" + why + "). Nothing saved. Ready for the next set.";
   $("camNote").textContent = "Set ended";
   renderPush();
+  if (typeof exitPushCam === "function") exitPushCam(); // set over: leave camera mode
 }
 // Prompts from the last set never carry into the next one: queued speech, spoken-rep / 15 s time milestones, camera note, form flag, result box.
 function clearPushPrompts(opts) {
@@ -3028,6 +3039,7 @@ function freshPushSet(opts) {
   Object.assign(pushState, { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: null, finished: false, tut: 0 });
   clearPushPrompts(opts);
   if (typeof failWatch !== "undefined" && failWatch) failWatch.reset(null);
+  if (typeof pushSetEnd !== "undefined" && pushSetEnd) pushSetEnd.reset(null);
   if (typeof resetPoseBaseline === "function") resetPoseBaseline();
   if (typeof postureGuard !== "undefined" && postureGuard) postureGuard.reset();
   if (typeof pushChallenge !== "undefined" && pushChallenge) pushChallenge.reset();
@@ -3062,8 +3074,42 @@ function endPushOnCameraStop() {
   if (pushMode === "challenge" && pushChallenge) { pushChallenge.update(performance.now(), {}); r = pushChallenge.result(); }
   if (!(window.ZabbadatSession.postOnCameraStop && window.ZabbadatSession.postOnCameraStop(pushMode, r ? r.reps : pushState.reps, pushState))) return false;
   if (r) { pushState.tut = r.tutMs; pushState.reps = r.reps; showChallengeResult(r, "Three-minute challenge stopped early"); }
-  finishPushSet("Camera stopped");
+  camStopping = true; // stopCam is already turning the camera off
+  try { finishPushSet("Camera stopped"); } finally { camStopping = false; }
   return true;
+}
+// Auto end of a push-up set (pushSetEnd): "target" completes a Sets set; "stalled" ends any mode as a failure. Same save paths as
+// the buttons: Sets -> finishPushSet; One long set / 3:00 challenge -> voidTutSet (posts with >= 1 rep, TUT completion rules unchanged).
+function endPushSetAuto(kind) {
+  if (pushState.finished || !pushState.running) return;
+  const T = (window.ZabbadatSession && window.ZabbadatSession.FAIL_TEXT) || {};
+  if (pushMode === "sets") { finishPushSet(kind === "target" ? (T.target || "Target reached") : (T.stalled || "No push-up for a while")); return; }
+  voidTutSet("stalled");
+}
+// Leave push-up camera mode after a set ends: stop the stream, the pose rAF loop, wake lock and full screen (stopCam).
+// The next Start opens the camera again. Skipped while stopCam itself is ending the set.
+var camStopping = false;
+function exitPushCam() {
+  if (camStopping) return;
+  const on = typeof camOn !== "undefined" && camOn, stream = typeof camStream !== "undefined" && camStream;
+  if (!on && !stream) { if (typeof camExitFs === "function") camExitFs(); return; }
+  if (typeof stopCam === "function") stopCam();
+  $("camNote").textContent = "Set ended. Camera off.";
+}
+// End set button (#camEndBtn, on the camera screen in every push-up mode): manual fallback that always ends the set and exits camera
+// mode. Same save path as Finish set / End session / I give up; a 3:00 challenge with 0 reps is discarded like I give up.
+// Nothing started yet (camera up, countdown running): cancel and turn the camera off.
+function endSetNow() {
+  sessionTouch();
+  if (typeof repVoice !== "undefined" && repVoice) repVoice.reset();
+  if (pushStarting) cancelPushStart("Set ended.");
+  const open = !pushState.finished && (pushState.running || pushState.elapsed > 0 || pushState.reps > 0);
+  if (open && pushMode === "challenge" && pushChallenge) {
+    if (pushState.running) { pushChallenge.update(performance.now(), {}); const r = pushChallenge.result(); pushState.tut = r.tutMs; pushState.reps = r.reps; if (r.reps >= 1) showChallengeResult(r, "Three-minute challenge ended early"); }
+    if (pushState.reps >= 1) finishPushSet("Ended by you"); else voidTutSet("ended");
+  } else if (open) finishPushSet("Ended by you");
+  if (camOn || camStream) stopCam();
+  if ($("camWrap")) $("camWrap").hidden = true;
 }
 // Hero CTAs: jump to the counter and preselect a mode (never mid-session; the camera still loads only from the counter).
 (function navHeightVar() { const set = () => { const n = document.querySelector("nav"); if (n) document.documentElement.style.setProperty("--navh", n.offsetHeight + "px"); }; set(); window.addEventListener("resize", set); window.addEventListener("load", set); try { const n = document.querySelector("nav"); if (n && window.ResizeObserver) new ResizeObserver(set).observe(n); } catch (e) {} })();
@@ -3211,6 +3257,7 @@ function finishPushSet(endedBy) {
     if (typeof pushChallenge !== "undefined" && pushChallenge) pushChallenge.reset();
   }
   renderPush();
+  if (typeof exitPushCam === "function") exitPushCam(); // set over (completed, failed, or ended by hand): leave camera mode
   const why = endedBy ? " Ended: " + endedBy + "." : "";
   const what = pushMode === "long" ? "Session" : pushMode === "challenge" ? "Challenge" : "Set";
   const head = category === "tut-set" ? "TUT set complete: " + record.reps + " reps, " + formatTime(ms) + "." : failedTut ? "Set failed: " + record.reps + " reps, " + formatTime(ms) + ". Ready for the next set." : what + " done: " + record.reps + " reps, " + formatTime(ms) + ".";
@@ -3323,6 +3370,7 @@ function beginPushClock() {
   if ($("pushViol")) $("pushViol").textContent = "0";
   pushState.running = true;
   pushState.startedAt = Date.now();
+  if (typeof pushSetEnd !== "undefined" && pushSetEnd) pushSetEnd.reset(performance.now()); // end-of-set watch starts with the clock
   if (typeof pushTutQualified !== "undefined") pushTutQualified = false;
   if (pushMode === "challenge" && pushChallenge) {
     pushChallenge.start(performance.now()); challengeFlags = { standing: 0, knees: 0 }; if (postureGuard) postureGuard.reset();
@@ -3567,6 +3615,13 @@ async function poseTick(id = poseLoopId) {
       renderPush();
       $("camNote").textContent = "Counted " + pushState.reps + "."; sayRep(pushState.reps);
     }
+    // End of set (every push-up mode): target reached (Sets) or a stall after the last rep ends the set through the normal
+    // save path, and the set end leaves camera mode (exitPushCam). Rep counting above is unchanged.
+    if (typeof pushSetEnd !== "undefined" && pushSetEnd && pushState.running && !pushState.finished) {
+      const C = window.ZabbadatChallenge, stE = pushCounter.state();
+      const ended = pushSetEnd.update({ mode: pushMode, reps: pushState.reps, target: pushMode === "sets" && typeof pushTarget === "function" ? pushTarget() : 0, t: performance.now(), atTop: !!(C && C.atTopFrom && C.atTopFrom(stE)), counter: stE, kps: pose ? pose.keypoints : [] });
+      if (ended && typeof endPushSetAuto === "function") endPushSetAuto(ended);
+    }
   } catch (e) {
     $("camNote").textContent = "Pose paused.";
   }
@@ -3674,6 +3729,7 @@ function stopCam() {
   setCamStatus("");
 }
 $("camStopBtn").onclick = stopCam;
+if ($("camEndBtn")) $("camEndBtn").onclick = endSetNow;
 // Full screen keeps the reps/time HUD: fullscreen the wrapper (not the video),
 // falling back to a fixed-position class where element fullscreen is missing (iPhone).
 function camIsFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement) || $("camWrap").classList.contains("cam-fs"); }
@@ -3960,6 +4016,16 @@ async function startNativePlank(P) {
 }
 $("plankCamBtn").onclick = () => (plankLoop ? stopPlankCam() : plankStarting ? cancelPlankStart() : typeof nativePlank === "function" && nativePlank() ? startNativePlank(nativePlank()) : startPlankCam());
 $("plankStopBtn").onclick = () => { if (plankLoop && plankHold && !plankSaved) plankEnded(plankHold.stop(performance.now())); };
+// End set (#plankEndBtn on the plank camera screen, plank and plank push press holds): ends the hold through the same plankEnded save
+// as End hold (a hold under 10 s is not a set, as before), then stops the camera, the rAF loop, the wake lock and queued plank speech.
+function plankEndSetNow() {
+  if (plankStarting) { cancelPlankStart(); return; }
+  if (typeof plankCount !== "undefined" && plankCount && plankCount.cancel) plankCount.cancel();
+  if (typeof plankCountShow === "function") plankCountShow("");
+  stopPlankCam();
+  if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.end();
+}
+if ($("plankEndBtn")) $("plankEndBtn").onclick = plankEndSetNow;
 $("plankAgainBtn").onclick = () => { if (plankLoop) { newPlankHold(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts when you start a proper plank. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold."; } };
 renderPlankBest();
 renderPlankDays();
@@ -4926,6 +4992,7 @@ function tbGoLive(r) {
   tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false; tbEnded = false; tbDraw = null; clearTimeout(tbSettleTimer); if (tbRepVoice) tbRepVoice.reset(); if (tbTimeVoice) tbTimeVoice.reset();
   tbChal = TBC.createChallenge({ durationMs: TBm.RULES.durationMs, topCapMs: TBm.RULES.topCapMs }); tbChal.start(tbLiveT0);
   tbJudge = TBm.createJudge(window.ZabbadatSession.createPostureGuard({ holdMs: TBm.RULES.postureHoldMs })); tbJudge.reset(performance.now());
+  tbSetEnd = window.ZabbadatSession.createSetEnd ? window.ZabbadatSession.createSetEnd() : null; if (tbSetEnd) tbSetEnd.reset(performance.now());
   tbPub = TBm.throttle(TBm.RULES.publishMs, () => performance.now());
   tbStat(tbStream ? "Go! Keep repping." : "Camera is off: turn it on to stay in the battle.");
 }
@@ -4962,6 +5029,23 @@ async function tbCamOn(placed) {
     tbPaint();
   }
 }
+// My battle set is over (form fail, stall, or End set): say Set complete once, leave camera mode at once, and write the loss to the room
+// (retried, so a dropped write never leaves the set open). The room result then shows through tbFinish as before.
+let tbSetEnd = null;
+function tbEndMySet(reason) {
+  if (tbLostSent) return; const code = tbCodeCur, uid = currentUser && currentUser.uid, mine = Object.assign({}, tbMine), send = (n) => TBm.reportLoss(tbFs, code, uid, reason, mine).catch(() => { if (n < 5 && code === tbCodeCur) setTimeout(() => send(n + 1), 1500); });
+  tbLostSent = true; if (tbTimeVoice) tbTimeVoice.end(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.interruptSpeak) window.ZabbadatGetSet.interruptSpeak(window.ZabbadatGetSet.SET_DONE_LINE); if (code && uid) TBm.reportLoss(tbFs, code, uid, reason, mine).catch(() => { if (code === tbCodeCur) setTimeout(() => send(2), 1500); }); // retried up to 5 times
+  if (tbRepVoice && tbRepVoice.reset) tbRepVoice.reset();
+  tbCamOff(); if (tbWake) tbWake.stop().catch(() => {});
+  $("tbCamNote").textContent = TBm.REASONS[reason] || "Set ended";
+}
+// End set (#tbEndBtn on the TUT Battle camera screen): live battle -> my set ends now as "left" (the only self-reported reasons
+// firestore.rules allow); before Go -> just turn the camera off.
+function tbEndSetNow() {
+  if (tbRoom && tbRoom.status === "live" && tbLiveT0 != null && !tbLostSent && !tbEnded) { tbEndMySet("left"); return; }
+  tbCamOff(); if (tbWake && !(tbRoom && tbRoom.status === "live")) tbWake.stop().catch(() => {});
+  tbPaint();
+}
 function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; if (typeof camFs === "function") camFs("tbCamWrap", false); }
 async function tbPose() {
   if (!tbLoop) return;
@@ -4977,8 +5061,10 @@ async function tbPose() {
         tbMine = { reps: c.reps, tutMs: c.tutMs };
         if (c.ended) tbTimeUp();
         else {
-          const lost = tbJudge.update(kps, now, st.topSize ? st.topSize * w : 0, w);
-          if (lost) { tbLostSent = true; if (tbTimeVoice) tbTimeVoice.end(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.interruptSpeak) window.ZabbadatGetSet.interruptSpeak(window.ZabbadatGetSet.SET_DONE_LINE); $("tbCamNote").textContent = TBm.REASONS[lost]; TBm.reportLoss(tbFs, tbCodeCur, currentUser.uid, lost, tbMine).catch(() => { tbLostSent = false; }); }
+          // Shared end-of-set watch (push-session.js createSetEnd, battle = stall only): no rep for 15 s while seen and off the top
+          // loses as "standing" (left plank). Top rests still never lose.
+          const lost = tbJudge.update(kps, now, st.topSize ? st.topSize * w : 0, w) || (tbSetEnd && tbSetEnd.update({ mode: "battle", reps: tbMine.reps, t: now, atTop: TBC.atTopFrom(st), counter: st, kps }) === "stalled" ? "standing" : null);
+          if (lost) tbEndMySet(lost);
           else {
             if (tbPub()) TBm.publishLive(tbFs, tbCodeCur, currentUser.uid, tbMine).catch(() => {});
             $("tbCamNote").textContent = c.capped ? HOLD_CAPPED_TEXT : r.counted || $("tbCamNote").textContent === HOLD_CAPPED_TEXT ? "Counted " + tbMine.reps : $("tbCamNote").textContent;
@@ -5553,6 +5639,7 @@ $("tbRematch").onclick = async () => {
     const old = tbCodeCur, code = await tb.createRoom(u); await tbFs.update(old, { rematchCode: code, rematchBy: u.uid }).catch(() => {}); tbEnter(code);
   } catch (e) { tbStat(e.message); }
 };
+if ($("tbEndBtn")) $("tbEndBtn").onclick = tbEndSetNow;
 $("tbLeave").onclick = async () => {
   const c = tbCodeCur, u = battleUser(), r = tbRoom;
   if (u && r && r.status === "live" && !tbLostSent) await TBm.reportLoss(tbFs, c, u.uid, "left", tbMine).catch(() => {});
