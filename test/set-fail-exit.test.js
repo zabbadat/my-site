@@ -40,7 +40,7 @@ for (const mode of ["long", "challenge"]) {
   check(`${mode}: fail with 0 reps: nothing saved, camera mode still exited`, !z.log.some((x) => /^post:/.test(x)) && z.log.includes("fresh") && exited(z));
 }
 { const p = page("long", { reps: 12 }); p.run(`voidTutSet("knees")`); check("TUT fail before 1:20 is saved as an ordinary 'long' set, not a completed TUT set", p.log.includes("post:12:long")); }
-for (const [mode, kind, expect] of [["sets", "target", /^post:6:set$/], ["sets", "stalled", /^post:6:set$/], ["long", "stalled", /^post:6:/], ["challenge", "stalled", /^post:6:/]]) {
+for (const [mode, kind, expect] of [["sets", "stalled", /^post:6:set$/], ["long", "stalled", /^post:6:/], ["challenge", "stalled", /^post:6:/]]) {
   const p = page(mode); p.run(`endPushSetAuto(${JSON.stringify(kind)})`);
   check(`${mode}: end-of-set '${kind}' -> saved through the normal path and camera mode exited`, p.log.some((x) => expect.test(x)) && exited(p));
 }

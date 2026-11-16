@@ -299,7 +299,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     }
     return { update: update, reset: reset, options: o, state: function () { return s; } };
   }
-  var FAIL_TEXT = { knees: "Knees down", collapse: "Collapsed", standing: "Stood up / left plank", frame: "Out of frame", gaveup: "Gave up", elbows: "Elbows down", form: "Form broke", stalled: "No push-up for a while", target: "Target reached", ended: "Ended by you" };
+  var FAIL_TEXT = { knees: "Knees down", collapse: "Collapsed", standing: "Stood up / left plank", frame: "Out of frame", gaveup: "Gave up", elbows: "Elbows down", form: "Form broke", stalled: "No push-up for a while", ended: "Ended by you" };
   // Personal history from localStorage entries [[key, value], ...]: per-day time under tension
   // (tutPrefix, e.g. "zabbadat-push-tut-guest-") and reps (repsPrefix, "zabbadat-push-total-guest-").
   // Returns today, best day (by time), all-time totals and days (newest first).
@@ -403,7 +403,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
 
   // End-of-set watch (Nov 16, owner): the one shared rule every push-up camera view (Sets, One long set / TUT, 3:00 challenge,
   // TUT Battle) runs each frame next to its form-failure watch, so a set can never stay open in camera mode.
-  //  - "target": Sets only, the rep count reached the target (default 20). The set completes.
+  //  The rep target is NOT an end: reaching it (or passing it) never ends a set (owner, Nov 16). Sets end only on failure or by hand.
   //  - "stalled": at least 1 rep, then no new rep for stallMs (15 s) while the body is SEEN (a shoulder confidently in view)
   //    and NOT at the top. Lying at the bottom / sitting back / walking off without a clean stand-up call ends it.
   //    Holding the top (plank push press) never stalls, and frames with no body in view never count (out of frame keeps its
@@ -419,7 +419,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     function reset(t0) { lastRepT = t0 == null ? null : t0; lastReps = 0; offSince = null; ended = null; rom = null; }
     reset(null);
     function bodySeen(kps) { for (var i = 0; i < (kps || []).length; i++) { var k = kps[i]; if (k && /shoulder$/.test(k.name) && (k.score == null || k.score >= o.minScore)) return true; } return false; }
-    // s: { mode, reps, target, t, atTop, kps (or seen) } -> null | "target" | "stalled". Sticky once it fires (until reset).
+    // s: { mode, reps, t, atTop, counter, kps (or seen) } -> null | "stalled". Sticky once it fires (until reset).
     function update(s) {
       if (ended) return ended;
       var t = Number(s.t), reps = Number(s.reps) || 0, seen = s.seen != null ? !!s.seen : bodySeen(s.kps);
@@ -427,7 +427,6 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
       var c = s.counter;
       if (reps !== lastReps) { lastReps = reps; lastRepT = t; offSince = null; if (c && isFinite(c.top) && isFinite(c.bottom) && c.bottom !== c.top) rom = { top: c.top, bottom: c.bottom }; }
       var low = !!(rom && c && isFinite(c.smooth) && (c.smooth - rom.top) / (rom.bottom - rom.top) > o.lowFrac);
-      if (s.mode === "sets" && Number(s.target) >= 1 && reps >= Number(s.target)) return (ended = "target");
       if (reps < 1) return null;
       if (!seen || (s.atTop && !low)) offSince = null; else if (offSince == null) offSince = t;
       if (offSince != null && t - offSince >= o.stallMs && t - lastRepT >= o.stallMs) return (ended = "stalled");

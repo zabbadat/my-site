@@ -2230,7 +2230,7 @@ let challengeFlags = { standing: 0, knees: 0 };
 const postureGuard = window.ZabbadatSession ? window.ZabbadatSession.createPostureGuard() : null;
 // TUT failure watch (One long set + 3:00 challenge only): knees / stood up / form ends the set. Out of frame does not (skipFrame). Regular Sets still end on 10 s out of frame.
 const failWatch = window.ZabbadatSession && window.ZabbadatSession.createFailureWatch ? window.ZabbadatSession.createFailureWatch() : null;
-// End-of-set watch shared by every push-up mode (push-session.js createSetEnd): Sets complete at the target; any mode ends after a stall.
+// End-of-set watch shared by every push-up mode (push-session.js createSetEnd): a stall after the last rep ends the set. The rep target never does.
 const pushSetEnd = window.ZabbadatSession && window.ZabbadatSession.createSetEnd ? window.ZabbadatSession.createSetEnd() : null;
 function pwOpt(st, w) { const C = window.ZabbadatChallenge; return { frameW: w, atTop: !!(C && C.atTopFrom(st)), reps: st && typeof st.reps === "number" ? st.reps : null }; }
 let lastViolFlag = 0;
@@ -3078,12 +3078,12 @@ function endPushOnCameraStop() {
   try { finishPushSet("Camera stopped"); } finally { camStopping = false; }
   return true;
 }
-// Auto end of a push-up set (pushSetEnd): "target" completes a Sets set; "stalled" ends any mode as a failure. Same save paths as
+// Auto end of a push-up set (pushSetEnd): "stalled" ends any mode as a failure. Same save paths as
 // the buttons: Sets -> finishPushSet; One long set / 3:00 challenge -> voidTutSet (posts with >= 1 rep, TUT completion rules unchanged).
 function endPushSetAuto(kind) {
   if (pushState.finished || !pushState.running) return;
   const T = (window.ZabbadatSession && window.ZabbadatSession.FAIL_TEXT) || {};
-  if (pushMode === "sets") { finishPushSet(kind === "target" ? (T.target || "Target reached") : (T.stalled || "No push-up for a while")); return; }
+  if (pushMode === "sets") { finishPushSet(T.stalled || "No push-up for a while"); return; }
   voidTutSet("stalled");
 }
 // Leave push-up camera mode after a set ends: stop the stream, the pose rAF loop, wake lock and full screen (stopCam).
@@ -3615,11 +3615,11 @@ async function poseTick(id = poseLoopId) {
       renderPush();
       $("camNote").textContent = "Counted " + pushState.reps + "."; sayRep(pushState.reps);
     }
-    // End of set (every push-up mode): target reached (Sets) or a stall after the last rep ends the set through the normal
-    // save path, and the set end leaves camera mode (exitPushCam). Rep counting above is unchanged.
+    // End of set (every push-up mode): a stall after the last rep ends the set through the normal save path, and the set end
+    // leaves camera mode (exitPushCam). The rep target never ends a set. Rep counting above is unchanged.
     if (typeof pushSetEnd !== "undefined" && pushSetEnd && pushState.running && !pushState.finished) {
       const C = window.ZabbadatChallenge, stE = pushCounter.state();
-      const ended = pushSetEnd.update({ mode: pushMode, reps: pushState.reps, target: pushMode === "sets" && typeof pushTarget === "function" ? pushTarget() : 0, t: performance.now(), atTop: !!(C && C.atTopFrom && C.atTopFrom(stE)), counter: stE, kps: pose ? pose.keypoints : [] });
+      const ended = pushSetEnd.update({ mode: pushMode, reps: pushState.reps, t: performance.now(), atTop: !!(C && C.atTopFrom && C.atTopFrom(stE)), counter: stE, kps: pose ? pose.keypoints : [] });
       if (ended && typeof endPushSetAuto === "function") endPushSetAuto(ended);
     }
   } catch (e) {

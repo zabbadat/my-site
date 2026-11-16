@@ -13,10 +13,12 @@ const K = [{ name: "left_shoulder", x: 100, y: 100, score: 0.9 }, { name: "right
 // ---- 1. Shared rule (pure) ----
 {
   const e = SS.createSetEnd(); e.reset(0);
-  let got = null; for (let r = 1; r <= 19; r++) got = got || e.update({ mode: "sets", reps: r, target: 20, t: r * 2000, atTop: true, kps: K });
-  check("sets: reps 1..19 never end the set", got === null);
-  check("sets: rep 20 of target 20 -> 'target' (set complete)", e.update({ mode: "sets", reps: 20, target: 20, t: 40000, atTop: true, kps: K }) === "target");
-  check("sticky: once ended it stays ended until reset", e.update({ mode: "sets", reps: 20, target: 20, t: 40100, kps: K }) === "target" && (e.reset(0), e.update({ mode: "sets", reps: 0, target: 20, t: 1, kps: K }) === null));
+  let got = null; for (let r = 1; r <= 60; r++) got = got || e.update({ mode: "sets", reps: r, target: 20, t: r * 2000, atTop: true, kps: K });
+  check("sets: reaching and passing the target (20, then up to 60 reps) never ends the set (owner: target is not an end)", got === null);
+  const e5 = SS.createSetEnd(); e5.reset(0); let g5 = null; for (let r = 1; r <= 12; r++) g5 = g5 || e5.update({ mode: "sets", reps: r, target: 5, t: r * 2000, atTop: true, kps: K });
+  check("sets: a configured target (5) reached and passed never ends the set", g5 === null);
+  const st = SS.createSetEnd(); st.reset(0); st.update({ mode: "sets", reps: 2, t: 1000, atTop: false, kps: K }); let s1 = null; for (let t = 1000; t <= 20000; t += 100) s1 = s1 || st.update({ mode: "sets", reps: 2, t, atTop: false, kps: K });
+  check("sticky: once ended it stays ended until reset", s1 === "stalled" && st.update({ mode: "sets", reps: 3, t: 20100, kps: K }) === "stalled" && (st.reset(0), st.update({ mode: "sets", reps: 0, t: 1, kps: K }) === null));
 }
 for (const mode of ["sets", "long", "challenge", "battle"]) {
   const e = SS.createSetEnd(); e.reset(0); e.update({ mode, reps: 5, target: 0, t: 10000, atTop: true, kps: K });
@@ -43,7 +45,7 @@ for (const mode of ["long", "challenge", "battle"]) {
   const h = SS.createSetEnd(); h.reset(0); h.update({ mode: "long", reps: 2, t: 1000, kps: K });
   const hood = [{ name: "left_shoulder", x: 1, y: 1, score: 0.8 }]; let hd = null; for (let t = 1000; t <= 15000; t += 100) hd = hd || h.update({ mode: "long", reps: 2, t, atTop: false, kps: hood });
   check("hood / head down (shoulders seen, no face) is a normal frame: no early end", hd === null);
-  check("FAIL_TEXT has the new reasons", SS.FAIL_TEXT.stalled && SS.FAIL_TEXT.target === "Target reached" && SS.FAIL_TEXT.ended);
+  check("FAIL_TEXT has the new reasons; no target-reached end exists", SS.FAIL_TEXT.stalled && SS.FAIL_TEXT.ended && !("target" in SS.FAIL_TEXT) && !/"target"/.test(require("fs").readFileSync(require("path").join(__dirname, "..", "push-session.js"), "utf8")));
 }
 
 // ---- 2. Real page flow (poseTick -> endPushSetAuto -> save path -> exitPushCam) ----
@@ -64,12 +66,13 @@ function camExitFs() {} var HOLD_CAPPED_TEXT = "capped";
 const rep = (t0, per, n) => (t) => { if (t < t0) return { d: 0 }; const k = Math.floor((t - t0) / per); if (n != null && k >= n) return { d: 0 }; const p = (t - t0) % per, q = per / 2.5; return { d: p < q ? p / q : p < q * 1.3 ? 1 : p < q * 2.3 ? 1 - (p - q * 1.3) / q : 0 }; };
 (async () => {
   let ctx; const grab = (c) => { ctx = c; setup(c); };
-  // 20 reps at 2 s, then the user just stays at the top (the reported stuck case)
-  let r = await run(HTML, { mode: "sets", script: rep(10000, 2000, 20), ms: 10000 + 20 * 2000 + 20000, setup: grab });
-  const L = ctx.api.log;
-  check(`Sets, target 20: after rep 20 the set completes ('Target reached') instead of staying open (${L.join(" | ")})`, L.some((x) => /^finish:Target reached:20$/.test(x)));
-  check("Sets: the set end leaves camera mode (stopCam: stream + pose loop stopped)", L.includes("stopCam") && r.running === false);
-  check("Sets: the target end saved the 20 reps, not more", ctx.api.pushState.reps === 20);
+  // 24 reps at 2 s with the default target 20: reaching 20 must NOT end the set; the camera stays on and counting continues
+  let r = await run(HTML, { mode: "sets", script: rep(10000, 2000, 24), ms: 10000 + 24 * 2000 + 1000, setup: grab });
+  let L = ctx.api.log;
+  check(`Sets, target 20: reaching 20 does not end the set, counting continues past it (${r.reps} reps), camera still on`, r.reps >= 22 && r.running === true && !L.some((x) => /^(finish|void):/.test(x)) && !L.includes("stopCam"));
+  r = await run(HTML, { mode: "sets", script: rep(10000, 2000, 10), ms: 10000 + 10 * 2000 + 1000, setup: (c) => { grab(c); c.$("pushTarget").value = "5"; } });
+  L = ctx.api.log;
+  check(`Sets, configured target 5: reaching it does not end the set (${r.reps} reps), camera still on`, r.reps >= 8 && r.running === true && !L.some((x) => /^(finish|void):/.test(x)) && !L.includes("stopCam"));
   // 6 reps then the user lies down at the bottom: stalled -> ends + exits (every push-up mode)
   for (const mode of ["sets", "long", "challenge"]) {
     const lie = (t) => { const x = rep(10000, 2000, 6)(t); return t >= 10000 + 6 * 2000 ? { d: 1 } : x; };
