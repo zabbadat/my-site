@@ -236,6 +236,7 @@
         var fw = vid.videoWidth || 0, fh = vid.videoHeight || 0;
         if (!floater) floater = createFloater();
         var c = floater.step(kps, t, fw, fh, perfNow());
+        if (c) { try { var g = floater.at(perfNow()); if (g) c = g; } catch (e) {} } // draw the glided spot, same as every refresh (no step at pose frames)
         if (cv && vid.parentNode) {
           var bw = vid.clientWidth, bh = vid.clientHeight, dpr = Math.min((root.devicePixelRatio || 1), 2);
           var fit = "fill"; try { fit = root.getComputedStyle(vid).objectFit || "fill"; } catch (e) {}

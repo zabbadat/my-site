@@ -59,7 +59,7 @@ check("frameSize: longest side 320, aspect kept", JSON.stringify(V.frameSize(640
   check("page: Vision failing -> falls back to MoveNet and stays there", (await IF.api.ensurePushPose()) === "MOVENET" && IF.api.failed && !IF.api.useVision());
   check("page: Vision script list has no downloaded model (no TF.js / MoveNet URLs)", /const VISION_CAM_SCRIPTS = \["\/push-counter\.js", "\/push-coach\.js", "\/pose-vision\.js"\];/.test(html));
   check("page: browser CAM_SCRIPTS unchanged and still the browser choice", /useVision\(\) \? VISION_CAM_SCRIPTS : isNativeApp\(\) \? CAM_SCRIPTS\.concat\(\["\/push-coach\.js"\]\) : CAM_SCRIPTS/.test(html));
-  check("page: solo push-ups, app camera open and TUT battle use ensurePushPose; plank stays on MoveNet", (html.match(/typeof ensurePushPose === "function" \? ensurePushPose\(\) : ensurePose\(\)/g) || []).length === 3 && /async function plankTick[\s\S]{0,200}const det = await ensurePose\(\);/.test(html));
+  check("page: solo push-ups, app camera open, TUT battle and Go live PFP use ensurePushPose; plank stays on MoveNet", (html.match(/typeof ensurePushPose === "function" \? ensurePushPose\(\) : ensurePose\(\)/g) || []).length === 5 /* + Go live #zlSelf PFP loop and its model warm-up */ && /async function plankTick[\s\S]{0,200}const det = await ensurePose\(\);/.test(html));
   check("page: TF.js loads on demand in the app when MoveNet is needed after the Vision path", /if \(!window\.poseDetection && isNativeApp\(\)\) await loadTfLibs\(\);/.test(html));
   check("page: no drawing code on the page (the off-screen frame copy lives in pose-vision.js)", !/getContext\(|drawImage/.test(html));
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

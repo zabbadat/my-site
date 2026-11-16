@@ -13,7 +13,8 @@
   "use strict";
   var KEY = "zabPfpOn";
   var P = { minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: 1000, holdGrow: 1.18, clearMs: 1200,
-    minCut: 0.8, beta: 6, dCut: 2.5, leadMax: 180, leadCap: 0.45, leadV0: 0.75, leadV1: 2.5, vCut: 12, snapMs: 350, rafDraw: true, fitMs: 1000,
+    minCut: 0.6, beta: 6, dCut: 2.5, leadMax: 180, leadCap: 0.45, leadV0: 0.75, leadV1: 2.5, vCut: 12, snapMs: 350, rafDraw: true, fitMs: 1000,
+    spDead: 0.7, rGrowCut: 4, rShrinkCut: 0.8, dispK: 0.5, dispMinMs: 16, dispMaxMs: 45, dispRK: 2, dispSpK: 0, dispLead: true, reacqSnapR: 1, reacqMs: 150,
     shUp: 0.55, shR: 0.483, sideK: 0.35, sideUp: 0.35, minR: 10, maxRFrac: 0.40, plankR: 0.28, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png" };
   // Sizes: face r = (ear-to-ear or eye spread x2.7)/2 x padK 1.65; when shoulders are also visible the cover is recentred
   // on the midpoint of the face (ears, else eyes) and the shoulder midpoint, vertically from the top of the face circle
@@ -137,8 +138,11 @@
   // frames instead of freezing until the next one (the main lag at 10-15 pose fps). Same clock as t.
   function createTracker(opts) {
     var o = Object.assign({}, P, opts || {}), last = null, lastT = -1e9, f = null, held = null; // f: filter state {x, y, dx, dy} (px, px/s)
-    function predict(now) {
-      var x = f.x, y = f.y, lead = typeof now === "number" && isFinite(now) ? Math.max(0, Math.min(o.leadMax, now - f.t)) / 1000 : 0;
+    // Display stage (Nov 16, smoother): the drawn spot glides toward the tracker's target at screen-refresh rate instead of
+    // stepping on each pose frame (10-15 per second on phones). disp = what is on screen; pi = measured pose-frame interval.
+    var disp = null, pi = 66, lastStepT = null, reacq = false;
+    function predict(now, extra) {
+      var x = f.x, y = f.y, lead = typeof now === "number" && isFinite(now) ? Math.max(0, Math.min(o.leadMax, now - f.t + (extra || 0))) / 1000 : 0;
       if (lead > 0) {
         var v = Math.hypot(f.vx, f.vy), vr = v / Math.max(o.minR, f.r), g = Math.max(0, Math.min(1, (vr - o.leadV0) / (o.leadV1 - o.leadV0)));
         g *= f.k;
@@ -151,36 +155,58 @@
     function place(head, src, t, drawT) {
       var dtS = f ? (t - f.t) / 1000 : 0;
       // Fresh start, or the face is back after a gap (held / lost): snap straight onto it with no velocity (no slide, no fling).
-      if (!f || !(dtS > 0) || dtS > o.snapMs / 1000) f = { x: head.x, y: head.y, dx: 0, dy: 0, vx: 0, vy: 0, k: 0, t: t, r: head.r, mx: head.x, my: head.y };
+      if (!f || !(dtS > 0) || dtS > o.snapMs / 1000) { reacq = !!f || !!held || !!disp; f = { x: head.x, y: head.y, dx: 0, dy: 0, vx: 0, vy: 0, k: 0, t: t, r: head.r, mx: head.x, my: head.y }; }
       else {
         var rx = (head.x - f.x) / dtS, ry = (head.y - f.y) / dtS, ad = lpA(o.dCut, dtS), al = lpA(o.vCut, dtS);
         f.dx += (rx - f.dx) * ad; f.dy += (ry - f.dy) * ad; // slow speed estimate: sets the smoothing (steady when still)
         f.vx += (rx - f.vx) * al; f.vy += (ry - f.vy) * al; // quick velocity: drives the prediction (follows a fast head)
         var mx = (head.x - f.mx) / dtS, my = (head.y - f.my) / dtS; f.mx = head.x; f.my = head.y; // this frame's own move (measured, not filtered)
         var vv = f.vx * f.vx + f.vy * f.vy; f.k = vv > 0 ? Math.max(0, Math.min(1, (mx * f.vx + my * f.vy) / vv)) : 0; // lead only while the head itself still moves that way (stops -> lead drops at once, no overshoot)
-        var rr = Math.max(o.minR, head.r), sp = Math.hypot(f.dx, f.dy) / rr, a = lpA(o.minCut + o.beta * sp, dtS);
+        var rr = Math.max(o.minR, head.r), sp = Math.max(0, Math.hypot(f.dx, f.dy) / rr - o.spDead), a = lpA(o.minCut + o.beta * sp, dtS); // spDead: landmark noise alone never opens the filter
         f.x += (head.x - f.x) * a; f.y += (head.y - f.y) * a;
-        f.r = Math.max(head.r, f.r + (head.r - f.r) * a); f.t = t; // grows at once (always covers), shrinks smoothly
+        // Size on its own, heavier filter (Nov 16): grows quickly but smoothly (still covers), shrinks slowly; a flickering ear
+        // or a one-frame source change no longer pops the size.
+        var ar = lpA(head.r > f.r ? o.rGrowCut : o.rShrinkCut, dtS);
+        f.r += (head.r - f.r) * ar; f.t = t;
       }
       f.src = src;
       return predict(drawT);
     }
     function holdOf(fw, fh) { return { x: last.x, y: last.y, r: Math.min(last.r * o.holdGrow, fw > 0 && fh > 0 ? o.maxRFrac * Math.min(fw, fh) * o.holdGrow : Infinity), held: true }; }
+    function tauOf() { var t0 = Math.max(o.dispMinMs, Math.min(o.dispMaxMs, o.dispK * pi)), sp = f ? Math.hypot(f.dx, f.dy) / Math.max(o.minR, f.r) : 0; return Math.max(o.dispMinMs, t0 / (1 + o.dispSpK * sp)); } // quicker glide while the head moves fast (less lag)
+    // What to draw at `now`: the target (prediction, or the held spot) passed through the display glide.
+    // First lock: on the target at once (no ease-in, no slide from anywhere). Reacquire after a loss: a far jump snaps at
+    // once; a small one (< reacqSnapR x r) eases over ~reacqMs instead of popping.
+    function show(now) {
+      var tau = tauOf(), tg = held ? held : (last && f ? predict(now, o.dispLead ? tau : 0) : null);
+      if (!tg) { disp = null; return null; }
+      if (!disp || !(now >= disp.t - 1e-6) && now < disp.t - 1000) { disp = { x: tg.x, y: tg.y, r: tg.r, t: now, ease: 0 }; reacq = false; }
+      else {
+        if (reacq) { reacq = false; if (Math.hypot(tg.x - disp.x, tg.y - disp.y) > o.reacqSnapR * Math.max(o.minR, tg.r)) { disp.x = tg.x; disp.y = tg.y; disp.r = tg.r; disp.t = now; } else disp.ease = now + o.reacqMs; }
+        var dt = Math.max(0, now - disp.t), tp = disp.ease && now < disp.ease ? Math.max(tau, o.reacqMs / 3) : tau;
+        var a = 1 - Math.exp(-dt / tp), ar = 1 - Math.exp(-dt / (tp * o.dispRK));
+        disp.x += (tg.x - disp.x) * a; disp.y += (tg.y - disp.y) * a; disp.r += (tg.r - disp.r) * ar; disp.t = now;
+      }
+      return { x: disp.x, y: disp.y, r: disp.r, held: !!(held && tg === held), src: tg.src };
+    }
     return {
       step: function (kps, t, fw, fh, drawT, where) {
+        if (lastStepT != null && t > lastStepT && t - lastStepT < 250) pi += (t - lastStepT - pi) * 0.2; // pose-frame interval (ms)
+        lastStepT = t;
         var c = (where || headCircle)(kps, fw, fh);
         if (c) { var out = place(c, c.src, t, drawT); last = out; lastT = t; held = null; return out; }
         if (last && t - lastT <= o.holdMs) { held = holdOf(fw, fh); return held; }
-        last = null; f = null; held = null; return null;
+        last = null; f = null; held = null; disp = null; return null;
       },
-      // Spot to draw at `now` (between pose frames): predicted ahead while the head moves, the held spot while the face is
-      // missing, null when there is nothing to draw. Never extrapolates more than leadMax ms past the last pose frame.
+      // Spot to draw at `now` (every screen refresh): the glided display spot following the prediction while the head moves,
+      // the held spot while the face is missing, null when there is nothing to draw. The target never runs more than leadMax ms
+      // past the last pose frame.
       at: function (now) {
-        if (held) return held;
-        if (!last || !f) return null;
-        return predict(now);
+        if (!held && (!last || !f)) return null;
+        return show(now);
       },
-      reset: function () { last = null; lastT = -1e9; f = null; held = null; }
+      target: function (now) { if (held) return held; if (!last || !f) return null; return predict(now); },
+      reset: function () { last = null; lastT = -1e9; f = null; held = null; disp = null; reacq = false; lastStepT = null; }
     };
   }
   // Video pixels -> CSS pixels of the element box (object-fit fill/contain/cover).
@@ -277,7 +303,7 @@
     o = overlays[id] = { cv: cv, vid: vid, tr: createTracker(), timer: null, painted: false };
     return o;
   }
-  function clearOne(o) { try { if (o.timer) clearTimeout(o.timer); o.timer = null; o.box = null; o.cv.style.display = "none"; o.cv.style.transform = "none"; o.tr.reset(); } catch (e) {} }
+  function clearOne(o) { try { if (o.timer) clearTimeout(o.timer); o.timer = null; o.box = null; o.pl = o.pt = null; o.cv.style.display = "none"; o.cv.style.transform = "none"; o.tr.reset(); } catch (e) {} }
   // Switch off: no overlay, no pending clear timers, no mini-feed, no head spot left for recordings.
   function clearAll() { for (var k in overlays) clearOne(overlays[k]); miniStop(); for (var h in heads) heads[h] = null; }
   // Camera left / End set / fail exit: drop this video's cover at once (do not wait for clearMs).
@@ -304,9 +330,8 @@
   function placeCover(o, m) {
     if (!m) { o.cv.style.display = "none"; return false; }
     paintCover(o);
-    var S = P.coverS, b = o.box;
-    o.cv.style.left = (b && b.left != null ? b.left : 0) + "px";
-    o.cv.style.top = (b && b.top != null ? b.top : 0) + "px";
+    var S = P.coverS, b = o.box, L = (b && b.left != null ? b.left : 0), T = (b && b.top != null ? b.top : 0);
+    if (o.pl !== L || o.pt !== T) { o.cv.style.left = L + "px"; o.cv.style.top = T + "px"; o.pl = L; o.pt = T; } // left/top only when the box moved: per-frame moves are transform-only (no layout)
     o.cv.style.transform = "translate(" + (m.x - S / 2) + "px," + (m.y - S / 2) + "px) scale(" + ((2 * m.r) / S) + ")";
     o.cv.style.display = "block";
     return true;
@@ -357,7 +382,8 @@
       // Switch off: avatar, its head tracking and the recording avatar all stop (rep counting never depends on this).
       if (!isOn()) { heads[id] = null; var o0 = overlays[id]; if (o0) clearOne(o0); miniStop(); return; }
       var drawT = given && root.performance && typeof root.performance.now === "function" ? root.performance.now() : tt;
-      var hc = heads[id] || (heads[id] = { tr: createTracker(), c: null, t: 0 }); hc.c = hc.tr.step(kps, tt, vid.videoWidth, vid.videoHeight, drawT, where); hc.t = tt; hc.timed = given && drawT !== tt; // head spot for the avatar, the recording and the watermark hop
+      var hc = heads[id] || (heads[id] = { tr: createTracker(), c: null, t: 0 }); hc.c = hc.tr.step(kps, tt, vid.videoWidth, vid.videoHeight, drawT, where); hc.t = tt; hc.timed = given && drawT !== tt;
+      if (hc.c && hc.timed) { var g0 = hc.tr.at(drawT); if (g0) hc.c = g0; } // draw the glided spot (same as every screen refresh): no step at pose frames // head spot for the avatar, the recording and the watermark hop
       ensureLogo();
       var o = overlayFor(vid), c = hc.c;
       draw(o, c);
@@ -394,10 +420,21 @@
   api.lastHead = lastHead; api.clear = clear; api.drawLogo = function (x, m) { try { ensureLogo(); drawLogo(x, m); } catch (e) {} };
   function plankFrame(vid, kps, phase, t) { frame(vid, kps, t, plankHead); }
   api.plankFrame = plankFrame;
+  // First-lock speed (Nov 16): one inference on a blank 192 px frame right after the pose model loads, so the GPU shaders are
+  // compiled before the first camera frame and the cover locks on the very first face frame at full speed. Never throws.
+  function warmDetector(det) {
+    try {
+      if (!doc || !det || typeof det.estimatePoses !== "function") return Promise.resolve();
+      var c = doc.createElement("canvas"); c.width = 192; c.height = 192; var x = c.getContext("2d"); if (x) x.fillRect(0, 0, 192, 192);
+      return Promise.resolve(det.estimatePoses(c, { flipHorizontal: true })).then(function () {}, function () {});
+    } catch (e) { return Promise.resolve(); }
+  }
+  api.warmDetector = warmDetector;
   api.setUser = setUser; api.frame = frame; api.isOn = isOn; api.setOn = setOn; api.onChange = onChange; api.paintBadge = paintBadge;
   if (root) root.ZabPfp = api;
   if (doc) {
     var wire = function () {
+      try { ensureLogo(); } catch (e) {} // preload the logo at page load: the first cover is the real logo, never a placeholder then a swap
       try { var t = doc.getElementById("pfpToggle"); if (t && !t._pfp) { t._pfp = 1; t.addEventListener("change", function () { setOn(t.checked); }); } syncRow(); } catch (e) {}
       // Same setting flipped in another tab of this site: follow it here too.
       try { if (root.addEventListener && !root._zabPfpStore) { root._zabPfpStore = 1; root.addEventListener("storage", function (e) { if (e && e.key === KEY) { syncRow(); if (!isOn()) clearAll(); emit(); } }); } } catch (e) {}

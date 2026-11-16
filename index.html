@@ -1592,7 +1592,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div id="zmLiveSlot" class="zl-cast" hidden><!-- Live tab: this player's camera to viewers (zabba-live.js) -->
           <p class="note" id="zlCastHelp">Go live so your opponent and anyone with the code can watch your throws. Prop the phone behind you, tilted at the board. Video goes straight to viewers (peer to peer) and is never recorded or uploaded to us.</p>
           <div class="row"><button class="btn" id="zlGoLive" type="button">Go live</button><button class="btn ghost" id="zlFlip" type="button" hidden>Switch camera</button><button class="btn ghost" id="zlStop" type="button" hidden>Stop live</button><button class="btn ghost" id="zlWatchBoth" type="button">Watch both cameras</button></div>
-          <video class="zl-self" id="zlSelf" playsinline muted autoplay hidden></video>
+          <div class="zl-self-wrap" style="position:relative"><video class="zl-self" id="zlSelf" playsinline muted autoplay hidden></video></div>
           <p class="note" id="zlCastNote" aria-live="polite"></p>
         </div>
       </div>
@@ -3485,8 +3485,15 @@ function resetPoseBaseline() {
   setCamStatus(camOn ? "Start your push-ups" : "");
 }
 
+// One model load at a time (a Start tap and the pose loop can ask together), then a warm-up inference on a blank frame so the
+// WebGL shaders compile before the first camera frame: the first real frame (and the PFP cover on it) comes back at full speed.
+let posePromise = null;
 async function ensurePose() {
   if (poseDetector) return poseDetector;
+  if (!posePromise) posePromise = loadPoseModel().catch((e) => { posePromise = null; throw e; });
+  return posePromise;
+}
+async function loadPoseModel() {
   await loadCamLibs();
   if (!window.poseDetection && isNativeApp()) await loadTfLibs(); // app only: iOS Vision path loads TF.js only when MoveNet is needed
   if (!window.poseDetection) throw new Error("Pose library not loaded");
@@ -3496,6 +3503,7 @@ async function ensurePose() {
     modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
     enableSmoothing: false // the counter has its own speed-adaptive One Euro filter: one smoother, not two
   });
+  if (window.ZabPfp && window.ZabPfp.warmDetector) await window.ZabPfp.warmDetector(poseDetector); // blank-frame warm-up (pfp.js)
   return poseDetector;
 }
 
@@ -3649,10 +3657,12 @@ async function openCam() {
       await loadCamLibs();
       $("camNote").textContent = "Loading pose model…";
       if (camStream) camStream.getTracks().forEach((t) => t.stop());
-      camStream = await navigator.mediaDevices.getUserMedia({
+      const gum = navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false
       });
+      ensurePose().catch(() => {}); // model + warm-up load while the camera opens (first face locks on the first frame)
+      camStream = await gum;
       const vid = $("camVid");
       vid.srcObject = camStream;
       vid.setAttribute("playsinline", "");
@@ -3940,7 +3950,9 @@ async function startPlankCam() {
       await loadCamLibs();
       if (!live()) return;
       if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      const gum = navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      ensurePose().catch(() => {}); // model + warm-up load while the camera opens
+      const stream = await gum;
       if (!live()) { stream.getTracks().forEach((t) => t.stop()); return; }
       plankStream = stream;
       const vid = $("plankVid"); vid.srcObject = plankStream; await vid.play();
@@ -5012,7 +5024,9 @@ async function tbCamOn(placed) {
   if (!native) { // browser: unchanged (dffac32)
     try {
       if (!placed) $("tbCamNote").textContent = "Loading camera counter…"; await loadCamLibs();
-      tbStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      const gum = navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      ensurePose().catch(() => {}); // model + warm-up load while the camera opens
+      tbStream = await gum;
       const v = $("tbVid"); v.srcObject = tbStream; await v.play(); await ensurePose();
       tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
       $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
@@ -5874,7 +5888,26 @@ const zlWake = typeof makeWake === "function" ? makeWake("zlCastNote") : null;
 const zlCaster = ZL && window.RTCPeerConnection ? ZL.caster(zlSig, { onViewers: (n) => { zlViewers = n; zlCastPaint(); } }) : null;
 const zlCastNote = (t) => { const el = $("zlCastNote"); if (el) el.textContent = t || ""; };
 const zlMySeat = () => (zmDoc && currentUser && Array.isArray(zmDoc.uids) ? zmDoc.uids.indexOf(currentUser.uid) : -1);
-function zlStopTracks() { if (zlStream) { zlStream.getTracks().forEach((t) => { try { t.stop(); } catch (e) {} }); } zlStream = null; const v = $("zlSelf"); if (v) { v.srcObject = null; v.hidden = true; } }
+// PFP on the Go live self preview (#zlSelf): same pfp.js cover as every other camera, from the moment the camera opens,
+// following the Enable profile - PFP switch (off = plain preview). Visual only on this phone: the stream viewers get is the raw camera.
+let zlPfpId = 0;
+async function zlPfpLoop(id) {
+  const v = $("zlSelf");
+  if (id !== zlPfpId || !zlStream || !v || v.hidden) return;
+  try {
+    if (window.ZabPfp && window.ZabPfp.isOn && window.ZabPfp.isOn() && v.readyState >= 2) {
+      const det = await (typeof ensurePushPose === "function" ? ensurePushPose() : ensurePose());
+      const t = performance.now(); // stamped before inference, like the other pose loops
+      const p = await det.estimatePoses(v, { flipHorizontal: false }); // #zlSelf is not mirrored
+      if (id === zlPfpId) window.ZabPfp.frame(v, p && p[0] ? p[0].keypoints : [], t);
+    }
+  } catch (e) {}
+  if (id === zlPfpId) camNextFrame(v, () => zlPfpLoop(id));
+}
+function zlPfpWarm() { (typeof ensurePushPose === "function" ? ensurePushPose() : ensurePose()).catch(() => {}); }
+function zlPfpStart() { zlPfpLoop(++zlPfpId); }
+function zlPfpStop() { zlPfpId += 1; try { if (window.ZabPfp && window.ZabPfp.clear) window.ZabPfp.clear("zlSelf"); } catch (e) {} }
+function zlStopTracks() { zlPfpStop(); if (zlStream) { zlStream.getTracks().forEach((t) => { try { t.stop(); } catch (e) {} }); } zlStream = null; const v = $("zlSelf"); if (v) { v.srcObject = null; v.hidden = true; } }
 async function zlCastStop(note) {
   const was = !!zlCastCode; zlCastCode = null;
   if (zlCaster) await zlCaster.stop().catch(() => {});
@@ -5899,8 +5932,10 @@ if (ZL) {
     if (zlWake) zlWake.start();
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("This browser has no camera access.");
-      zlStream = await zlCam(zlFacing);
-      const v = $("zlSelf"); v.srcObject = zlStream; v.hidden = false; v.play && v.play().catch(() => {});
+      const gum = zlCam(zlFacing);
+      if (window.ZabPfp && window.ZabPfp.isOn && window.ZabPfp.isOn()) zlPfpWarm(); // PFP model loads while the camera opens
+      zlStream = await gum;
+      const v = $("zlSelf"); v.srcObject = zlStream; v.hidden = false; v.play && v.play().catch(() => {}); zlPfpStart(); // PFP from camera open
       await zlCaster.start({ code: zmCode, seat, uid: currentUser.uid, stream: zlStream, facing: zlFacing });
       zlCastCode = zmCode; if (zlv) zlv.refresh(); zlPaintSelf();
     } catch (e) { zlStopTracks(); if (zlWake) zlWake.stop(); zlCastNote(e && e.name === "NotAllowedError" ? "Camera blocked. Allow camera access for zabbadat.com and try again." : (e && e.code === "permission-denied" ? "Couldn't go live on this match." : (e && e.message) || "Couldn't start the camera.")); }
@@ -5909,7 +5944,7 @@ if (ZL) {
   $("zlStop").onclick = () => zlCastStop("You're off the air.");
   $("zlFlip").onclick = async () => { if (!zlCastCode || zlBusy) return; zlBusy = true;
     const next = zlFacing === "environment" ? "user" : "environment";
-    try { const s = await zlCam(next); const old = zlStream; zlStream = s; zlFacing = next; $("zlSelf").srcObject = s;
+    try { const s = await zlCam(next); const old = zlStream; zlStream = s; zlFacing = next; $("zlSelf").srcObject = s; zlPfpStart();
       await zlCaster.setTrack(ZL.hooks.sourceTrack(s), next); if (old) old.getTracks().forEach((t) => t.stop()); zlPaintSelf(); }
     catch (e) { zlCastNote("Couldn't switch camera."); } finally { zlBusy = false; zlCastPaint(); } };
   $("zlWatchBoth").onclick = () => { if (!zmCode) return; zlStart(zmCode); const el = $("zabbaLive"); if (el) el.scrollIntoView({ block: "start" }); };
