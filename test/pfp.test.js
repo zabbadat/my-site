@@ -39,7 +39,7 @@ check("empty / junk keypoints -> null, no throw", PF.faceCircle([]) === null && 
 { const tr = PF.createTracker(); const a = tr.step(face, 0), b = tr.step([], 500), d = tr.step([], 1100);
   check("tracker holds the last spot ~1 s, enlarged, then clears", a && b && b.held && b.r > a.r && Math.abs(b.x - a.x) < 1e-9 && d === null);
   tr.reset(); tr.step(face, 0); const moved = K({ nose: [420, 200], left_eye: [400, 185], right_eye: [440, 185], left_ear: [380, 195], right_ear: [460, 195] });
-  const m = tr.step(moved, 33); check(`tracker smooths position (moved 100 px -> ${m && (m.x - 320).toFixed(0)} px step)`, m && m.x > 330 && m.x < 410); }
+  const m = tr.step(moved, 33); check(`tracker follows a 100 px jump at once without overshoot (moved ${m && (m.x - 320).toFixed(0)} px in one frame)`, m && m.x > 380 && m.x <= 421); }
 // Follow speed (Nov 15): One Euro + latency lead. Fast moves follow in ~1 frame, a still head stays steady, no runaway lead.
 { const F = (x, n) => K({ nose: [x + n(), 210 + n()], left_eye: [x - 20 + n(), 200 + n()], right_eye: [x + 20 + n(), 200 + n()], left_ear: [x - 40 + n(), 208 + n()], right_ear: [x + 40 + n(), 208 + n()] });
   let sd = 7; const rnd = () => ((sd = (sd * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff - 0.5) * 4, z = () => 0;
