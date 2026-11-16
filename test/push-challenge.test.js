@@ -81,7 +81,7 @@ check("static: start uses same sign-in gate", html.includes('requireSignIn("push
 check("static: flag messages unchanged", html.includes('" flagged: fix it now or the set ends."') && html.includes('"Knees down" : "Stood up / left plank"'));
 check("static: top-hold note text", html.includes('"Top hold capped at 10 seconds"') && html.includes("at most 10 seconds of time under tension"));
 check("static: long/sets status texts unchanged", html.includes('"Session on. The clock runs nonstop; the camera counts each full rep." : "Set on. The camera counts each full rep."'));
-check("static: pause only in Sets", html.includes('pushMode !== "sets") return;'));
+check("static: no Pause button in any push-up mode (owner, Nov 16: Sets panel is Start set only)", !html.includes('id="pushPauseBtn"') && !html.includes("pushPauseBtn"));
 check("static: result card present", html.includes('id="challengeResult"') && html.includes("Three-minute challenge done"));
 
 const fail = R.filter((x) => !x).length;

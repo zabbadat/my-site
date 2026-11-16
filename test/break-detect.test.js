@@ -1,6 +1,7 @@
 // Failure / stop detection precision on a labeled synthetic landmark set (test/lib/break-synth.js), every camera view:
 // Sets (failure watch), TUT / 3:00 challenge (failure watch, out-of-frame off), TUT Battle (battle judge), plank hold.
-// True breaks (knees down, collapse, stand up, hips sag / pike) must end the set within 2.5 s of onset; noise / jitter, single-
+// True breaks (knees down, collapse, stand up, hips sag; pike for plank only) must end the set within 2.5 s of onset (push-up chest
+// on the floor: 4 s with no press, 6 s window; owner Nov 16); noise / jitter, single-
 // frame dropouts and spikes, brief occlusion, head down / hood, hidden legs at low confidence, a brief wobble and a phone pickup
 // must NEVER end it. Each scenario runs 12 s at 30 fps over 10 noise seeds. Prints a per-view table.
 // TUT Battle has no sag / pike loss by its published rules (allowed loss reasons: standing, knees, frame, stopped, left).

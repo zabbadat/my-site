@@ -37,11 +37,15 @@ function scenarios(sd) {
   const S = [];
   const pre = (t) => (t < B ? POSE.top : null);
   // ---- true breaks (must fail) ----
-  for (const [k, ms] of [["knees", 400], ["collapse", 500], ["stand", 900]]) S.push({ name: "break: " + k, label: "break", onset: B, kinds: ["push", "plank"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE[k], B, ms)(t)) });
+  // push-up chest-on-floor collapse (owner, Nov 16) needs the chest to stay down 4 s with no press: 6 s window; plank keeps its own rule
+  S.push({ name: "break: collapse (chest stays on the floor, no press)", label: "break", onset: B, window: 6000, kinds: ["push"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.collapse, B, 500)(t)) });
+  S.push({ name: "break: collapse", label: "break", onset: B, kinds: ["plank"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.collapse, B, 500)(t)) });
+  for (const [k, ms] of [["knees", 400], ["stand", 900]]) S.push({ name: "break: " + k, label: "break", onset: B, kinds: ["push", "plank"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE[k], B, ms)(t)) });
   S.push({ name: "break: knees down mid-set (after reps)", label: "break", onset: B, kinds: ["push"], frame: (t) => kpsOf(t < B ? repPose(t) : moveTo(POSE.top, POSE.knees, B, 400)(t)) });
   S.push({ name: "break: knees down, noisy tracking (3 px jitter, 1 in 5 frames dropped)", label: "break", onset: B, kinds: ["push", "plank"], frame: (t) => (t >= B && Math.floor(t / 33) % 5 === 0 ? [] : kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.knees, B, 400)(t), { noise: 3 })) });
   S.push({ name: "break: hips sag", label: "break", onset: B, kinds: ["plank", "pushform"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.sag, B, 400)(t)) });
-  S.push({ name: "break: hips pike", label: "break", onset: B, kinds: ["plank", "pushform"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.pike, B, 400)(t)) });
+  S.push({ name: "ok: hips pike (push-ups: a pike never ends a set, owner Nov 16)", label: "ok", kinds: ["pushform"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.pike, B, 400)(t)) });
+  S.push({ name: "break: hips pike", label: "break", onset: B, kinds: ["plank"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.pike, B, 400)(t)) });
   // ---- must NOT fail ----
   S.push({ name: "ok: clean top hold, 1.5 px jitter", label: "ok", kinds: ["push", "plank"], frame: (t) => kpsOf(POSE.top) });
   S.push({ name: "ok: clean top hold, heavy 4 px jitter", label: "ok", kinds: ["push", "plank"], frame: (t) => kpsOf(POSE.top, { noise: 4 }) });

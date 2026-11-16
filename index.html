@@ -1489,11 +1489,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <label class="note" id="pushTargetWrap" for="pushTarget" style="display:inline-flex;align-items:center;gap:.4rem;margin:0">Target reps <input id="pushTarget" type="number" inputmode="numeric" min="1" max="500" step="1" value="20" style="width:4.5rem"></label>
       <button class="btn ghost rec-btn" type="button" data-rec="camWrap" hidden aria-pressed="false"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button>
       <button class="btn" id="pushStartBtn" type="button">Start set</button>
-      <button class="btn ghost" id="pushPauseBtn" type="button">Pause</button>
-      <button class="btn" id="pushFinishBtn" type="button">Finish set</button>
       <button class="btn" id="pushEndBtn" type="button" hidden>End session</button>
       <button class="btn ghost" id="pushGiveUpBtn" type="button" hidden>I give up</button>
-      <button class="btn ghost" id="pushTotalResetBtn" type="button">Reset total</button>
     </div>
     <div class="row">
       <button class="btn ghost" id="camStopBtn" type="button" hidden>Stop camera</button>
@@ -2868,7 +2865,7 @@ function formatTut(ms) {
   return h ? h + ":" + String(m).padStart(2, "0") + ":" + sec : m + ":" + sec;
 }
 // Total = reps from finished sets today + live reps of the set in progress.
-// A set's reps are added to the stored total once, when "Finish set" is pressed.
+// A set's reps are added to the stored total once, when the set ends (form break, stall, or End set).
 function syncPushStartBtn() { const b = $("pushStartBtn"); if (b) b.disabled = !!(pushStarting || (pushState.running && !pushState.finished)); }
 
 function paintArcadeStrip(o) {
@@ -2932,6 +2929,12 @@ function renderPush() {
   const best = localPush().reduce((m, r) => Math.max(m, Number(r.reps) || 0), 0);
   if ($("pushBest")) $("pushBest").textContent = best ? String(best) : "—";
 }
+// Eastern midnight while the page stays open: today's push-up tallies (Reps / Sets / TUT today, keyed by ET day in pushTotalKey)
+// repaint so the panel shows 0 without a reload. Checked every minute and when the page comes back into view (like paintTutRows).
+function pushEtDay() { const d = new Date(); return window.ZabbadatEtDay ? window.ZabbadatEtDay.shortKey(d) : d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+let pushTallyDay = null;
+function pushDayCheck() { const k = pushEtDay(); if (pushTallyDay === null) { pushTallyDay = k; return false; } if (k === pushTallyDay) return false; pushTallyDay = k; renderPush(); return true; }
+if (typeof setInterval === "function" && typeof document !== "undefined" && document.addEventListener) { pushDayCheck(); setInterval(pushDayCheck, 60000); document.addEventListener("visibilitychange", () => { if (!document.hidden) pushDayCheck(); }); window.addEventListener && window.addEventListener("pageshow", pushDayCheck); }
 function renderPushMode() {
   const long = pushMode === "long", chal = pushMode === "challenge", lockMode = !window.ZabbadatSession.canSwitchMode(pushState);
   const set = (id, k, v) => { if ($(id)) $(id)[k] = v; };
@@ -2941,7 +2944,7 @@ function renderPushMode() {
   set("challengeNote", "hidden", !chal); if (!chal) set("challengeResult", "hidden", true);
   if (chal) {
     if ($("modeLongBtn")) $("modeLongBtn").setAttribute("aria-pressed", "false"); set("oltBanner", "hidden", true);
-    set("pushFinishBtn", "hidden", true); set("pushPauseBtn", "hidden", true); set("pushEndBtn", "hidden", true); set("longNote", "hidden", true); set("pushGiveUpBtn", "hidden", false);
+    set("pushEndBtn", "hidden", true); set("longNote", "hidden", true); set("pushGiveUpBtn", "hidden", false);
     set("pushTutLabel", "textContent", "TUT today"); set("pushStartBtn", "textContent", "Start challenge"); set("pushTargetWrap", "hidden", true);
     set("pushSetLabel", "textContent", "Time left");
     set("pushViol", "textContent", String(postureGuard ? postureGuard.state().count : 0));
@@ -2949,7 +2952,7 @@ function renderPushMode() {
     return;
   }
   if ($("modeLongBtn")) $("modeLongBtn").setAttribute("aria-pressed", String(long)); if ($("oltBanner")) $("oltBanner").hidden = !long;
-  set("pushFinishBtn", "hidden", long); set("pushPauseBtn", "hidden", long); set("pushEndBtn", "hidden", !long); set("pushGiveUpBtn", "hidden", true);
+  set("pushEndBtn", "hidden", !long); set("pushGiveUpBtn", "hidden", true);
   set("longNote", "hidden", !long);
   set("pushTutLabel", "textContent", long ? "TUT today" : "Time today");
   set("pushStartBtn", "textContent", long ? "Start session" : "Start set");
@@ -3098,7 +3101,7 @@ function exitPushCam() {
   $("camNote").textContent = "Set ended. Camera off.";
 }
 // End set button (#camEndBtn, on the camera screen in every push-up mode): manual fallback that always ends the set and exits camera
-// mode. Same save path as Finish set / End session / I give up; a 3:00 challenge with 0 reps is discarded like I give up.
+// mode. Same save path as End session / I give up; a 3:00 challenge with 0 reps is discarded like I give up.
 // Nothing started yet (camera up, countdown running): cancel and turn the camera off.
 function endSetNow() {
   sessionTouch();
@@ -3384,25 +3387,10 @@ function beginPushClock() {
   renderPush();
 }
 if ($("pushStartBtn")) $("pushStartBtn").onclick = () => startPush();
-if ($("pushPauseBtn")) $("pushPauseBtn").onclick = () => {
-  sessionTouch();
-  if (!pushState.running || pushState.finished || pushMode !== "sets") return;
-  pushState.elapsed += Date.now() - pushState.startedAt;
-  pushState.running = false;
-  clearInterval(pushState.tick);
-  if (pushWake) pushWake.stop().catch(() => {});
-  $("pushStatus").textContent = "Paused.";
-  renderPush();
-};
-if ($("pushFinishBtn")) $("pushFinishBtn").onclick = () => { if (pushMode === "sets") finishPushSet(); };
+// Sets panel (owner, Nov 16): Start set only. A set ends on a form break / stall, or the camera End set button (#camEndBtn).
 if ($("pushEndBtn")) $("pushEndBtn").onclick = () => { if (pushMode === "long") finishPushSet(); };
 // Three-minute challenge give-up: ends early on the user's tap (holding still never ends it); posts once with reps, like Stop camera.
 if ($("pushGiveUpBtn")) $("pushGiveUpBtn").onclick = () => { if (pushMode !== "challenge" || pushState.finished || !pushState.running) return; pushChallenge.update(performance.now(), {}); const r = pushChallenge.result(); if (r.reps >= 1) { pushState.tut = r.tutMs; pushState.reps = r.reps; showChallengeResult(r, "Three-minute challenge: gave up"); finishPushSet("Gave up"); } else voidTutSet("gaveup"); };
-if ($("pushTotalResetBtn")) $("pushTotalResetBtn").onclick = () => {
-  clearPushTotals();
-  $("pushStatus").textContent = "Total reset.";
-  renderPush();
-};
 let camStream = null;
 let camOn = false;
 let poseDetector = null;
@@ -3600,12 +3588,13 @@ async function poseTick(id = poseLoopId) {
         if (live) pushHoldsThisSet += 1; // credited with the set (server-checked: pushups.holds)
       }
     }
-    // Regular Sets: any length of top hold keeps going. Knees / collapse, standing up, picking the phone up, or
-    // 10 s out of frame ends it (posts once via finishPushSet when it has reps). Paused sets are not watched.
+    // Regular Sets: any length of top hold keeps going. Only a definitive break ends it (owner, Nov 16): knees down, a hard
+    // collapse (deep hip sag 1.5 s, or the chest on the floor 4 s with no press) or standing up; posts once via finishPushSet
+    // when it has reps. Out of frame, phone pickup, elbows, pike and wobbles never end it (the 15 s / 45 s no-rep timers below do).
     if (pushMode === "sets" && pushState.running && !pushState.finished && typeof failWatch !== "undefined" && failWatch) {
       const st = pushCounter.state();
       const failed = failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, failExtra(st, w, pose));
-      if (failed) { const why = (window.ZabbadatSession.FAIL_TEXT || {})[failed] || "Set ended"; if (pushState.reps >= 1) { freezePushClock(failWatch.failedAt && failWatch.failedAt()); finishPushSet(why); } else { failWatch.reset(performance.now()); $("pushStatus").textContent = why + ": no reps yet, the set keeps going. Tap Finish set to stop."; } }
+      if (failed) { const why = (window.ZabbadatSession.FAIL_TEXT || {})[failed] || "Set ended"; if (pushState.reps >= 1) { freezePushClock(failWatch.failedAt && failWatch.failedAt()); finishPushSet(why); } else { failWatch.reset(performance.now()); $("pushStatus").textContent = why + ": no reps yet, the set keeps going. Tap End set to stop."; } }
     }
     if (pushMode === "challenge" && pushChallenge && pushState.running && !pushState.finished) {
       const c = pushChallenge.update(performance.now(), { atTop: window.ZabbadatChallenge.atTopFrom(pushCounter.state()), counted: r.counted, repMs: r.repMs });

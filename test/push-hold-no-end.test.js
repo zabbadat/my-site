@@ -32,7 +32,7 @@ const HOLD5 = 5 * 60 * 1000;
 { const x = sim([...S.reps(3, 1800), [3000, 0, 0]], null, { ms: 9000, f: () => [] });
   check("out of frame 9 s: still going (give-up needs 10 s)", x.out === null); }
 { const x = sim([...S.reps(3, 1800), [3000, 0, 0]], null, { ms: 11000, f: () => [] });
-  check("out of frame 10 s ends the set as 'frame' (left / gave up)", x.out === "frame"); }
+  check("out of frame 11 s does not end the set (owner, Nov 16: losing tracking pauses, never ends)", x.out === null); }
 { const x = sim([...S.reps(3, 1800), [3000, 0, 0]], null, { ms: 8000, f: () => K({ left_shoulder: [256, 170], right_shoulder: [384, 170] }).concat(K({ left_hip: [300, 400], left_knee: [330, 300], left_ankle: [310, 420] }, 0.1)) });
   check("knees out of frame / low confidence never trigger", x.out === null); }
 // The 3:00 challenge keeps its clock and 10 s top-hold TUT cap, but holding still never ends it before 3:00.
@@ -40,10 +40,10 @@ const HOLD5 = 5 * 60 * 1000;
   for (let t = 0; t <= 200000; t += 100) { const s = c.update(t, { atTop: true }); if (s.ended && ended == null) ended = t; }
   check(`challenge: a full top hold runs to 3:00 (ended at ${ended / 1000} s), TUT capped at 10 s`, ended === 180000 && c.result().topTutMs === 10000); }
 check("TUT Battles: 3:00 clock + 10 s top cap kept; shoulders-shrink 'standing' no longer loses; out of frame 10 s", TB.RULES.durationMs === 180000 && TB.RULES.topCapMs === 10000 && TB.RULES.outOfFrameMs === 10000);
-check("failure watch: knees and 10 s out of frame end; shoulder-shrink standing does not; leaving the plank does; phone lift does not", SS.FAIL.frameMs === 10000 && SS.FAIL.endOn.knees && SS.FAIL.endOn.frame && !SS.FAIL.endOn.standing && !SS.FAIL.endOn.lifted && SS.FAIL.endOn.left);
+check("failure watch: knees end; out of frame, elbows, pike / form drift, shoulder-shrink standing, phone lift do not; leaving the plank does", SS.FAIL.endOn.knees && !SS.FAIL.endOn.frame && !SS.FAIL.endOn.elbows && !SS.FAIL.endOn.form && SS.FAIL.endOn.sag && !SS.FAIL.endOn.standing && !SS.FAIL.endOn.lifted && SS.FAIL.endOn.left);
 // Nov 16 owner rule change: a set must never stay open in camera mode. The ONLY no-rep timer is the shared end-of-set watch
 // (push-session.js createSetEnd): 15 s with no rep while seen and OFF the top, or (Sets only) 45 s with no rep at all. A TUT top hold never ends.
-check("only the shared end-of-set watch ends a set without a form break (finishPushSet callers: buttons, End set, challenge 3:00, camera stop, failure watch, end-of-set watch)", (html.match(/finishPushSet\(/g) || []).length === 11 && !/noRepMs|idleMs/.test(html) && SS.SET_END.stallMs === 15000 && SS.SET_END.setsIdleMs === 45000 && (() => { const e = SS.createSetEnd(); e.reset(0); const k = [{ name: "left_shoulder", x: 1, y: 1, score: 0.9 }]; e.update({ mode: "long", reps: 3, t: 1000, atTop: true, kps: k }); for (let t = 1000; t <= 300000; t += 100) if (e.update({ mode: "long", reps: 3, t, atTop: true, kps: k })) return false; return true; })());
+check("only the shared end-of-set watch ends a set without a form break (finishPushSet callers: End session / I give up buttons, End set, challenge 3:00, camera stop, failure watch, end-of-set watch)", (html.match(/finishPushSet\(/g) || []).length === 10 && !/noRepMs|idleMs/.test(html) && SS.SET_END.stallMs === 15000 && SS.SET_END.setsIdleMs === 45000 && (() => { const e = SS.createSetEnd(); e.reset(0); const k = [{ name: "left_shoulder", x: 1, y: 1, score: 0.9 }]; e.update({ mode: "long", reps: 3, t: 1000, atTop: true, kps: k }); for (let t = 1000; t <= 300000; t += 100) if (e.update({ mode: "long", reps: 3, t, atTop: true, kps: k })) return false; return true; })());
 check("regular Sets: knees down / 10 s out of frame ends via finishPushSet (posts once) with reps; with 0 reps it keeps going", /pushMode === "sets" && pushState\.running[\s\S]{0,500}if \(pushState\.reps >= 1\) \{ freezePushClock\(failWatch\.failedAt && failWatch\.failedAt\(\)\); finishPushSet\(why\); \} else \{ failWatch\.reset/.test(html));
 check("'I give up' button exists for the 3:00 challenge (Sets has Finish set, One long set has End session)", /id="pushGiveUpBtn"[^>]*>I give up</.test(html) && /\$\("pushGiveUpBtn"\)\.onclick = /.test(html));
 

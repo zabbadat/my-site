@@ -42,7 +42,7 @@ let camStream = null, camOn = false, poseLoopOn = false, plankLoop = false, plan
 const getSet = null, quickSet = null; function sessionPlan() { return "fresh"; } function sessionCommit() {} function sessionTouch() {} let pushCounter = null; let camFail = false; async function loadCamLibs() { if (camFail) throw new Error("blocked"); } async function ensurePose() {} function poseTick() {} function plankTick() {} function syncPushStartBtn() {} let poseLoopId = 0, plankLoopId = 0;
 function camExitFs() {} function setCamStatus() {} function newPlankHold() {} function plankEnded() {} let plankLeadUntil = 0; const PLANK_LEAD_MS = 5500;`;
 const GAME = [handler("startBtn"), handler("pauseBtn"), handler("resetBtn"), "async " + fnSrc("finishGame"), "this.finishGame = finishGame;"].join("\n");
-const PUSH = [fnSrc("finishPushSet"), line("const GET_SET_MS"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"), fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '), between('if ($("pushPauseBtn")) $("pushPauseBtn").onclick = ', "\n};"),
+const PUSH = [fnSrc("finishPushSet"), line("const GET_SET_MS"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"), fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '),
   fnSrc("freshPushSet"), "this.finishPushSet = finishPushSet;"].join("\n");
 const CAM = ["async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
   "this.startCam = openCam; this.stopCam = stopCam; this.startPlankCam = startPlankCam; this.stopPlankCam = stopPlankCam;"].join("\n");
@@ -78,12 +78,11 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
       for (const w of ALL_WAKES) { await e.ctx.W[w].start(); await e.ctx.W[w].stop(); }
       check(`${tag} all wakes start/stop: unlocked stays unlocked`, e.ctx.S().pocketOn === false && e.ctx.S().walkLockOn === false); }
     // ---- Push-up sets / One Long Set (#pushStartBtn): end on Pause (sets), Reset, Finish/End (finishPushSet).
-    for (const mode of ["sets", "long"]) for (const end of ["pause", "finish"]) {
-      if (mode === "long" && end === "pause") continue; // Pause is a no-op in long mode (clock is nonstop)
+    for (const mode of ["sets", "long"]) for (const end of ["finish"]) { // Sets panel has no Pause button (owner, Nov 16): sets end via finishPushSet (fail / stall / End set)
       const e = load(api); const $ = e.ctx.$; e.run(`pushMode = "${mode}";`);
       $("pushStartBtn").onclick(); for (let i = 0; i < 20; i++) await tick();
       check(`${tag} push ${mode} Start set: wake held`, held(e, "pushWake"));
-      if (end === "pause") $("pushPauseBtn").onclick(); if (end === "finish") { try { e.ctx.finishPushSet(); } catch (x) {} }
+      if (end === "finish") { try { e.ctx.finishPushSet(); } catch (x) {} }
       await tick(); const n0 = e.nav.requests; e.doc.fire(); await tick();
       check(`${tag} push ${mode} ${end}: released, no re-acquire`, !e.ctx.W.pushWake.isHeld() && e.nav.requests === n0);
     }

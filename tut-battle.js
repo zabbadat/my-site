@@ -30,17 +30,15 @@
     reset(0);
     // kps: pose keypoints; t: ms; topWidth: counter's calibrated top width (px) or 0. frameW (optional) sizes the
     // pickup check. No time-without-reps rule. Shoulder-width shrink is not a loss (a long top hold looks like that).
-    // Picking the phone up is not a loss. Elbows down (arms gave out) loses as knees, like a collapse.
+    // Picking the phone up is not a loss. Out of frame and elbows down are not losses. A hard collapse loses as knees.
     function update(kps, t, topWidth, frameW, atTop) {
       if (st.lost) return st.lost;
       if (hasUpperBody(kps, o.minScore)) st.lastSeen = t;
-      if (t - st.lastSeen >= o.outOfFrameMs) return (st.lost = "frame");
+      // Out of frame never loses (owner, Nov 16): losing tracking pauses counting, the set keeps going.
       if (t - st.lastSeen > 0 && t - st.lastSeen < o.gapMs) return null; // brief dropout: hold every window
       if (atTop !== true && SS && SS.isUpright && SS.isUpright(kps, topWidth, o.minScore, 0.5)) { if (st.upSince == null) { st.upSince = t; st.upN = 0; } st.upN += 1; if (t - st.upSince >= o.uprightMs && st.upN >= 5) return (st.lost = "standing"); } else { st.upSince = null; st.upN = 0; }
       if (guard) { const g = guard.update(kps, t, topWidth); if (g.event === "knees") return (st.lost = g.event); /* holding the top never loses: shoulder-shrink "standing" is not a loss */ }
-      // elbows down: 1 s window that survives a good-looking frame shorter than 150 ms (noise), needs 75% bad frames
-      if (SS && SS.elbowsDown && SS.elbowsDown(kps, o.minScore)) { if (st.elbowSince == null) { st.elbowSince = t; st.elN = 0; st.elTot = 0; } st.elN += 1; st.elTot += 1; st.elOk = null; if (t - st.elbowSince >= 1000 && st.elN >= 5 && st.elN >= 0.75 * st.elTot) return (st.lost = "knees"); }
-      else if (st.elbowSince != null) { st.elTot += 1; if (st.elOk == null) st.elOk = t; if (t - st.elOk > 150) st.elbowSince = null; }
+      // Elbows down is not a loss (owner, Nov 16): only knees down, a hard collapse (chest on the floor 4 s, no press) or standing up.
       if (view) {
         const v = view.update(kps, t, typeof frameW === "number" ? frameW : 640);
         // "lifted" (phone picked up) is not a loss: only form breaks lose.

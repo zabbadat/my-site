@@ -22,7 +22,7 @@
 // and MoveNet both report half-guessed legs at low scores when the legs are hidden behind the body on a front camera).
 // minFrames: a knees / standing call needs this many consecutive frames as well as holdMs, so one or two odd frames
 // (a landmark flicker, a missed frame) never add up to a fail.
-var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 300, kneeAngle: 130, foldFrac: 0.45, upright: 2, shrink: 0.55, weakKneeMin: 0.28, floorFrac: 0.12, hipUpFrac: 0.18, frontHipFrac: 0.22, frontSwFrac: 0.4 };
+var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 300, kneeAngle: 130, foldFrac: 0.45, upright: 2, shrink: 0.55, weakKneeMin: 0.28, floorFrac: 0.12, hipUpFrac: 0.18, frontHipFrac: 0.22, frontSwFrac: 0.4 };
   function pt(kps, name, min) {
     for (var i = 0; i < (kps || []).length; i++) {
       var k = kps[i];
@@ -87,13 +87,22 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
       var knFloor = nearFloor(knWeak, fy != null ? fy : an.y, sc, floorF) || (an && Math.abs((knWeak.y || 0) - an.y) < floorF * sc);
       if (a != null && a < (o.kneeAngle || 140) && knFloor) return true;
     }
-    if (hip && an && !kn && fy != null) {
+    // Hidden knee, side view (fix Nov 16, owner report: a clean set ended "Knees down" mid-set). Hips above the hands with
+    // the feet on the floor is ALSO a normal plank / push-up top, so that alone is not a kneel: the legs must read FOLDED,
+    // i.e. the shoulder-hip-ankle line bent at the hip AND the hip-to-ankle span short against the torso (thigh dropped to
+    // the floor). A straight body line with a weak / missing knee is never knees-down.
+    if (hip && an && !kn && fy != null && (o.hiddenKneeFold !== true || sh)) {
       var hipUp = (fy - hip.y) > (o.hipUpFrac == null ? 0.18 : o.hipUpFrac) * sc;
-      if (hipUp && nearFloor(an, fy, sc, floorF)) return true;
+      var bodyLine = sh ? angle(sh, hip, an) : null, torso = sh ? Math.hypot(hip.x - sh.x, hip.y - sh.y) : 0, legSpan = Math.hypot(an.x - hip.x, an.y - hip.y);
+      var folded = bodyLine != null && bodyLine < (o.foldLineDeg == null ? 160 : o.foldLineDeg) && torso > 1 && legSpan < (o.foldLegFrac == null ? 1.2 : o.foldLegFrac) * torso;
+      if (hipUp && (o.hiddenKneeFold !== true || folded) && nearFloor(an, fy, sc, floorF)) return true;
     }
+    // Front view: hips dropped to the hands while the shoulders are still up at plank height. The bottom of a normal
+    // push-up (shoulders down by the hands, hips low and far away) is not a kneel.
     if (isFrontView(sw, sh, hip, o) && hip && fy != null) {
-      var gap = Math.abs(fy - hip.y);
-      if (gap < (o.frontHipFrac == null ? 0.22 : o.frontHipFrac) * (sw > 1 ? sw : sc)) return true;
+      var gap = Math.abs(fy - hip.y), fs = sw > 1 ? sw : sc;
+      var shUp = (fy - sh.y) > (o.frontShUpFrac == null ? 0.8 : o.frontShUpFrac) * fs;
+      if (shUp && gap < (o.frontHipFrac == null ? 0.22 : o.frontHipFrac) * fs) return true;
     }
     return false;
   }
@@ -167,12 +176,12 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
   // top (press plank, elbows up) is allowed a larger rise and hand-jitter than that, so locking out or a front
   // camera wobbling the wrists is not read as standing up. A clear stand-up or hands leaving the floor still is.
   // Shoulder WIDTH shrinking is not one of these (a front camera does that on a long press) and is not read here.
-  var VIEW = { minScore: 0.3, lockMs: 350, liftMs: 450, badMs: 1000, deadFrac: 0.045, moveFrac: 0.18, agreeFrac: 0.11, rotDeg: 34, riseFrac: 0.12, handFrac: 0.16, holdRiseFrac: 0.20, holdHandFrac: 0.24 };
+  var VIEW = { minScore: 0.3, lockMs: 350, liftMs: 450, badMs: 1000, deadFrac: 0.045, moveFrac: 0.18, agreeFrac: 0.11, rotDeg: 34, riseFrac: 0.12, handFrac: 0.16, holdRiseFrac: 0.20, holdHandFrac: 0.24, chestMs: 4000, chestFloorFrac: 0.02, chestUpFrac: 0.015 };
   function angDiff(a, b) { var d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
   function lineDiff(a, b) { var d = Math.abs(angDiff(a, b)); return d > Math.PI / 2 ? Math.PI - d : d; } // a shoulder line has no direction: left/right swap is not a tilt
   function createViewWatch(opts) {
     var o = Object.assign({}, VIEW, opts || {}), s;
-    function reset() { s = { base: null, warm: null, pend: null, riseY: null, seen: null }; }
+    function reset() { s = { base: null, warm: null, pend: null, riseY: null, seen: null, chest: null }; }
     reset();
     function shoulders(kps) {
       var ls = pt(kps, "left_shoulder", o.minScore), rs = pt(kps, "right_shoulder", o.minScore);
@@ -215,12 +224,22 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
       }
       var rose = s.riseY == null ? 0 : s.riseY - sample.y;
       if (rose > 0 && rose < o.deadFrac * W) s.riseY -= Math.min(rose, 0.4);
+      // Chest on the floor (owner, Nov 16): a proper rep brings the chest near the floor, so being there never ends a set by
+      // itself. It is a collapse only when the shoulders stay at floor level (within chestFloorFrac x frame width of the hand
+      // line, or below it) with NO upward progress for chestMs (4 s) continuous. Any rise of chestUpFrac x frame width above
+      // the lowest point in that stretch (pressing back up), or leaving floor level, restarts the 4 s.
+      // Checked on its own, before the pickup / standing reads: a noisy side-on shoulder line (the two shoulders a few px apart)
+      // can read as a tilt, and that must not restart the clock.
+      if (sample.n >= 1 && sample.wy != null && sample.y >= sample.wy - o.chestFloorFrac * W) {
+        if (!s.chest || s.chest.lowY - sample.y > o.chestUpFrac * W) s.chest = { since: t, lowY: sample.y };
+        else if (sample.y > s.chest.lowY) s.chest.lowY = sample.y;
+        if (t - s.chest.since >= o.chestMs) return "collapse";
+      } else s.chest = null;
       var kind = null;
       if (sample.n > 0 && s.base.hasW && dist > o.moveFrac * W && wd > o.moveFrac * W && Math.hypot(dx - wdx, dy - wdy) < o.agreeFrac * W) kind = "lifted";
       if (!kind && lineDiff(sample.ang, s.base.ang) * 180 / Math.PI > o.rotDeg) kind = "lifted";
       if (!kind && rose > riseN * W) kind = "standing";
       if (!kind && sample.n >= 2 && s.base.hasW && s.base.wy - sample.wy > handN * W) kind = "standing";
-      if (!kind && sample.n >= 2 && sample.y > sample.wy + 0.12 * sample.sw) kind = "collapse";
       if (!kind) { s.pend = null; return null; }
       if (!s.pend || s.pend.kind !== kind) s.pend = { kind: kind, since: t };
       if (t - s.pend.since >= (kind === "lifted" ? o.liftMs : o.badMs)) return kind;
@@ -234,10 +253,10 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
   function formFeatures(kps, minScore, elbowFrac, kneeMin) {
     var min = minScore == null ? 0.3 : minScore, legMin = Math.max(min, kneeMin == null ? 0 : kneeMin), ef = elbowFrac == null ? 0.12 : elbowFrac, ls = pt(kps, "left_shoulder", min), rs = pt(kps, "right_shoulder", min);
     if (!ls && !rs) return null;
-    var sw = ls && rs ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : null, out = { line: null, knee: null, elbowsDown: false }, sides = ["left", "right"];
+    var sw = ls && rs ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : null, out = { line: null, knee: null, elbowsDown: false, sag: false }, sides = ["left", "right"];
     for (var i = 0; i < 2; i++) {
       var sd = sides[i], sh = pt(kps, sd + "_shoulder", min), hip = pt(kps, sd + "_hip", legMin), kn = pt(kps, sd + "_knee", legMin), an = pt(kps, sd + "_ankle", legMin), el = pt(kps, sd + "_elbow", min), wr = pt(kps, sd + "_wrist", min);
-      if (sh && hip && an) { var l = angle(sh, hip, an); if (l != null && (out.line == null || l < out.line)) out.line = l; }
+      if (sh && hip && an) { var l = angle(sh, hip, an); if (l != null && (out.line == null || l < out.line)) { out.line = l; var dxl = an.x - sh.x; out.sag = Math.abs(dxl) > 1 ? hip.y > sh.y + (an.y - sh.y) * (hip.x - sh.x) / dxl : false; } }
       if (hip && kn && an) { var k = angle(hip, kn, an); if (k != null && (out.knee == null || k < out.knee)) out.knee = k; }
       if (el && wr && sh) { var scale = sw || Math.abs(wr.y - sh.y) || 1; if (el.y >= wr.y - ef * scale && sh.y > el.y - 0.6 * scale) out.elbowsDown = true; }
     }
@@ -257,23 +276,23 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     var w = ls && rs ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : null;
     return !!(upright && (!(w && topWidth > 0) || w < 0.8 * topWidth));
   }
-  // Failure watch (One long set, 3:00 challenge, Sets): the set ends when the camera sees
-  //  - "knees": hip-knee-ankle bent like kneeling or a collapse (softer than the on-screen flag), or, when the knee is occluded or below kneeMin, a confident hip plus the ankle/knee on the floor line or a front-view hip drop to the hands,
-  //  - "collapse": shoulders dropped through the hands,
-  //  - "standing": stood up or took the hands off the floor (shoulders rose, or the hands came up; a clean top hold uses a wider allowance so lockout / wrist jitter is not a stand-up), or an upright body when not held at the top,
-  //  - "elbows": the arms gave out, elbows down at wrist / floor height (not a normal bend, never while atTop),
-  //  - "form": a clear break against the first-rep baseline (body line / hips sag or pike, or knees bend well past rep 1),
-  //  - "frame": no shoulder confidently visible for frameMs (10 s). extra.skipFrame (TUT sets) turns this off so being out of frame does not end the set.
-  // A bad pose must last badMs (1 s). Picking the phone up is NOT a fail: a view shift or tilt never ends the set. Any good frame restarts that wait.
-  // Holding the top must never end a set. Shoulder-width shrink is only a flag (endOn.standing is off): a leaned-up
-  // front camera reads a long press that way. Knees that are out of frame or below minScore never trigger.
+  // Failure watch (One long set, 3:00 challenge, Sets). Owner rule (Nov 16): a push-up set ends ONLY on a definitive break:
+  //  - "knees": hip-knee-ankle bent like kneeling, or, when the knee is occluded or below kneeMin, a confident hip plus folded legs
+  //    (body line bent at the hip, short hip-to-ankle span) with the ankle on the floor line, or a front-view hip drop to the hands
+  //    with the shoulders still up. A weak / missing knee on a straight body never counts.
+  //  - "collapse": hard hip sag (hips below the shoulder-ankle line, line >= sagDeg 35 deg worse than the first-rep baseline, held
+  //    sagMs 1.5 s), or the chest staying at floor level with no upward progress for 4 s (createViewWatch chestMs).
+  //  - "standing": stood all the way up (straight legs running down the frame, off the top), or shoulders rose / hands came up.
+  // NOT ends: elbows, pike, knee-bend drift, minor wobbles, out of frame (losing tracking pauses counting), phone pickup, rep target.
+  // (endOn.elbows / form / frame stay available as options, all off.) A bad pose must last badMs (1 s) unless noted.
+  // Holding the top must never end a set. Shoulder-width shrink is only a flag (endOn.standing is off).
   // update(kps, t, topWidth, extra). extra may be a frame width, or { frameW, atTop }.
   // gapMs (Nov 16): a dropout shorter than this (no shoulder seen: a missed frame, a brief occlusion) neither counts toward nor
   // restarts any fail window, so noisy tracking cannot hide a real break and a dropout can never cause one. formKeep: hysteresis,
   // once a form-break window is open it stays open while the break is at least formKeep x the threshold (noise near the line).
   // okGraceMs / badRatio: a form-break window survives good-looking frames shorter than okGraceMs (one noisy "good" frame
   // inside a real break), but only ends the set when at least badRatio of its frames were bad.
-  var FAIL = { gapMs: 300, formKeep: 0.8, okGraceMs: 150, badRatio: 0.75, badMs: 1000, frameMs: 10000, minScore: 0.3, kneeMin: 0.5, minFrames: 5, kneeAngle: 140, foldFrac: 0.45, endOn: { knees: true, frame: true, standing: false, lifted: false, left: true, upright: true, elbows: true, form: true }, elbowFrac: 0.12, lineDeg: 30, kneeDeg: 35, baseSamples: 8, weakKneeMin: 0.28, floorFrac: 0.12, hipUpFrac: 0.18, frontHipFrac: 0.22, frontSwFrac: 0.4 };
+  var FAIL = { hiddenKneeFold: true, sagDeg: 35, sagMs: 1500, gapMs: 300, formKeep: 0.8, okGraceMs: 150, badRatio: 0.75, badMs: 1000, frameMs: 10000, minScore: 0.3, kneeMin: 0.5, minFrames: 5, kneeAngle: 140, foldFrac: 0.45, endOn: { knees: true, frame: false, standing: false, lifted: false, left: true, upright: true, elbows: false, form: false, sag: true }, elbowFrac: 0.12, lineDeg: 30, kneeDeg: 35, baseSamples: 8, weakKneeMin: 0.28, floorFrac: 0.12, hipUpFrac: 0.18, frontHipFrac: 0.22, frontSwFrac: 0.4 };
   function createFailureWatch(opts) {
     var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed, failAt, view, upSince, upN, base, acc, badSince, foldSince, k3Since, k3N;
     o.endOn = Object.assign({}, FAIL.endOn, (opts && opts.endOn) || {});
@@ -289,7 +308,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     function avgFeats(a) { var r = {}; ["line", "knee"].forEach(function (k) { var n = 0, v = 0; a.forEach(function (x) { if (x[k] != null) { n++; v += x[k]; } }); r[k] = n ? v / n : null; }); r.samples = a.length; return r; }
     function mark(reason, at) { failed = reason; failAt = at != null ? at : null; return failed; }
     function reset(t0) {
-      guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs, minScore: o.minScore, kneeMin: o.kneeMin, minFrames: o.minFrames, kneeAngle: o.kneeAngle, foldFrac: o.foldFrac, weakKneeMin: o.weakKneeMin, floorFrac: o.floorFrac, hipUpFrac: o.hipUpFrac, frontHipFrac: o.frontHipFrac, frontSwFrac: o.frontSwFrac }));
+      guard = createPostureGuard(Object.assign({}, o.guard || {}, { holdMs: o.badMs, minScore: o.minScore, kneeMin: o.kneeMin, minFrames: o.minFrames, kneeAngle: o.kneeAngle, foldFrac: o.foldFrac, weakKneeMin: o.weakKneeMin, floorFrac: o.floorFrac, hipUpFrac: o.hipUpFrac, frontHipFrac: o.frontHipFrac, frontSwFrac: o.frontSwFrac, hiddenKneeFold: o.hiddenKneeFold }));
       seen = t0 == null ? null : t0; failed = null; failAt = null; upSince = null; upN = 0; base = null; acc = []; badSince = null; foldSince = null; k3Since = null; k3N = 0; view = createViewWatch({ minScore: o.minScore, badMs: o.badMs }); view.reset();
     }
     reset(null);
@@ -332,10 +351,18 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
         if (base.line != null && f.line != null && base.line - f.line > o.lineDeg * hk) bad = "form";
         else if (base.knee != null && f.knee != null && base.knee - f.knee > o.kneeDeg * hk) bad = "form";
       }
-      if (bad) { if (!badSince || badSince.kind !== bad) badSince = { kind: bad, t: t, n: 0, tot: 0, okT: null }; badSince.n += 1; badSince.tot += 1; badSince.okT = null; if (t - badSince.t >= o.badMs && badSince.n >= (o.minFrames || 1) && badSince.n >= o.badRatio * badSince.tot) return mark(bad, badSince.t); }
+      // Hard hip-sag collapse (owner, Nov 16): the hips dropped BELOW the shoulder-ankle line with the body line bent at least
+      // sagDeg (35 deg) more than the first-rep baseline, held sagMs (1.5 s, >= 75% of frames). A pike (hips up), a brief dip
+      // or a normal rep never qualifies. Reported as "collapse".
+      if (!bad && base && f && o.endOn.sag && base.line != null && f.line != null && f.sag) {
+        var sk = badSince && badSince.kind === "collapse" ? o.formKeep : 1;
+        if (base.line - f.line > o.sagDeg * sk) bad = "collapse";
+      }
+      var needMs = bad === "collapse" ? o.sagMs : o.badMs;
+      if (bad) { if (!badSince || badSince.kind !== bad) badSince = { kind: bad, t: t, n: 0, tot: 0, okT: null }; badSince.n += 1; badSince.tot += 1; badSince.okT = null; if (t - badSince.t >= needMs && badSince.n >= (o.minFrames || 1) && badSince.n >= o.badRatio * badSince.tot) return mark(bad, badSince.t); }
       else if (badSince) { badSince.tot += 1; if (badSince.okT == null) badSince.okT = t; if (t - badSince.okT > o.okGraceMs) badSince = null; }
       if (v === "standing" && o.endOn.left) return mark("standing", t - o.badMs);
-      if (v === "collapse" && o.endOn.knees) return mark("collapse", t - o.badMs);
+      if (v === "collapse" && o.endOn.knees) return mark("collapse", t - (view.options.chestMs || o.badMs)); // chest stayed on the floor 4 s with no press
       if (!atTop && o.endOn.upright && isUpright(kps, topWidth, o.minScore, o.kneeMin)) { if (upSince == null) { upSince = t; upN = 0; } upN += 1; if (t - upSince >= o.badMs && upN >= (o.minFrames || 1)) return mark("standing", upSince); }
       else { upSince = null; upN = 0; }
       return null;
@@ -463,22 +490,23 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     return out.map(function (p) { return { key: p.key, uid: p.uid, name: p.name, today: p.today, bestDay: p.bestDay, allTime: p.allTime }; });
   }
 
-  // End-of-set watch (Nov 16, owner): the one shared rule every push-up camera view (Sets, One long set / TUT, 3:00 challenge,
-  // TUT Battle) runs each frame next to its form-failure watch, so a set can never stay open in camera mode.
-  //  The rep target is NOT an end: reaching it (or passing it) never ends a set (owner, Nov 16). Sets end only on failure or by hand.
-  //  - "stalled": at least 1 rep, then no new rep for stallMs (15 s) while the body is SEEN (a shoulder confidently in view)
-  //    and NOT at the top. Lying at the bottom / sitting back / walking off without a clean stand-up call ends it.
-  //    Holding the top (plank push press) never stalls, and frames with no body in view never count (out of frame keeps its
-  //    own rule: 10 s in Sets, off in TUT), so a hood or head down (shoulders still seen) is fine.
+  // End-of-set watch (Nov 16, owner): the one shared no-rep rule every push-up camera view (Sets, One long set / TUT, 3:00 challenge,
+  // TUT Battle) runs each frame next to its form-failure watch. The rep target is NOT an end (owner, Nov 16).
+  //  - "stalled" (15 s): at least 1 rep, then no new rep for stallMs while the body is SEEN (a shoulder confidently in view)
+  //    and NOT at the top. Restarts on every counted rep and on every return to the top. Lying at the bottom / sitting back ends it.
+  //    Holding the top (plank push press) never stalls this clock, and frames with no body in view never count (losing tracking
+  //    pauses, never ends), so a hood or head down (shoulders still seen) is fine.
   //    "Off the top" is the counter's own top call, OR (when s.counter is passed) the body sitting in the lower part (> lowFrac) of the
   //    rep range frozen at the last counted rep: the counter re-bases its top after ~6 s parked at a new level, so a body parked
-  //    at the bottom would otherwise read as a top hold forever.
-  //  - "stalled" (Sets only): no new rep for setsIdleMs (45 s) at all, top hold included. 45 s leaves the 30 s top-hold bonus reachable.
-  // Never fires before the first rep (a 0-rep set keeps going until Finish / End set), and never on the start frame.
+  //    at the bottom would otherwise read as a top hold forever. Both clocks also need 15 s / 45 s since the last counted rep,
+  //    so neither can fire while reps keep counting.
+  //  - "stalled" (45 s, Sets only): no new rep for setsIdleMs, top hold included, counted from the last rep or the last return to
+  //    the top, whichever is later; paused while no body is in view. 45 s leaves the 30 s top-hold bonus reachable.
+  // Never fires before the first rep (a 0-rep set keeps going until End set), and never on the start frame.
   var SET_END = { stallMs: 15000, setsIdleMs: 45000, minScore: 0.3, lowFrac: 0.6 };
   function createSetEnd(opts) {
-    var o = Object.assign({}, SET_END, opts || {}), lastRepT, lastReps, offSince, ended, rom;
-    function reset(t0) { lastRepT = t0 == null ? null : t0; lastReps = 0; offSince = null; ended = null; rom = null; }
+    var o = Object.assign({}, SET_END, opts || {}), lastRepT, lastReps, offSince, ended, rom, idleFrom, wasTop, prevT;
+    function reset(t0) { lastRepT = t0 == null ? null : t0; lastReps = 0; offSince = null; ended = null; rom = null; idleFrom = lastRepT; wasTop = false; prevT = null; }
     reset(null);
     function bodySeen(kps) { for (var i = 0; i < (kps || []).length; i++) { var k = kps[i]; if (k && /shoulder$/.test(k.name) && (k.score == null || k.score >= o.minScore)) return true; } return false; }
     // s: { mode, reps, t, atTop, counter, kps (or seen) } -> null | "stalled". Sticky once it fires (until reset).
@@ -486,13 +514,19 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
       if (ended) return ended;
       var t = Number(s.t), reps = Number(s.reps) || 0, seen = s.seen != null ? !!s.seen : bodySeen(s.kps);
       if (lastRepT == null) lastRepT = t;
+      if (idleFrom == null) idleFrom = t;
+      if (!seen && prevT != null && t > prevT) idleFrom += t - prevT; // out of view: the 45 s clock pauses (losing tracking never ends a set)
+      prevT = t;
       var c = s.counter;
-      if (reps !== lastReps) { lastReps = reps; lastRepT = t; offSince = null; if (c && isFinite(c.top) && isFinite(c.bottom) && c.bottom !== c.top) rom = { top: c.top, bottom: c.bottom }; }
+      if (reps !== lastReps) { lastReps = reps; lastRepT = t; idleFrom = t; offSince = null; if (c && isFinite(c.top) && isFinite(c.bottom) && c.bottom !== c.top) rom = { top: c.top, bottom: c.bottom }; }
       var low = !!(rom && c && isFinite(c.smooth) && (c.smooth - rom.top) / (rom.bottom - rom.top) > o.lowFrac);
+      var topNow = !!(seen && s.atTop && !low);
+      if (topNow && !wasTop) idleFrom = t; // 45 s clock: restarts on every counted rep AND on every return to the top
+      wasTop = topNow;
       if (reps < 1) return null;
-      if (!seen || (s.atTop && !low)) offSince = null; else if (offSince == null) offSince = t;
+      if (!seen || topNow) offSince = null; else if (offSince == null) offSince = t;
       if (offSince != null && t - offSince >= o.stallMs && t - lastRepT >= o.stallMs) return (ended = "stalled");
-      if (s.mode === "sets" && t - lastRepT >= o.setsIdleMs) return (ended = "stalled");
+      if (s.mode === "sets" && t - idleFrom >= o.setsIdleMs) return (ended = "stalled");
       return null;
     }
     return { update: update, reset: reset, ended: function () { return ended; }, options: o };

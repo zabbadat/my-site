@@ -37,8 +37,10 @@ check("shoulder shrink at the top (long press) does not end the set", run(seq(0,
   const r = run(seq(0, 500, () => plank()).concat(seq(500, 2500, hands)));
   check("hands leave the floor ends as standing", r.out === "standing", r.out + "@" + r.at); }
 { const dropped = () => plank({ left_shoulder: [256, 420], right_shoulder: [384, 420], nose: [320, 390] });
-  const r = run(seq(0, 500, () => plank()).concat(seq(500, 2500, dropped)));
-  check("shoulders fall through the hands ends as collapse", r.out === "collapse", r.out + "@" + r.at); }
+  const r = run(seq(0, 500, () => plank()).concat(seq(500, 6000, dropped)));
+  check("chest stays at/below the hands 4 s with no press ends as collapse (owner, Nov 16)", r.out === "collapse" && r.at >= 4400, r.out + "@" + r.at);
+  const r2 = run(seq(0, 500, () => plank()).concat(seq(500, 3500, dropped), seq(3500, 6000, () => plank())));
+  check("chest down 3 s then pressed back up: does not end", r2.out === null, r2.out + "@" + r2.at); }
 
 { const r = run(seq(0, 600, () => plank()).concat(seq(600, 2000, () => move(plank(), 200, 40))));
   check("picking the phone up (view shifts together) does NOT end the set", r.out === null, String(r.out)); }
@@ -99,7 +101,7 @@ check("pickup is off: endOn.lifted false, no Phone picked up text", SS.FAIL.endO
   const el = (ey) => plank({ left_elbow: [200, ey], right_elbow: [440, ey] });
   const flat = () => plank({ left_shoulder: [256, 330], right_shoulder: [384, 330], left_elbow: [190, 368], right_elbow: [450, 368], nose: [320, 310] });
   let r = run(seq(0, 500, () => el(270)).concat(seq(500, 2500, flat)));
-  check("elbows down (forearms flat) ends as elbows", r.out === "elbows" && r.at >= 1400, r.out + "@" + r.at);
+  check("elbows down (forearms flat, chest still off the floor) no longer ends the set (owner, Nov 16)", r.out === null, r.out + "@" + r.at);
   const bent = () => plank({ left_shoulder: [256, 300], right_shoulder: [384, 300], left_elbow: [180, 300], right_elbow: [460, 300], nose: [320, 280] });
   r = run(seq(0, 500, () => el(270)).concat(seq(500, 4000, bent)));
   check("normal deep descent (elbows above hands) does not end", r.out === null, String(r.out));
@@ -115,7 +117,7 @@ check("pickup is off: endOn.lifted false, no Phone picked up text", SS.FAIL.endO
   for (let t = 3000; t < 8000; t += 33) { const f = w.update(good(), t, 128, { frameW: W, atTop: (t % 2000) < 1000, reps: 1 + Math.floor((t - 3000) / 2000) }); if (f) out = f; }
   check("later reps matching the baseline keep going", out === null, String(out));
   let at = null; for (let t = 8000; t < 10500; t += 33) { const f = w.update(sag(), t, 128, { frameW: W, atTop: true, reps: 4 }); if (f && !out) { out = f; at = t; } }
-  check("later-rep break vs baseline (hips out of line) ends as form", out === "form" && at - 8000 >= 950, out + "@" + at); }
+  check("later-rep hard hip sag vs baseline ends as collapse after 1.5 s (owner, Nov 16)", out === "collapse" && at - 8000 >= 1450, out + "@" + at); }
 
 check("page passes the rested-lean options into both failure watches and the battle judge", (() => {
   const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");

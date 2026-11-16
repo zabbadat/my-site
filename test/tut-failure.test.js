@@ -20,7 +20,7 @@ check("shoulders shrink (leaned-up camera, long top hold) never ends the set", r
 r = run(seq(0, 3000, () => upper()).concat(seq(3000, 3900, () => upper(60)), seq(3900, 6000, () => upper())));
 check("shrink for 0.9 s then back: no failure", r.out === null);
 r = run(seq(0, 3000, () => upper()).concat(seq(3000, 14000, () => [])));
-check(`out of frame for 10 s fails as 'frame' (at ${r.at - 3000 + 33} ms)`, r.out === "frame" && r.at - 3000 >= 9950 && r.at - 3000 < 10100);
+check("out of frame for 11 s never fails (owner, Nov 16)", r.out === null);
 { const w = SS.createFailureWatch(); w.reset(0); let out = null;
   for (const [t, k] of seq(0, 3000, () => upper()).concat(seq(3000, 14000, () => []))) { const f = w.update(k, t, 128, { frameW: 640, skipFrame: true }); if (f && !out) out = f; }
   check("TUT skipFrame: 10 s out of frame does not end the set", out === null && w.failed() === null); }
@@ -29,8 +29,8 @@ check("out of frame 1.9 s then back: no failure", r.out === null);
 r = run(seq(0, 3000, () => upper()).concat(seq(3000, 8000, (t) => (Math.floor(t / 400) % 2 ? [] : upper()))));
 check("flickering tracking (every other 0.4 s lost) is not a failure", r.out === null);
 check("uncertain legs (low confidence knees) never read as kneeling", run(seq(0, 5000, () => upper().concat(K({ left_hip: [300, 400], left_knee: [330, 300], left_ankle: [310, 420] }, 0.1)))).out === null);
-{ const w = SS.createFailureWatch(); w.reset(0); w.update(upper(), 0, 128); for (let t = 33; t < 10500; t += 33) w.update([], t, 128); const f = w.update(upper(), 10600, 128);
-  check("once failed it stays failed until reset(); reset clears it", f === "frame" && w.failed() === "frame" && (w.reset(11000), w.failed() === null && w.update(upper(), 11033, 128) === null)); }
+{ const w = SS.createFailureWatch({ endOn: { frame: true } }); w.reset(0); w.update(upper(), 0, 128); for (let t = 33; t < 10500; t += 33) w.update([], t, 128); const f = w.update(upper(), 10600, 128);
+  check("once failed it stays failed until reset(); reset clears it (frame option on for this check only)", f === "frame" && w.failed() === "frame" && (w.reset(11000), w.failed() === null && w.update(upper(), 11033, 128) === null)); }
 
 // ---- normal reps never fail: real counter on synthetic front-view reps (fast, slow, long bottom pause, 10 s top hold, noisy/dropped points)
 function normal(segs, cfg) {
@@ -90,8 +90,7 @@ check("TUT copy says the set ends and time reps and tut sets will post (no 'void
 // ---- regular Sets: no timed voice, no failure. Sets-mode code path speaks only rep numbers and the start coaching.
 check("regular Sets get NO 15 s count: the one tutTimeVoice.tick call is gated on long/challenge only", html.split("tutTimeVoice.tick(").length === 2 && /\(pushMode === "long" \|\| pushMode === "challenge"\) && pushState\.running && !pushState\.finished\) tutTimeVoice\.tick\(now\)/.test(html));
 check("regular Sets: no 15 s count; Set complete. is spoken on finish (7 interruptSpeak call sites: speakSetDone + void/finish fallbacks, TUT Battle loss, TUT go-cue, 30-second hold cue, sayPushHint); plank lines use queued plankSpeak", (html.match(/interruptSpeak\(/g) || []).length === 7 && (html.match(/GSh\.interruptSpeak\(line\.replace/g) || []).length === 1 && !/pushMode === "sets"[^\n]*tick\(/.test(html));
-{ const sets = html.slice(html.indexOf('if ($("pushPauseBtn")) $("pushPauseBtn").onclick'), html.indexOf('if ($("pushFinishBtn"))'));
-  check("Sets pause/resume path has no voice or failure code", !/tutTimeVoice|failWatch|voidTutSet|interruptSpeak/.test(sets)); }
+check("Sets panel has no Pause / Finish set / Reset total buttons or handlers (owner, Nov 16: Start set only)", !/pushPauseBtn|pushFinishBtn|pushTotalResetBtn/.test(html));
 
 // ---- 3:00 challenge voice: marks 15..165 s, never a '3 minutes' (renderPush returns into finishChallenge at 180 s first)
 { const said = []; const v = G.makeHoldVoice({ polite: true, speak: (w) => said.push(w), busy: () => false });
