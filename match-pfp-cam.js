@@ -152,8 +152,8 @@
     if (src.kind === "photo") {
       if (photo && photo._src === src.src && photo.ok) return;
       photo = { _src: src.src, ok: false, el: null };
-      loadImg(src.src).then(function (im) { if (photo && photo._src === src.src) { photo.el = im; photo.ok = !!im; } });
-    } else { photo = null; }
+      loadImg(src.src).then(function (im) { if (photo && photo._src === src.src) { photo.el = im; photo.ok = !!im; coverPainted = false; } });
+    } else { photo = null; coverPainted = false; }
     ensureLogo();
   }
   function drawAvatar(x, m) {
@@ -174,7 +174,21 @@
   }
   function clearOverlay() {
     var cv = $("zmCamOverlay"); if (!cv) return;
+    cv.style.display = "none"; cv.style.transform = "none";
+    coverPainted = false;
     var x = cv.getContext && cv.getContext("2d"); if (x) { x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cv.width, cv.height); }
+  }
+  var COVER_S = 128, coverPainted = false, coverPaintedOk = false;
+  function paintCoverBitmap(cv) {
+    var dpr = (box && box.dpr) || Math.min((root.devicePixelRatio || 1), 2), W = Math.round(COVER_S * dpr);
+    if (cv.width !== W || cv.height !== W) { cv.width = W; cv.height = W; coverPainted = false; }
+    if (coverPainted && coverPaintedOk === !!(logoImg || (photo && photo.ok))) return;
+    var x = cv.getContext("2d");
+    x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, COVER_S, COVER_S);
+    drawAvatar(x, { x: COVER_S / 2, y: COVER_S / 2, r: COVER_S / 2 });
+    coverPainted = true; coverPaintedOk = !!(logoImg || (photo && photo.ok));
+    cv.style.width = COVER_S + "px"; cv.style.height = COVER_S + "px";
+    cv.style.transformOrigin = "0 0"; cv.style.willChange = "transform"; cv.style.pointerEvents = "none"; cv.style.position = "absolute";
   }
   async function getDetector() {
     if (typeof root.ensurePushPose === "function") return root.ensurePushPose();
@@ -188,11 +202,15 @@
   }
   function perfNow() { return root.performance && typeof root.performance.now === "function" ? root.performance.now() : Date.now(); }
   var box = null, painting = 0;
-  function paintAt(c) { // overlay draw with the box measured on the last pose frame (no layout reads between frames)
+  function paintAt(c) { // overlay place with the box measured on the last pose frame (no layout reads between frames); CSS transform only
     var cv = $("zmCamOverlay"); if (!cv || !box) return;
-    var x = cv.getContext("2d"); x.setTransform(box.dpr, 0, 0, box.dpr, 0, 0); x.clearRect(0, 0, box.bw, box.bh);
     var lib = pfp(), m = c && lib && lib.mapToBox ? lib.mapToBox(c, box.fw, box.fh, box.bw, box.bh, box.fit) : (c && box.fw > 0 ? { x: c.x * box.bw / box.fw, y: c.y * box.bh / box.fh, r: c.r * box.bw / box.fw } : null);
-    if (m) drawAvatar(x, m);
+    if (!m) { cv.style.display = "none"; return; }
+    paintCoverBitmap(cv);
+    cv.style.left = (box.left != null ? box.left : 0) + "px";
+    cv.style.top = (box.top != null ? box.top : 0) + "px";
+    cv.style.transform = "translate(" + (m.x - COVER_S / 2) + "px," + (m.y - COVER_S / 2) + "px) scale(" + ((2 * m.r) / COVER_S) + ")";
+    cv.style.display = "block";
   }
   // Between pose frames: redraw at the tracker's predicted spot every screen refresh, so the avatar never freezes.
   function paintLoop(id) {
@@ -220,18 +238,18 @@
         var c = floater.step(kps, t, fw, fh, perfNow());
         if (cv && vid.parentNode) {
           var bw = vid.clientWidth, bh = vid.clientHeight, dpr = Math.min((root.devicePixelRatio || 1), 2);
-          var W = Math.round(bw * dpr), H = Math.round(bh * dpr);
-          if (cv.width !== W) cv.width = W; if (cv.height !== H) cv.height = H;
-          cv.style.left = vid.offsetLeft + "px"; cv.style.top = vid.offsetTop + "px";
-          cv.style.width = bw + "px"; cv.style.height = bh + "px";
           var fit = "fill"; try { fit = root.getComputedStyle(vid).objectFit || "fill"; } catch (e) {}
-          box = { bw: bw, bh: bh, dpr: dpr, fw: fw, fh: fh, fit: fit };
+          box = { bw: bw, bh: bh, dpr: dpr, fw: fw, fh: fh, fit: fit, left: vid.offsetLeft, top: vid.offsetTop };
           paintAt(c);
           paintLoop(id);
         }
       }
     } catch (e) {}
-    if (id === loopId && on && isShow()) root.requestAnimationFrame(function () { tick(id); }); else if (id === loopId) looping = false;
+    if (id === loopId && on && isShow()) {
+      var v = $("zmCamVid");
+      if (v && typeof v.requestVideoFrameCallback === "function") v.requestVideoFrameCallback(function () { tick(id); });
+      else root.requestAnimationFrame(function () { tick(id); });
+    } else if (id === loopId) looping = false;
   }
   function stopTracks() {
     if (stream) { try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} stream = null; }

@@ -33,6 +33,7 @@ const postureGuard = window.ZabbadatSession.createPostureGuard();
 let camStream = null, camOn = false, poseDetector = null, poseLoopOn = false, poseLoopId = 0, pushCounter = null; function syncPushStartBtn() {}
 async function loadCamLibs() { if (!pushCounter) pushCounter = window.ZabbadatPush.createCounter(${JSON.stringify(opts)}); }
 async function ensurePose() { return poseDetector || (poseDetector = { estimatePoses: async () => [{ keypoints: frame(performance.now()) }] }); }
+function camNextFrame(vid, fn) { requestAnimationFrame(fn); }
 ${native && html.includes("function sayPushHint(") ? "let pushCoach = " + (coach ? "window.ZabbadatPushCoach.createCoach(" + coach + ")" : "null") + ", pushHintSaid = { line: '', at: -1e9 };" : ""}
 function renderPush() {} function finishChallenge() { log.push("finishChallenge"); } let lastCamStatus = "";
 `;

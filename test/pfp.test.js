@@ -18,14 +18,21 @@ check("initial from name, then X handle, then email, else Z", PF.initialOf({ dis
 const K = (o, s = 0.9) => Object.entries(o).map(([name, [x, y]]) => ({ name, x, y, score: s }));
 const face = K({ nose: [320, 200], left_eye: [300, 185], right_eye: [340, 185], left_ear: [280, 195], right_ear: [360, 195], left_shoulder: [240, 300], right_shoulder: [400, 300] });
 const c = PF.faceCircle(face);
-check(`circle centred on the face (x ${c && c.x.toFixed(0)}, y ${c && c.y.toFixed(0)})`, c && Math.abs(c.x - 320) < 3 && c.y > 185 && c.y < 200);
+check(`circle centred on the ear midpoint, not pulled toward the nose (x ${c && c.x.toFixed(0)}, y ${c && c.y.toFixed(0)})`, c && Math.abs(c.x - 320) < 1e-9 && Math.abs(c.y - 195) < 1e-9);
 check(`radius covers ear-to-ear and eye spread generously (r ${c && c.r.toFixed(0)} >= 60)`, c && c.r >= 60 && c.r >= (PF.P.eyeK * 40) / 2);
 check("every face keypoint lies inside the circle", c && face.slice(0, 5).every((k) => Math.hypot(k.x - c.x, k.y - c.y) < c.r));
 { const sh = PF.headCircle(K({ left_shoulder: [240, 300], right_shoulder: [400, 300] }), 640, 480);
   check(`head down / hooded: logo estimated from shoulders (x ${sh && sh.x}, y ${sh && sh.y.toFixed(0)}, r ${sh && sh.r.toFixed(0)})`, sh && sh.src === "shoulders" && sh.x === 320 && Math.abs(sh.y - (300 - 160 * 0.55)) < 1e-9 && Math.abs(sh.r - 160 * 0.483) < 1e-9);
   const hood = PF.headCircle(K({ nose: [320, 200], left_shoulder: [240, 300], right_shoulder: [400, 300] }), 640, 480);
   check("hood fabric 'nose' is ignored: shoulders decide", hood && hood.src === "shoulders");
-  const hf = PF.headCircle(face, 640, 480); check(`face present: face decides, x1.65 padding (r ${hf.r.toFixed(1)} = ${(PF.P.eyeK * 40 / 2 * 1.65).toFixed(1)})`, hf.src === "face" && Math.abs(hf.r - (PF.P.eyeK * 40) / 2 * 1.65) < 1e-9);
+  const hf = PF.headCircle(face, 640, 480);
+  const faceR = (PF.P.eyeK * 40) / 2 * PF.P.padK, top = 195 - faceR, idealY = top + Math.max(faceR, 160 * PF.P.shR, (300 - top) / 2);
+  const oldY = (185 * 2 + 200) / 3, oldOff = Math.hypot(320 - 320, oldY - idealY), newOff = Math.hypot(hf.x - 320, hf.y - idealY);
+  check(`face + shoulders: cover recentred over face and shoulders (x ${hf.x.toFixed(1)}, y ${hf.y.toFixed(1)}, r ${hf.r.toFixed(1)}; before ${oldOff.toFixed(1)} px off, after ${newOff.toFixed(1)} px)`, hf.src === "face" && Math.abs(hf.x - 320) < 1e-9 && newOff < 1 && newOff < oldOff && hf.y + hf.r >= 300 - 1e-6 && (hf.y - hf.r) <= top + 1e-6);
+  // Nose-shifted 3/4 face: old centre mixed the nose in (pulled right); new uses ear midpoint + shoulders.
+  const turned = K({ nose: [355, 200], left_eye: [300, 185], right_eye: [340, 185], left_ear: [280, 195], right_ear: [360, 195], left_shoulder: [240, 300], right_shoulder: [400, 300] });
+  const ht = PF.headCircle(turned, 640, 480), oldTurnedX = (320 + 355) / 2, newTurnedOff = Math.abs(ht.x - 320), oldTurnedOff = Math.abs(oldTurnedX - 320);
+  check(`turned face: horizontal offset ${oldTurnedOff.toFixed(1)} px -> ${newTurnedOff.toFixed(1)} px`, newTurnedOff < 1 && newTurnedOff < oldTurnedOff);
   const big = PF.headCircle(K({ left_shoulder: [0, 470], right_shoulder: [640, 470] }), 640, 480); check(`caps: r <= 0.40 x shorter side (${big.r} <= 192)`, Math.abs(big.r - 192) < 1e-9);
   const tiny = PF.headCircle(K({ left_shoulder: [300, 300], right_shoulder: [310, 300] }), 640, 480); check("caps: min radius 10 px", tiny && tiny.r === 10);
   check("no shoulders and no face: nothing drawn", PF.headCircle(K({ left_wrist: [100, 400] }), 640, 480) === null);
@@ -76,7 +83,8 @@ function loadPfp(w) { const ctx = Object.assign({}, w); ctx.window = ctx; vm.cre
   P.frame(D.vid, face, 0); check("switch off: no overlay canvas created", D.parent.children.length === 0 && P.isOn() === false);
   P.setOn(true); const ret = P.frame(D.vid, face, 33);
   check("switch on: one canvas overlaid after the video; frame() returns nothing", D.parent.children.length === 1 && D.parent.children[0].className === "pfp-cover" && ret === undefined);
-  check("canvas is placed over the video box and drew a clipped circle", D.parent.children[0].style.top === "40px" && D.parent.children[0].style.width === "320px" && D.calls.includes("clip") && D.calls.includes("arc"));
+  const cv = D.parent.children[0];
+  check("canvas is placed over the video box and drew a clipped circle", cv.style.top === "40px" && /translate\(/.test(cv.style.transform) && D.calls.includes("clip") && D.calls.includes("arc"));
   check("keypoints never mutated (frozen input, same values)", JSON.stringify(face) === JSON.stringify(frozen));
   let threw = false; try { P.frame(D.vid, null, 50); P.frame(null, face, 60); P.frame({}, face, 70); P.frame(D.vid, [{ x: "a" }], 80); P.frame(D.vid, face, NaN); } catch (e) { threw = true; } check("junk inputs never throw", !threw);
   const D2 = fakeDom(store); D2.vid.parentNode = { insertBefore() { throw new Error("boom"); } }; threw = false; try { P.frame(D2.vid, face, 90); } catch (e) { threw = true; } check("a DOM failure inside the overlay is swallowed", !threw);

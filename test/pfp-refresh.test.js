@@ -44,8 +44,9 @@ const F = (x, y = 200) => K({ nose: [x, y + 10], left_eye: [x - 20, y], right_ey
   const flush = (ms) => { now += ms; const f = q.splice(0); f.forEach((g) => g()); };
   let t = 0; for (; t < 600; t += 66) { now = t + 40; P.frame(vid, F(200 + t * 0.4), t); }
   check("one rAF loop per camera (not one per pose frame)", q.length === 1);
-  calls.length = 0; const h0 = P.lastHead("camVid", now).x; flush(16); flush(16); const h1 = P.lastHead("camVid", now).x;
-  check(`between pose frames: redrawn every refresh (${calls.filter((c) => c === "arc").length / 2} draws in 2 refreshes) and moving (+${(h1 - h0).toFixed(1)} px)`, calls.filter((c) => c === "arc").length >= 4 && h1 > h0);
+  const cover = parent.children[0];
+  calls.length = 0; const t0 = cover.style.transform, h0 = P.lastHead("camVid", now).x; flush(16); flush(16); const h1 = P.lastHead("camVid", now).x;
+  check(`between pose frames: CSS transform updates every refresh (no full redraw) and moving (+${(h1 - h0).toFixed(1)} px)`, cover.style.transform !== t0 && !calls.includes("arc") && h1 > h0);
   P.setOn(false); flush(16); check("switch off: the refresh loop stops", q.length === 0);
   P.setOn(true); now = t + 40; P.frame(vid, F(200), t); check("switch on again: loop restarts with the next pose frame", q.length === 1);
   now += 2000; flush(16); check("pose frames stop (camera off): the refresh loop stops by itself", q.length === 0);

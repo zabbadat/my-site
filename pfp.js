@@ -13,19 +13,24 @@
   "use strict";
   var KEY = "zabPfpOn";
   var P = { minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: 1000, holdGrow: 1.18, clearMs: 1200,
-    minCut: 0.8, beta: 4, dCut: 2.5, leadMax: 150, leadCap: 0.4, leadV0: 1, leadV1: 3, vCut: 8, snapMs: 350, rafDraw: true, fitMs: 1000,
-    shUp: 0.55, shR: 0.483, sideK: 0.35, minR: 10, maxRFrac: 0.40, plankR: 0.25, miniFps: 15, miniSize: 44, logo: "/zd-square.png" };
-  // Sizes: face r = (ear-to-ear or eye spread x2.7)/2 x padK 1.65; shoulders r = shoulder width x shR 0.483 (0.42 x1.15),
-  // centre shUp 0.55 shoulder widths above the shoulder midpoint; r capped to [minR px, maxRFrac 0.40 (0.35 x1.15) x the shorter frame side].
+    minCut: 0.8, beta: 6, dCut: 2.5, leadMax: 180, leadCap: 0.45, leadV0: 0.75, leadV1: 2.5, vCut: 12, snapMs: 350, rafDraw: true, fitMs: 1000,
+    shUp: 0.55, shR: 0.483, sideK: 0.35, sideUp: 0.35, minR: 10, maxRFrac: 0.40, plankR: 0.28, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png" };
+  // Sizes: face r = (ear-to-ear or eye spread x2.7)/2 x padK 1.65; when shoulders are also visible the cover is recentred
+  // on the midpoint of the face (ears, else eyes) and the shoulder midpoint, vertically from the top of the face circle
+  // down toward the shoulders, r = max(face r, shoulder width x shR, half the face-top-to-shoulder span). Shoulders-only:
+  // centre shUp 0.55 shoulder widths above the shoulder midpoint, r = sw x shR. Side-on: just past the shoulder on the
+  // hip->shoulder line (sideUp 0.35 of the torso), r = torso x plankR 0.28. r capped to [minR px, maxRFrac 0.40 x the shorter frame side].
   // Follow speed (Nov 15): One Euro filter on the centre, speed measured in head radii per second: minCut Hz when still (steady,
   // no shimmer), + beta x speed when moving (near-raw, little lag). Lead: the drawn spot is pushed ahead along the filtered
   // velocity by the time the pose took to come back (frame stamp -> draw, max leadMax ms), only once the head is really
   // moving (leadV0..leadV1 r/s ramp) and never more than leadCap x r. Visual only: the counter's keypoints are never touched.
-  // Quicker (Nov 16): the logo is redrawn on every screen refresh (rafDraw) from the tracker's prediction for that moment,
+  // Quicker (Nov 16): the logo is moved on every screen refresh (rafDraw) from the tracker's prediction for that moment,
   // not only when a pose frame lands (10-15 per second on phones), so it no longer freezes between frames. Prediction uses
   // its own quick velocity (vCut Hz); the steadiness at rest still comes from the slower speed estimate (dCut Hz) and the
   // leadV0 r/s dead zone. Lead stops the moment the head itself stops; up to leadMax ms / leadCap x r ahead. After the face
   // was gone snapMs+, it snaps straight onto the head when it comes back (no slide in from the old spot).
+  // Sharper (Nov 16 later): the cover is a small canvas placed with a CSS transform (GPU) instead of a full-frame redraw;
+  // One Euro is a bit quicker (beta / vCut / lead) while the rest dead zone is unchanged.
 
   function photoUrl(user) {
     if (!user) return "";
@@ -61,24 +66,47 @@
     if (!head) { var xs = face.map(function (k) { return k.x; }), ys = face.map(function (k) { return k.y; }); head = Math.max(Math.max.apply(null, xs) - Math.min.apply(null, xs), Math.max.apply(null, ys) - Math.min.apply(null, ys)) * 2.4; }
     if (!(head > 4)) return null;
     var cx, cy;
-    if (eyes.length === 2) { cx = (le.x + re.x) / 2; cy = (le.y + re.y) / 2; if (ok(nose)) { cx = (cx + nose.x) / 2; cy = (cy * 2 + nose.y) / 3; } }
+    // Horizontal + vertical: midpoint of the ears when both show (head centre), else the eyes, else the face cluster.
+    // The nose is never mixed in: it sits low and off-centre on a turned face and pulled the logo down / sideways.
+    if (ok(lear) && ok(rear)) { cx = (lear.x + rear.x) / 2; cy = (lear.y + rear.y) / 2; }
+    else if (eyes.length === 2) { cx = (le.x + re.x) / 2; cy = (le.y + re.y) / 2; }
     else { cx = face.reduce(function (s, k) { return s + k.x; }, 0) / face.length; cy = face.reduce(function (s, k) { return s + k.y; }, 0) / face.length; }
     return { x: cx, y: cy, r: (head / 2) * P.padK };
   }
   // Head circle for the logo: the face cluster when it is there, else estimated from the shoulders (head down / hooded:
   // the logo still sits on the head). frameW/frameH (video px) only cap the size.
-  function headCircle(kps, frameW, frameH) {
-    var c = faceCircle(kps), src = "face";
-    if (!c && kps && kps.length) {
-      var by = byName(kps);
-      var ls = by.left_shoulder || (kps[5] && !kps[5].name ? kps[5] : null), rs = by.right_shoulder || (kps[6] && !kps[6].name ? kps[6] : null);
-      var so = sideOn(by);
-      if (ok(ls) && ok(rs)) { var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y); if (sw > 8 && !(so && sw < so.L * P.sideK)) { c = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 - sw * P.shUp, r: sw * P.shR }; src = "shoulders"; } }
-      if (!c && so) { c = so; src = "side"; } // side-on (plank, plank push press from the side): shoulders overlap, so use the body line
-    }
+  function capCircle(c, src, frameW, frameH) {
     if (!c) return null;
     var maxR = frameW > 0 && frameH > 0 ? P.maxRFrac * Math.min(frameW, frameH) : Infinity;
     return { x: c.x, y: c.y, r: Math.max(P.minR, Math.min(maxR, c.r)), src: src };
+  }
+  // Cover over face + shoulders: centred horizontally on the midpoint of the face (ears/eyes) and the shoulders;
+  // vertically the circle starts at the top of the face and reaches toward the shoulder line; size from head and shoulder width.
+  function coverCircle(face, ls, rs) {
+    var shx = (ls.x + rs.x) / 2, shy = (ls.y + rs.y) / 2, sw = Math.hypot(ls.x - rs.x, ls.y - rs.y);
+    var cx = (face.x + shx) / 2, top = face.y - face.r, r = Math.max(face.r, sw * P.shR, (shy - top) / 2);
+    if (!(r > 0)) r = face.r;
+    var cy = top + r, need = Math.hypot(face.x - cx, face.y - cy) + face.r * 0.5;
+    if (need > r) { r = need; cy = top + r; }
+    return { x: cx, y: cy, r: r };
+  }
+  function shoulderCircle(ls, rs) {
+    var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y);
+    return sw > 8 ? { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 - sw * P.shUp, r: sw * P.shR } : null;
+  }
+  function headCircle(kps, frameW, frameH) {
+    var face = faceCircle(kps), by = kps && kps.length ? byName(kps) : {}, ls, rs, so, c, src;
+    ls = by.left_shoulder || (kps && kps[5] && !kps[5].name ? kps[5] : null);
+    rs = by.right_shoulder || (kps && kps[6] && !kps[6].name ? kps[6] : null);
+    so = sideOn(by);
+    if (face && ok(ls) && ok(rs)) {
+      var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y);
+      if (sw > 8 && !(so && sw < so.L * P.sideK)) return capCircle(coverCircle(face, ls, rs), "face", frameW, frameH);
+    }
+    if (face) return capCircle(face, "face", frameW, frameH);
+    if (ok(ls) && ok(rs)) { c = shoulderCircle(ls, rs); if (c && !(so && Math.hypot(ls.x - rs.x, ls.y - rs.y) < so.L * P.sideK)) return capCircle(c, "shoulders", frameW, frameH); }
+    if (so) return capCircle(so, "side", frameW, frameH);
+    return null;
   }
   function byName(kps) { var by = {}; for (var i = 0; i < kps.length; i++) if (kps[i] && kps[i].name) by[kps[i].name] = kps[i]; return by; }
   // Side-on head estimate: just past the shoulder on the hip->shoulder line, r from the torso length. null without a
@@ -87,16 +115,19 @@
     var pick = function (a, b) { return ok(by[a]) && ok(by[b]) ? [by[a], by[b]] : null; }, pr = pick("left_shoulder", "left_hip") || pick("right_shoulder", "right_hip");
     if (!pr) return null;
     var sh = pr[0], hp = pr[1], L = Math.hypot(sh.x - hp.x, sh.y - hp.y);
-    return L > 20 ? { x: sh.x + (sh.x - hp.x) * 0.45, y: sh.y + (sh.y - hp.y) * 0.45, r: L * P.plankR, L: L } : null;
+    return L > 20 ? { x: sh.x + (sh.x - hp.x) * P.sideUp, y: sh.y + (sh.y - hp.y) * P.sideUp, r: L * P.plankR, L: L } : null;
   }
   // Plank (side-on): the face cluster if it shows; else the head sits on the hip->shoulder line just past the shoulder
   // (side-on shoulders overlap, so the shoulder-width estimate is useless there); else the usual shoulder estimate.
   function plankHead(kps, frameW, frameH) {
-    var c = faceCircle(kps);
-    if (!c && kps && kps.length) { var so = sideOn(byName(kps)); if (so) c = { x: so.x, y: so.y, r: so.r, src: "plank" }; }
-    if (!c) return headCircle(kps, frameW, frameH);
-    var maxR = frameW > 0 && frameH > 0 ? P.maxRFrac * Math.min(frameW, frameH) : Infinity;
-    return { x: c.x, y: c.y, r: Math.max(P.minR, Math.min(maxR, c.r)), src: c.src || "plank" };
+    var face = faceCircle(kps), by = kps && kps.length ? byName(kps) : {}, so = sideOn(by);
+    var ls = by.left_shoulder || (kps && kps[5] && !kps[5].name ? kps[5] : null);
+    var rs = by.right_shoulder || (kps && kps[6] && !kps[6].name ? kps[6] : null);
+    var sw = ok(ls) && ok(rs) ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : 0;
+    if (face && sw > 8 && !(so && sw < so.L * P.sideK)) return capCircle(coverCircle(face, ls, rs), "face", frameW, frameH);
+    if (face) return capCircle(face, "plank", frameW, frameH);
+    if (so) return capCircle(so, "plank", frameW, frameH);
+    return headCircle(kps, frameW, frameH);
   }
   // One Euro low-pass (Casiez et al. 2012): alpha from a cutoff that rises with speed. Pure.
   function lpA(cut, dtS) { var tau = 1 / (2 * Math.PI * cut); return 1 / (1 + tau / dtS); }
@@ -169,7 +200,7 @@
     var k = S / side, lx = S - (rawX - sx) * k; // back to display (mirrored) coords inside the mini canvas
     return { sx: sx, sy: sy, side: side, logo: { x: lx, y: (c.y - sy) * k, r: c.r * k } };
   }
-  var api = { photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
+  var api = { photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, coverCircle: coverCircle, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 
   // ---- browser side ----
@@ -177,7 +208,7 @@
   var user = null, img = null, imgUrl = "", imgOk = false, overlays = {}, logo = null, logoOk = false, mini = { cv: null, lastT: -1e9, timer: null };
   function ensureLogo() {
     if (logo || typeof Image === "undefined") return;
-    logo = new Image(); logo.decoding = "async"; logo.onload = function () { logoOk = true; }; logo.onerror = function () { logoOk = false; }; logo.src = P.logo;
+    logo = new Image(); logo.decoding = "async"; logo.onload = function () { logoOk = true; for (var k in overlays) overlays[k].painted = false; }; logo.onerror = function () { logoOk = false; }; logo.src = P.logo;
   }
   function drawLogo(x, m) { // round-clipped Zabbadat mark (or a gradient Z if the file failed) + thin ring
     x.save(); x.beginPath(); x.arc(m.x, m.y, m.r, 0, Math.PI * 2); x.closePath(); x.clip();
@@ -241,34 +272,62 @@
     var id = vid.id || "v", o = overlays[id];
     if (o && o.cv.parentNode && o.vid === vid) return o;
     var cv = doc.createElement("canvas"); cv.className = "pfp-cover"; cv.setAttribute("aria-hidden", "true");
-    cv.style.cssText = "position:absolute;pointer-events:none;z-index:2;left:0;top:0;width:0;height:0";
+    cv.style.cssText = "position:absolute;pointer-events:none;z-index:2;left:0;top:0;width:" + P.coverS + "px;height:" + P.coverS + "px;transform-origin:0 0;will-change:transform;display:none";
     vid.parentNode.insertBefore(cv, vid.nextSibling);
-    o = overlays[id] = { cv: cv, vid: vid, tr: createTracker(), timer: null };
+    o = overlays[id] = { cv: cv, vid: vid, tr: createTracker(), timer: null, painted: false };
     return o;
   }
-  function clearOne(o) { try { if (o.timer) clearTimeout(o.timer); o.timer = null; o.box = null; var x = o.cv.getContext("2d"); x.clearRect(0, 0, o.cv.width, o.cv.height); o.cv.style.display = "none"; o.tr.reset(); } catch (e) {} }
+  function clearOne(o) { try { if (o.timer) clearTimeout(o.timer); o.timer = null; o.box = null; o.cv.style.display = "none"; o.cv.style.transform = "none"; o.tr.reset(); } catch (e) {} }
   // Switch off: no overlay, no pending clear timers, no mini-feed, no head spot left for recordings.
   function clearAll() { for (var k in overlays) clearOne(overlays[k]); miniStop(); for (var h in heads) heads[h] = null; }
-  // Between pose frames (screen refresh): same box as the last full draw, no layout or style reads, just the new spot.
-  function redraw(o, c) {
-    if (!o.box || o.cv.style.display === "none") return false;
-    var b = o.box, m = mapToBox(c, b.vw, b.vh, b.bw, b.bh, b.fit), x = o.cv.getContext("2d");
-    x.setTransform(b.dpr, 0, 0, b.dpr, 0, 0); x.clearRect(0, 0, b.bw, b.bh);
-    if (m) drawLogo(x, m);
+  // Camera left / End set / fail exit: drop this video's cover at once (do not wait for clearMs).
+  function clear(id) {
+    try {
+      if (id) { if (overlays[id]) clearOne(overlays[id]); heads[id] = null; }
+      else clearAll();
+      var any = false; for (var h in heads) if (heads[h]) { any = true; break; }
+      if (!any) miniStop();
+    } catch (e) {}
+  }
+  // Paint the logo once onto the small cover canvas (S x S CSS). Moving it later is a CSS transform only.
+  function paintCover(o) {
+    var S = P.coverS, dpr = Math.min(root.devicePixelRatio || 1, 2), W = Math.round(S * dpr);
+    if (o.cv.width !== W || o.cv.height !== W) { o.cv.width = W; o.cv.height = W; o.painted = false; }
+    if (o.painted && o.paintedOk === logoOk) return;
+    var x = o.cv.getContext("2d");
+    x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, S, S);
+    drawLogo(x, { x: S / 2, y: S / 2, r: S / 2 });
+    o.painted = true; o.paintedOk = logoOk;
+    o.cv.style.width = S + "px"; o.cv.style.height = S + "px";
+  }
+  // Place the small cover over the mapped circle with a GPU transform (no full-frame redraw).
+  function placeCover(o, m) {
+    if (!m) { o.cv.style.display = "none"; return false; }
+    paintCover(o);
+    var S = P.coverS, b = o.box;
+    o.cv.style.left = (b && b.left != null ? b.left : 0) + "px";
+    o.cv.style.top = (b && b.top != null ? b.top : 0) + "px";
+    o.cv.style.transform = "translate(" + (m.x - S / 2) + "px," + (m.y - S / 2) + "px) scale(" + ((2 * m.r) / S) + ")";
+    o.cv.style.display = "block";
     return true;
   }
+  // Between pose frames (screen refresh): same box as the last full draw, no layout or style reads, just a new transform.
+  function redraw(o, c) {
+    if (!o.box || o.cv.style.display === "none") return false;
+    var b = o.box, m = mapToBox(c, b.vw, b.vh, b.bw, b.bh, b.fit);
+    return placeCover(o, m);
+  }
   function draw(o, c) {
-    var vid = o.vid, cv = o.cv, bw = vid.clientWidth, bh = vid.clientHeight; o.box = null;
+    var vid = o.vid, bw = vid.clientWidth, bh = vid.clientHeight; o.box = null;
     if (!(bw > 0 && bh > 0)) { clearOne(o); return; }
-    var dpr = Math.min(root.devicePixelRatio || 1, 2), W = Math.round(bw * dpr), H = Math.round(bh * dpr);
-    if (cv.width !== W) cv.width = W; if (cv.height !== H) cv.height = H;
-    cv.style.left = vid.offsetLeft + "px"; cv.style.top = vid.offsetTop + "px"; cv.style.width = bw + "px"; cv.style.height = bh + "px"; cv.style.display = "block";
-    var now = Date.now(), fit = o.fit; if (!fit || !(now - o.fitT < P.fitMs)) { fit = "fill"; try { fit = root.getComputedStyle(vid).objectFit || "fill"; } catch (e) {} o.fit = fit; o.fitT = now; } // style read ~1/s, not every frame
+    var dpr = Math.min(root.devicePixelRatio || 1, 2);
+    // Re-read object-fit when the box size changes (entering full screen flips fill -> contain) and at most once per fitMs otherwise.
+    var now = Date.now(), fit = o.fit, sizeKey = bw + "x" + bh + "x" + (vid.videoWidth || 0) + "x" + (vid.videoHeight || 0);
+    if (!fit || o.sizeKey !== sizeKey || !(now - o.fitT < P.fitMs)) { fit = "fill"; try { fit = root.getComputedStyle(vid).objectFit || "fill"; } catch (e) {} o.fit = fit; o.fitT = now; o.sizeKey = sizeKey; }
     var m = mapToBox(c, vid.videoWidth, vid.videoHeight, bw, bh, fit);
-    o.box = { vw: vid.videoWidth, vh: vid.videoHeight, bw: bw, bh: bh, fit: fit, dpr: dpr };
-    var x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, bw, bh);
-    if (!m) return;
-    drawLogo(x, m);
+    o.box = { vw: vid.videoWidth, vh: vid.videoHeight, bw: bw, bh: bh, fit: fit, dpr: dpr, left: vid.offsetLeft, top: vid.offsetTop };
+    if (!m) { o.cv.style.display = "none"; return; }
+    placeCover(o, m);
   }
   // Top-bar mini-feed: only while a pose loop is feeding frames (never opens a camera), ~15 fps, round crop around the head
   // with the logo on it. Reverts to the static photo / initial when frames stop or the switch goes off.
@@ -332,7 +391,7 @@
   var heads = {};
   // Last head circle (video px, display/mirrored space) for a video, and whether the logo is showing - read by rec.js.
   function lastHead(id, now) { if (!isOn()) return null; var h = heads[id]; if (!(h && h.c && (now == null || now - h.t < P.clearMs))) return null; if (h.timed && now != null) { try { return h.tr.at(now) || h.c; } catch (e) {} } return h.c; } // predicted for `now` (same clock as the pose loops)
-  api.lastHead = lastHead; api.drawLogo = function (x, m) { try { ensureLogo(); drawLogo(x, m); } catch (e) {} };
+  api.lastHead = lastHead; api.clear = clear; api.drawLogo = function (x, m) { try { ensureLogo(); drawLogo(x, m); } catch (e) {} };
   function plankFrame(vid, kps, phase, t) { frame(vid, kps, t, plankHead); }
   api.plankFrame = plankFrame;
   api.setUser = setUser; api.frame = frame; api.isOn = isOn; api.setOn = setOn; api.onChange = onChange; api.paintBadge = paintBadge;

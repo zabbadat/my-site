@@ -19,6 +19,7 @@ const det = { estimatePoses: async () => { estimates++; return []; } };
 async function ensurePose() { estimates++; return det; }
 function endPushOnCameraStop() {} function cancelPushStart() {} function camExitFs() {} function setCamStatus() {}
 ${fnSrc("syncPushStartBtn")}
+function camNextFrame(vid, fn) { if (vid && typeof vid.requestVideoFrameCallback === "function") vid.requestVideoFrameCallback(() => fn()); else requestAnimationFrame(fn); }
 async ${fnSrc("poseTick")}
 ${fnSrc("stopCam")}
 `, ctx);
@@ -46,7 +47,7 @@ ${fnSrc("stopCam")}
   check("startPush ignores a tap while running or starting", /async function startPush\(\) \{\n\s*if \(pushState\.running \|\| pushStarting\) return;/.test(html));
   check("startPlankCam ignores a tap while running or starting", /async function startPlankCam\(\) \{\n\s*if \(plankLoop \|\| plankStarting\) return;/.test(html));
   check("plank loop starts with a fresh loop id", html.includes("plankLoop = true; plankTick(++plankLoopId);"));
-  check("plank rAF chain re-arms only for the current loop id", html.includes("if (plankLoop && id === plankLoopId) requestAnimationFrame(() => plankTick(id));"));
+  check("plank chain re-arms only for the current loop id", html.includes("if ((plankLoop || plankPreview) && id === plankLoopId) camNextFrame(vid, () => plankTick(id));"));
   const sp = fnSrc("stopPlankCam");
   check("stopPlankCam bumps the loop id, stops tracks and clears srcObject", sp.includes("plankLoopId += 1") && sp.includes("getTracks().forEach((t) => t.stop())") && sp.includes('$("plankVid").srcObject = null'));
   check("nav height drives scroll-padding / scroll-margin (tiles clear the 120 px phone nav)", html.includes("scroll-padding-top: calc(var(--navh") && html.includes('setProperty("--navh"') && /#push \.stats[^{]*\{ scroll-margin-top: calc\(var\(--navh/.test(html));
