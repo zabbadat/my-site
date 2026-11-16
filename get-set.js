@@ -204,7 +204,7 @@
   // Camera setup prompt (max 2 short lines) shown while the camera loads and ~2 s after it opens, before the countdown.
   var POSITION = {
     pushups: ["Lean your phone up in front of you, camera facing you", "Shoulders and hands in frame"],
-    plank: ["Prop your phone on the floor, off to your side, sideways or upright.", "Step back until the outline shows your whole body, head to heels."]
+    plank: ["Prop your phone on the floor, off to your side, sideways or upright.", "Step back until the outline shows you head to heels."]
   };
   // Plank setup line is also SPOKEN once when the camera opens; the countdown waits for it to finish.
   POSITION_SPOKEN = { plank: POSITION.plank[0] };
@@ -242,7 +242,7 @@
   var COACH = {
     pushups: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Go all the way down and back up." },
     tut: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up." },
-    plank: { clock: "Clock starts when you start a proper plank.", next: NEXT_SET_LINE, place: "Prop your phone on the floor, off to your side, sideways or upright. Turn so the camera sees your side.", criteria: "Step back until the outline shows your whole body, head to heels.", rules: "Keep it steady. Hips sagging, hips piking up, knees down, standing up, or leaving the frame for a second, ends the hold." }
+    plank: { clock: "Clock starts on a proper plank.", next: NEXT_SET_LINE, place: "Prop your phone on the floor, off to your side, sideways or upright. Turn to show your side.", criteria: "Step back until the outline shows you head to heels.", rules: "Stay steady. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold." }
   };
   function coachLines(kind) { return COACH[kind] || COACH.pushups; }
   function positionPrompt(kind) { return (POSITION[kind] || POSITION.pushups).join("\n"); }
