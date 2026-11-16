@@ -3549,6 +3549,11 @@ async function visionRescue(pose, vid, t) {
   return mn;
 }
 
+// Next camera frame: prefer requestVideoFrameCallback (syncs to the video) and fall back to rAF.
+function camNextFrame(vid, fn) {
+  if (vid && typeof vid.requestVideoFrameCallback === "function") vid.requestVideoFrameCallback(() => fn());
+  else requestAnimationFrame(fn);
+}
 async function poseTick(id = poseLoopId) {
   if (id !== poseLoopId || !poseLoopOn || !camOn) return;
   const vid = $("camVid");
@@ -3625,7 +3630,7 @@ async function poseTick(id = poseLoopId) {
   } catch (e) {
     $("camNote").textContent = "Pose paused.";
   }
-  if (poseLoopOn && id === poseLoopId) requestAnimationFrame(() => poseTick(id));
+  if (poseLoopOn && id === poseLoopId) camNextFrame(vid, () => poseTick(id));
 }
 
 const CAM_CONSTRAINTS = { video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false };
@@ -3716,6 +3721,7 @@ function stopCam() {
   cancelPushStart("Start cancelled.");
   poseLoopOn = false; poseLoopId += 1;
   camOn = false;
+  try { if (window.ZabPfp && window.ZabPfp.clear) window.ZabPfp.clear("camVid"); } catch (e) {}
   if (camStream) camStream.getTracks().forEach((t) => t.stop());
   camStream = null;
   if ($("camVid")) $("camVid").srcObject = null;
@@ -3764,7 +3770,7 @@ paintPushRows(localPush());
 renderPush();
 // ---- Plank contest (side camera, pure logic in plank-session.js) ----
 let plankLoopId = 0; // one plank rAF chain only
-let plankStream = null, plankLoop = false, plankHold = null, plankSaved = false;
+let plankStream = null, plankLoop = false, plankPreview = false, plankHold = null, plankSaved = false;
 // Spoken hold time every 15 s of hold (same voice helper as rep counts; silent fallback). Restarts per hold / set.
 const plankTimeVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makePlankTimeVoice ? window.ZabbadatGetSet.makePlankTimeVoice() : null; // spoken time every 15 s for the whole hold, no cap
 // Regular plank: 1 ZAB once per set at a continuous 60 s hold. Spoken once (plankSpeak, queued). The hold bonus (30 s plank push press, 0.5 ZAB) is separate.
@@ -3877,30 +3883,34 @@ function plankOutlineSet(r) {
   el.classList.toggle("run", !!(r && r.phase === "holding"));
 }
 async function plankTick(id = plankLoopId) {
-  if (!plankLoop || id !== plankLoopId) return;
+  if ((!plankLoop && !plankPreview) || id !== plankLoopId) return;
+  const vid = $("plankVid");
   try {
     const det = await ensurePose();
-    const vid = $("plankVid"), tFrame = performance.now(); // stamped before inference; MoveNet smoothing is off, plank-session.js runs its own One Euro filter
+    const tFrame = performance.now(); // stamped before inference; MoveNet smoothing is off, plank-session.js runs its own One Euro filter
     const poses = await det.estimatePoses(vid, { flipHorizontal: true });
-    const r = plankHold.update(poses && poses[0] ? poses[0].keypoints : [], tFrame, { w: vid.videoWidth || 0, h: vid.videoHeight || 0 });
-    if (window.ZabPfp) window.ZabPfp.plankFrame(vid, poses && poses[0] ? poses[0].keypoints : [], r && r.phase, tFrame); // PFP logo pinned for the hold: visual only, never throws
-    plankOutlineSet(r);
-    plankCue(r);
-    if (r.ended) plankEnded(r);
-    else if (r.phase === "cue") { /* plankMsg shows the 3-2-1-Hold countdown */ }
-    else if (r.phase === "ready") {
-      // Framing messages (whole body in frame, side-on, level) show here and only delay the start.
-      $("plankMsg").textContent = r.framing && r.framing.msg ? r.framing.msg : r.countdownMs != null ? "Hold still…" : (r.frame === "missing" ? "Step back until your whole body fits" : "Get into plank");
-    } else {
-      $("plankClock").textContent = formatTut(r.ms);
-      if (typeof paintArcadeStrip === "function") paintArcadeStrip({ reps: "—", clock: formatTut(r.ms), plankClock: formatTut(r.ms), live: true });
-      if (typeof plankTimeVoice !== "undefined" && plankTimeVoice && !plankSaved) plankTimeVoice.tick(r.ms);
-      if (!plankSaved && r.ms >= 60000 && currentUser) speakPlankZabOnce(); // one-time 1 ZAB mark at 60 s; claim still runs when the hold is saved
-      // During the hold a framing hint is information only: it never ends the hold.
-      $("plankMsg").textContent = r.frame === "ok" ? (r.framing && r.framing.msg ? "Holding · " + r.framing.msg : "Holding") : r.frame === "missing" ? "Back in frame!" : window.ZabbadatPlank.reasonText(r.frame) + "! Fix it";
+    const kps = poses && poses[0] ? poses[0].keypoints : [];
+    if (window.ZabPfp) window.ZabPfp.plankFrame(vid, kps, plankHold && plankHold.phase, tFrame); // PFP from camera open (also before the hold starts); visual only, never throws
+    if (plankHold) {
+      const r = plankHold.update(poses && poses[0] ? poses[0].keypoints : [], tFrame, { w: vid.videoWidth || 0, h: vid.videoHeight || 0 });
+      plankOutlineSet(r);
+      plankCue(r);
+      if (r.ended) plankEnded(r);
+      else if (r.phase === "cue") { /* plankMsg shows the 3-2-1-Hold countdown */ }
+      else if (r.phase === "ready") {
+        // Framing messages (whole body in frame, side-on, level) show here and only delay the start.
+        $("plankMsg").textContent = r.framing && r.framing.msg ? r.framing.msg : r.countdownMs != null ? "Hold still…" : (r.frame === "missing" ? "Step back until your whole body fits" : "Get into plank");
+      } else {
+        $("plankClock").textContent = formatTut(r.ms);
+        if (typeof paintArcadeStrip === "function") paintArcadeStrip({ reps: "—", clock: formatTut(r.ms), plankClock: formatTut(r.ms), live: true });
+        if (typeof plankTimeVoice !== "undefined" && plankTimeVoice && !plankSaved) plankTimeVoice.tick(r.ms);
+        if (!plankSaved && r.ms >= 60000 && currentUser) speakPlankZabOnce(); // one-time 1 ZAB mark at 60 s; claim still runs when the hold is saved
+        // During the hold a framing hint is information only: it never ends the hold.
+        $("plankMsg").textContent = r.frame === "ok" ? (r.framing && r.framing.msg ? "Holding · " + r.framing.msg : "Holding") : r.frame === "missing" ? "Back in frame!" : window.ZabbadatPlank.reasonText(r.frame) + "! Fix it";
+      }
     }
   } catch (e) { $("plankStatus").textContent = "Pose paused."; }
-  if (plankLoop && id === plankLoopId) requestAnimationFrame(() => plankTick(id));
+  if ((plankLoop || plankPreview) && id === plankLoopId) camNextFrame(vid, () => plankTick(id));
 }
 function newPlankHold() {
   plankLeadUntil = performance.now() + PLANK_LEAD_MS;
@@ -3948,6 +3958,9 @@ async function startPlankCam() {
       if (!live()) return;
       $("plankWrap").hidden = false; if (typeof camFs === "function") camFs("plankWrap", true);
     }
+    if (!live()) return;
+    // Pose + PFP start as soon as the camera is up (setup / coaching / countdown). The hold itself still starts later.
+    if (!plankLoop && !plankPreview) { plankPreview = true; plankTick(++plankLoopId); }
     if (!(await placed)) return;
     if (!live()) return;
     if (!restart && !(await showPositioning("plank", $("plankStatus"), () => !live(), "criteria"))) return;
@@ -3961,13 +3974,20 @@ async function startPlankCam() {
     $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts when you start a proper plank. Hips sagging or piking up, knees down, standing up, or leaving the frame for a second ends the hold.";
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once on a fresh start, before the go-cue */
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); /* counts (One / two / three / Go) run at lock-in */
-    plankLoop = true; plankTick(++plankLoopId);
+    plankPreview = false;
+    if (!plankLoop) { plankLoop = true; plankTick(++plankLoopId); }
+    else plankLoop = true;
   } catch (e) { if (live()) { cancelPlankStart(); $("plankStatus").textContent = native ? camErrorText(e) : "Camera or pose blocked."; } }
 }
 let plankStarting = false, plankStartSeq = 0;
 function cancelPlankStart() {
   plankStartSeq += 1; plankStarting = false; cancelGetSet();
-  if (plankStream && !plankLoop) { plankStream.getTracks().forEach((t) => t.stop()); plankStream = null; if ($("plankVid")) $("plankVid").srcObject = null; $("plankWrap").hidden = true; if (typeof camFs === "function") camFs("plankWrap", false); }
+  if (plankPreview) { // camera up, hold not started: drop the preview pose/PFP loop and the stream
+    plankPreview = false; plankLoopId += 1;
+    try { if (window.ZabPfp && window.ZabPfp.clear) window.ZabPfp.clear("plankVid"); } catch (e) {}
+    if (plankStream) { plankStream.getTracks().forEach((t) => t.stop()); plankStream = null; }
+    if ($("plankVid")) $("plankVid").srcObject = null; $("plankWrap").hidden = true; if (typeof camFs === "function") camFs("plankWrap", false);
+  } else if (plankStream && !plankLoop) { plankStream.getTracks().forEach((t) => t.stop()); plankStream = null; if ($("plankVid")) $("plankVid").srcObject = null; $("plankWrap").hidden = true; if (typeof camFs === "function") camFs("plankWrap", false); }
   if (plankWake && !plankLoop) plankWake.stop().catch(() => {});
   $("plankCamBtn").textContent = "Start plank camera";
   $("plankStatus").textContent = "Start cancelled.";
@@ -3975,7 +3995,8 @@ function cancelPlankStart() {
 function stopPlankCam() {
   sessionTouch();
   if (plankHold && !plankSaved) { const r = plankHold.stop(performance.now()); plankEnded(r); }
-  plankLoop = false; plankLoopId += 1;
+  plankLoop = false; plankPreview = false; plankLoopId += 1;
+  try { if (window.ZabPfp && window.ZabPfp.clear) window.ZabPfp.clear("plankVid"); } catch (e) {}
   plankSessionStartedAt = 0;
   if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
   plankStream = null;
@@ -5046,7 +5067,7 @@ function tbEndSetNow() {
   tbCamOff(); if (tbWake && !(tbRoom && tbRoom.status === "live")) tbWake.stop().catch(() => {});
   tbPaint();
 }
-function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; if (typeof camFs === "function") camFs("tbCamWrap", false); }
+function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; if (typeof camFs === "function") camFs("tbCamWrap", false); try { if (window.ZabPfp && window.ZabPfp.clear) window.ZabPfp.clear("tbVid"); } catch (e) {} }
 async function tbPose() {
   if (!tbLoop) return;
   try {
@@ -5074,7 +5095,7 @@ async function tbPose() {
       tbPaint();
     }
   } catch (e) {}
-  if (tbLoop) requestAnimationFrame(tbPose);
+  if (tbLoop) camNextFrame($("tbVid"), tbPose);
 }
 // 3:00 reached: stop judging, publish final reps/TUT once, then after settleMs the lower-TUT phone writes its own loss.
 function tbTimeUp() {

@@ -61,7 +61,7 @@ function env(o = {}) {
   vm.createContext(ctx);
   const STUBS = `
 let camOn = false, poseLoopOn = false, camStream = null, poseLoopId = 0, pushStarting = false, camWake = { start() { log.push("camWake:start"); return Promise.resolve(); }, stop() { log.push("camWake:stop"); return Promise.resolve(); } };
-let plankLoop = false, plankStarting = false, plankStartSeq = 0, plankStream = null, plankSessionStartedAt = 0, plankLoopId = 0, plankHold = null, plankSaved = false;
+let plankLoop = false, plankPreview = false, plankStarting = false, plankStartSeq = 0, plankStream = null, plankSessionStartedAt = 0, plankLoopId = 0, plankHold = null, plankSaved = false;
 let plankWake = { start() { log.push("plankWake:start"); return Promise.resolve(); }, stop() { log.push("plankWake:stop"); return Promise.resolve(); } };
 let tbStream = null, tbLoop = false, tbCounter = null, tbCoaching = false;
 let signedIn = ${o.signedIn !== false}; let practiceCb = null;

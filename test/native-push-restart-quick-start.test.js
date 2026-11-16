@@ -34,7 +34,7 @@ const pushState = { reps: 0, running: false, startedAt: 0, elapsed: 0, tick: nul
 let pushMode = ${JSON.stringify(o.mode || "sets")}; let challengeFlags = {}; const postureGuard = null;
 const pushChallenge = { start() { log.push("challenge:start"); }, reset() {} };
 let camOn = false, poseLoopOn = false, camStream = null, pushCounter = { ph: "calibrate", state() { return { phase: this.ph }; }, reset() {} };
-let plankLoop = false, plankHold = null, plankSaved = false, plankStream = null, plankSessionStartedAt = 0;
+let plankLoop = false, plankPreview = false, plankHold = null, plankSaved = false, plankStream = null, plankSessionStartedAt = 0;
 async function loadCamLibs() {} async function ensurePose() { log.push("pose"); }
 function poseTick() {} function syncPushStartBtn() {} let poseLoopId = 0, plankLoopId = 0; function renderPush() {} function resetPoseBaseline() {} function camExitFs() {} function setCamStatus() {}
 let plankLeadUntil = 0; const PLANK_LEAD_MS = 4000;
