@@ -13,7 +13,7 @@
   "use strict";
   var KEY = "zabPfpOn";
   var P = { minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: 1000, holdGrow: 1.18, clearMs: 1200,
-    minCut: 0.8, beta: 4, dCut: 1.5, leadMax: 120, leadCap: 0.2, leadV0: 0.5, leadV1: 1.5, fitMs: 1000,
+    minCut: 0.8, beta: 4, dCut: 2.5, leadMax: 150, leadCap: 0.4, leadV0: 1, leadV1: 3, vCut: 8, snapMs: 350, rafDraw: true, fitMs: 1000,
     shUp: 0.55, shR: 0.483, sideK: 0.35, minR: 10, maxRFrac: 0.40, plankR: 0.25, miniFps: 15, miniSize: 44, logo: "/zd-square.png" };
   // Sizes: face r = (ear-to-ear or eye spread x2.7)/2 x padK 1.65; shoulders r = shoulder width x shR 0.483 (0.42 x1.15),
   // centre shUp 0.55 shoulder widths above the shoulder midpoint; r capped to [minR px, maxRFrac 0.40 (0.35 x1.15) x the shorter frame side].
@@ -21,6 +21,11 @@
   // no shimmer), + beta x speed when moving (near-raw, little lag). Lead: the drawn spot is pushed ahead along the filtered
   // velocity by the time the pose took to come back (frame stamp -> draw, max leadMax ms), only once the head is really
   // moving (leadV0..leadV1 r/s ramp) and never more than leadCap x r. Visual only: the counter's keypoints are never touched.
+  // Quicker (Nov 16): the logo is redrawn on every screen refresh (rafDraw) from the tracker's prediction for that moment,
+  // not only when a pose frame lands (10-15 per second on phones), so it no longer freezes between frames. Prediction uses
+  // its own quick velocity (vCut Hz); the steadiness at rest still comes from the slower speed estimate (dCut Hz) and the
+  // leadV0 r/s dead zone. Lead stops the moment the head itself stops; up to leadMax ms / leadCap x r ahead. After the face
+  // was gone snapMs+, it snaps straight onto the head when it comes back (no slide in from the old spot).
 
   function photoUrl(user) {
     if (!user) return "";
@@ -97,37 +102,54 @@
   function lpA(cut, dtS) { var tau = 1 / (2 * Math.PI * cut); return 1 / (1 + tau / dtS); }
   // Head tracker: adaptive smoothing + latency lead; hold the last spot ~1 s (slightly bigger) when the face drops, then clear
   // (never blocks a hood). step(kps, t, fw, fh, drawT): t = frame stamp (before inference), drawT = now (optional, same clock).
+  // at(now) (Nov 16): the same spot predicted for ANY moment, so the logo can be redrawn every screen refresh between pose
+  // frames instead of freezing until the next one (the main lag at 10-15 pose fps). Same clock as t.
   function createTracker(opts) {
-    var o = Object.assign({}, P, opts || {}), last = null, lastT = -1e9, f = null; // f: filter state {x, y, dx, dy} (px, px/s)
+    var o = Object.assign({}, P, opts || {}), last = null, lastT = -1e9, f = null, held = null; // f: filter state {x, y, dx, dy} (px, px/s)
+    function predict(now) {
+      var x = f.x, y = f.y, lead = typeof now === "number" && isFinite(now) ? Math.max(0, Math.min(o.leadMax, now - f.t)) / 1000 : 0;
+      if (lead > 0) {
+        var v = Math.hypot(f.vx, f.vy), vr = v / Math.max(o.minR, f.r), g = Math.max(0, Math.min(1, (vr - o.leadV0) / (o.leadV1 - o.leadV0)));
+        g *= f.k;
+        var lx = f.vx * lead * g, ly = f.vy * lead * g, ll = Math.hypot(lx, ly), cap = o.leadCap * f.r;
+        if (ll > cap) { lx *= cap / ll; ly *= cap / ll; }
+        x += lx; y += ly;
+      }
+      return { x: x, y: y, r: f.r, held: false, src: f.src };
+    }
     function place(head, src, t, drawT) {
       var dtS = f ? (t - f.t) / 1000 : 0;
-      if (!f || !(dtS > 0) || dtS > o.holdMs / 1000 * 2) f = { x: head.x, y: head.y, dx: 0, dy: 0, k: 0, t: t, r: head.r };
+      // Fresh start, or the face is back after a gap (held / lost): snap straight onto it with no velocity (no slide, no fling).
+      if (!f || !(dtS > 0) || dtS > o.snapMs / 1000) f = { x: head.x, y: head.y, dx: 0, dy: 0, vx: 0, vy: 0, k: 0, t: t, r: head.r, mx: head.x, my: head.y };
       else {
-        var rx = (head.x - f.x) / dtS, ry = (head.y - f.y) / dtS, ad = lpA(o.dCut, dtS);
-        f.dx += (rx - f.dx) * ad; f.dy += (ry - f.dy) * ad;
-        var vv = f.dx * f.dx + f.dy * f.dy; f.k = vv > 0 ? Math.max(0, Math.min(1, (rx * f.dx + ry * f.dy) / vv)) : 0; // lead only while this frame still moves that way (stops -> no overshoot)
+        var rx = (head.x - f.x) / dtS, ry = (head.y - f.y) / dtS, ad = lpA(o.dCut, dtS), al = lpA(o.vCut, dtS);
+        f.dx += (rx - f.dx) * ad; f.dy += (ry - f.dy) * ad; // slow speed estimate: sets the smoothing (steady when still)
+        f.vx += (rx - f.vx) * al; f.vy += (ry - f.vy) * al; // quick velocity: drives the prediction (follows a fast head)
+        var mx = (head.x - f.mx) / dtS, my = (head.y - f.my) / dtS; f.mx = head.x; f.my = head.y; // this frame's own move (measured, not filtered)
+        var vv = f.vx * f.vx + f.vy * f.vy; f.k = vv > 0 ? Math.max(0, Math.min(1, (mx * f.vx + my * f.vy) / vv)) : 0; // lead only while the head itself still moves that way (stops -> lead drops at once, no overshoot)
         var rr = Math.max(o.minR, head.r), sp = Math.hypot(f.dx, f.dy) / rr, a = lpA(o.minCut + o.beta * sp, dtS);
         f.x += (head.x - f.x) * a; f.y += (head.y - f.y) * a;
         f.r = Math.max(head.r, f.r + (head.r - f.r) * a); f.t = t; // grows at once (always covers), shrinks smoothly
       }
-      var x = f.x, y = f.y, lead = typeof drawT === "number" && isFinite(drawT) ? Math.max(0, Math.min(o.leadMax, drawT - t)) / 1000 : 0;
-      if (lead > 0) {
-        var v = Math.hypot(f.dx, f.dy), vr = v / Math.max(o.minR, f.r), g = Math.max(0, Math.min(1, (vr - o.leadV0) / (o.leadV1 - o.leadV0)));
-        g *= f.k;
-        var lx = f.dx * lead * g, ly = f.dy * lead * g, ll = Math.hypot(lx, ly), cap = o.leadCap * f.r;
-        if (ll > cap) { lx *= cap / ll; ly *= cap / ll; }
-        x += lx; y += ly;
-      }
-      return { x: x, y: y, r: f.r, held: false, src: src };
+      f.src = src;
+      return predict(drawT);
     }
+    function holdOf(fw, fh) { return { x: last.x, y: last.y, r: Math.min(last.r * o.holdGrow, fw > 0 && fh > 0 ? o.maxRFrac * Math.min(fw, fh) * o.holdGrow : Infinity), held: true }; }
     return {
       step: function (kps, t, fw, fh, drawT, where) {
         var c = (where || headCircle)(kps, fw, fh);
-        if (c) { var out = place(c, c.src, t, drawT); last = out; lastT = t; return out; }
-        if (last && t - lastT <= o.holdMs) return { x: last.x, y: last.y, r: Math.min(last.r * o.holdGrow, fw > 0 && fh > 0 ? o.maxRFrac * Math.min(fw, fh) * o.holdGrow : Infinity), held: true };
-        last = null; f = null; return null;
+        if (c) { var out = place(c, c.src, t, drawT); last = out; lastT = t; held = null; return out; }
+        if (last && t - lastT <= o.holdMs) { held = holdOf(fw, fh); return held; }
+        last = null; f = null; held = null; return null;
       },
-      reset: function () { last = null; lastT = -1e9; f = null; }
+      // Spot to draw at `now` (between pose frames): predicted ahead while the head moves, the held spot while the face is
+      // missing, null when there is nothing to draw. Never extrapolates more than leadMax ms past the last pose frame.
+      at: function (now) {
+        if (held) return held;
+        if (!last || !f) return null;
+        return predict(now);
+      },
+      reset: function () { last = null; lastT = -1e9; f = null; held = null; }
     };
   }
   // Video pixels -> CSS pixels of the element box (object-fit fill/contain/cover).
@@ -224,17 +246,26 @@
     o = overlays[id] = { cv: cv, vid: vid, tr: createTracker(), timer: null };
     return o;
   }
-  function clearOne(o) { try { if (o.timer) clearTimeout(o.timer); o.timer = null; var x = o.cv.getContext("2d"); x.clearRect(0, 0, o.cv.width, o.cv.height); o.cv.style.display = "none"; o.tr.reset(); } catch (e) {} }
+  function clearOne(o) { try { if (o.timer) clearTimeout(o.timer); o.timer = null; o.box = null; var x = o.cv.getContext("2d"); x.clearRect(0, 0, o.cv.width, o.cv.height); o.cv.style.display = "none"; o.tr.reset(); } catch (e) {} }
   // Switch off: no overlay, no pending clear timers, no mini-feed, no head spot left for recordings.
   function clearAll() { for (var k in overlays) clearOne(overlays[k]); miniStop(); for (var h in heads) heads[h] = null; }
+  // Between pose frames (screen refresh): same box as the last full draw, no layout or style reads, just the new spot.
+  function redraw(o, c) {
+    if (!o.box || o.cv.style.display === "none") return false;
+    var b = o.box, m = mapToBox(c, b.vw, b.vh, b.bw, b.bh, b.fit), x = o.cv.getContext("2d");
+    x.setTransform(b.dpr, 0, 0, b.dpr, 0, 0); x.clearRect(0, 0, b.bw, b.bh);
+    if (m) drawLogo(x, m);
+    return true;
+  }
   function draw(o, c) {
-    var vid = o.vid, cv = o.cv, bw = vid.clientWidth, bh = vid.clientHeight;
+    var vid = o.vid, cv = o.cv, bw = vid.clientWidth, bh = vid.clientHeight; o.box = null;
     if (!(bw > 0 && bh > 0)) { clearOne(o); return; }
     var dpr = Math.min(root.devicePixelRatio || 1, 2), W = Math.round(bw * dpr), H = Math.round(bh * dpr);
     if (cv.width !== W) cv.width = W; if (cv.height !== H) cv.height = H;
     cv.style.left = vid.offsetLeft + "px"; cv.style.top = vid.offsetTop + "px"; cv.style.width = bw + "px"; cv.style.height = bh + "px"; cv.style.display = "block";
     var now = Date.now(), fit = o.fit; if (!fit || !(now - o.fitT < P.fitMs)) { fit = "fill"; try { fit = root.getComputedStyle(vid).objectFit || "fill"; } catch (e) {} o.fit = fit; o.fitT = now; } // style read ~1/s, not every frame
     var m = mapToBox(c, vid.videoWidth, vid.videoHeight, bw, bh, fit);
+    o.box = { vw: vid.videoWidth, vh: vid.videoHeight, bw: bw, bh: bh, fit: fit, dpr: dpr };
     var x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, bw, bh);
     if (!m) return;
     drawLogo(x, m);
@@ -267,21 +298,40 @@
       // Switch off: avatar, its head tracking and the recording avatar all stop (rep counting never depends on this).
       if (!isOn()) { heads[id] = null; var o0 = overlays[id]; if (o0) clearOne(o0); miniStop(); return; }
       var drawT = given && root.performance && typeof root.performance.now === "function" ? root.performance.now() : tt;
-      var hc = heads[id] || (heads[id] = { tr: createTracker(), c: null, t: 0 }); hc.c = hc.tr.step(kps, tt, vid.videoWidth, vid.videoHeight, drawT, where); hc.t = tt; // head spot for the avatar, the recording and the watermark hop
+      var hc = heads[id] || (heads[id] = { tr: createTracker(), c: null, t: 0 }); hc.c = hc.tr.step(kps, tt, vid.videoWidth, vid.videoHeight, drawT, where); hc.t = tt; hc.timed = given && drawT !== tt; // head spot for the avatar, the recording and the watermark hop
       ensureLogo();
       var o = overlayFor(vid), c = hc.c;
       draw(o, c);
       try { miniFrame(vid, c, tt); } catch (e) { miniStop(); }
       if (o.timer) clearTimeout(o.timer);
       o.timer = setTimeout(function () { clearOne(o); }, P.clearMs); // loop stopped (camera off): no stale picture
+      if (hc.timed) refreshLoop(id, hc);
     } catch (e) {}
+  }
+  function perfNow() { return root.performance && typeof root.performance.now === "function" ? root.performance.now() : Date.now(); }
+  // One rAF loop per camera while pose frames keep coming: redraw the logo at the predicted spot every screen refresh.
+  // Stops by itself when the switch goes off, the head entry is replaced/cleared, the overlay is hidden, or frames stop.
+  function refreshLoop(id, hc) {
+    var raf = root && typeof root.requestAnimationFrame === "function" ? root.requestAnimationFrame : null;
+    if (!P.rafDraw || !raf || hc.loop) return;
+    hc.loop = true;
+    var tick = function () {
+      try {
+        var o = overlays[id], n = perfNow();
+        if (heads[id] !== hc || !o || !o.cv.parentNode || !isOn() || n - hc.t > P.clearMs) { hc.loop = false; return; }
+        var c = hc.tr.at(n), p = hc.c; // skip the redraw when the spot has not visibly moved (head still: no extra work)
+        if (c && !(p && Math.abs(c.x - p.x) < 0.25 && Math.abs(c.y - p.y) < 0.25 && Math.abs(c.r - p.r) < 0.25)) { hc.c = c; if (!redraw(o, c)) { hc.loop = false; return; } }
+        raf.call(root, tick);
+      } catch (e) { hc.loop = false; }
+    };
+    raf.call(root, tick);
   }
   // Web plank (Nov 15): the logo follows the head through the whole plank - getting set, the hold, and after - like push-ups
   // and TUT. Placement is plankHead (face cluster, else the side-on body line, else shoulders), same tracker as frame().
   // phase is accepted for the existing call but no longer changes anything. Same visual-only, never-throws contract.
   var heads = {};
   // Last head circle (video px, display/mirrored space) for a video, and whether the logo is showing - read by rec.js.
-  function lastHead(id, now) { if (!isOn()) return null; var h = heads[id]; return h && h.c && (now == null || now - h.t < P.clearMs) ? h.c : null; }
+  function lastHead(id, now) { if (!isOn()) return null; var h = heads[id]; if (!(h && h.c && (now == null || now - h.t < P.clearMs))) return null; if (h.timed && now != null) { try { return h.tr.at(now) || h.c; } catch (e) {} } return h.c; } // predicted for `now` (same clock as the pose loops)
   api.lastHead = lastHead; api.drawLogo = function (x, m) { try { ensureLogo(); drawLogo(x, m); } catch (e) {} };
   function plankFrame(vid, kps, phase, t) { frame(vid, kps, t, plankHead); }
   api.plankFrame = plankFrame;

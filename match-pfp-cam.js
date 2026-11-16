@@ -3,7 +3,7 @@
  * WebRTC, no Live-tab stream (leave #zmLiveSlot for that later; this overlay can be drawn on a future stream the
  * same way). Pose uses the site's existing engine (ensurePushPose / ensurePose: Apple Vision on iOS, otherwise
  * MoveNet Lightning). Overlay math is pure and reuses pfp.js faceCircle / shoulder scoring; the avatar sits just
- * ABOVE the head (or the shoulder midpoint when the back is turned), lerps, and hides ~1 s after detection drops.
+ * ABOVE the head (or the shoulder midpoint when the back is turned), follows with the pfp.js head tracker, and hides ~1 s after detection drops.
  * Single-person only: the most confident pose is used. Does not touch scoring, turns, or the push-up / TUT / plank
  * cameras (own stream, own <video>, own rAF loop). Browser: window.ZabbaMatchPfpCam. Node: require("./match-pfp-cam.js").
  */
@@ -30,9 +30,20 @@
     if (!c) return null;
     return { x: c.x, y: c.y, r: capR(c.r, fw, fh), src: src };
   }
-  // Smooth lerp toward a new anchor; keep the last spot for hideMs, then hide.
+  // Follow (Nov 16): the same quick head tracker as the push-up / TUT / plank cover (pfp.js createTracker: One Euro +
+  // latency lead, redrawn every screen refresh via at(now)), anchored above the head; keeps the last spot for hideMs, then
+  // hides. Passing opts.alpha keeps the old plain lerp (or when pfp.js is missing).
   function createFloater(opts) {
-    var o = Object.assign({}, P, opts || {}), last = null, lastT = -1e9;
+    var o = Object.assign({}, P, opts || {}), lib = pfp();
+    if (!(opts && opts.alpha != null) && lib && typeof lib.createTracker === "function") {
+      var tr = lib.createTracker({ holdMs: o.hideMs, holdGrow: 1, maxRFrac: o.maxRFrac, minR: o.minR });
+      return {
+        step: function (kps, t, fw, fh, drawT) { return tr.step(kps, t, fw, fh, drawT, floatAnchor); },
+        at: function (now) { return tr.at(now); },
+        reset: function () { tr.reset(); }
+      };
+    }
+    var last = null, lastT = -1e9;
     return {
       step: function (kps, t, fw, fh) {
         var c = floatAnchor(kps, fw, fh);
@@ -175,28 +186,48 @@
     }
     throw new Error("Pose engine not available");
   }
+  function perfNow() { return root.performance && typeof root.performance.now === "function" ? root.performance.now() : Date.now(); }
+  var box = null, painting = 0;
+  function paintAt(c) { // overlay draw with the box measured on the last pose frame (no layout reads between frames)
+    var cv = $("zmCamOverlay"); if (!cv || !box) return;
+    var x = cv.getContext("2d"); x.setTransform(box.dpr, 0, 0, box.dpr, 0, 0); x.clearRect(0, 0, box.bw, box.bh);
+    var lib = pfp(), m = c && lib && lib.mapToBox ? lib.mapToBox(c, box.fw, box.fh, box.bw, box.bh, box.fit) : (c && box.fw > 0 ? { x: c.x * box.bw / box.fw, y: c.y * box.bh / box.fh, r: c.r * box.bw / box.fw } : null);
+    if (m) drawAvatar(x, m);
+  }
+  // Between pose frames: redraw at the tracker's predicted spot every screen refresh, so the avatar never freezes.
+  function paintLoop(id) {
+    if (painting === id || !floater || typeof floater.at !== "function" || typeof root.requestAnimationFrame !== "function") return;
+    painting = id;
+    var step = function () {
+      if (id !== loopId || !on || !isShow()) { if (painting === id) painting = 0; return; }
+      try { var c = floater.at(perfNow()); if (c) paintAt(c); } catch (e) {}
+      root.requestAnimationFrame(step);
+    };
+    root.requestAnimationFrame(step);
+  }
   async function tick(id) {
     if (id !== loopId || !on || !isShow()) { if (id === loopId) looping = false; return; }
     var vid = $("zmCamVid"), cv = $("zmCamOverlay");
     try {
       if (vid && vid.readyState >= 2 && vid._zmDet) {
         var flip = facing === "user";
+        var t = perfNow(); // stamped BEFORE inference: the pose is of this moment; the gap to the draw is what the lead makes up
         var poses = await vid._zmDet.estimatePoses(vid, { flipHorizontal: flip });
         if (id !== loopId || !on || !isShow()) { if (id === loopId) looping = false; clearOverlay(); return; } // switched off mid-frame: draw nothing
         var person = pickPerson(poses), kps = person ? person.keypoints : [];
-        var t = Date.now(), fw = vid.videoWidth || 0, fh = vid.videoHeight || 0;
+        var fw = vid.videoWidth || 0, fh = vid.videoHeight || 0;
         if (!floater) floater = createFloater();
-        var c = floater.step(kps, t, fw, fh);
+        var c = floater.step(kps, t, fw, fh, perfNow());
         if (cv && vid.parentNode) {
           var bw = vid.clientWidth, bh = vid.clientHeight, dpr = Math.min((root.devicePixelRatio || 1), 2);
           var W = Math.round(bw * dpr), H = Math.round(bh * dpr);
           if (cv.width !== W) cv.width = W; if (cv.height !== H) cv.height = H;
           cv.style.left = vid.offsetLeft + "px"; cv.style.top = vid.offsetTop + "px";
           cv.style.width = bw + "px"; cv.style.height = bh + "px";
-          var x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, bw, bh);
-          var lib = pfp(), fit = "fill"; try { fit = root.getComputedStyle(vid).objectFit || "fill"; } catch (e) {}
-          var m = c && lib && lib.mapToBox ? lib.mapToBox(c, fw, fh, bw, bh, fit) : (c && fw > 0 ? { x: c.x * bw / fw, y: c.y * bh / fh, r: c.r * bw / fw } : null);
-          if (m) drawAvatar(x, m);
+          var fit = "fill"; try { fit = root.getComputedStyle(vid).objectFit || "fill"; } catch (e) {}
+          box = { bw: bw, bh: bh, dpr: dpr, fw: fw, fh: fh, fit: fit };
+          paintAt(c);
+          paintLoop(id);
         }
       }
     } catch (e) {}
