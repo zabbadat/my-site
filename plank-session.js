@@ -97,7 +97,7 @@
         an = pt(kps, side + "_ankle", o.minScore), kn = pt(kps, side + "_knee", o.minScore);
     if (hip && kn && an) { var a = angle(hip, kn, an); if (a != null && a < o.kneeAngle) return true; }
     if (S && S.kneesFallback && hip) {
-      var kf = { minScore: o.minScore, kneeMin: o.minScore, kneeAngle: o.kneeAngle, weakKneeMin: o.weakKneeMin, floorFrac: o.floorFrac, hipUpFrac: o.hipUpFrac, frontHipFrac: o.frontHipFrac, frontSwFrac: o.frontSwFrac };
+      var kf = { minScore: o.minScore, kneeMin: o.minScore, kneeAngle: o.kneeAngle, weakKneeMin: o.weakKneeMin, floorFrac: o.floorFrac, hipUpFrac: o.hipUpFrac, frontHipFrac: 0, frontSwFrac: 0 }; // plank is side-view: never end a hold for a front-facing hip drop
       if (S.kneesFallback(hip, S.rawPt(kps, side + "_knee"), an, sh, fy, sw, kf)) return true;
     }
     return false;
