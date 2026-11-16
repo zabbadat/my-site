@@ -989,7 +989,6 @@ body.arcade-live #playEarn10k{display:none}
 .home-games a{display:flex;align-items:flex-end;min-height:142px;padding:18px 16px 16px;background:var(--card,#1b2723);border:2px solid rgba(255,46,147,.42);border-radius:18px;color:var(--text);text-decoration:none;font-weight:600;font-size:1.28rem;line-height:1.15}
 .home-games a:hover,.home-games a:focus-visible{border-color:rgba(198,255,0,.5);outline:none}
 .home-games a.featured{background:linear-gradient(160deg,rgba(198,255,0,.12),rgba(255,46,147,.08)),var(--card,#1b2723);border-color:rgba(255,60,172,.55)}
-.home-games a.wide{grid-column:1/-1;min-height:110px}
 .home-games a{flex-direction:column;align-items:flex-start;justify-content:space-between;gap:.6rem}
 .home-games .tile-ic{width:60px;height:60px;color:#fff;flex:0 0 auto}
 .home-games + .hero{padding-top:2.4rem}
@@ -1278,7 +1277,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <a href="#push" id="tilePpp"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="38" cy="22" r="3.5"/><path d="M34 25 10 31M32 26v10M8 36h34M14 30l-2 6M22 18V6M17 11l5-5 5 5"/></svg><span>Plank Push Press</span></a>
     <a href="#plank"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20 24 8l16 12M12 18v4M36 18v4"/><circle cx="38" cy="30" r="3.5"/><path d="M34 32H10M30 32l-1 6M8 38h34"/></svg><span>Plank House</span></a>
     <a href="#steps"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10c4 0 6 4 6 9s-2 8-5 8-5-3-5-8 0-9 4-9Z"/><path d="M11 31h7v3a3.5 3.5 0 0 1-7 0Z"/><path d="M34 6c4 0 4 4 4 9s-2 8-5 8-5-3-5-8 2-9 6-9Z"/><path d="M29 27h7v3a3.5 3.5 0 0 1-7 0Z"/></svg><span>Step Equity</span></a>
-    <a class="wide" href="#battles-hub"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l22 22M8 8h6M8 8v6M26 34l8-8M31 37l6-6M40 8 18 30M40 8h-6M40 8v6M22 34l-8-8M17 37l-6-6"/></svg><span>Battles</span></a>
+    <a href="#squats" id="tileSquats"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 42h38"/><circle cx="13" cy="8.4" r="3.5"/><path d="M14.3 12 22.8 22.2M23.6 28.2 9.6 29.4M9.6 29.4 10.4 42M15.4 15.6 5.6 22.4"/><path d="M22.8 22.2 A6.6 6.6 0 1 1 34 22.4 A7 7 0 1 1 25.6 31 C24.7 30.3 24.1 29.3 23.6 28.2"/></svg><span>Gyatt Squats</span></a>
+    <a href="#battles-hub"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l22 22M8 8h6M8 8v6M26 34l8-8M31 37l6-6M40 8 18 30M40 8h-6M40 8v6M22 34l-8-8M17 37l-6-6"/></svg><span>Battles</span></a>
   </div>
   <section class="hero">
     <div class="hero-top">
@@ -1547,6 +1547,11 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <thead><tr><th>#</th><th>Player</th><th>Reps</th><th>Time</th><th>When</th></tr></thead>
       <tbody id="pushBoardBody"><tr><td colspan="5">Waiting for sets…</td></tr></tbody>
     </table>
+  </section>
+
+  <section id="squats" aria-labelledby="squatsTitle">
+    <h2 id="squatsTitle">Gyatt Squats</h2>
+    <p class="lead" id="squatsSoon">Coming soon: front-camera squat tracking.</p>
   </section>
 
   <section id="battles-hub">

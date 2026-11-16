@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Gyatt Squats cadence (dev demo)</title>
+<style>
+  body{margin:0;background:#0b0b0f;color:#fff;font-family:system-ui,-apple-system,sans-serif;text-align:center}
+  .wrap{max-width:420px;margin:0 auto;padding:1.2rem}
+  h2{margin:.2rem 0 1rem;font-size:1.1rem;letter-spacing:.08em;color:#ffcf3a}
+  #phase{font-size:3rem;font-weight:800;letter-spacing:.06em;min-height:3.6rem}
+  #count{font-size:7rem;font-weight:900;line-height:1;min-height:7rem}
+  #rep{font-size:1.4rem;margin:.6rem 0 1rem;color:#bbb}
+  .bar{height:12px;background:#222;border-radius:6px;overflow:hidden;display:flex}
+  .bar span{display:block;height:100%}
+  .seg{display:flex;justify-content:space-between;font-size:.75rem;color:#888;margin-top:.25rem}
+  #fill{height:4px;background:#ffcf3a;width:0;margin-top:.4rem;transition:none}
+  .down #phase{color:#4fc3ff}.hold #phase{color:#ffcf3a}.up #phase{color:#5dff8f}
+  button{font-size:1.2rem;font-weight:800;padding:.9rem 2rem;border-radius:12px;border:0;margin-top:1.4rem;background:#ffcf3a;color:#000}
+  #clock{font-variant-numeric:tabular-nums;color:#777;margin-top:.6rem;font-size:.85rem}
+</style>
+</head>
+<body>
+<div class="wrap" id="stage">
+  <h2>GYATT SQUATS · CADENCE</h2>
+  <div id="phase">READY</div>
+  <div id="count">–</div>
+  <div id="rep">Rep 0</div>
+  <div class="bar"><span style="flex:3;background:#4fc3ff"></span><span style="flex:4;background:#ffcf3a"></span><span style="flex:5;background:#5dff8f"></span></div>
+  <div class="seg"><span>Down 3 s</span><span>Hold 4 s</span><span>Up 5 s</span></div>
+  <div id="fill"></div>
+  <div id="clock">0.0 s</div>
+  <button id="startBtn" type="button">Start</button>
+</div>
+<script src="../gyatt-cadence.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var cue = /[?&]cue=1/.test(location.search), maxReps = +((location.search.match(/[?&]reps=(\d+)/) || [])[1] || 0);
+  var raf = 0;
+  var c = GyattCadence.makeCadence({ phaseCue: cue, maxReps: maxReps });
+  window.__cad = c; window.__events = [];
+  c.onPhase(function (phase, count, rep, i) {
+    $("stage").className = phase;
+    $("phase").textContent = i.label.toUpperCase();
+    $("count").textContent = count;
+    $("rep").textContent = "Rep " + rep;
+    window.__events.push({ type: "phase", phase: phase, count: count, rep: rep, k: i.k, atMs: i.atMs, firedMs: i.firedMs, word: i.word, spoken: i.spoken, paintAt: performance.now() });
+  });
+  c.onRep(function (rep, i) { window.__events.push({ type: "rep", rep: rep, atMs: i.atMs, firedMs: i.firedMs }); });
+  c.onStop(function (st, why) { cancelAnimationFrame(raf); $("phase").textContent = "DONE"; $("startBtn").textContent = "Start"; window.__events.push({ type: "stop", why: why, reps: st.repsDone }); });
+  function loop() {
+    var s = c.state(); if (!s.running) return;
+    var inRep = (s.elapsedMs % GyattCadence.REP_MS) / GyattCadence.REP_MS;
+    $("fill").style.width = (inRep * 100).toFixed(1) + "%";
+    $("clock").textContent = (s.elapsedMs / 1000).toFixed(1) + " s";
+    raf = requestAnimationFrame(loop);
+  }
+  $("startBtn").addEventListener("click", function () {
+    if (c.state().running) { c.stop(); return; }
+    window.__startedAt = performance.now();
+    c.start(); this.textContent = "Stop"; raf = requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>
