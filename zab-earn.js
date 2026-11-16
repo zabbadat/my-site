@@ -13,6 +13,7 @@
  *   walk     walkSessions/{id} ms              10 min = 1 ZAB
  *   washers  games/{id}        verified 21     1 ZAB per game won
  *   tutBattle tutBattles/{code}  players[uid].tutMs of a finished TUT Battle (credited as source "tut")
+ *   squats   squats/{id}       reps (Gyatt Squats, front camera)   10 reps = 1 ZAB per set (whole tens; NO daily cap)
  *   steps10k dailySteps/{uid}_{YYYY-MM-DD}  steps >= 10,000 on that Eastern day   4 ZAB once per person per day
  * RESIDUAL RISK: those session docs are still written by the player's own browser. firestore.rules only bound them
  * (ranges, server time) and plausible() below adds sanity limits, so a determined player can still post invented
@@ -25,6 +26,8 @@ const ZB = require("./zab-balance.js");
 // ---- OWNER DECISION: caps (ZAB). Per claim and per source per America/New_York day (resets at Eastern midnight, see capDay). ----
 const CLAIM_CAP = 500;
 const DAY_CAP = { pushups: 50, tut: 30, hold: 10, plank: 30, walk: 24, washers: 20, steps10k: 4 };
+// Sources with NO daily cap (owner, Nov 16: Gyatt Squats). Only CLAIM_CAP and the per-set rule cap (1000 reps = 100 ZAB) bound a claim.
+const NO_DAY_CAP = { squats: true };
 const MAX_AGE_MS = 48 * 3600000;          // a session can be claimed for 48 h after it was recorded
 const SLACK_MS = 10000;
 
@@ -36,7 +39,8 @@ const KINDS = {
   walk:      { col: "walkSessions", source: "walk" },
   washers:   { col: "games", source: "washers" },
   tutBattle: { col: "tutBattles", source: "tut" },
-  steps10k:  { col: "dailySteps", source: "steps10k" }
+  steps10k:  { col: "dailySteps", source: "steps10k" },
+  squats:    { col: "squats", source: "squats" }
 };
 const ID = /^[A-Za-z0-9_-]{1,60}$/;
 const err = (status, message) => Object.assign(new Error(message), { status });
@@ -78,6 +82,14 @@ function measure(kind, d, uid, nowMs) {
     if (!isInt(d.holds) || d.holds <= 0) bad("no 30-second holds recorded");
     if (d.holds * 30000 > ms + SLACK_MS) bad("more holds than the set time allows");
     return { qty: d.holds, units: "holds", amount: ZC.roundZab(d.holds * 0.5) };
+  }
+  if (kind === "squats") {
+    // Matches firestore.rules /squats: camera sets only, 0..1000 reps, set no longer than 3 h, at most ~1.4 squats a second.
+    const reps = d.reps, ms = num(d.ms);
+    if (d.source !== "camera" || !isInt(reps) || reps < 0 || reps > 1000 || !(ms >= 0)) bad("bad squat record");
+    if (ms > 3 * 3600000) bad("set longer than 3 hours");
+    if (reps > ms / 700 + 1) bad("more squats than the set time allows");
+    return { qty: reps, units: "reps", amount: ZB.zabFor("squats", reps) };
   }
   if (kind === "plank") {
     if (d.source !== "camera" || !isInt(d.holdSec) || d.holdSec < 0 || d.holdSec > 7200) bad("bad plank record");
@@ -131,7 +143,8 @@ function claim(fs, uid, body, nowMs, sinceMs) {
     const refs = { claim: ["zabClaims", claimId], user: ["users", uid], dayDoc: ["zabEarnDay", uid + "_" + today], board: ["zabBoard", uid] };
     return Promise.all([t.get(refs.claim), t.get(refs.user), t.get(refs.dayDoc), t.get(refs.board)]).then(([prior, u, dd, b]) => {
       if (prior) throw err(409, "ZAB for that session was already claimed.");
-      const used = dd && ZC.isZab(dd[src]) ? dd[src] : 0, left = ZC.roundZab(Math.max(0, DAY_CAP[src] - used));
+      const used = dd && ZC.isZab(dd[src]) ? dd[src] : 0;
+      const left = NO_DAY_CAP[src] ? Infinity : ZC.roundZab(Math.max(0, DAY_CAP[src] - used)); // roundZab(Infinity) is 0, so no-cap stays outside it
       const amount = ZC.roundZab(Math.min(m.amount, CLAIM_CAP, left));
       const ts = fs.ts();
       t.set(refs.claim, { uid, source: src, col: K.col, id, amount, wanted: m.amount, at: ts });
@@ -146,4 +159,4 @@ function claim(fs, uid, body, nowMs, sinceMs) {
     });
   }));
 }
-module.exports = { CLAIM_CAP, DAY_CAP, MAX_AGE_MS, KINDS, measure, claim, capDay, etDay };
+module.exports = { CLAIM_CAP, DAY_CAP, NO_DAY_CAP, MAX_AGE_MS, KINDS, measure, claim, capDay, etDay };

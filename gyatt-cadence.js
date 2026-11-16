@@ -22,6 +22,8 @@
  *   c.start()            begins at rep 1, DOWN "one" immediately (call inside the tap on iOS: it unlocks speech)
  *   c.stop(reason)       halts timers and cancels speech; onStop(state, reason)
  *   c.onPhase(fn) / c.onRep(fn) / c.onStop(fn)   add listeners: fn(phase, count, rep, info) / fn(rep, info) / fn(state, reason)
+ *   c.resync(rep)        restart the 12 s cycle NOW at DOWN "one" of rep `rep` (used by the squat set: when a counted rep
+ *                        finishes away from the cadence's own rep boundary, the voice re-aligns to the real movement)
  *   c.state()            { running, rep, phase, count, repsDone, elapsedMs, nextAtMs, spoken, skipped }
  *   c.pose(sample)       FUTURE pose-sync hook: pass any pose sample; if opts.poseCheck(sample, state) returns false
  *                        (user's movement out of phase) onOffPace(state, sample) fires. No pose logic is built here.
@@ -85,7 +87,7 @@
     if (opts.onRep) L.rep.push(opts.onRep);
     if (opts.onStop) L.stop.push(opts.onStop);
     if (opts.onOffPace) L.offPace.push(opts.onOffPace);
-    var running = false, t0 = 0, next = 0, timer = null, gen = 0, cur = null, repsDone = 0, spoken = 0, skipped = 0;
+    var running = false, t0 = 0, next = 0, timer = null, gen = 0, cur = null, repsDone = 0, spoken = 0, skipped = 0, repBase = 0;
 
     function emit(list, args) { list.forEach(function (f) { try { f.apply(null, args); } catch (e) {} }); }
     function sayIt(w) { try { speak(w); } catch (e) {} }
@@ -112,12 +114,13 @@
         var k = next++, atMs = k * STEP_MS;
         // a rep boundary: rep r completes the moment rep r+1's first count is due
         if (k > 0 && k % REP_SECS === 0) {
-          repsDone = k / REP_SECS;
+          repsDone = repBase + k / REP_SECS;
           emit(L.rep, [repsDone, { atMs: atMs, firedMs: t }]);
           if (maxReps && repsDone >= maxReps) { finish("maxReps"); return; }
           if (!running) return;
         }
         var s = slotAt(k), late = t - atMs, word = wordFor(s, phaseCue);
+        s.rep += repBase;
         var say = k === due && late <= lateMs; // only the current count, and only if on time
         cur = s;
         if (say) { sayIt(word); spoken++; } else skipped++;
@@ -128,11 +131,21 @@
     var api = {
       start: function () {
         if (running) return api;
-        running = true; gen++; t0 = now(); next = 0; cur = null; repsDone = 0; spoken = 0; skipped = 0;
+        running = true; gen++; t0 = now(); next = 0; cur = null; repsDone = 0; spoken = 0; skipped = 0; repBase = 0;
         tick(); // count 0 ("one", DOWN, rep 1) right away, inside the caller's tap
         return api;
       },
       stop: function (reason) { finish(reason || "stop"); return api; },
+      resync: function (rep) {
+        if (!running) return api;
+        if (timer != null) { try { clear(timer); } catch (e) {} timer = null; }
+        gen++; t0 = now(); next = 0;
+        repBase = Math.max(0, Math.floor(Number(rep) || 1) - 1); repsDone = Math.min(repsDone, repBase);
+        tick();
+        return api;
+      },
+      // ms from now to the nearest cadence rep boundary (0 = exactly on one); null when stopped
+      offBoundaryMs: function () { if (!running) return null; var e = (now() - t0) % REP_MS; return Math.min(e, REP_MS - e); },
       onPhase: function (f) { L.phase.push(f); return api; },
       onRep: function (f) { L.rep.push(f); return api; },
       onStop: function (f) { L.stop.push(f); return api; },

@@ -86,6 +86,16 @@ const r1 = p.c.pose({ phase: "hold" }), r2 = p.c.pose({ phase: "down" });
 check("pose hook: in-phase sample ok, out-of-phase sample fires onOffPace", r1 === true && r2 === false && JSON.stringify(off) === JSON.stringify([["hold", "down"]]));
 check("pose hook is inert without poseCheck", run({}, 100).c.pose({}) === null);
 
+// 7b. resync(rep): restart the cycle now at DOWN one of that rep
+const rs = run({}, 5500);
+rs.c.resync(4); rs.env.advance(1000);
+const after = rs.ev.slice(6);
+check("resync(4) at 5.5 s: DOWN 1 of rep 4 at once, DOWN 2 one second later", after.length >= 2 && after[0].r === 4 && after[0].p === "down" && after[0].n === 1 && after[1].n === 2 && Math.abs(after[1].fired - after[0].fired - 1000) < 1e-6);
+check("resync: spoken 'one' right away", rs.env.spoken[6].w === "one" && rs.env.spoken[7].w === "two");
+check("offBoundaryMs: 1 s after a resync = 1000", rs.c.offBoundaryMs() === 1000);
+rs.env.advance(11000);
+check("resync: next cycle is rep 5 at +12 s", rs.ev.find((e) => e.r === 5 && e.p === "down" && e.n === 1) && rs.reps[rs.reps.length - 1].r === 4);
+
 // 8. default voice: rate 0.88, resume() called, cancels instead of queueing
 const calls = []; global.window = { performance: { now: () => 0 }, SpeechSynthesisUtterance: function (t) { this.text = t; },
   speechSynthesis: { speaking: true, pending: false, resume: () => calls.push("resume"), cancel: () => calls.push("cancel"), speak: (u) => calls.push("speak:" + u.text + "@" + u.rate) } };

@@ -1,5 +1,5 @@
 // Home games: 8 tiles in a 2-column grid (4 even rows), Gyatt Squats tile after Step Equity and before Battles,
-// Battles no longer spans a full row, and #squats is a minimal "Coming soon" section (no camera, no ZAB payout copy).
+// Battles no longer spans a full row, and #squats is the live Gyatt Squats section (front camera, Start set + End set only).
 const fs = require("fs"), path = require("path");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
@@ -25,7 +25,9 @@ if (fs.existsSync(draft)) {
   check("tile logo equals the final v9 logo", svg.includes(inner));
 }
 const sect = (html.match(/<section id="squats"[\s\S]*?<\/section>/) || [""])[0];
-check("#squats section: title Gyatt Squats and a Coming soon note", /<h2 id="squatsTitle">Gyatt Squats<\/h2>/.test(sect) && /Coming soon/.test(sect));
-check("#squats has no camera, no ZAB payout claim yet", !/<video|getUserMedia|camera-start|ZAB|Zab|earn|pays/i.test(sect.replace(/front-camera squat tracking/, "")));
+check("#squats section: title Gyatt Squats, front-camera copy, 10 squats = 1 ZAB", /<h2 id="squatsTitle">Gyatt Squats<\/h2>/.test(sect) && /Front-camera squats/.test(sect) && /10 squats = 1 ZAB/.test(sect) && !/Coming soon/.test(sect));
+check("#squats buttons: only Start set in the panel; End set (cam-end-btn) on the camera; no Pause / Finish set / Reset total", /id="sqStartBtn"[^>]*>Start set</.test(sect) && /class="btn cam-end-btn" id="sqEndBtn"/.test(sect) && (sect.match(/<button/g) || []).length === 2 && !/Pause|Finish set|Reset total/i.test(sect));
+check("#squats camera: mirrored front video in a positioned stage (face logo overlay), arcade HUD with reps + cadence", /<video id="sqVid" autoplay playsinline muted/.test(sect) && /id="sqStage" style="position:relative"/.test(sect) && /id="sqHudReps"/.test(sect) && /id="sqHudCount"/.test(sect));
+check("#squats today: squats + sets today", /id="sqRepsToday"/.test(sect) && /id="sqSetsToday"/.test(sect));
 check("#squats sits right before the Battles hub", html.indexOf('<section id="squats"') > 0 && html.indexOf('<section id="squats"') < html.indexOf('<section id="battles-hub">') && /<\/section>\s*<section id="battles-hub">/.test(html.slice(html.indexOf('<section id="squats"'))));
 const f = R.filter((x) => !x).length; console.log(`\n${R.length - f}/${R.length} passed`); process.exit(f ? 1 : 0);

@@ -79,6 +79,29 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Gyatt Squats sets (front camera, squat-counter.js). Create only, owner only, shape-checked. reps 0..1000 per set
+    // (blocks absurd writes; zab-earn pays 10 reps = 1 ZAB, so one set is worth at most 100 ZAB), set time up to 3 h and
+    // no longer than the camera session, at most ~1.4 squats a second (reps * 700 ms <= ms + 700). No edits or deletes.
+    match /squats/{id} {
+      allow read: if signedIn(); // boards: signed-in read only (no public scraping of names / handles / ids)
+      allow create: if signedIn() && ownsNew()
+        && request.resource.data.keys().hasOnly(['name','xHandle','uid','reps','ms','source','sessionStartedAt','createdAt'])
+        && request.resource.data.keys().hasAll(['name','uid','reps','ms','source','sessionStartedAt','createdAt'])
+        && shortString(request.resource.data.name, 40)
+        && (!('xHandle' in request.resource.data) || shortString(request.resource.data.xHandle, 21))
+        && request.resource.data.source == 'camera'
+        && request.resource.data.reps is int
+        && request.resource.data.reps >= 0 && request.resource.data.reps <= 1000
+        && request.resource.data.ms is int
+        && request.resource.data.ms > 0 && request.resource.data.ms <= 10800000
+        && request.resource.data.reps * 700 <= request.resource.data.ms + 700
+        && request.resource.data.sessionStartedAt is int
+        && request.resource.data.sessionStartedAt <= request.time.toMillis() + 10000
+        && request.resource.data.ms <= request.time.toMillis() - request.resource.data.sessionStartedAt + 10000
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
     // Plank sets today: one doc per person per local day, id = uid + "_" + YYYY-MM-DD.
     // Camera sessions only; values only go up; total time cannot grow faster than the clock.
     function plankDailyOk(d) {

@@ -1551,7 +1551,29 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="squats" aria-labelledby="squatsTitle">
     <h2 id="squatsTitle">Gyatt Squats</h2>
-    <p class="lead" id="squatsSoon">Coming soon: front-camera squat tracking.</p>
+    <p class="lead" id="squatsLead">Front-camera squats. Prop your phone up facing you, whole body in frame. Squat to about parallel, then stand all the way up: one rep. A voice counts the pace: 3 down, 4 hold, 5 up. 10 squats = 1 ZAB.</p>
+    <div class="stats duo">
+      <div class="stat"><b id="sqReps">0</b><span>This set</span></div>
+      <div class="stat"><b id="sqCount">–</b><span id="sqPhase">Cadence</span></div>
+    </div>
+    <div class="stats duo">
+      <div class="stat"><b id="sqRepsToday">0</b><span>Squats today</span></div>
+      <div class="stat"><b id="sqSetsToday">0</b><span>Sets today</span></div>
+    </div>
+    <p class="reps-display" id="sqMsg" style="font-size:clamp(1.4rem,6vw,2rem)">Ready</p>
+    <div class="row"><button class="btn" id="sqStartBtn" type="button">Start set</button></div>
+    <div id="sqWrap" hidden style="margin-top:1rem;max-width:22rem;position:relative">
+      <div class="arcade-strip" id="sqHud">
+        <div class="arcade-cell"><span class="arcade-num" id="sqHudReps">0</span><span class="arcade-lbl">Squats</span></div>
+        <div class="arcade-cell"><span class="arcade-num" id="sqHudCount">–</span><span class="arcade-lbl" id="sqHudPhase">Ready</span></div>
+      </div>
+      <div id="sqStage" style="position:relative">
+        <video id="sqVid" autoplay playsinline muted style="width:100%;border-radius:0 0 14px 14px;background:#101816;transform:scaleX(-1);display:block"></video>
+      </div>
+      <button class="btn cam-end-btn" id="sqEndBtn" type="button" aria-label="End set and turn the camera off">End set</button>
+    </div>
+    <p class="note" id="sqStatus" aria-live="polite">Face the camera, whole body in frame. A set ends if you stay down 15 seconds without a rep, go 45 seconds without a rep, sit down and stay down, put your hands on the floor, or leave the frame for 3 seconds. Small wobbles never end a set.</p>
+    <p class="fine">Reps come from the camera, not the voice. Today's squats reset at Eastern midnight. Signed-in sets are saved and earn ZAB. Video never uploads.</p>
   </section>
 
   <section id="battles-hub">
@@ -2064,6 +2086,10 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/washers-arcade.js"></script>
   <script src="/arcade-crisp.js"></script>
   <script src="/app-bridge.js" defer></script>
+  <script src="/gyatt-cadence.js"></script>
+  <script src="/squat-counter.js"></script>
+  <script src="/squat-session.js"></script>
+  <script src="/squat-page.js" defer></script>
   <script type="module">
     const PHONE_GIS_HASH = (typeof location !== "undefined" && location.hash) || "";
     const PHONE_GIS_SEARCH = (typeof location !== "undefined" && location.search) || "";
@@ -4058,6 +4084,21 @@ $("plankAgainBtn").onclick = () => { if (plankLoop) { newPlankHold(); if (window
 renderPlankBest();
 renderPlankDays();
 paintPlankRows(localPlanks());
+// ---- Gyatt Squats host bridge (squat-page.js runs the feature; this module only lends it the shared camera / pose /
+// sign-in / save / ZAB helpers). Saves go to squats/{id} (firestore.rules), ZAB through the server claim ("squats").
+window.ZabSquatHost = {
+  ensurePose: () => ensurePushPose(), // iOS app: Apple Vision (knee3D); everywhere else MoveNet, same as push-ups
+  attachCam, stopCamTracks, camErrorText, isNativeApp, CAM_CONSTRAINTS,
+  requireSignIn: (f, fn, o) => requireSignIn(f, fn, o), unlockGetSet: () => unlockGetSet(),
+  stopOtherCams: () => { try { if (camOn) stopCam(); if (pushStarting) cancelPushStart(); if (plankLoop) stopPlankCam(); if (plankStarting) cancelPlankStart(); } catch (e) {} },
+  camFs: (id, on) => { if (typeof camFs === "function") camFs(id, on); },
+  sessionPlan: (k) => sessionPlan(k), sessionCommit: (k) => sessionCommit(k), sessionTouch: () => sessionTouch(),
+  wake: makeWake("sqStatus"),
+  user: () => currentUser,
+  playerName: () => { const typed = ($("player").value || "").trim().slice(0, 20); return currentUser ? (typed || displayNameOf(currentUser)) : (typed || "Player"); },
+  save: async () => { throw new Error("Squat board is not connected"); }, // replaced once Firebase loads (below)
+  award: (id) => awardZab("squats", id), zabNote: (r) => zabNote(r), zabRing: (el) => zabRing(el)
+};
 // ---- Daily steps (shared module daily-steps.js; native plugin in the app, live walk on web) ----
 let saveRemoteDaily = async () => { throw new Error("Daily board is not connected"); };
 let dailyRepaint = null; // set by the live walk section: repaint the session readout whenever today's total changes (app: phone counter stream)
@@ -4408,6 +4449,16 @@ saveRemotePlankDaily = async (day, record) => {
   await setDoc(doc(db, "plankDaily", id), { ...rec, updatedAt: serverTimestamp() });
 };
 
+// Gyatt Squats save (squats/{id}, firestore.rules): used by squat-page.js through the host bridge above.
+window.ZabSquatHost.save = async (record) => {
+    if (!auth.currentUser) throw new Error("Sign in required");
+    const handle = ($("xHandle").value || "").trim().replace(/^@/, "");
+    return (await addDoc(collection(db, "squats"), {
+      name: String(record.name || "Player").slice(0, 40), xHandle: handle ? ("@" + handle).slice(0, 21) : "", uid: auth.currentUser.uid,
+      reps: Math.max(0, Math.min(1000, Math.floor(Number(record.reps) || 0))), ms: Math.max(1, Math.round(Number(record.ms) || 0)),
+      source: "camera", sessionStartedAt: Math.round(Number(record.sessionStartedAt)), createdAt: serverTimestamp()
+    })).id;
+  };
 saveRemoteDaily = async (s) => {
   if (!auth.currentUser) throw new Error("Sign in required");
   const handle = ($("xHandle").value || "").trim();
