@@ -8,7 +8,7 @@ const rep = (t0, per) => (t) => { if (t < t0) return { d: 0 }; const p = (t - t0
 (async () => {
   // Go at 9 s (no speech); reps start at 10 s; run to 10 s + 6 reps
   for (const [per, min] of [[2000, 15], [3500, 5], [5000, 5], [7000, 5]]) {
-    for (const mode of ["sets", "long", "challenge"]) {
+    for (const mode of ["sets", "long"]) { // the Two-minute challenge is a hold (no reps)
       const r = await run(HTML, { mode, script: rep(10000, per), ms: 10000 + per * 6 + 500 });
       check(`${mode}: ${per / 1000} s reps count (${r.reps} of 6, need >= ${per === 2000 ? 6 : min})`, r.reps >= (per === 2000 ? 6 : min));
     }

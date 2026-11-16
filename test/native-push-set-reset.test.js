@@ -55,7 +55,7 @@ const tick = () => new Promise((r) => setTimeout(r, 5));
     check(`${mode}: set-1 prompts do not show or speak in set 2 (speech cancelled, camera note, form flag, rule-break count cleared)`, p.log.includes("speech.cancel") && p.log.indexOf("speech.cancel") < p.log.indexOf("countdown") && !/Counted 7/.test(p.els.camNote.textContent) && p.els.pushViolFlag.hidden === true && p.els.pushViol.textContent === "0" && p.els.challengeResult.hidden === true);
   }
   // TUT set -> failure (posts once) -> auto reset -> next TUT set
-  for (const mode of ["long", "challenge"]) {
+  for (const mode of ["long"]) { // Two-minute challenge: two-minute-challenge.test.js
     const p = page(mode); await p.start(); p.pushState.reps = 5; p.adv(40000);
     if (mode === "challenge") p.ctx.pushChallenge.result = () => ({ reps: 5, tutMs: 12000, score: 17 });
     p.run('voidTutSet("knees")'); await tick();

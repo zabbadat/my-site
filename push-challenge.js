@@ -1,4 +1,8 @@
-/* Three-minute challenge (TUT set-push-up, #push).
+/* Push-up challenge helpers (#push) + the TUT Battle clock.
+ * createHoldChallenge: the solo Two-minute challenge (Nov 16, owner): a 2:00 clock that counts down; hold a push-up plank
+ *   (high plank, arms straight) the whole time. Reaching 0:00 = complete; a camera-detected form break (the same failure
+ *   watch as the TUT set: knees down, sag / pike against the start pose, collapse, stood up) or End set = failed, time held shown.
+ * createChallenge: the old reps + top-hold TUT clock. Still used by TUT Battle (its own durationMs); the solo challenge no longer uses it.
  * Pure logic, no DOM. createChallenge({ durationMs: 180000, topCapMs: 10000 })
  * - start(t): fixed clock from t; no pause.
  * - update(t, { atTop, counted, repMs }): call every pose frame.
@@ -59,7 +63,59 @@
     if (k.knees) p.push("Knees down × " + k.knees);
     return n + " flag" + (n === 1 ? "" : "s") + ": " + p.join(", ");
   }
-  var api = { createChallenge: createChallenge, atTopFrom: atTopFrom, flagSummary: flagSummary };
+  // ---- Two-minute challenge (solo hold) ----
+  var HOLD_CHALLENGE = { durationMs: 120000 };
+  // Start-button intro: the card and the spoken line go up together, before the One, two, three, Go count.
+  var INTRO = {
+    spoken: "Hold yourself up in a push press plank position. Hold for two minutes.",
+    title: "Two-minute challenge",
+    lines: ["The clock runs from 2:00 down to 0:00.", "Hold a push-up plank, arms straight, the whole two minutes.", "Knees down, sagging, piking up, collapsing or standing up ends it."]
+  };
+  // start(t) at Go; update(t) -> snapshot; fail(t, reason) ends it early (credit up to t); stop(t, reason) = ended by hand.
+  // Snapshot: { started, ended, success, reason, heldMs, remainingMs }. Nothing after durationMs is ever credited.
+  function createHoldChallenge(opts) {
+    var o = {}; for (var k in HOLD_CHALLENGE) o[k] = HOLD_CHALLENGE[k];
+    for (var k2 in opts || {}) o[k2] = opts[k2];
+    var s;
+    function reset() { s = { started: false, startT: 0, ended: false, success: false, reason: null, heldMs: 0 }; }
+    reset();
+    function held(t) { return s.started ? Math.max(0, Math.min(o.durationMs, t - s.startT)) : 0; }
+    function snap(t) {
+      var h = s.ended ? s.heldMs : held(t);
+      return { started: s.started, ended: s.ended, success: s.success, reason: s.reason, heldMs: h, remainingMs: Math.max(0, o.durationMs - h) };
+    }
+    function start(t) { reset(); s.started = true; s.startT = t; return snap(t); }
+    function update(t) {
+      if (s.started && !s.ended && t - s.startT >= o.durationMs) { s.ended = true; s.success = true; s.reason = "done"; s.heldMs = o.durationMs; }
+      return snap(t);
+    }
+    function endEarly(t, reason) {
+      if (!s.started || s.ended) return snap(t);
+      update(t); if (s.ended) return snap(t); // already reached 2:00: that is a complete hold
+      s.ended = true; s.success = false; s.reason = reason || "stopped"; s.heldMs = held(t);
+      return snap(t);
+    }
+    return { start: start, update: update, fail: endEarly, stop: endEarly, reset: reset, snapshot: snap, state: function () { return s; }, options: o };
+  }
+  // Result line for the card / status: "Two-minute challenge complete: held 2:00." or "... failed: held 1:12 (Knees down)."
+  function clock(ms) { var sec = Math.floor(Math.max(0, Number(ms) || 0) / 1000); return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0"); }
+  function holdResultText(r, why) {
+    if (r && r.success) return "Two-minute challenge complete: held " + clock(r.heldMs) + ".";
+    return "Two-minute challenge failed: held " + clock(r ? r.heldMs : 0) + (why ? " (" + why + ")" : "") + ".";
+  }
+  // Today's challenge totals (this phone), keyed by the Eastern day so they start over at Eastern midnight on their own.
+  function dayStatsKey(who, dayKey) { return "zabbadat-twomin-" + (who || "guest") + "-" + dayKey; }
+  function addDayStats(prev, r) {
+    var p = prev || { tries: 0, done: 0, bestMs: 0 };
+    return { tries: (p.tries || 0) + 1, done: (p.done || 0) + (r && r.success ? 1 : 0), bestMs: Math.max(p.bestMs || 0, Math.round((r && r.heldMs) || 0)) };
+  }
+  function dayStatsText(st) {
+    if (!st || !st.tries) return "Today: no tries yet.";
+    return "Today: " + st.tries + " tr" + (st.tries === 1 ? "y" : "ies") + ", " + st.done + " complete, best hold " + clock(st.bestMs) + ".";
+  }
+  var api = { createChallenge: createChallenge, atTopFrom: atTopFrom, flagSummary: flagSummary,
+    HOLD_CHALLENGE: HOLD_CHALLENGE, INTRO: INTRO, createHoldChallenge: createHoldChallenge, holdResultText: holdResultText, clock: clock,
+    dayStatsKey: dayStatsKey, addDayStats: addDayStats, dayStatsText: dayStatsText };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatChallenge = api;
 })(this);

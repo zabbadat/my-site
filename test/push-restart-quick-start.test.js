@@ -52,7 +52,7 @@ function newPlankHold() { log.push("plankHold"); } function plankTick() {} funct
 }
 
 const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Session on. The clock runs nonstop; the camera counts each full rep.",
-  challenge: "Challenge on. 3:00 on the clock; stay in plank, the camera counts each full rep." };
+  challenge: "Challenge on. 2:00 on the clock: hold your push-up plank, arms straight." };
 (async () => {
   const SAID = (e) => e.ctx.spoken.filter((x) => x.vol !== 0);
   const words = (e, from) => SAID(e).slice(from || 0).map((x) => x.w + "@" + x.at).join(",");

@@ -52,7 +52,7 @@ function newPlankHold() { log.push("plankHold"); } function plankTick() {} funct
 }
 
 const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Session on. The clock runs nonstop; the camera counts each full rep.",
-  challenge: "Challenge on. 3:00 on the clock; stay in plank, the camera counts each full rep." };
+  challenge: "Challenge on. 2:00 on the clock: hold your push-up plank, arms straight." };
 (async () => {
   const SAID = (e) => e.ctx.spoken.filter((x) => x.vol !== 0);
   const C = { sets: GS.coachLines("pushups"), long: GS.coachLines("tut"), challenge: GS.coachLines("pushups"), plank: GS.coachLines("plank") };
@@ -81,7 +81,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     const times = SAID(e).map((x) => x.w + "@" + x.at).join(",");
     check(`${mode}: timeline`, times === [C[mode].place + "@0", C[mode].criteria + "@1000", LINE + "@3000", "One@7000", "two@8200", "three@9400", "Go@10600"].join(","));
     check(`${mode}: clock starts at Go`, e.run("pushState.running") === true && e.$("pushStatus").textContent === STATUS[mode] && e.$("pushStartBtn").disabled === true); // stays disabled while the set runs (pose-loop guard); syncPushStartBtn re-enables at the end
-    if (mode === "challenge") check("challenge: 3:00 challenge clock started", e.log.includes("challenge:start"));
+    if (mode === "challenge") check("challenge: Two-minute challenge clock started", e.log.includes("challenge:start"));
   }
   { const e = env({ noEnd: true }); e.$("pushStartBtn").onclick(); await e.advance(9990);
     check("utterance end never reported: placement line capped at 10 s", SAID(e).length === 1); await e.advance(20); check("... then the criteria line", SAID(e).length === 2); }

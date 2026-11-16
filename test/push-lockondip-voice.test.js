@@ -34,7 +34,7 @@ check("coaching lines per exercise (shared get-set.js COACH)", G.coachLines("pus
   sp = []; r = await run(HTML, { mode: "long", script: repAt(11600), ms: 17600, spoken: sp });
   check("flow (One long set = TUT): TUT coaching lines, counts up 1, 2, 3", sp.filter((x) => x.vol !== 0).map((x) => x.w).join("|") === [TU.place, TU.criteria, CD, "1|2|3"].join("|"));
   sp = []; r = await run(HTML, { mode: "challenge", script: repAt(11600), ms: 17600, spoken: sp });
-  check("flow (Three-minute challenge): counts up 1, 2, 3", sp.filter((x) => x.vol !== 0).map((x) => x.w).slice(7).join("|") === "1|2|3");
+  check("flow (Two-minute challenge): a hold, no rep numbers spoken", !sp.filter((x) => x.vol !== 0).map((x) => x.w).some((w) => /^\d+$/.test(w)));
   sp = []; r = await run(HTML, { mode: "sets", script: repAt(0), ms: 12000, spoken: sp });
   check("dips before Go: not counted, not spoken", sp.filter((x) => x.vol !== 0 && /^\d|Plus/.test(x.w)).every((x) => x.at >= 10600) && r.reps <= 1);
   const pass = R.filter(Boolean).length; console.log(`${pass}/${R.length} passed`); process.exit(pass === R.length ? 0 : 1);

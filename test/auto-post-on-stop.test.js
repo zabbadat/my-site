@@ -32,7 +32,7 @@ const tick = () => new Promise((r) => setTimeout(r, 5));
   check("rule: running clock + >= 1 rep in sets / long / challenge posts on camera stop", ["sets", "long", "challenge"].every((m) => SS.postOnCameraStop(m, 1, { running: true, finished: false })));
   check("rule: 0 reps, paused (not running), finished, unknown mode, missing state: no post", !SS.postOnCameraStop("sets", 0, { running: true }) && !SS.postOnCameraStop("sets", 5, { running: false, elapsed: 5000 }) && !SS.postOnCameraStop("long", 5, { running: true, finished: true }) && !SS.postOnCameraStop("walk", 5, { running: true }) && !SS.postOnCameraStop("sets", 5, null));
   // each mode posts exactly once
-  for (const [mode, ms, reps, expect] of [["sets", 40000, 12, "post:12:40000"], ["long", 75000, 35, "post:35:75000"], ["challenge", 95000, 9, "post:9:95000"]]) {
+  for (const [mode, ms, reps, expect] of [["sets", 40000, 12, "post:12:40000"], ["long", 75000, 35, "post:35:75000"]]) { // the Two-minute challenge: two-minute-challenge.test.js
     const p = page(mode, { ms, reps, chReps: 9 });
     const did = p.stop(); await tick();
     check(`${mode}: Stop camera with the clock running posts once (${expect}) with ZAB awarded through the normal path`, did === true && p.posts().length === 1 && p.posts()[0] === expect && p.awards().length >= 1 && p.pushState.finished === true && p.pushState.running === false);
@@ -40,8 +40,7 @@ const tick = () => new Promise((r) => setTimeout(r, 5));
     const aw = p.awards().length; p.stop(); p.stop(); p.end(); await tick();
     check(`${mode}: stopping again and tapping Finish / End session afterwards never posts or awards twice`, p.posts().length === 1 && p.awards().length === aw);
   }
-  let p = page("challenge", { ms: 95000, chReps: 9 }); p.stop(); await tick();
-  check("challenge: reps and time under tension come from the challenge clock; card says 'stopped early'; nothing credited past now", p.posts()[0] === "post:9:95000" && p.log.includes("chUpdate") && /stopped early/.test(p.els.challengeResult.innerHTML) && /Reps: 9/.test(p.els.challengeResult.innerHTML) && /Time under tension: 0:33|33/.test(p.els.challengeResult.innerHTML) && p.pushState.tut === 0); // set cleared after posting (fix/push-set-reset)
+  let p;
   // manual first, then stop: one post
   p = page("sets", { ms: 40000 }); p.end(); p.stop(); await tick();
   check("manual Finish first, then Stop camera: still exactly one post", p.posts().length === 1);

@@ -62,7 +62,7 @@ function page(mode, extra) {
   vm.runInContext(fnSrc, ctx);
   return { log, store, pushState, els, void: (why) => vm.runInContext(`voidTutSet(${JSON.stringify(why)})`, ctx) };
 }
-for (const mode of ["long", "challenge"]) {
+for (const mode of ["long"]) { // the Two-minute challenge ends through endHoldChallenge: see two-minute-challenge.test.js
   const p = page(mode, { reps: 0 }); p.void("knees");
   check(`${mode}: clock stops at once and the set auto-resets (not running, not finished, interval cleared)`, p.pushState.running === false && p.pushState.finished === false && p.log.includes("clearInterval"));
   check(`${mode}: 0 reps: nothing to post: reps 0, TUT 0, clock 0, nothing saved locally`, p.pushState.reps === 0 && p.pushState.tut === 0 && p.pushState.elapsed === 0 && p.store.length === 0);
@@ -77,10 +77,10 @@ check("the end-of-set line is exactly 'Set complete.'", G.SET_DONE_LINE === "Set
 // ---- page wiring pins
 const pt = html.slice(html.indexOf("async function poseTick(id = poseLoopId)"), html.indexOf("async function openCam()"));
 check("failure check: TUT block voids via voidTutSet; Sets block ends only via finishPushSet (knees / 10 s out of frame)", /if \(\(pushMode === "long" \|\| pushMode === "challenge"\) && postureGuard && pushState\.running && !pushState\.finished\) \{[\s\S]*failWatch\.update\([\s\S]*voidTutSet\(failed/.test(pt) && /pushMode === "sets" && pushState\.running[\s\S]*failWatch\.update\([\s\S]*finishPushSet\(why\)/.test(pt) && pt.split("failWatch.update(").length === 3);
-check("TUT camera skips the 10 s out-of-frame end; Sets path does not", /failExtra\(st, w, pose, \{ skipFrame: true \}\)/.test(pt) && !/pushMode === "sets"[\s\S]{0,400}skipFrame/.test(pt));
+check("TUT camera skips the 10 s out-of-frame end; Sets path does not", /failExtra\(st, w, pose, pushMode === "challenge" \? twoMinFailExtra\(performance\.now\(\)\) : \{ skipFrame: true \}\)/.test(pt) && !/pushMode === "sets"[\s\S]{0,400}skipFrame/.test(pt));
 const longNote = (html.match(/id="longNote"[^>]*>([\s\S]*?)<\/p>/) || [])[1] || "";
 const challengeNote = (html.match(/id="challengeNote"[^>]*>([\s\S]*?)<\/p>/) || [])[1] || "";
-check("longNote and challengeNote no longer end on 10 seconds out of frame", /Ends only on knees down, or any type of failure motion/.test(longNote) && !/End session/.test(longNote) && !/10 seconds out of frame/.test(longNote) && /Ends at 3:00, on knees down, or I give up/.test(challengeNote) && !/10 seconds out of frame/.test(challengeNote));
+check("longNote and challengeNote no longer end on 10 seconds out of frame", /Ends only on knees down, or any type of failure motion/.test(longNote) && !/End session/.test(longNote) && !/10 seconds out of frame/.test(longNote) && /runs from 2:00 down to 0:00/.test(challengeNote) && /Knees down, sagging, piking up, collapsing or standing up ends it/.test(challengeNote) && !/10 seconds out of frame/.test(challengeNote));
 check("longNote explains TUT as push-ups without quitting or holding a plank push press, and keeps the clock/knees wording", /Time under tension set; the clock runs non-stop from start/.test(longNote) && /[Aa]s many push-ups you can do without quitting, or holding yourself up while holding a plank push press/.test(longNote) && /Time reps and tut sets will post/.test(longNote) && /A TUT set counts regardless of how many push-ups you can do/.test(longNote) && /zero push-ups counts as one set/.test(longNote) && /as long as form isn't broken/.test(longNote) && !/Time and reps so far still post/.test(longNote) && !/push pressed position/.test(longNote) && !/Rule breaks/.test(longNote));
 check("voidTutSet only acts in long/challenge; its only save/post route is finishPushSet (no direct saveRemotePush / awardZab / localStorage)", /\(pushMode !== "long" && pushMode !== "challenge"\)\) return;/.test(fnSrc) && !/saveRemotePush|awardZab|localStorage|paintPushRows/.test(fnSrc) && fnSrc.split("finishPushSet(").length === 2);
 check("failWatch resets on each clock start and on every fresh set", /failWatch\.reset\(performance\.now\(\)\);[\s\S]{0,600}pushState\.running = true;/.test(html) && /clearPushPrompts\(opts\);\n  if \(typeof failWatch !== "undefined" && failWatch\) failWatch\.reset\(null\);/.test(html));
@@ -92,12 +92,12 @@ check("regular Sets get NO 15 s count: the one tutTimeVoice.tick call is gated o
 check("regular Sets: no 15 s count; Set complete. is spoken on finish (7 interruptSpeak call sites: speakSetDone + void/finish fallbacks, TUT Battle loss, TUT go-cue, 30-second hold cue, sayPushHint); plank lines use queued plankSpeak", (html.match(/interruptSpeak\(/g) || []).length === 7 && (html.match(/GSh\.interruptSpeak\(line\.replace/g) || []).length === 1 && !/pushMode === "sets"[^\n]*tick\(/.test(html));
 check("Sets panel has no Pause / Finish set / Reset total buttons or handlers (owner, Nov 16: Start set only)", !/pushPauseBtn|pushFinishBtn|pushTotalResetBtn/.test(html));
 
-// ---- 3:00 challenge voice: marks 15..165 s, never a '3 minutes' (renderPush returns into finishChallenge at 180 s first)
+// ---- Two-minute challenge voice: marks 15..105 s, never a '2 minutes' (renderPush returns into finishChallenge at 120 s first)
 { const said = []; const v = G.makeHoldVoice({ polite: true, speak: (w) => said.push(w), busy: () => false });
-  for (let now = 0; now < 180000; now += 200) v.tick(now); v.end(); v.tick(180000); v.tick(181000);
-  check("challenge: spoken elapsed marks 15 s ... 2 minutes 45, then silence (no '3 minutes', never after the finish)", said.join() === "15 seconds,30 seconds,45 seconds,1 minute,1 minute 15,1 minute 30,1 minute 45,2 minutes,2 minutes 15,2 minutes 30,2 minutes 45"); }
+  for (let now = 0; now < 120000; now += 200) v.tick(now); v.end(); v.tick(120000); v.tick(121000);
+  check("challenge: spoken elapsed marks 15 s ... 1 minute 45, then silence (no '2 minutes', never after the finish)", said.join() === "15 seconds,30 seconds,45 seconds,1 minute,1 minute 15,1 minute 30,1 minute 45"); }
 { const rc = html.slice(html.indexOf("function renderPush() {"), html.indexOf("function renderPushMode()"));
-  check("challenge: renderPush finishes at 3:00 (return) before the voice tick; the clock/countdown text is untouched", rc.indexOf("finishChallenge(); return;") > 0 && rc.indexOf("finishChallenge(); return;") < rc.indexOf("tutTimeVoice.tick(now)")); }
+  check("challenge: renderPush finishes at 2:00 (return) before the voice tick; the clock/countdown text is untouched", rc.indexOf("finishChallenge(); return;") > 0 && rc.indexOf("finishChallenge(); return;") < rc.indexOf("tutTimeVoice.tick(now)")); }
 
 // ---- TUT Battles
 check("TUT Battle: polite 15 s count from the shared 3:00 (3:00 mark never spoken), reset at GO, ended on loss / time-up / done", /const tbTimeVoice = [^\n]*makeHoldVoice\(\{ polite: true \}\)/.test(html) && /tbTimeVoice\.tick\(TBm\.RULES\.durationMs - left\)/.test(html) && /left > 0\) tbTimeVoice\.tick/.test(html) && /tbRepVoice\.reset\(\); if \(tbTimeVoice\) tbTimeVoice\.reset\(\);/.test(html) && /tbLostSent = true; if \(tbTimeVoice\) tbTimeVoice\.end\(\);/.test(html));

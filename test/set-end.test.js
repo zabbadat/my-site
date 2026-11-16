@@ -74,7 +74,7 @@ const rep = (t0, per, n) => (t) => { if (t < t0) return { d: 0 }; const k = Math
   L = ctx.api.log;
   check(`Sets, configured target 5: reaching it does not end the set (${r.reps} reps), camera still on`, r.reps >= 8 && r.running === true && !L.some((x) => /^(finish|void):/.test(x)) && !L.includes("stopCam"));
   // 6 reps then the user lies down at the bottom: stalled -> ends + exits (every push-up mode)
-  for (const mode of ["sets", "long", "challenge"]) {
+  for (const mode of ["sets", "long"]) { // the Two-minute challenge has no reps, so no stall end (two-minute-challenge.test.js)
     const lie = (t) => { const x = rep(10000, 2000, 6)(t); return t >= 10000 + 6 * 2000 ? { d: 1 } : x; };
     r = await run(HTML, { mode, script: lie, ms: 10000 + 6 * 2000 + 25000, setup: grab });
     const l = ctx.api.log, endLine = l.find((x) => /^(finish|void):/.test(x)) || "";
@@ -86,7 +86,7 @@ const rep = (t0, per, n) => (t) => { if (t < t0) return { d: 0 }; const k = Math
 
   // ---- 3. End set button on every exercise camera screen ----
   const btn = (id, wrap) => new RegExp('<div id="' + wrap + '"[\\s\\S]{0,900}<button class="btn cam-end-btn" id="' + id + '" type="button"[^>]*>End set</button>').test(html);
-  check("push-ups / TUT / 3:00 challenge camera (#camWrap) has End set", btn("camEndBtn", "camWrap"));
+  check("push-ups / TUT / Two-minute challenge camera (#camWrap) has End set", btn("camEndBtn", "camWrap"));
   check("TUT Battle camera (#tbCamWrap) has End set", btn("tbEndBtn", "tbCamWrap"));
   check("plank / plank push press camera (#plankWrap) has End set", btn("plankEndBtn", "plankWrap"));
   check("End set buttons are wired", /\$\("camEndBtn"\)\.onclick = endSetNow;/.test(html) && /\$\("tbEndBtn"\)\.onclick = tbEndSetNow;/.test(html) && /\$\("plankEndBtn"\)\.onclick = plankEndSetNow;/.test(html));
@@ -98,12 +98,13 @@ const rep = (t0, per, n) => (t) => { if (t < t0) return { d: 0 }; const k = Math
   // push End set: real endSetNow in a small vm
   const endSrc = between("function endSetNow() {", "// Leave push-up camera mode") || "";
   const realEndSet = html.slice(html.indexOf("function endSetNow() {"), html.indexOf("\n}", html.indexOf("function endSetNow() {")) + 2);
-  for (const [mode, reps, running, expect] of [["sets", 7, true, "finish:Ended by you:7"], ["long", 3, true, "finish:Ended by you:3"], ["sets", 4, false, "finish:Ended by you:4"], ["challenge", 0, true, "void:ended:0"], ["challenge", 5, true, "finish:Ended by you:5"]]) {
+  for (const [mode, reps, running, expect] of [["sets", 7, true, "finish:Ended by you:7"], ["long", 3, true, "finish:Ended by you:3"], ["sets", 4, false, "finish:Ended by you:4"], ["challenge", 0, true, "hold:ended"]]) {
     const log = []; const els = {}; const $ = (id) => els[id] || (els[id] = { hidden: false, textContent: "" });
     const c = vm.createContext({ log, $, performance: { now: () => 1 }, pushState: { reps, running, finished: false, elapsed: running ? 0 : 9000, startedAt: running ? 1 : 0 }, pushMode: mode, pushStarting: false, camOn: true, camStream: {}, repVoice: { reset: () => log.push("repVoice.reset") },
       pushChallenge: { update() {}, result: () => ({ reps, tutMs: 1000 }) }, showChallengeResult() {}, sessionTouch() {}, cancelPushStart() { log.push("cancelStart"); } });
     vm.runInContext(`function finishPushSet(w) { if (pushState.finished) return; log.push("finish:" + w + ":" + pushState.reps); pushState.finished = true; pushState.running = false; }
 function voidTutSet(w) { log.push("void:" + w + ":" + pushState.reps); pushState.finished = true; pushState.running = false; }
+function endHoldChallenge(w) { log.push("hold:" + w); pushState.finished = true; pushState.running = false; }
 function stopCam() { log.push("stopCam"); camOn = false; camStream = null; }
 ` + realEndSet, c);
     vm.runInContext("endSetNow()", c);

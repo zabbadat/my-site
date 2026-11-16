@@ -23,11 +23,11 @@ const S0 = {
 const shifted = (f) => (t) => f(t - SH);
 check("DEFAULTS pinned (One Euro filter, wrist reach gate, depth in shoulder widths; shoulders-only fallback keys; no elbow angle, no size view)", JSON.stringify(P.DEFAULTS) === JSON.stringify({ minScore: 0.3, holdMs: 300, poorMs: 1000, minCutoff: 3, beta: 6, dCutoff: 1, tauMs: 70, glitchRatio: 0.45, glitchMaxMs: 250, calibMs: 1000, steadyTol: 0.05, minDepth: 0.2, downRom: 0.7, upRom: 0.3, minBottomMs: 120, minRepMs: 400, maxRepMs: 6000, adapt: 0.15, reachFrac: 0.4, reachReturn: 0.35, topFollowMs: 400, topWinMs: 7000, noseMin: 0.5, noseJump: 0.5, faceCluster: 0.55, learnRate: 0.05, handBackMs: 600 }));
 (async () => {
-  for (const mode of ["sets", "long", "challenge"]) { const r = await run(HTML, { mode, script: shifted(S0.ideal), ms: 32000 }); check(mode + ": first real dip after Go counts; every rep counted (11 in 30 s)", r.reps === 11 && r.running && r.startedAt === 9600, "reps " + r.reps); }
+  for (const mode of ["sets", "long"]) { const r = await run(HTML, { mode, script: shifted(S0.ideal), ms: 32000 }); check(mode + ": first real dip after Go counts; every rep counted (11 in 30 s)", r.reps === 11 && r.running && r.startedAt === 9600, "reps " + r.reps); }
   let r = await run(HTML, { mode: "sets", script: shifted(S0.close), ms: 32000 }); check("user too close to the phone at first, then backs away: start level follows, reps count", r.reps >= 10, "reps " + r.reps);
   r = await run(HTML, { mode: "sets", script: shifted(S0.far), ms: 32000 }); check("user far from the phone at first, then steps in: reps count", r.reps >= 10, "reps " + r.reps);
   r = await run(HTML, { mode: "long", script: shifted(S0.far), ms: 32000 }); check("One long set: same recovery", r.reps >= 10, "reps " + r.reps);
-  r = await run(HTML, { mode: "challenge", script: shifted(S0.close), ms: 32000 }); check("Three-minute challenge: same recovery", r.reps >= 10, "reps " + r.reps);
+  r = await run(HTML, { mode: "challenge", script: shifted(S0.close), ms: 32000 }); check("Two-minute challenge: a hold, push-ups during it are not counted (no reps)", r.reps === 0 && r.running, "reps " + r.reps);
   r = await run(HTML, { mode: "sets", script: shifted(S0.early), ms: 32000 }); check("dips during the prompt/countdown never count; counting starts at Go", r.trace.every((x) => x.run || x.reps === 0) && r.reps >= 11, "reps " + r.reps);
   r = await run(HTML, { mode: "sets", script: shifted(S0.bottomPause), ms: 32000 }); check("1.5 s pause at the bottom of the first rep: later reps count", r.reps >= 9, "reps " + r.reps);
   // pure counter: steady frames never lock anything, never count

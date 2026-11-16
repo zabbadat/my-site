@@ -36,13 +36,8 @@ const complete = (p) => p.log.filter((x) => x === "say:Set complete.").length;
     p.end(); p.fail("standing"); p.end(); await tick();
     check(`long ${secs} s: End session / second failure afterwards do not post again, nor speak again`, p.posts().length === 1 && complete(p) === 1);
   }
-  // 3:00 challenge: failure posts the result so far (time under tension from the challenge clock, reps from the challenge).
-  let p = page("challenge", { ms: 95000, chReps: 20 }); p.fail("frame"); await tick();
-  check("challenge: failure at 95 s posts once with the challenge reps (20) and the real elapsed ms", p.posts().length === 1 && p.posts()[0] === "post:20:95000" && p.log.includes("chUpdate"));
-  check("challenge: result card shows 'ended early' with the reason, reps and time under tension; challenge auto-reset after posting; status not voided", /ended early: Out of frame/.test(p.els.challengeResult.innerHTML) && /Reps: 20/.test(p.els.challengeResult.innerHTML) && p.els.challengeResult.hidden === false && p.log.includes("challengeReset") && !/voided|nothing was saved/i.test(p.els.pushStatus.textContent));
-  check("challenge: says 'Set complete.' once; a second failure does not post again", complete(p) === 1 && (p.fail("knees"), p.posts().length === 1 && complete(p) === 1));
-  p = page("challenge", { ms: 30000, reps: 0, chReps: 0 }); p.fail("knees"); await tick();
-  check("challenge: failure with 0 reps posts nothing, nothing saved, says 'Set complete.' once", p.posts().length === 0 && !p.log.some((x) => /^local:/.test(x)) && complete(p) === 1 && /^Set failed: 0 reps/.test(p.els.pushStatus.textContent));
+  // Two-minute challenge failures: two-minute-challenge.test.js (time held, no reps).
+  let p;
   p = page("long", { ms: 90000, reps: 0 }); p.fail("frame"); await tick();
   check("long: failure with 0 reps posts nothing (nothing to post), says 'Set complete.' once", p.posts().length === 0 && !p.log.some((x) => /^local:/.test(x)) && complete(p) === 1 && /^Set failed: 0 reps, 90s \(Out of frame\)/.test(p.els.pushStatus.textContent) && p.pushState.reps === 0);
   // Manual end: posts at any time with reps, once, and says Set complete.
@@ -55,7 +50,7 @@ const complete = (p) => p.log.filter((x) => x === "say:Set complete.").length;
   p = page("long", { ms: 75000, signedIn: false }); p.fail("knees"); await tick();
   check("signed out: failure saves on this device with the reason, no remote post", p.posts().length === 0 && p.log.includes("local:zabbadat-push-total-u1-d") && /^Set failed: 35 reps, 75s\. Ready for the next set\. Saved on this device\. Sign in to post\. Ended: Knees down\./.test(p.els.pushStatus.textContent));
   check("wiring: End session still calls finishPushSet in long mode; poseTick still calls voidTutSet(failed)", /pushEndBtn"\)\.onclick = \(\) => \{ if \(pushMode === "long"\) finishPushSet\(\); \}/.test(html) && /if \(failed\) voidTutSet\(failed, failWatch\.failedAt && failWatch\.failedAt\(\)\);/.test(html));
-  check("copy: longNote, challengeNote and tut.html say time reps and tut sets will post", (html.match(/Time reps and tut sets will post/g) || []).length === 2 && /ends the set, and time reps and tut sets will post/.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
+  check("copy: longNote and tut.html say time reps and tut sets will post (the Two-minute challenge note is about the hold)", (html.match(/Time reps and tut sets will post/g) || []).length === 1 && /ends the set, and time reps and tut sets will post/.test(fs.readFileSync(path.join(__dirname, "../tut.html"), "utf8")));
   // Owner rule (Nov 13): completed TUT set = clock >= 1:20 AND >= 10 push-ups. Minimums, not a cap: full time and reps saved.
   for (const mode of ["long", "sets", "challenge"]) {
     const q = page(mode, { ms: 95000 }); q.end(); await tick();

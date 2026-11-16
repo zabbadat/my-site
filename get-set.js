@@ -228,6 +228,7 @@
           if (w && w.speechSynthesis && typeof w.SpeechSynthesisUtterance === "function") {
             var u = new w.SpeechSynthesisUtterance(say(text)); u.rate = opts.rate || VOICE.rate; u.onend = ended; u.onerror = ended;
             var ss = w.speechSynthesis;
+            if (opts.resume) { try { if (typeof ss.resume === "function") ss.resume(); } catch (e) {} } // iOS: wake a paused engine first (opt-in)
             if (opts.queue) ss.speak(u); // plank: wait in line behind the current line, never cut it off
             else if (ss.speaking || ss.pending) { ss.cancel(); setTimeout(function () { try { ss.speak(u); } catch (e) {} }, 60); } else ss.speak(u);
             started = true;

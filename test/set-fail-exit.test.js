@@ -31,7 +31,7 @@ for (const why of ["knees", "collapse", "standing", "elbows", "form", "frame"]) 
   const p = page("sets"); p.run(`finishPushSet((window.ZabbadatSession.FAIL_TEXT || {})[${JSON.stringify(why)}])`); // the exact Sets failure call in poseTick
   check(`Sets, fail '${why}': saved once (${p.log.find((x) => /^post:/.test(x))}), 'Set complete' once, camera mode exited`, p.log.filter((x) => /^post:/.test(x)).length === 1 && said(p) && exited(p) && p.pushState.finished);
 }
-for (const mode of ["long", "challenge"]) {
+for (const mode of ["long"]) { // Two-minute challenge fails: two-minute-challenge.test.js
   for (const why of ["knees", "collapse", "standing", "elbows", "form", "stalled"]) {
     const p = page(mode); p.run(`voidTutSet(${JSON.stringify(why)})`);
     check(`${mode === "long" ? "TUT (One long set)" : "3:00 challenge"}, fail '${why}' with 6 reps: posted once, camera mode exited`, p.log.filter((x) => /^post:6:/.test(x)).length === 1 && said(p) && exited(p));
@@ -40,10 +40,11 @@ for (const mode of ["long", "challenge"]) {
   check(`${mode}: fail with 0 reps: nothing saved, camera mode still exited`, !z.log.some((x) => /^post:/.test(x)) && z.log.includes("fresh") && exited(z));
 }
 { const p = page("long", { reps: 12 }); p.run(`voidTutSet("knees")`); check("TUT fail before 1:20 is saved as an ordinary 'long' set, not a completed TUT set", p.log.includes("post:12:long")); }
-for (const [mode, kind, expect] of [["sets", "stalled", /^post:6:set$/], ["long", "stalled", /^post:6:/], ["challenge", "stalled", /^post:6:/]]) {
+for (const [mode, kind, expect] of [["sets", "stalled", /^post:6:set$/], ["long", "stalled", /^post:6:/]]) {
   const p = page(mode); p.run(`endPushSetAuto(${JSON.stringify(kind)})`);
   check(`${mode}: end-of-set '${kind}' -> saved through the normal path and camera mode exited`, p.log.some((x) => expect.test(x)) && exited(p));
 }
+{ const p = page("challenge"); p.run(`endPushSetAuto("stalled")`); check("challenge: the end-of-set stall never ends a Two-minute challenge (a hold has no reps)", !p.log.some((x) => /^post:/.test(x)) && p.pushState.running === true); }
 { const p = page("sets"); p.run("stopCam()"); check("Stop camera mid-set: one post, no recursion into stopCam", p.log.filter((x) => /^post:/.test(x)).length === 1 && p.log.filter((x) => x === "stopCam").length === 1); }
 { const p = page("sets"); p.run(`finishPushSet("Knees down"); finishPushSet("Knees down")`); check("a second failure call is a no-op (one post, one exit)", p.log.filter((x) => /^post:/.test(x)).length === 1 && p.log.filter((x) => x === "stopCam").length === 1); }
 // pickup never fails (rule unchanged)

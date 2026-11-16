@@ -23,7 +23,7 @@ eq("shoulders sink but hands travel with them (leaning, not a push-up): not coun
 const HTML = path.join(__dirname, "..", "index.html");
 const prof = (t0, per) => (t) => ({ d: t < t0 ? 0 : S.fracAt(S.reps(40, per), t - t0) });
 (async () => {
-  for (const mode of ["sets", "long", "challenge"]) {
+  for (const mode of ["sets", "long"]) { // the Two-minute challenge is a hold (no reps)
     const r = await flow(HTML, { mode, script: prof(9500, 1500), ms: 9500 + 15000 });
     check(`flow (${mode}): first rep after Go counts, 10 reps in 15 s`, r.reps === 10 && r.running, `got ${r.reps}`);
   }

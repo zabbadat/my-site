@@ -73,7 +73,7 @@ check("flags: summary text", flagSummary(flags) === "2 flags: Stood up / left pl
 
 // ---- static checks on index.html
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-check("static: challenge mode button exists", html.includes('<button type="button" id="modeChallengeBtn" aria-pressed="false">Three-minute challenge</button>'));
+check("static: challenge mode button exists", html.includes('<button type="button" id="modeChallengeBtn" aria-pressed="false">Two-minute challenge</button>'));
 check("static: existing mode buttons untouched", html.includes('<button type="button" id="modeLongBtn" aria-pressed="true">Time under tension set<span class="btn-tut">TUT</span></button>') && html.includes('<button type="button" id="modeSetsBtn" aria-pressed="false">Sets</button>'));
 check("static: push-challenge.js loaded", html.includes('<script src="/push-challenge.js"></script>'));
 check("static: persisted mode accepts challenge", /m === "sets" \|\| m === "challenge" \? m : "long"/.test(html));
@@ -82,7 +82,7 @@ check("static: flag messages unchanged", html.includes('" flagged: fix it now or
 check("static: top-hold note text", html.includes('"Top hold capped at 10 seconds"') && html.includes("at most 10 seconds of time under tension"));
 check("static: long/sets status texts unchanged", html.includes('"Session on. The clock runs nonstop; the camera counts each full rep." : "Set on. The camera counts each full rep."'));
 check("static: no Pause button in any push-up mode (owner, Nov 16: Sets panel is Start set only)", !html.includes('id="pushPauseBtn"') && !html.includes("pushPauseBtn"));
-check("static: result card present", html.includes('id="challengeResult"') && html.includes("Three-minute challenge done"));
+check("static: result card present", html.includes('id="challengeResult"') && html.includes("function endHoldChallenge(") && /Two-minute challenge complete: held/.test(fs.readFileSync(path.join(__dirname, "..", "push-challenge.js"), "utf8")));
 
 const fail = R.filter((x) => !x).length;
 console.log(`\n${R.length - fail}/${R.length} passed`);
