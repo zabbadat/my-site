@@ -5063,7 +5063,7 @@ async function tbPose() {
         else {
           // Shared end-of-set watch (push-session.js createSetEnd, battle = stall only): no rep for 15 s while seen and off the top
           // loses as "standing" (left plank). Top rests still never lose.
-          const lost = tbJudge.update(kps, now, st.topSize ? st.topSize * w : 0, w) || (tbSetEnd && tbSetEnd.update({ mode: "battle", reps: tbMine.reps, t: now, atTop: TBC.atTopFrom(st), counter: st, kps }) === "stalled" ? "standing" : null);
+          const lost = tbJudge.update(kps, now, st.topSize ? st.topSize * w : 0, w, TBC.atTopFrom(st)) || (tbSetEnd && tbSetEnd.update({ mode: "battle", reps: tbMine.reps, t: now, atTop: TBC.atTopFrom(st), counter: st, kps }) === "stalled" ? "standing" : null);
           if (lost) tbEndMySet(lost);
           else {
             if (tbPub()) TBm.publishLive(tbFs, tbCodeCur, currentUser.uid, tbMine).catch(() => {});

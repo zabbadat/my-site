@@ -213,7 +213,12 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
   // Holding the top must never end a set. Shoulder-width shrink is only a flag (endOn.standing is off): a leaned-up
   // front camera reads a long press that way. Knees that are out of frame or below minScore never trigger.
   // update(kps, t, topWidth, extra). extra may be a frame width, or { frameW, atTop }.
-  var FAIL = { badMs: 1000, frameMs: 10000, minScore: 0.3, kneeMin: 0.5, minFrames: 5, kneeAngle: 140, foldFrac: 0.45, endOn: { knees: true, frame: true, standing: false, lifted: false, left: true, upright: true, elbows: true, form: true }, elbowFrac: 0.12, lineDeg: 30, kneeDeg: 35, baseSamples: 8 };
+  // gapMs (Nov 16): a dropout shorter than this (no shoulder seen: a missed frame, a brief occlusion) neither counts toward nor
+  // restarts any fail window, so noisy tracking cannot hide a real break and a dropout can never cause one. formKeep: hysteresis,
+  // once a form-break window is open it stays open while the break is at least formKeep x the threshold (noise near the line).
+  // okGraceMs / badRatio: a form-break window survives good-looking frames shorter than okGraceMs (one noisy "good" frame
+  // inside a real break), but only ends the set when at least badRatio of its frames were bad.
+  var FAIL = { gapMs: 300, formKeep: 0.8, okGraceMs: 150, badRatio: 0.75, badMs: 1000, frameMs: 10000, minScore: 0.3, kneeMin: 0.5, minFrames: 5, kneeAngle: 140, foldFrac: 0.45, endOn: { knees: true, frame: true, standing: false, lifted: false, left: true, upright: true, elbows: true, form: true }, elbowFrac: 0.12, lineDeg: 30, kneeDeg: 35, baseSamples: 8 };
   function createFailureWatch(opts) {
     var o = Object.assign({}, FAIL, opts || {}), guard, seen, failed, failAt, view, upSince, upN, base, acc, badSince, foldSince, k3Since, k3N;
     o.endOn = Object.assign({}, FAIL.endOn, (opts && opts.endOn) || {});
@@ -242,6 +247,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
       else if (extra && typeof extra === "object") { if (extra.frameW > 1) frameW = extra.frameW; atTop = extra.atTop === true; skipFrame = extra.skipFrame === true; }
       if (seen == null) seen = t;
       if (upper(kps)) seen = t; else if (o.endOn.frame && !skipFrame && t - seen >= o.frameMs) return mark("frame", seen);
+      else if (t - seen < o.gapMs) return null; // brief dropout: hold every window as it is
       var g = guard.update(kps, t, topWidth);
       // 3D knee angle from Apple Vision (app, iOS 17+): a real kneel is visible even when 2D looks straight.
       var k3 = extra && typeof extra === "object" ? minKnee3D(extra.knee3D || extra.pose3d && extra.pose3d.kneeAngleDeg) : null;
@@ -267,11 +273,12 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
       var bad = null;
       if (!atTop && o.endOn.elbows && f && f.elbowsDown) bad = "elbows";
       else if (base && f && o.endOn.form) {
-        if (base.line != null && f.line != null && base.line - f.line > o.lineDeg) bad = "form";
-        else if (base.knee != null && f.knee != null && base.knee - f.knee > o.kneeDeg) bad = "form";
+        var hk = badSince && badSince.kind === "form" ? o.formKeep : 1;
+        if (base.line != null && f.line != null && base.line - f.line > o.lineDeg * hk) bad = "form";
+        else if (base.knee != null && f.knee != null && base.knee - f.knee > o.kneeDeg * hk) bad = "form";
       }
-      if (bad) { if (!badSince || badSince.kind !== bad) badSince = { kind: bad, t: t, n: 0 }; badSince.n += 1; if (t - badSince.t >= o.badMs && badSince.n >= (o.minFrames || 1)) return mark(bad, badSince.t); }
-      else badSince = null;
+      if (bad) { if (!badSince || badSince.kind !== bad) badSince = { kind: bad, t: t, n: 0, tot: 0, okT: null }; badSince.n += 1; badSince.tot += 1; badSince.okT = null; if (t - badSince.t >= o.badMs && badSince.n >= (o.minFrames || 1) && badSince.n >= o.badRatio * badSince.tot) return mark(bad, badSince.t); }
+      else if (badSince) { badSince.tot += 1; if (badSince.okT == null) badSince.okT = t; if (t - badSince.okT > o.okGraceMs) badSince = null; }
       if (v === "standing" && o.endOn.left) return mark("standing", t - o.badMs);
       if (v === "collapse" && o.endOn.knees) return mark("collapse", t - o.badMs);
       if (!atTop && o.endOn.upright && isUpright(kps, topWidth, o.minScore, o.kneeMin)) { if (upSince == null) { upSince = t; upN = 0; } upN += 1; if (t - upSince >= o.badMs && upN >= (o.minFrames || 1)) return mark("standing", upSince); }
@@ -435,7 +442,7 @@ var GUARD = { minScore: 0.4, kneeMin: 0.5, minFrames: 5, holdMs: 500, rearmMs: 3
     }
     return { update: update, reset: reset, ended: function () { return ended; }, options: o };
   }
-  var api = { SET_END: SET_END, createSetEnd: createSetEnd, TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
+  var api = { SET_END: SET_END, createSetEnd: createSetEnd, TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, isUpright: isUpright, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

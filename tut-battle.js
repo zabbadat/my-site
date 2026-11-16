@@ -9,7 +9,9 @@
   // 3:00 head-to-head: clock = room startAt (end of the shared countdown) + durationMs, same on both phones.
   // Top rests are allowed (no "stop repping" loss); each continuous top hold credits at most topCapMs of TUT.
   // settleMs: wait after 3:00 so both phones' final reps/TUT reach the room before the time-up result is decided.
-  const RULES = { postureHoldMs: 750, outOfFrameMs: 10000, publishMs: 1000, minScore: 0.3, durationMs: 180000, topCapMs: 10000, settleMs: 3000 };
+  // gapMs: a dropout shorter than this never restarts a loss window (noisy tracking cannot hide a real break). uprightMs: a clear
+  // stand-up (straight legs running down the frame, off the top) for this long loses as "standing" (same rule as solo sets).
+  const RULES = { gapMs: 300, uprightMs: 1000, postureHoldMs: 750, outOfFrameMs: 10000, publishMs: 1000, minScore: 0.3, durationMs: 180000, topCapMs: 10000, settleMs: 3000 };
   // Published rules only allow loseReason in [standing, knees, frame, stopped, left] and only a self-reported loss.
   // Time-up therefore reuses the allowed value "stopped" = "lost on time (less TUT, then fewer reps)".
   const TIME_UP = "stopped";
@@ -29,12 +31,16 @@
     // kps: pose keypoints; t: ms; topWidth: counter's calibrated top width (px) or 0. frameW (optional) sizes the
     // pickup check. No time-without-reps rule. Shoulder-width shrink is not a loss (a long top hold looks like that).
     // Picking the phone up is not a loss. Elbows down (arms gave out) loses as knees, like a collapse.
-    function update(kps, t, topWidth, frameW) {
+    function update(kps, t, topWidth, frameW, atTop) {
       if (st.lost) return st.lost;
       if (hasUpperBody(kps, o.minScore)) st.lastSeen = t;
       if (t - st.lastSeen >= o.outOfFrameMs) return (st.lost = "frame");
+      if (t - st.lastSeen > 0 && t - st.lastSeen < o.gapMs) return null; // brief dropout: hold every window
+      if (atTop !== true && SS && SS.isUpright && SS.isUpright(kps, topWidth, o.minScore, 0.5)) { if (st.upSince == null) { st.upSince = t; st.upN = 0; } st.upN += 1; if (t - st.upSince >= o.uprightMs && st.upN >= 5) return (st.lost = "standing"); } else { st.upSince = null; st.upN = 0; }
       if (guard) { const g = guard.update(kps, t, topWidth); if (g.event === "knees") return (st.lost = g.event); /* holding the top never loses: shoulder-shrink "standing" is not a loss */ }
-      if (SS && SS.elbowsDown && SS.elbowsDown(kps, o.minScore)) { if (st.elbowSince == null) st.elbowSince = t; if (t - st.elbowSince >= 1000) return (st.lost = "knees"); } else st.elbowSince = null;
+      // elbows down: 1 s window that survives a good-looking frame shorter than 150 ms (noise), needs 75% bad frames
+      if (SS && SS.elbowsDown && SS.elbowsDown(kps, o.minScore)) { if (st.elbowSince == null) { st.elbowSince = t; st.elN = 0; st.elTot = 0; } st.elN += 1; st.elTot += 1; st.elOk = null; if (t - st.elbowSince >= 1000 && st.elN >= 5 && st.elN >= 0.75 * st.elTot) return (st.lost = "knees"); }
+      else if (st.elbowSince != null) { st.elTot += 1; if (st.elOk == null) st.elOk = t; if (t - st.elOk > 150) st.elbowSince = null; }
       if (view) {
         const v = view.update(kps, t, typeof frameW === "number" ? frameW : 640);
         // "lifted" (phone picked up) is not a loss: only form breaks lose.

@@ -27,6 +27,8 @@
     cueMaxMs: 8000,     // safety: the clock starts by itself this long after the cue phase began (speech stuck / never ended)
     badMs: 1000,        // bad form longer than this ends the hold
     missMs: 1000,       // body missing longer than this ends the hold
+    gapMs: 300,         // a dropout shorter than this does not restart the bad-form window (noisy tracking cannot hide a real break)
+    collapseFrac: 0.04, // holding only: shoulder at or below elbow height (gap < this x body length, elbow confidently seen) = collapsed to the floor
     liveWindowMs: 8000, // liveness window
     frozenTol: 0.0003,  // max per-frame motion (fraction of body length) that counts as "frozen"
     repeatFrac: 0.9,    // share of frames in the window that exactly repeat an earlier frame
@@ -284,9 +286,11 @@
         return out(f);
       }
       // holding (framing is never consulted here)
+      // Collapse (holding only, so the start gate is unchanged): the shoulder has dropped to elbow height, i.e. lying on the floor.
+      if (f === "ok" && c.side) { var cs = pt(fk, c.side + "_shoulder", o.minScore), ce = pt(fk, c.side + "_elbow", o.minScore), cl = bodyLen(fk); if (cs && ce && cl > 0 && ce.y - cs.y < o.collapseFrac * cl) f = "collapse"; }
       if (f === "missing") {
-        h.badSince = null;
         if (h.missSince == null) h.missSince = t;
+        if (t - h.missSince >= o.gapMs) h.badSince = null; // only a real gap restarts the bad-form window
         if (t - h.missSince >= o.missMs) { end(t, "left_frame", h.missSince); return out(f); }
       } else {
         h.missSince = null;
@@ -312,7 +316,7 @@
   }
 
   var REASONS = { sag: "Hips sagged", pike: "Hips piked up", knees: "Knees down", standing: "Left the plank (stood up)",
-    left_frame: "Body left the frame", frozen: "No movement detected (photo?)", repeat: "Repeating motion detected (video?)", stopped: "Stopped" };
+    left_frame: "Body left the frame", collapse: "Collapsed to the floor", frozen: "No movement detected (photo?)", repeat: "Repeating motion detected (video?)", stopped: "Stopped" };
   function reasonText(r) { return REASONS[r] || "Ended"; }
   function rankPlanks(rows, n) {
     return (rows || []).filter(function (r) { var m = Number(r && r.ms); return isFinite(m) && m > 0; })
