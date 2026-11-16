@@ -3587,6 +3587,48 @@ function resetPoseBaseline() {
 // One model load at a time (a Start tap and the pose loop can ask together), then a warm-up inference on a blank frame so the
 // WebGL shaders compile before the first camera frame: the first real frame (and the PFP cover on it) comes back at full speed.
 let posePromise = null;
+const MOVENET_URL = "/models/movenet-lightning-4/model.json";
+// Instant face-logo lock (owner, Nov 16): get the pose model downloaded, on the GPU and warmed up BEFORE any camera starts,
+// so the first camera frame is the first detection. Done once per page, after first paint, when the page is idle and only
+// when a camera is likely: a camera section is open (#push / #plank / #squats / #tutbattles / #battles, or tapped into), or
+// the signed-in user has the face logo on. Skipped on Data Saver / 2G (the camera start still loads it as before) and on the
+// iOS app's Apple Vision path (no download there).
+const POSE_WARM_SECTIONS = ["push", "plank", "squats", "tutbattles", "battles"];
+let poseWarmState = "";
+function poseWarmAllowed() {
+  try { const c = navigator.connection; if (c && (c.saveData || /(^|-)2g$/.test(String(c.effectiveType || "")))) return false; } catch (e) {}
+  try { if (useVision()) return false; } catch (e) {}
+  return true;
+}
+function poseWarmNow(why) {
+  if (poseWarmState || poseDetector || !poseWarmAllowed()) return;
+  poseWarmState = why || "idle";
+  const run = () => ensurePose().catch(() => { poseWarmState = ""; });
+  const idle = window.requestIdleCallback ? (f) => window.requestIdleCallback(f, { timeout: 1500 }) : (f) => setTimeout(f, 200);
+  if (document.hidden) { const v = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", v); idle(run); } }; document.addEventListener("visibilitychange", v); return; }
+  idle(run);
+}
+function poseWarmSection(name) { return POSE_WARM_SECTIONS.indexOf(String(name || "")) >= 0; }
+function poseWarmCheck() {
+  try {
+    const name = typeof peHashName === "function" ? peHashName(location.hash) : String(location.hash || "").replace(/^#/, "");
+    const tab = typeof peTabFor === "function" ? peTabFor(name) : "";
+    if (poseWarmSection(name) || poseWarmSection(tab) || (window.ZabPfp && window.ZabPfp.isOn && window.ZabPfp.isOn())) poseWarmNow("page");
+  } catch (e) {}
+}
+(function poseWarmWire() {
+  const afterPaint = () => requestAnimationFrame(() => setTimeout(poseWarmCheck, 0)); // after first paint
+  if (document.readyState === "complete") afterPaint(); else window.addEventListener("load", afterPaint, { once: true });
+  window.addEventListener("hashchange", poseWarmCheck);
+  // Tapping into a camera section (tab, link or any control inside one) also starts it.
+  document.addEventListener("pointerdown", (e) => {
+    try { const t = e.target; if (!t || !t.closest) return;
+      const a = t.closest("a[href^='#'], [aria-controls]"); const ref = a ? (a.getAttribute("aria-controls") || peHashName(a.getAttribute("href"))) : "";
+      if (poseWarmSection(ref) || t.closest(POSE_WARM_SECTIONS.map((id) => "#" + id).join(","))) poseWarmNow("tap");
+    } catch (e2) {}
+  }, { capture: true, passive: true });
+  try { if (window.ZabPfp && window.ZabPfp.onChange) window.ZabPfp.onChange(() => { if (window.ZabPfp.isOn()) poseWarmCheck(); }); } catch (e) {}
+})();
 async function ensurePose() {
   if (poseDetector) return poseDetector;
   if (!posePromise) posePromise = loadPoseModel().catch((e) => { posePromise = null; throw e; });
@@ -3598,10 +3640,14 @@ async function loadPoseModel() {
   if (!window.poseDetection) throw new Error("Pose library not loaded");
   await tf.setBackend("webgl");
   await tf.ready();
-  poseDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
+  const moveNetOpts = (url) => Object.assign({
     modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
     enableSmoothing: false // the counter has its own speed-adaptive One Euro filter: one smoother, not two
-  });
+  }, url ? { modelUrl: url } : {});
+  // Same MoveNet Lightning v4 weights, self-hosted (same origin, no tfhub redirect, cached a year: /models/* in _headers).
+  // If they can't load (e.g. an app bundle without them), fall back to the tfhub copy exactly as before.
+  try { poseDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, moveNetOpts(MOVENET_URL)); }
+  catch (e) { poseDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, moveNetOpts(null)); }
   if (window.ZabPfp && window.ZabPfp.warmDetector) await window.ZabPfp.warmDetector(poseDetector); // blank-frame warm-up (pfp.js)
   return poseDetector;
 }
