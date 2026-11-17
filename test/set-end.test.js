@@ -115,7 +115,7 @@ function stopCam() { log.push("stopCam"); camOn = false; camStream = null; }
   check("TUT Battle: a judge loss or a stall ends my set at once (tbEndMySet: camera off, Set complete, loss written with retries)", /if \(lost\) tbEndMySet\(lost\);/.test(html) && /function tbEndMySet\(reason\) \{[\s\S]{0,900}tbCamOff\(\);/.test(html) && /createSetEnd\(\{ mode: "battle"|tbSetEnd && tbSetEnd\.update\(\{ mode: "battle"/.test(html));
   check("TUT Battle End set: live -> loss as 'left' (allowed by the rules) + camera off; before Go -> camera off only", /function tbEndSetNow\(\) \{\s*if \(tbRoom && tbRoom\.status === "live"[^\n]*tbEndMySet\("left"\)/.test(html) && /tbCamOff\(\); if \(tbWake/.test(html));
   check("Plank End set: saves through stopPlankCam -> plankEnded (under 10 s is not a set), stops the countdown and the hold voice", /function plankEndSetNow\(\) \{[\s\S]{0,400}plankCount\.cancel\(\)[\s\S]{0,200}stopPlankCam\(\);[\s\S]{0,200}plankTimeVoice\.end\(\)/.test(html));
-  check("every set end leaves camera mode: finishPushSet and the 0-rep TUT fail call exitPushCam", (html.match(/exitPushCam\(\); \/\/ set over/g) || []).length === 2);
+  check("every set end leaves camera mode: finishPushSet and the 0-rep TUT fail call exitPushCam", (html.match(/exitPushCam\((endedBy)?\); \/\/ set over/g) || []).length === 2);
   check("Stop camera mid-set still posts once and does not re-enter stopCam (camStopping guard)", /camStopping = true;[^\n]*\n\s*try \{ finishPushSet\("Camera stopped"\); \} finally \{ camStopping = false; \}/.test(html));
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
 })();

@@ -3195,12 +3195,13 @@ function endPushSetAuto(kind) {
 // Leave push-up camera mode after a set ends: stop the stream, the pose rAF loop, wake lock and full screen (stopCam).
 // The next Start opens the camera again. Skipped while stopCam itself is ending the set.
 var camStopping = false;
-function exitPushCam() {
+function exitPushCam(why) {
   if (camStopping) return;
   const on = typeof camOn !== "undefined" && camOn, stream = typeof camStream !== "undefined" && camStream;
   if (!on && !stream) { if (typeof camExitFs === "function") camExitFs(); return; }
   if (typeof stopCam === "function") stopCam();
-  $("camNote").textContent = "Set ended. Camera off.";
+  // Nov 17: say WHY next to the camera (the full result line is in #pushStatus, often off screen on a phone).
+  $("camNote").textContent = why ? "Set ended: " + why + ". Camera off." : "Set ended. Camera off.";
 }
 // End set button (#camEndBtn, on the camera screen in every push-up mode): manual fallback that always ends the set and exits camera
 // mode. Same save path as Finish set / End session; the Two-minute challenge ends as failed with the time held shown.
@@ -3363,7 +3364,7 @@ function finishPushSet(endedBy) {
     if (typeof pushChallenge !== "undefined" && pushChallenge) pushChallenge.reset();
   }
   renderPush();
-  if (typeof exitPushCam === "function") exitPushCam(); // set over (completed, failed, or ended by hand): leave camera mode
+  if (typeof exitPushCam === "function") exitPushCam(endedBy); // set over (completed, failed, or ended by hand): leave camera mode
   const why = endedBy ? " Ended: " + endedBy + "." : "";
   const what = pushMode === "long" ? "Session" : pushMode === "challenge" ? "Challenge" : "Set";
   const head = category === "tut-set" ? "TUT set complete: " + record.reps + " reps, " + formatTime(ms) + "." : failedTut ? "Set failed: " + record.reps + " reps, " + formatTime(ms) + ". Ready for the next set." : what + " done: " + record.reps + " reps, " + formatTime(ms) + ".";
@@ -3758,11 +3759,6 @@ async function poseTick(id = poseLoopId) {
     // Regular Sets: any length of top hold keeps going. Only a definitive break ends it (owner, Nov 16): knees down, a hard
     // collapse (deep hip sag 1.5 s, or the chest on the floor 4 s with no press) or standing up; posts once via finishPushSet
     // when it has reps. Out of frame, phone pickup, elbows, pike and wobbles never end it (the 15 s / 45 s no-rep timers below do).
-    if (pushMode === "sets" && pushState.running && !pushState.finished && typeof failWatch !== "undefined" && failWatch) {
-      const st = pushCounter.state();
-      const failed = failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, failExtra(st, w, pose));
-      if (failed) { const why = (window.ZabbadatSession.FAIL_TEXT || {})[failed] || "Set ended"; if (pushState.reps >= 1) { freezePushClock(failWatch.failedAt && failWatch.failedAt()); finishPushSet(why); } else { failWatch.reset(performance.now()); $("pushStatus").textContent = why + ": no reps yet, the set keeps going. Tap End set to stop."; } }
-    }
     if (pushMode === "challenge" && pushChallenge && pushState.running && !pushState.finished) {
       const c = pushChallenge.update(performance.now()); // a hold: reps are not counted
       if (c.ended) finishChallenge();
@@ -3771,6 +3767,12 @@ async function poseTick(id = poseLoopId) {
       pushState.tut += window.ZabbadatPush.tutForRep(r.repMs, 10000);
       renderPush();
       $("camNote").textContent = "Counted " + pushState.reps + "."; sayRep(pushState.reps);
+    }
+    // Nov 17: checked AFTER the rep count, so a rep completed on this frame is counted before any set end on it.
+    if (pushMode === "sets" && pushState.running && !pushState.finished && typeof failWatch !== "undefined" && failWatch) {
+      const st = pushCounter.state();
+      const failed = failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, failExtra(st, w, pose));
+      if (failed) { const why = (window.ZabbadatSession.FAIL_TEXT || {})[failed] || "Set ended"; if (pushState.reps >= 1) { freezePushClock(failWatch.failedAt && failWatch.failedAt()); finishPushSet(why); } else { failWatch.reset(performance.now()); $("pushStatus").textContent = why + ": no reps yet, the set keeps going. Tap End set to stop."; } }
     }
     // End of set (every push-up mode): a stall after the last rep ends the set through the normal save path, and the set end
     // leaves camera mode (exitPushCam). The rep target never ends a set. Rep counting above is unchanged.
