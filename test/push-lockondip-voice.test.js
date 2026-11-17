@@ -30,9 +30,9 @@ check("coaching lines per exercise (shared get-set.js COACH)", G.coachLines("pus
   let sp = []; let r = await run(HTML, { mode: "sets", script: repAt(11600), ms: 19700, spoken: sp });
   const words = sp.filter((x) => x.vol !== 0).map((x) => x.w), at = (w) => (sp.find((x) => x.w === w) || {}).at;
   check("flow (Sets, target 20): place line @0, criteria after it ends, go-cue, Go @10.6 s, then 20, 19, 18, 17",
-    r.reps === 4 && words.join("|") === [PL.place, PL.criteria, CD, "20|19|18|17"].join("|") && at(PL.place) === 0 && at(PL.criteria) === 1000 && at(LINE) === 3000 && at("One") === 7000 && at("three") === 9400 && at("Go") === 10600);
+    r.reps === 4 && words.join("|") === [PL.place, G.withCameraOn(PL.criteria, false), CD, "20|19|18|17"].join("|") && at(PL.place) === 0 && at(G.withCameraOn(PL.criteria, false)) === 1000 && at(LINE) === 3000 && at("One") === 7000 && at("three") === 9400 && at("Go") === 10600);
   sp = []; r = await run(HTML, { mode: "long", script: repAt(11600), ms: 17600, spoken: sp });
-  check("flow (One long set = TUT): TUT coaching lines, counts up 1, 2, 3", sp.filter((x) => x.vol !== 0).map((x) => x.w).join("|") === [TU.place, TU.criteria, CD, "1|2|3"].join("|"));
+  check("flow (One long set = TUT): TUT coaching lines, counts up 1, 2, 3", sp.filter((x) => x.vol !== 0).map((x) => x.w).join("|") === [TU.place, G.withCameraOn(TU.criteria, false), CD, "1|2|3"].join("|"));
   sp = []; r = await run(HTML, { mode: "challenge", script: repAt(11600), ms: 17600, spoken: sp });
   check("flow (Two-minute challenge): a hold, no rep numbers spoken", !sp.filter((x) => x.vol !== 0).map((x) => x.w).some((w) => /^\d+$/.test(w)));
   sp = []; r = await run(HTML, { mode: "sets", script: repAt(0), ms: 12000, spoken: sp });

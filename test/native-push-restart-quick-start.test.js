@@ -57,12 +57,12 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   const SAID = (e) => e.ctx.spoken.filter((x) => x.vol !== 0);
   const words = (e, from) => SAID(e).slice(from || 0).map((x) => x.w + "@" + x.at).join(",");
   const C = { pushups: GS.coachLines("pushups"), tut: GS.coachLines("tut"), plank: GS.coachLines("plank") };
-  const INTRO = (k) => [C[k].place, C[k].criteria];
+  const INTRO = (k) => [C[k].place, C[k].criteria, GS.withCameraOn(C[k].criteria, false)];
   const NOINTRO = (e, from) => !SAID(e).slice(from || 0).some((x) => [].concat(INTRO("pushups"), INTRO("tut"), INTRO("plank")).includes(x.w));
   const LINE = GS.NEXT_SET_LINE;
-  const FULL = (k, t0) => [C[k].place + "@" + t0, C[k].criteria + "@" + (t0 + 1000), LINE + "@" + (t0 + 3000), "One@" + (t0 + 7000), "two@" + (t0 + 8200), "three@" + (t0 + 9400), "Go@" + (t0 + 10600)].join(",");
+  const FULL = (k, t0) => [C[k].place + "@" + t0, GS.withCameraOn(C[k].criteria, false) + "@" + (t0 + 1000), LINE + "@" + (t0 + 3000), "One@" + (t0 + 7000), "two@" + (t0 + 8200), "three@" + (t0 + 9400), "Go@" + (t0 + 10600)].join(",");
   // Plank: no pre-loop countdown any more (3, 2, 1, Hold runs at the plank lock-in, see plank-cue.test.js): fresh = place, criteria, clock, rules; restart = short next-set intro.
-  const FULLP = (t0) => [C.plank.place + "@" + t0, C.plank.criteria + "@" + (t0 + 1000), C.plank.clock + "@" + (t0 + 3000), C.plank.rules + "@" + (t0 + 3000), C.plank.next + "@" + (t0 + 3000)].join(",");
+  const FULLP = (t0) => [C.plank.place + "@" + t0, GS.withCameraOn(C.plank.criteria, false) + "@" + (t0 + 1000), C.plank.clock + "@" + (t0 + 3000), C.plank.rules + "@" + (t0 + 3000), C.plank.next + "@" + (t0 + 3000)].join(",");
   const QUICK = (t0) => [LINE + "@" + t0, "One@" + (t0 + 4000), "two@" + (t0 + 5200), "three@" + (t0 + 6400), "Go@" + (t0 + 7600)].join(",");
   // ---- get-set.js: quick countdown
   { const said = [], shown = [], q = []; const g = GS.makeQuickCountdown({ speak: (w) => said.push(w), unlock() {}, schedule: (f, d) => q.push([f, d]) });

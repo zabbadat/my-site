@@ -39,7 +39,7 @@ const TUT = GS.coachLines("tut");
     e.$("tbCam").onclick();
     check("TUT battle camera tap: speech unlocked + TUT placement line spoken inside the tap", e.said[0] && e.said[0].vol === 0 && W(e)[0] === TUT.place && e.$("tbCamNote").textContent === TUT.place);
     await e.advance(10); check("TUT battle: camera opens while the placement line plays", e.log.includes("camera") && W(e).length === 1);
-    await e.advance(1000); check("TUT battle: criteria line after placement ends", W(e)[1] === TUT.criteria && e.$("tbCamNote").textContent === TUT.criteria);
+    await e.advance(1000); check("TUT battle: criteria line after placement ends", W(e)[1] === GS.withCameraOn(TUT.criteria, false) && e.$("tbCamNote").textContent === TUT.criteria);
     await e.advance(3000); check("TUT battle: coaching done, counter status shows again", e.run("tbCoaching") === false);
     // shared countdown via the real battle-rooms countdownState, ticked every 100 ms like tbTickFn
     const startAt = 20000; e.said.length = 0;

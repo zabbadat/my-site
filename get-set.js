@@ -248,6 +248,39 @@
     plank: { clock: "Clock starts on a proper plank.", next: PLANK_SET_LINE, place: "Prop your phone on the floor, off to your side, sideways or upright. Turn to show your side.", criteria: "Step back until the outline shows you head to heels.", rules: "Stay steady. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold." }
   };
   function coachLines(kind) { return COACH[kind] || COACH.pushups; }
+  // Camera-on line (owner, Nov 17): spoken every time a camera turns on, with what to do. The face part is said only
+  // when the face cover (PFP) is actually on. Coached starts (push-ups, TUT, TUT Battle, plank, squats) put it in front of
+  // the CRITERIA line, which is spoken once the camera is up (after the tap unlock) and is followed by the countdown, so it
+  // never talks over / cancels the place line, "Set complete." or the countdown. Restarts between sets skip the criteria
+  // line, so they say nothing extra. Cameras without start coaching (Live Match board camera, Live cast) get the line plus
+  // guidance from watchCameraVoice(), queued politely (never cancels, waits for quiet, at most once a minute per camera).
+  var CAMERA_ON = "Camera on.", FACE_COVERED = "Your face is covered.";
+  var CAMERA_GUIDE = { zmCamVid: "Point the camera at the board.", zlSelf: "Point the camera at the board." };
+  function faceCovered() { try { var w = g(), P = w && w.ZabPfp; return !!(P && typeof P.isOn === "function" && P.isOn()); } catch (e) { return false; } }
+  function cameraOnLine(covered) { if (covered === undefined) covered = faceCovered(); return covered ? CAMERA_ON + " " + FACE_COVERED : CAMERA_ON; }
+  function withCameraOn(line, covered) { return cameraOnLine(covered) + (line ? " " + line : ""); }
+  function watchCameraVoice(doc, opts) {
+    opts = opts || {};
+    var now = opts.now || function () { return Date.now(); }, schedule = opts.schedule || function (f, d) { return setTimeout(f, d); };
+    var speak = safe(opts.speak || plankSpeak), busy = opts.busy || isSpeaking, guide = opts.guide || CAMERA_GUIDE, last = {}, waitMs = opts.waitMs || 6000, gapMs = opts.gapMs || 60000;
+    if (!doc || typeof doc.addEventListener !== "function") return null;
+    function onPlaying(ev) {
+      try {
+        var v = ev && ev.target, id = v && v.id;
+        if (!id || !guide[id]) return;
+        var src = v.srcObject; if (!src || typeof src.getVideoTracks !== "function" || !src.getVideoTracks().length) return; // a camera, not a clip
+        var t = now(); if (last[id] != null && t - last[id] < gapMs) return; last[id] = t;
+        var line = withCameraOn(guide[id]), t0 = t;
+        (function attempt() {
+          var b = false; try { b = !!busy(); } catch (e) {}
+          if (!b) { speak(line); return; }
+          if (now() - t0 < waitMs) schedule(attempt, 150); // never talk over another line; give up after waitMs
+        })();
+      } catch (e) {}
+    }
+    doc.addEventListener("playing", onPlaying, true);
+    return { stop: function () { try { doc.removeEventListener("playing", onPlaying, true); } catch (e) {} }, handle: onPlaying };
+  }
   function positionPrompt(kind) { return (POSITION[kind] || POSITION.pushups).join("\n"); }
   // Rep / score callout: cancel anything queued first so the number never lags behind fast reps. Silent fallback.
   function makeRepVoice(opts) {
@@ -361,7 +394,10 @@
     try { var n = w && w.navigator; if (n && typeof n.vibrate === "function") { n.vibrate([120, 80, 120]); buzzed = true; } } catch (e) {}
     return { line: POCKET_LINE, spoke: spoke, buzzed: buzzed };
   }
-  var api = { POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_SET_LINE: PLANK_SET_LINE, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
+  var api = { CAMERA_ON: CAMERA_ON, FACE_COVERED: FACE_COVERED, CAMERA_GUIDE: CAMERA_GUIDE, cameraOnLine: cameraOnLine, withCameraOn: withCameraOn, watchCameraVoice: watchCameraVoice, POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_SET_LINE: PLANK_SET_LINE, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
-  else root.ZabbadatGetSet = api;
+  else {
+    root.ZabbadatGetSet = api;
+    try { if (root.document) watchCameraVoice(root.document); } catch (e) {}
+  }
 })(this);

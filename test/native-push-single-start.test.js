@@ -74,12 +74,12 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     await e.advance(10);
     check(`${mode}: camera + pose open while the placement line plays`, e.log.indexOf("camera") > 0 && e.log.indexOf("camera") < e.log.indexOf("pose") && SAID(e).length === 1);
     await e.advance(1000);
-    check(`${mode}: criteria line spoken + shown after the placement line ends`, SAID(e)[1] && SAID(e)[1].w === C[mode].criteria && SAID(e)[1].at === 1000 && e.$("pushStatus").textContent === C[mode].criteria);
+    check(`${mode}: criteria line spoken + shown after the placement line ends`, SAID(e)[1] && SAID(e)[1].w === GS.withCameraOn(C[mode].criteria, false) && SAID(e)[1].at === 1000 && e.$("pushStatus").textContent === C[mode].criteria);
     await e.advance(10590 - e.now());
     check(`${mode}: no Go / clock before 10.6 s`, !e.log.includes("say:Go") && !e.log.includes("clock") && e.$("pushStatus").textContent === "3");
     await e.advance(20);
     const times = SAID(e).map((x) => x.w + "@" + x.at).join(",");
-    check(`${mode}: timeline`, times === [C[mode].place + "@0", C[mode].criteria + "@1000", LINE + "@3000", "One@7000", "two@8200", "three@9400", "Go@10600"].join(","));
+    check(`${mode}: timeline`, times === [C[mode].place + "@0", GS.withCameraOn(C[mode].criteria, false) + "@1000", LINE + "@3000", "One@7000", "two@8200", "three@9400", "Go@10600"].join(","));
     check(`${mode}: clock starts at Go`, e.run("pushState.running") === true && e.$("pushStatus").textContent === STATUS[mode] && e.$("pushStartBtn").disabled === true); // stays disabled while the set runs (pose-loop guard); syncPushStartBtn re-enables at the end
     if (mode === "challenge") check("challenge: Two-minute challenge clock started", e.log.includes("challenge:start"));
   }
@@ -114,10 +114,10 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   { const e = env(); e.$("plankCamBtn").onclick();
     check("plank: in the tap: gate, wake, unlock, placement line spoken + shown, getUserMedia in the tap", e.log.filter((x) => x !== "speech:cancel").slice(0, 4).join(",") === "gate:plank,plankWake:start,speech:unlock,say:" + C.plank.place && e.log.includes("camera") && e.$("plankStatus").textContent === C.plank.place);
     await e.advance(10); check("plank: camera opens while the placement line plays", e.log.includes("camera") && SAID(e).length === 1);
-    await e.advance(1000); check("plank: criteria line after the placement line", SAID(e)[1].w === C.plank.criteria && e.$("plankStatus").textContent === C.plank.criteria);
+    await e.advance(1000); check("plank: criteria line after the placement line", SAID(e)[1].w === GS.withCameraOn(C.plank.criteria, false) && e.$("plankStatus").textContent === C.plank.criteria);
     await e.advance(9980 - e.now()); check("plank: no pre-loop countdown: hold armed after the setup lines (One / two / three / Go run at lock-in)", e.log.includes("plankHold") && e.run("plankLoop") === true && !SAID(e).some((x) => x.w === "Go"));
     await e.advance(30);
-    check("plank: timeline", SAID(e).map((x) => x.w + "@" + x.at).join(",") === [C.plank.place + "@0", C.plank.criteria + "@1000", C.plank.clock + "@3000", C.plank.rules + "@3000", C.plank.next + "@3000"].join(","));
+    check("plank: timeline", SAID(e).map((x) => x.w + "@" + x.at).join(",") === [C.plank.place + "@0", GS.withCameraOn(C.plank.criteria, false) + "@1000", C.plank.clock + "@3000", C.plank.rules + "@3000", C.plank.next + "@3000"].join(","));
     check("plank: after the setup lines, 1.5 s good-form lock-in armed as the clock trigger", e.log.includes("plankHold") && e.run("plankLoop") === true && e.$("plankStatus").textContent === "Whole body in the outline, side-on. Clock starts on a proper plank. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold." && /readyMs: 1500,/.test(fs.readFileSync(path.join(__dirname, "..", "plank-session.js"), "utf8"))); }
   { const e = env({ speech: "absent" }); e.$("plankCamBtn").onclick(); await e.advance(10); await e.advance(1900);
     check("plank silent fallback: criteria held 2 s", e.$("plankStatus").textContent === C.plank.criteria); await e.advance(150); check("plank silent fallback: hold armed after the 2 s criteria line", e.log.includes("plankHold")); }

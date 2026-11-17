@@ -182,7 +182,7 @@
       if (!live()) return;
       st.counter = SQ.createCounter(); paintReps(0);
       tick(++st.loopId); // pose + face logo from camera open (before Go)
-      if (!restart && C && GS.sayAndWait) { status(C.criteria); msg("Whole body in view"); if (!(await GS.sayAndWait(C.criteria, { minMs: 2000, maxMs: 10000, cancelled: function () { return !live(); }, now: now }))) return; }
+      if (!restart && C && GS.sayAndWait) { status(C.criteria); msg("Whole body in view"); if (!(await GS.sayAndWait(GS.withCameraOn ? GS.withCameraOn(C.criteria) : C.criteria, { minMs: 2000, maxMs: 13000, cancelled: function () { return !live(); }, now: now }))) return; }
       if (!live()) return;
       st.calibrating = true; // standing baseline from the "Gyatt squat on three. One, two, three, Go" frames
       st.countdown = GS && GS.makeNextSetCountdown ? GS.makeNextSetCountdown({ line: SAY.start }) : null;

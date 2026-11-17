@@ -3414,7 +3414,9 @@ function showPositioning(kind, el, cancelled, part) {
   const txt = lines ? (place ? lines.place : lines.criteria) : "Get in position";
   if (el) { el.textContent = txt; if (el.style) el.style.whiteSpace = "pre-line"; }
   const pv = kind === "plank" && G && G.PLANK_VOICE ? { queue: true } : {};
-  if (lines && G.sayAndWait) return G.sayAndWait(txt, Object.assign({ minMs: place ? 0 : POSITION_MS, maxMs: POSITION_SPOKEN_MAX_MS, cancelled, now: () => performance.now() }, pv));
+  // criteria is spoken once the camera is up: lead with the camera-on line (get-set.js withCameraOn; restarts skip criteria).
+  const spoken = !place && G && G.withCameraOn ? G.withCameraOn(txt) : txt;
+  if (lines && G.sayAndWait) return G.sayAndWait(spoken, Object.assign({ minMs: place ? 0 : POSITION_MS, maxMs: POSITION_SPOKEN_MAX_MS + (spoken === txt ? 0 : 3000), cancelled, now: () => performance.now() }, pv));
   return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), place ? 0 : POSITION_MS));
 }
 function cancelGetSet(keepSpeech) { const c = keepSpeech && getSet && getSet.cancelKeepSpeech ? "cancelKeepSpeech" : "cancel"; if (getSet && getSet[c]) getSet[c](); }
