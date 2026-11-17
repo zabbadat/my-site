@@ -82,12 +82,12 @@
     var v = r.vid, x = r.x, fw = r.cv.width, fh = r.cv.height;
     var pfpOn = !!(root.ZabPfp && root.ZabPfp.isOn && root.ZabPfp.isOn());
     var head0 = root.ZabPfp && root.ZabPfp.lastHead ? root.ZabPfp.lastHead(VID[r.id], typeof performance !== "undefined" ? performance.now() : null) : null;
+    var rf = pfpOn && root.ZabPfp.recFrame ? root.ZabPfp.recFrame(VID[r.id]) : null, blanket = pfpOn && !rf;
+    if (rf) head0 = rf.c; // the pose-matched frame and its own head circle (same as the screen shows)
     x.save(); x.translate(fw, 0); x.scale(-1, 1);
     try {
-      if (pfpOn && !head0) { // PFP on but no head spot yet / lost: never record a plain face - pixelate the whole frame
-        r.px = r.px || doc.createElement("canvas"); r.px.width = 16; r.px.height = 12; r.px.getContext("2d").drawImage(v, 0, 0, 16, 12);
-        x.imageSmoothingEnabled = false; x.drawImage(r.px, 0, 0, fw, fh); x.imageSmoothingEnabled = true;
-      } else x.drawImage(v, 0, 0, fw, fh);
+      if (blanket) { x.restore(); x.save(); root.ZabPfp.drawLogo(x, { x: fw / 2, y: fh / 2, r: Math.hypot(fw, fh) / 2 + 2 }); head0 = null; } // PFP on, no locked frame: the logo full frame, never the face
+      else x.drawImage(rf ? rf.img : v, 0, 0, fw, fh);
     } catch (e) {}
     x.restore();
     var cells = hudText(r.id), hh = Math.round(fh * W.hudFrac);

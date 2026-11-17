@@ -205,11 +205,13 @@
   function paintAt(c) { // overlay place with the box measured on the last pose frame (no layout reads between frames); CSS transform only
     var cv = $("zmCamOverlay"); if (!cv || !box) return;
     var lib = pfp(), m = c && lib && lib.mapToBox ? lib.mapToBox(c, box.fw, box.fh, box.bw, box.bh, box.fit) : (c && box.fw > 0 ? { x: c.x * box.bw / box.fw, y: c.y * box.bh / box.fh, r: c.r * box.bw / box.fw } : null);
+    var Zs = root.ZabPfp && root.ZabPfp._shields; if (Zs && Zs.zmCamVid) m = null; // the pfp.js shield draws this camera (video hidden, logo in the same frame)
     if (!m) { cv.style.display = "none"; return; }
     paintCoverBitmap(cv);
     cv.style.left = (box.left != null ? box.left : 0) + "px";
     cv.style.top = (box.top != null ? box.top : 0) + "px";
-    cv.style.transform = "translate(" + (m.x - COVER_S / 2) + "px," + (m.y - COVER_S / 2) + "px) scale(" + ((2 * m.r) / COVER_S) + ")";
+    cv.style.transformOrigin = "0 0"; // coverTransform assumes a top-left origin (was the CSS default centre: same spot)
+    cv.style.transform = lib && lib.coverTransform ? lib.coverTransform(m, COVER_S) : "translate(" + (m.x - m.r) + "px," + (m.y - m.r) + "px) scale(" + ((2 * m.r) / COVER_S) + ")"; // top-left at (x - r, y - r): centred on m
     cv.style.display = "block";
   }
   // Between pose frames: redraw at the tracker's predicted spot every screen refresh, so the avatar never freezes.
@@ -230,9 +232,10 @@
       if (vid && vid.readyState >= 2 && vid._zmDet) {
         var flip = facing === "user";
         var t = perfNow(); // stamped BEFORE inference: the pose is of this moment; the gap to the draw is what the lead makes up
-        var poses = await vid._zmDet.estimatePoses(vid, { flipHorizontal: flip });
+        var Z = root.ZabPfp, poses = await vid._zmDet.estimatePoses(Z && Z.input ? Z.input(vid, vid._zmDet) : vid, { flipHorizontal: flip }); // PFP: the model runs on the frame the shield will show
         if (id !== loopId || !on || !isShow()) { if (id === loopId) looping = false; clearOverlay(); return; } // switched off mid-frame: draw nothing
         var person = pickPerson(poses), kps = person ? person.keypoints : [];
+        try { if (Z && Z.frame) Z.frame(vid, kps, t); } catch (e) {} // fail-safe shield: covered, pose-matched frames only
         var fw = vid.videoWidth || 0, fh = vid.videoHeight || 0;
         if (!floater) floater = createFloater();
         var c = floater.step(kps, t, fw, fh, perfNow());
@@ -290,6 +293,7 @@
     paintButtons();
     if (!on) return;
     stopTracks(); on = false; loopId += 1; looping = false;
+    if (floater) floater.reset(); clearOverlay(); // new camera (front <-> rear, mirroring flips): no carry-over of the old spot; snaps on its first lock
     await start();
   }
   function sync(opts) {

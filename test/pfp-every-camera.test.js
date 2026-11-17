@@ -27,7 +27,7 @@ const pt = seg("async function poseTick(", "const CAM_CONSTRAINTS");
   check("Go live: PFP model load starts with the camera request", /const gum = zlCam\(zlFacing\);\s*if \(window\.ZabPfp && window\.ZabPfp\.isOn && window\.ZabPfp\.isOn\(\)\) zlPfpWarm\(\);[^\n]*\n\s*zlStream = await gum;/.test(html));
   // ---- pfp.js: warm-up never throws; logo preloads at page load; first detection draws at once
   const pfpSrc = fs.readFileSync(path.join(ROOT, "pfp.js"), "utf8");
-  check("pfp.js preloads the logo at page load", /var wire = function \(\) \{\s*try \{ ensureLogo\(\); \} catch \(e\) \{\}/.test(pfpSrc));
+  check("pfp.js preloads the logo at page load", /var wire = function \(\) \{[\s\S]{0,700}?try \{ ensureLogo\(\); \} catch \(e\) \{\}/.test(pfpSrc));
   const PF = require("../pfp.js");
   check("warmDetector: no document / bad detector -> resolves, never throws", typeof PF.warmDetector === "function" && (await PF.warmDetector(null)) === undefined && (await PF.warmDetector({ estimatePoses: () => { throw new Error("x"); } })) === undefined);
   const tr = PF.createTracker(); const k = [{ name: "nose", x: 320, y: 200, score: 0.9 }, { name: "left_eye", x: 330, y: 190, score: 0.9 }, { name: "right_eye", x: 310, y: 190, score: 0.9 }, { name: "left_ear", x: 345, y: 195, score: 0.9 }, { name: "right_ear", x: 295, y: 195, score: 0.9 }, { name: "left_shoulder", x: 380, y: 300, score: 0.9 }, { name: "right_shoulder", x: 260, y: 300, score: 0.9 }];

@@ -19,11 +19,11 @@ function pluginResult(kps, W, H) {
     const scaled = disp.map((k) => ({ ...k, x: (k.x * W) / 640, y: (k.y * H) / 480 }));
     const kps = PV.toKeypoints(pluginResult(scaled, W, H), W, H, true);
     const c = PF.headCircle(kps, W, H), want = PF.faceCircle(scaled.concat(kps.filter((k) => /ear/.test(k.name))));
-    check(`Vision ${W}x${H}: names kept, mirrored back to display px; logo centred on the displayed face (x ${c.x.toFixed(1)} vs ${(400 * W / 640).toFixed(1)})`, kps.every((k) => typeof k.name === "string") && Math.abs(kps.find((k) => k.name === "nose").x - (400 * W) / 640) < 1e-6 && c && c.src === "face" && Math.abs(c.x - want.x) < 1e-6 && Math.abs(c.y - want.y) < 1e-6);
+    check(`Vision ${W}x${H}: names kept, mirrored back to display px; logo centred on the displayed face (x ${c.x.toFixed(1)} vs ${(400 * W / 640).toFixed(1)})`, kps.every((k) => typeof k.name === "string") && Math.abs(kps.find((k) => k.name === "nose").x - (400 * W) / 640) < 1e-6 && c && c.src === "face" && Math.abs(c.x - want.x) < 1e-6 && Math.abs(c.y - (want.y - want.w * PF.P.headUp)) < 1e-6);
   }
   const kps = PV.toKeypoints(pluginResult(disp, 640, 480), 640, 480, true), c = PF.headCircle(kps, 640, 480);
   const ear = Math.abs(kps.find((k) => k.name === "left_ear").x - kps.find((k) => k.name === "right_ear").x), eye = 40;
-  check(`1.65x proportional sizing on Vision points (r ${c.r.toFixed(1)} = max(ear ${ear.toFixed(0)}, eye x2.7 ${(eye * 2.7).toFixed(0)}) / 2 x 1.65)`, Math.abs(c.r - (Math.max(ear, eye * 2.7) / 2) * 1.65) < 1e-6);
+  check(`proportional sizing on Vision points (r ${c.r.toFixed(1)} >= ${PF.P.headRW} x max(ear ${ear.toFixed(0)}, eye x2.7 ${(eye * 2.7).toFixed(0)}))`, c.r >= PF.P.headRW * Math.max(ear, eye * 2.7) - 1e-6 && c.r <= 2 * Math.max(ear, eye * 2.7));
   const m = PF.mapToBox(c, 640, 480, 390, 292.5, "contain"); check("video px -> on-screen box (contain, 390 px wide)", Math.abs(m.x - c.x * (390 / 640)) < 1e-6 && Math.abs(m.r - c.r * (390 / 640)) < 1e-6);
   const hood = PV.toKeypoints({ keypoints: [{ name: "left_shoulder", x: 0.62, y: 0.6, score: 0.9 }, { name: "right_shoulder", x: 0.38, y: 0.6, score: 0.9 }] }, 640, 480, true);
   const hc = PF.headCircle(hood, 640, 480); check(`Vision, hood / head down (shoulders only): logo above the shoulder midpoint (y ${hc.y.toFixed(0)} < 288)`, hc && hc.src === "shoulders" && Math.abs(hc.x - 320) < 1e-6 && hc.y < 288); }

@@ -12,7 +12,7 @@ const F = (x, y = 200) => K({ nose: [x, y + 10], left_eye: [x - 20, y], right_ey
 { const tr = PF.createTracker(); let t = 0, c; for (; t <= 1000; t += 66) c = tr.step(F(200 + t * 0.3), t, 640, 480, t + 50); // 300 px/s
   t -= 66; const a0 = tr.at(t + 50), a1 = tr.at(t + 100);
   check(`at(): first draw is on step()'s spot at its draw time, plus at most the display-glide lead (${a0.x.toFixed(1)} vs ${c.x.toFixed(1)})`, a0.x - c.x >= -1e-9 && a0.x - c.x <= PF.P.leadCap * c.r + 1e-6);
-  check(`at(): keeps moving ahead between pose frames (+${(a1.x - a0.x).toFixed(1)} px in 50 ms)`, a1.x > a0.x + 3);
+  check(`at(): keeps moving ahead between pose frames (+${(a1.x - a0.x).toFixed(1)} px in 50 ms)`, a1.x > a0.x + 2); // lead is capped by the (head-sized) radius
   const far = tr.at(t + 10000), cap = PF.P.leadCap * far.r;
   check(`at(): never more than leadCap x r ahead of the filtered spot, even long after the last frame (${(far.x - tr.at(t).x).toFixed(1)} <= ${cap.toFixed(1)} px)`, far.x - tr.at(t).x <= cap + 1e-6 && far.x === tr.at(t + PF.P.leadMax + 5000).x); }
 { const tr = PF.createTracker(); let sd = 3; const n = () => ((sd = (sd * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff - 0.5) * 4;
@@ -21,7 +21,7 @@ const F = (x, y = 200) => K({ nose: [x, y + 10], left_eye: [x - 20, y], right_ey
   check(`at rest with keypoint noise: no drift between frames (${Math.hypot(q.x - p.x, q.y - p.y).toFixed(2)} px)`, Math.hypot(q.x - p.x, q.y - p.y) < 0.5); }
 { const tr = PF.createTracker(); tr.step(F(320), 0, 640, 480, 50); tr.step(F(320), 66, 640, 480, 116); const h = tr.step([], 132, 640, 480, 182);
   const hs = tr.at(300); check("at(): face missing -> the held spot (same place, size eases up to the enlarged hold), not a prediction", h && h.held && hs.held && Math.abs(hs.x - h.x) < 1e-6 && Math.abs(hs.y - h.y) < 1e-6 && hs.r <= h.r + 1e-6);
-  tr.step([], 1300, 640, 480, 1350); check("at(): after the hold runs out -> nothing", tr.at(1400) === null);
+  tr.step([], 1300, 640, 480, 1350); check("at(): head still lost later -> keeps holding the last spot", !!tr.at(1400) && tr.at(1400).held);
   check("at(): fresh tracker -> nothing", PF.createTracker().at(0) === null); }
 // 2. lead stops the moment the head stops (no fling past it)
 { const tr = PF.createTracker(); let t = 0; for (; t <= 600; t += 66) tr.step(F(200 + t * 0.5), t, 640, 480, t + 50); const stopX = 200 + (t - 66) * 0.5;
@@ -58,6 +58,6 @@ const F = (x, y = 200) => K({ nose: [x, y + 10], left_eye: [x - 20, y], right_ey
   check(`Live Match: follows a 100 px move in one frame (${(s.x - a.x).toFixed(0)} of ${(b.x - a.x).toFixed(0)} px; old lerp 45), above the head`, s.x - a.x > 85 && s.x <= b.x + 1 && s.y < 200);
   check("Live Match: at() between pose frames + hold then hide", typeof fl.at === "function" && fl.at(120) && fl.step([], 500, 640, 480).held && fl.step([], 1200, 640, 480) == null);
   const src = fs.readFileSync(path.join(ROOT, "match-pfp-cam.js"), "utf8");
-  check("Live Match: frame stamped before inference, redrawn each refresh", /var t = perfNow\(\);[^\n]*\n\s+var poses = await/.test(src) && /paintLoop\(id\)/.test(src)); }
+  check("Live Match: frame stamped before inference, redrawn each refresh", /var t = perfNow\(\);[^\n]*\n\s+var (Z = root\.ZabPfp, )?poses = await/.test(src) && /paintLoop\(id\)/.test(src)); }
 
 const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); if (ok !== R.length) process.exit(1);

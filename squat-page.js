@@ -87,7 +87,7 @@
     try {
       var det = await H.ensurePose();
       var t = now();
-      var poses = await det.estimatePoses(vid, { flipHorizontal: true });
+      var poses = await det.estimatePoses(window.ZabPfp && window.ZabPfp.input ? window.ZabPfp.input(vid, det) : vid, { flipHorizontal: true });
       if (id !== st.loopId) return;
       var p = poses && poses[0], kps = p ? p.keypoints : [];
       if (window.ZabPfp) window.ZabPfp.frame(vid, kps, t); // face logo from camera open, same keypoints; visual only, never throws

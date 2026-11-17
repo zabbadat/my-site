@@ -22,18 +22,17 @@ check(`circle centred on the ear midpoint, not pulled toward the nose (x ${c && 
 check(`radius covers ear-to-ear and eye spread generously (r ${c && c.r.toFixed(0)} >= 60)`, c && c.r >= 60 && c.r >= (PF.P.eyeK * 40) / 2);
 check("every face keypoint lies inside the circle", c && face.slice(0, 5).every((k) => Math.hypot(k.x - c.x, k.y - c.y) < c.r));
 { const sh = PF.headCircle(K({ left_shoulder: [240, 300], right_shoulder: [400, 300] }), 640, 480);
-  check(`head down / hooded: logo estimated from shoulders (x ${sh && sh.x}, y ${sh && sh.y.toFixed(0)}, r ${sh && sh.r.toFixed(0)})`, sh && sh.src === "shoulders" && sh.x === 320 && Math.abs(sh.y - (300 - 160 * 0.55)) < 1e-9 && Math.abs(sh.r - 160 * 0.483) < 1e-9);
+  check(`head down / hooded: logo estimated from shoulders (x ${sh && sh.x}, y ${sh && sh.y.toFixed(0)}, r ${sh && sh.r.toFixed(0)})`, sh && sh.src === "shoulders" && sh.x === 320 && Math.abs(sh.y - (300 - 160 * 0.55)) < 1e-9 && Math.abs(sh.r - 160 * PF.P.shR) < 1e-9);
   const hood = PF.headCircle(K({ nose: [320, 200], left_shoulder: [240, 300], right_shoulder: [400, 300] }), 640, 480);
   check("hood fabric 'nose' is ignored: shoulders decide", hood && hood.src === "shoulders");
   const hf = PF.headCircle(face, 640, 480);
-  const faceR = (PF.P.eyeK * 40) / 2 * PF.P.padK, top = 195 - faceR, idealY = top + Math.max(faceR, 160 * PF.P.shR, (300 - top) / 2);
-  const oldY = (185 * 2 + 200) / 3, oldOff = Math.hypot(320 - 320, oldY - idealY), newOff = Math.hypot(hf.x - 320, hf.y - idealY);
-  check(`face + shoulders: cover recentred over face and shoulders (x ${hf.x.toFixed(1)}, y ${hf.y.toFixed(1)}, r ${hf.r.toFixed(1)}; before ${oldOff.toFixed(1)} px off, after ${newOff.toFixed(1)} px)`, hf.src === "face" && Math.abs(hf.x - 320) < 1e-9 && newOff < 1 && newOff < oldOff && hf.y + hf.r >= 300 - 1e-6 && (hf.y - hf.r) <= top + 1e-6);
+  const w = 80 /* ear to ear */, idealY = 195 - w * PF.P.headUp;
+  check(`face + shoulders: x dead on the shoulder midpoint, y on the head, whole head covered (x ${hf.x.toFixed(1)}, y ${hf.y.toFixed(1)}, r ${hf.r.toFixed(1)})`, hf.src === "face" && Math.abs(hf.x - 320) < 1e-9 && Math.abs(hf.y - idealY) < 1e-9 && hf.y - hf.r <= 195 - w * PF.P.topUp && hf.y + hf.r >= 195 + w * PF.P.chinDn);
   // Nose-shifted 3/4 face: old centre mixed the nose in (pulled right); new uses ear midpoint + shoulders.
   const turned = K({ nose: [355, 200], left_eye: [300, 185], right_eye: [340, 185], left_ear: [280, 195], right_ear: [360, 195], left_shoulder: [240, 300], right_shoulder: [400, 300] });
   const ht = PF.headCircle(turned, 640, 480), oldTurnedX = (320 + 355) / 2, newTurnedOff = Math.abs(ht.x - 320), oldTurnedOff = Math.abs(oldTurnedX - 320);
   check(`turned face: horizontal offset ${oldTurnedOff.toFixed(1)} px -> ${newTurnedOff.toFixed(1)} px`, newTurnedOff < 1 && newTurnedOff < oldTurnedOff);
-  const big = PF.headCircle(K({ left_shoulder: [0, 470], right_shoulder: [640, 470] }), 640, 480); check(`caps: r <= 0.40 x shorter side (${big.r} <= 192)`, Math.abs(big.r - 192) < 1e-9);
+  const big = PF.headCircle(K({ left_shoulder: [-200, 470], right_shoulder: [840, 470] }), 640, 480); check(`caps: r <= 0.5 x shorter side (${big.r} <= 240)`, Math.abs(big.r - 240) < 1e-9);
   const tiny = PF.headCircle(K({ left_shoulder: [300, 300], right_shoulder: [310, 300] }), 640, 480); check("caps: min radius 10 px", tiny && tiny.r === 10);
   check("no shoulders and no face: nothing drawn", PF.headCircle(K({ left_wrist: [100, 400] }), 640, 480) === null);
   const mc = PF.miniCrop({ x: 320, y: 200, r: 60 }, 640, 480, 88); check(`mini crop: square around the head inside the frame, logo centred (${mc.logo.x.toFixed(0)},${mc.logo.y.toFixed(0)})`, mc.side === 192 && mc.sx === 224 && mc.sx + mc.side <= 640 && mc.sy >= 0 && Math.abs(mc.logo.x - 44) < 1e-9 && mc.logo.r < 44);
@@ -43,8 +42,9 @@ check("head down: shoulders only -> no circle (nothing blocked)", PF.faceCircle(
 check("low-confidence face points ignored", PF.faceCircle(K({ nose: [320, 200], left_eye: [300, 185], right_eye: [340, 185] }, 0.1)) === null);
 check("bare MoveNet-order array works", !!PF.faceCircle([[320, 200], [300, 185], [340, 185], [280, 195], [360, 195]].map(([x, y]) => ({ x, y, score: 0.9 }))));
 check("empty / junk keypoints -> null, no throw", PF.faceCircle([]) === null && PF.faceCircle(null) === null && PF.faceCircle([{ x: NaN, y: 1 }]) === null);
-{ const tr = PF.createTracker(); const a = tr.step(face, 0), b = tr.step([], 500), d = tr.step([], 1100);
-  check("tracker holds the last spot ~1 s, enlarged, then clears", a && b && b.held && b.r > a.r && Math.abs(b.x - a.x) < 1e-9 && d === null);
+{ const tr = PF.createTracker(); const a = tr.step(face, 0), b = tr.step([], 500), d = tr.step([], 30000);
+  check("tracker holds the last spot while the head is lost (owner, Nov 16: no clear, no jump)", a && b && b.held && Math.abs(b.r - a.r) < 1e-9 && Math.abs(b.x - a.x) < 1e-9 && d && d.held && Math.abs(d.x - a.x) < 1e-9);
+  const t2 = PF.createTracker({ holdMs: 1000 }); t2.step(face, 0); check("a caller's own holdMs still clears after it", t2.step([], 1100) === null);
   tr.reset(); tr.step(face, 0); const moved = K({ nose: [420, 200], left_eye: [400, 185], right_eye: [440, 185], left_ear: [380, 195], right_ear: [460, 195] });
   const m = tr.step(moved, 33); check(`tracker follows a 100 px jump at once without overshoot (moved ${m && (m.x - 320).toFixed(0)} px in one frame)`, m && m.x > 380 && m.x <= 421); }
 // Follow speed (Nov 15): One Euro + latency lead. Fast moves follow in ~1 frame, a still head stays steady, no runaway lead.
@@ -92,7 +92,7 @@ function loadPfp(w) { const ctx = Object.assign({}, w); ctx.window = ctx; vm.cre
     const badge = { querySelector: (q) => (q === ".pfp-av" ? sp : null) }; D.w.document.getElementById = (id) => (id === "ztBadge" ? badge : null);
     D.vid.videoWidth = 640; D.vid.videoHeight = 480; P.frame(D.vid, face, 1000); P.frame(D.vid, face, 1010);
     const n1 = sp.children.length; check("mini-feed: one round canvas in the top-bar avatar while frames arrive", n1 === 1 && sp.children[0].className === "pfp-mini" && sp.live === 1);
-    D.calls.length = 0; P.frame(D.vid, face, 1020); const throttled = !D.calls.includes("translate"); P.frame(D.vid, face, 1100); check("mini-feed throttled to ~15 fps (skips a frame 10 ms later, draws at +100 ms)", throttled && D.calls.includes("translate"));
+    D.calls.length = 0; P.frame(D.vid, face, 1020); const throttled = !D.calls.includes("arc"); P.frame(D.vid, face, 1100); check("mini-feed throttled to ~15 fps (skips a frame 10 ms later, draws at +100 ms)", throttled && D.calls.includes("arc"));
     P.setOn(false); check("switch off: mini-feed removed, static avatar back", sp.children.length === 0 && sp.live === 0); P.setOn(true); }
   P.setUser(null); check("signed out: switch reads off even if stored on", P.isOn() === false && store.zabPfpOn === "1"); }
 

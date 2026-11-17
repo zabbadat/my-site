@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- PFP fail-safe (Nov 16): with the profile-logo switch on, camera videos are never shown directly - hidden from the first
+       paint, before any camera opens; pfp.js shows only frames that already carry the logo (a canvas in the video's place). -->
+  <style id="pfpShieldCss">html.zab-pfp-shield video#camVid,html.zab-pfp-shield video#plankVid,html.zab-pfp-shield video#tbVid,html.zab-pfp-shield video#sqVid,html.zab-pfp-shield video#zlSelf,html.zab-pfp-shield video#zmCamVid{opacity:0!important}</style>
+  <script>try { if (localStorage.getItem("zabPfpOn") === "1") document.documentElement.classList.add("zab-pfp-shield"); } catch (e) {}</script>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-273E209E9K"></script>
   <script>
@@ -3704,7 +3708,7 @@ async function poseTick(id = poseLoopId) {
     const det = await (typeof ensurePushPose === "function" ? ensurePushPose() : ensurePose());
     if (!pushCounter) throw new Error("Counter not loaded");
     const tFrame = performance.now(); // stamp the frame BEFORE inference: the pose is of this moment, not of when the model finished
-    const poses = await det.estimatePoses(vid, { flipHorizontal: true });
+    const poses = await det.estimatePoses((window.ZabPfp && window.ZabPfp.input ? window.ZabPfp.input(vid, det) : vid), { flipHorizontal: true }); // PFP on: the model runs on the exact frame the screen will show (covered)
     let pose = poses && poses[0];
     if (det && det.engine === "vision") pose = await visionRescue(pose, vid, tFrame); // app only (iOS Apple Vision)
     if (window.ZabPfp) window.ZabPfp.frame(vid, pose ? pose.keypoints : [], tFrame); // PFP face cover: visual only (same keypoints, never changed), never throws
@@ -4049,7 +4053,7 @@ async function plankTick(id = plankLoopId) {
   try {
     const det = await ensurePose();
     const tFrame = performance.now(); // stamped before inference; MoveNet smoothing is off, plank-session.js runs its own One Euro filter
-    const poses = await det.estimatePoses(vid, { flipHorizontal: true });
+    const poses = await det.estimatePoses((window.ZabPfp && window.ZabPfp.input ? window.ZabPfp.input(vid, det) : vid), { flipHorizontal: true });
     const kps = poses && poses[0] ? poses[0].keypoints : [];
     if (window.ZabPfp) window.ZabPfp.plankFrame(vid, kps, plankHold && plankHold.phase, tFrame); // PFP from camera open (also before the hold starts); visual only, never throws
     if (plankHold) {
@@ -4176,7 +4180,8 @@ function stopPlankCam() {
 // If the native screen cannot run (no camera, camera denied, plugin error) the site plank starts instead.
 const NATIVE_PLANK_REASONS = ["sag", "pike", "knees", "standing", "left_frame", "frozen", "repeat", "stopped"];
 let nativePlankBusy = false;
-function nativePlank() { try { const C = window.Capacitor; const p = C && typeof C.isNativePlatform === "function" && C.isNativePlatform() && C.Plugins && C.Plugins.ZabbaPlank; return p && typeof p.start === "function" ? p : null; } catch (e) { return null; } }
+function nativePlank() { try { if (window.ZabPfp && window.ZabPfp.isOn && window.ZabPfp.isOn()) return null; // PFP on: the web plank camera (face always covered); the native plank screen draws no logo
+  const C = window.Capacitor; const p = C && typeof C.isNativePlatform === "function" && C.isNativePlatform() && C.Plugins && C.Plugins.ZabbaPlank; return p && typeof p.start === "function" ? p : null; } catch (e) { return null; } }
 function nativePlankResult(res, startedAt, now) { // never more time than the native screen was open; unknown reasons count as Stop
   const ms = Math.round(Number(res && res.ms)), cap = Math.max(0, now - startedAt);
   return { phase: "ended", ended: true, ms: Number.isFinite(ms) && ms > 0 ? Math.min(ms, cap) : 0, reason: NATIVE_PLANK_REASONS.includes(res && res.reason) ? res.reason : "stopped" };
@@ -5275,7 +5280,7 @@ function tbCamOff() { if (typeof tbCamOn === "function") tbCamOn.seq = (tbCamOn.
 async function tbPose() {
   if (!tbLoop) return;
   try {
-    const v = $("tbVid"), tFrame = performance.now(), poses = await (pushVisionDet || poseDetector).estimatePoses(v, { flipHorizontal: true }), kps = poses && poses[0] ? poses[0].keypoints : [];
+    const v = $("tbVid"), tFrame = performance.now(), tbDet = pushVisionDet || poseDetector, poses = await tbDet.estimatePoses((window.ZabPfp && window.ZabPfp.input ? window.ZabPfp.input(v, tbDet) : v), { flipHorizontal: true }), kps = poses && poses[0] ? poses[0].keypoints : [];
     if (window.ZabPfp) window.ZabPfp.frame(v, kps, tFrame); // PFP face cover: visual only, never throws
     const w = v.videoWidth || 640, now = tFrame, r = tbCounter.update(kps, now, w);
     if (tbLiveT0 == null) { if (!tbCoaching) $("tbCamNote").textContent = r.status; }
@@ -6098,7 +6103,7 @@ async function zlPfpLoop(id) {
     if (window.ZabPfp && window.ZabPfp.isOn && window.ZabPfp.isOn() && v.readyState >= 2) {
       const det = await (typeof ensurePushPose === "function" ? ensurePushPose() : ensurePose());
       const t = performance.now(); // stamped before inference, like the other pose loops
-      const p = await det.estimatePoses(v, { flipHorizontal: false }); // #zlSelf is not mirrored
+      const p = await det.estimatePoses((window.ZabPfp && window.ZabPfp.input ? window.ZabPfp.input(v, det) : v), { flipHorizontal: false }); // #zlSelf is not mirrored
       if (id === zlPfpId) window.ZabPfp.frame(v, p && p[0] ? p[0].keypoints : [], t);
     }
   } catch (e) {}
