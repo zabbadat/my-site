@@ -45,13 +45,9 @@ check("UI keeps official spelling Gyatt (title, tile, earn line, fine print)", /
   const C2 = require("../gyatt-cadence.js");
   check("cadence say() fallback is 'Gyot squat on three.'", C2.say(start) === "Gyot squat on three.");
   // drive the default speak path with a Gyatt line via a custom... start says Down; call say through speakDefault by coaching? not running.
-  // Invoke speakDefault indirectly: start() speaks "Down". Direct: use C2.say already. Also fire speakDefault by
-  // making a cadence and replacing nothing — poke speech by calling the exported say and a one-shot speak via
-  // start after swapping CUES is too heavy. Speak through the utterance constructor by calling start and
-  // confirming Down still works, plus a direct SpeechSynthesisUtterance via the module's say in speakDefault:
   const c2 = C2.makeCadence({ now: () => 0, schedule: () => 1, clear: () => {} });
   c2.start();
-  check("cadence default voice still speaks Down (no Gyatt in cues today)", calls.includes("speak:Down"));
+  check("cadence default voice still speaks Down, one (no Gyatt in cues today)", calls.includes("speak:Down, one"));
   // speakDefault builds SpeechSynthesisUtterance(say(text)); the Android TTS bridge receives that same text.
   const before = calls.length;
   global.window.speechSynthesis.speak(new global.window.SpeechSynthesisUtterance(C2.say("Gyatt squat on three.")));

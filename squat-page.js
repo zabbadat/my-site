@@ -5,11 +5,12 @@
  * Flow: tap Start set -> camera opens (setup line spoken in the tap) -> pose + logo run -> "step back, face the camera,
  * come in the frame, focus on firing your glutes" -> "Gyatt squat on three." One, two, three, Go (standing baseline
  * calibrated during this countdown) -> set clock starts at Go, the cadence starts 1 s after Go (so "Go" is not cut off) -> reps counted from pose.
- * Voice in the set: Down / Hold.. / Up / Squeeze.. cues only (gyatt-cadence.js); no rep number is ever spoken. Coaching lines go
- * through cadence.coach() so they never talk over a cue (queued into a quiet gap or dropped).
- * Cadence pose-sync: a counted rep normally finishes during Up / Top. If it finishes during Down or Hold instead (the
- * user is ahead of, or behind, the voice), the cadence jumps to that rep's top beat now ("Squeeze your glutes at the
- * top.") and the next "Down" follows 2 s later, so the voice follows the real movement.
+ * Voice in the set: a four-count at 1 s per beat (gyatt-cadence.js): "Down, one, two, three, four" / "Hold, ..." /
+ * "Up, ..." / "Squeeze, ...", then the next rep's "Down, one". No rep number is ever spoken. Coaching lines go
+ * through cadence.coach() so they never talk over the count (dropped while the cadence is running; shown on screen).
+ * Cadence pose-sync: a counted rep normally finishes during Up / Squeeze. If it finishes during Down or Hold instead (the
+ * user is ahead of, or behind, the voice), the cadence jumps to that rep's squeeze beat now ("Squeeze, one")
+ * and the next "Down, one" follows 4 s later, so the voice follows the real movement.
  * A set is ten reps: the tenth counted rep ends the set (reason set_done). Its top cue still plays (now, or at its slot
  * if the voice is in Up), then "Set complete." and the loop stops; the camera closes, the panel shows "Set done" and the
  * button reads "Start next set" (no setup talk on a restart). A completed set saves once and pays 1 ZAB (10 squats).
@@ -131,7 +132,7 @@
     st.running = false; st.calibrating = false;
     var done = r.reason === "set_done";
     if (st.cadenceTimer) { clearTimeout(st.cadenceTimer); st.cadenceTimer = null; }
-    // Set complete: this rep's top cue finishes, then "Set complete." and the loop stops. Any other end: cut the cadence,
+    // Set complete: this rep's squeeze four-count finishes, then "Set complete." and the loop stops. Any other end: cut the cadence,
     // then one short "Set over." line (End set is silent).
     if (done && cadence) cadence.complete(null, r.reps); else { stopCadence(); if (done) speak(GS && GS.SET_DONE_LINE ? GS.SET_DONE_LINE : "Set complete."); else if (SAY.end[r.reason]) speak(SAY.end[r.reason]); }
     closeCam();

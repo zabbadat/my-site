@@ -1,35 +1,34 @@
-/* Gyatt Squats voice cadence: ONE short cue at the start of each phase, nothing in between.
+/* Gyatt Squats voice cadence: a four-count at 1 s per beat in every phase (owner, Nov 17).
  *
- * One rep = 14 s, looping until stop() / complete() (or opts.maxReps reps):
- *   DOWN  4 s  t=0    "Down"                                         (lowering into the squat)
- *   HOLD  4 s  t=4    "Hold. Focus on squeezing with your glutes."   (bottom hold; ~2.6 s spoken, ends before Up)
- *   UP    4 s  t=8    "Up"                                           (rising)
- *   TOP   2 s  t=12   "Squeeze your glutes at the top."              (~1.6 s spoken, then the next Down)
- *   rep 2 starts at t=14 ("Down"), rep 3 at t=28, ...
- * Seconds are never counted aloud and rep numbers are never spoken (reps are on screen only). The module still ticks
- * once a second (silently) so a screen can show the phase and a 1-4 progress.
+ * One rep = 16 s, looping until stop() / complete() (or opts.maxReps reps):
+ *   DOWN     4 s  t=0    "Down, one" · "two" · "three" · "four"
+ *   HOLD     4 s  t=4    "Hold, one" · "two" · "three" · "four"
+ *   UP       4 s  t=8    "Up, one" · "two" · "three" · "four"
+ *   SQUEEZE  4 s  t=12   "Squeeze, one" · "two" · "three" · "four"
+ *   rep 2 starts at t=16 ("Down, one"), rep 3 at t=32, ...
+ * The phase word and "one" share beat one so each phase is exactly 4 s. Rep numbers are never spoken
+ * (reps stay on screen only). This replaces the Nov 16 short-cue / no-per-second-count rule.
+ * Squeeze was previously a 2 s top beat; the four-count needs 4 s, so a rep is 16 s (was 14 s).
  *
  * Timing: every tick k has a fixed target  t0 + k*1000  on a monotonic clock (performance.now). Each timer is armed
- * for (target - now), so setTimeout lateness never accumulates (no drift). A cue whose timer fires more than lateMs
- * (250) after its target is shown but NOT spoken (the voice never lags behind the movement). Speech: the site voice
- * (phone default TTS, rate 0.88, speechSynthesis.resume()); a cue cuts off anything still speaking instead of queueing.
+ * for (target - now), so setTimeout lateness never accumulates (no drift). Every beat is spoken (a late timer still
+ * enqueues the word; the serial voice catches up). Speech: the site voice (phone default TTS, rate 0.88) through
+ * get-set.js enqueueSpeak / speakAndWait (onend + timed fallback) so iOS never drops a count queued while the
+ * previous beat is still speaking. Beats are never cancelled by a later count. Pronunciation map (Gyatt -> Gyot) applies.
  *
- * Coaching lines (coach(text)) never talk over a cue: while the cadence runs, a line is spoken only inside the quiet
- * gap after a cue (>= 800 ms after it, and only if it ends >= 300 ms before the next cue, by a words-based length
- * estimate). Otherwise it waits for the next gap (one waiting line, the newest wins) and is dropped if it is still
- * waiting after 5 s or can never fit. "After a cue" means after the cue's own spoken length (CUE_MS) + 200 ms, so the
- * long Hold and Top cues leave no gap and coaching only lands after "Down" or "Up". A cue that comes due always wins: it cuts a coaching line still speaking.
+ * Coaching lines never talk over the four-count: while the cadence is running there is no quiet gap, so coach()
+ * returns "dropped". When it is not running, coach() returns "idle" and the caller speaks the line itself.
  *
  * API:
  *   var c = GyattCadence.makeCadence({ onPhase, onRep, onStop, onOffPace, onCoach, maxReps, lateMs,
  *                                      now, schedule, clear, speak, stopSpeech, poseCheck });
- *   c.start()            begins at rep 1, "Down" immediately
+ *   c.start()            begins at rep 1, "Down, one" immediately
  *   c.stop(reason)       halts timers, drops a waiting coaching line and cancels speech; onStop(state, reason)
- *   c.onPhase(fn)        fn(phase, sec, rep, info{ word: the cue on a phase's first second else null, spoken, label, atMs }) every second
+ *   c.onPhase(fn)        fn(phase, sec, rep, info{ word: the spoken beat, spoken, label, atMs }) every second
  *   c.onRep(fn) / c.onStop(fn)
- *   c.coach(text)        -> "now" | "queued" | "dropped" | "idle" (not running: caller speaks it itself)
- *   c.resync(rep)        jump NOW to rep `rep`'s top beat (squeeze cue), then the next "Down" (counted rep finished early / late)
- *   c.complete(cb, rep)  set done: finish the top beat, say "Set complete.", stop the loop
+ *   c.coach(text)        -> "dropped" while running, "idle" when not (caller speaks it itself)
+ *   c.resync(rep)        jump NOW to rep `rep`'s squeeze beat, then the next "Down" 4 s later (counted rep finished early / late)
+ *   c.complete(cb, rep)  set done: finish this rep's squeeze four-count, say "Set complete.", stop the loop
  *   c.offBoundaryMs()    ms from now to the nearest rep boundary
  *   c.state()            { running, rep, phase, count, repsDone, elapsedMs, nextAtMs, spoken, skipped, coachSpoken, coachDropped }
  *   c.pose(sample)       pose-sync hook: with opts.poseCheck(sample, state) === false, onOffPace(state, sample) fires
@@ -39,25 +38,26 @@
     { id: "down", label: "Down", secs: 4 },
     { id: "hold", label: "Hold", secs: 4 },
     { id: "up", label: "Up", secs: 4 },
-    { id: "top", label: "Top", secs: 2 }   // short top beat: just long enough for the squeeze cue, then the next Down
+    { id: "top", label: "Squeeze", secs: 4 }  // was 2 s with a single squeeze cue; four-count needs 4 s
   ];
-  // The only lines the cadence ever says (no counting, no numbers).
-  var CUES = { down: "Down", hold: "Hold. Focus on squeezing with your glutes.", up: "Up", top: "Squeeze your glutes at the top." };
-  // Spoken length at the site rate 0.88 (offline neural TTS, en_US voice, length scale 1/0.88; whole clip incl. edges).
-  // Hold 2.61 s ends ~1.4 s before Up; Top 1.58 s ends ~0.4 s before the next Down.
-  var CUE_MS = { down: 570, hold: 2610, up: 510, top: 1580 };
+  // Phase word on beat one (then "one"); counts two / three / four follow at 1 s steps. Never a rep number.
+  var PHASE_WORD = { down: "Down", hold: "Hold", up: "Up", top: "Squeeze" };
+  var BEATS = ["one", "two", "three", "four"];
+  var CUES = { down: "Down, one", hold: "Hold, one", up: "Up, one", top: "Squeeze, one" };
+  // Spoken length at the site rate 0.88 for the beat-one line ("Down, one", ...).
+  var CUE_MS = { down: 900, hold: 900, up: 800, top: 1000 };
   var SET_DONE_LINE = "Set complete.";
   var COACH_GAP_MS = 800, COACH_TAIL_MS = 300, COACH_STALE_MS = 5000;
   // rough length of a short line at rate 0.88 (phone TTS ~150 words/min at 1.0): 350 ms + 330 ms a word
   function estMs(text) { var n = String(text || "").trim().split(/\s+/).filter(Boolean).length; return 350 + 330 * n; }
   var STEP_MS = 1000;
-  var REP_SECS = PHASES.reduce(function (a, p) { return a + p.secs; }, 0); // 14
-  var TOP_K = REP_SECS - PHASES[PHASES.length - 1].secs;                     // 12: tick where the top beat starts
+  var REP_SECS = PHASES.reduce(function (a, p) { return a + p.secs; }, 0); // 16
+  var TOP_K = REP_SECS - PHASES[PHASES.length - 1].secs;                     // 12: tick where the squeeze beat starts
   var REP_MS = REP_SECS * STEP_MS;
   var LATE_MS = 250;
   var VOICE = { rate: 0.88 }; // same as get-set.js VOICE (site-wide voice) and the plank prompts
 
-  // count index within a rep (0..11) -> { phase, count (1-based) }
+  // count index within a rep (0..15) -> { phase, count (1-based) }
   var SLOTS = [];
   PHASES.forEach(function (p) { for (var i = 1; i <= p.secs; i++) SLOTS.push({ phase: p.id, label: p.label, count: i }); });
 
@@ -72,10 +72,14 @@
   }
   function speakDefault(text) {
     try {
-      var w = g(); if (!w || !w.speechSynthesis || typeof w.SpeechSynthesisUtterance !== "function") return;
+      var w = g();
+      var GS = w && w.ZabbadatGetSet;
+      // Page path: serial enqueueSpeak (onend + timed fallback) so iOS never drops a count
+      // queued while the previous beat is still speaking. Do not cancel a beat already in flight.
+      if (GS && typeof GS.enqueueSpeak === "function") { GS.enqueueSpeak(text); return; }
+      if (!w || !w.speechSynthesis || typeof w.SpeechSynthesisUtterance !== "function") return;
       var ss = w.speechSynthesis;
       try { if (typeof ss.resume === "function") ss.resume(); } catch (e) {}
-      if (ss.speaking || ss.pending) ss.cancel(); // never queue: the previous count is cut, not lagged behind
       var u = new w.SpeechSynthesisUtterance(say(text)); u.rate = VOICE.rate;
       ss.speak(u);
     } catch (e) { /* on-screen only */ }
@@ -86,7 +90,12 @@
     var s = SLOTS[k % REP_SECS];
     return { phase: s.phase, label: s.label, count: s.count, rep: Math.floor(k / REP_SECS) + 1 };
   }
-  function wordFor(slot) { return slot.count === 1 ? CUES[slot.phase] : null; }
+  function wordFor(slot) {
+    var beat = BEATS[slot.count - 1];
+    if (!beat) return null;
+    if (slot.count === 1) return (PHASE_WORD[slot.phase] || slot.label) + ", " + beat;
+    return beat;
+  }
 
   // Expected cue schedule for n reps (tests and the video check): [{ atMs, rep, phase, word }] - spoken cues only
   function sequence(reps) {
@@ -146,11 +155,9 @@
     function coach(text) {
       text = String(text || "").trim(); if (!text) return "dropped";
       if (!running) return "idle";
-      if (estMs(text) + COACH_GAP_MS + COACH_TAIL_MS > PHASES[0].secs * STEP_MS) { coachDropped++; emit(L.coach, [text, "dropped", "too long"]); return "dropped"; }
-      if (fits(text) && !pending) { sayCoach(text); return "now"; }
-      if (pending) { coachDropped++; emit(L.coach, [pending.text, "dropped", "replaced"]); }
-      pending = { text: text, at: now() }; emit(L.coach, [text, "queued"]);
-      return "queued";
+      // The four-count fills every second; never talk over it. On-screen coaching in squat-page.js still shows.
+      coachDropped++; emit(L.coach, [text, "dropped", "counting"]);
+      return "dropped";
     }
     function arm() {
       var my = gen, delay = Math.max(0, t0 + next * STEP_MS - now());
@@ -172,10 +179,12 @@
         }
         var s = slotAt(k), late = t - atMs, word = wordFor(s);
         s.rep += repBase;
-        var say = !!word && k === due && late <= lateMs; // a phase start, current and on time
+        // Speak every beat (phase word + "one" together at count 1, then two / three / four). A late
+        // timer still enqueues the word so iOS / a slow tick never drops a count; skipped stays for API compat.
+        var said = !!word;
         cur = s;
-        if (say) { sayIt(word); spoken++; lastCueEnd = t0 + atMs + Math.max(COACH_GAP_MS, (CUE_MS[s.phase] || 600) + 200); afterCue(); } else if (word) skipped++;
-        emit(L.phase, [s.phase, s.count, s.rep, { k: k, atMs: atMs, firedMs: t, lateMs: late, word: word, spoken: say, label: s.label }]);
+        if (said) { sayIt(word); spoken++; lastCueEnd = t0 + atMs + Math.max(COACH_GAP_MS, (CUE_MS[s.phase] || 600) + 200); afterCue(); } else if (word) skipped++;
+        emit(L.phase, [s.phase, s.count, s.rep, { k: k, atMs: atMs, firedMs: t, lateMs: late, word: word, spoken: said, label: s.label }]);
       }
       if (running) arm();
     }
@@ -184,13 +193,13 @@
         if (running) return api;
         running = true; gen++; t0 = now(); next = 0; cur = null; repsDone = 0; spoken = 0; skipped = 0; repBase = 0;
         pending = null; coachSpoken = 0; coachDropped = 0; lastCueEnd = -1e9; completing = null;
-        tick(); // "Down" (rep 1) right away
+        tick(); // "Down, one" (rep 1) right away
         return api;
       },
       stop: function (reason) { finish(reason || "stop"); return api; },
       coach: coach,
       // resync(rep): a counted rep finished away from the cycle (user faster / slower than the voice): jump to rep
-      // `rep`'s top beat NOW (squeeze cue), then the next "Down" 2 s later.
+      // `rep`'s squeeze beat NOW ("Squeeze, one"), then the next "Down, one" 4 s later.
       resync: function (rep) {
         if (!running) return api;
         if (timer != null) { try { clear(timer); } catch (e) {} timer = null; }
@@ -200,8 +209,8 @@
         tick();
         return api;
       },
-      // complete(cb): the set is done (tenth counted rep). Finish this rep's top beat (jump to it now if the cycle is still
-      // in Down / Hold), then say "Set complete." and stop the loop (onStop reason "complete"). No numbers are spoken.
+      // complete(cb): the set is done (tenth counted rep). Finish this rep's squeeze four-count (jump to it now if the cycle is still
+      // in Down / Hold), then say "Set complete." and stop the loop (onStop reason "complete"). No rep numbers are spoken.
       complete: function (cb, rep) {
         if (!running) { sayIt(SET_DONE_LINE); try { cb && cb(); } catch (e) {} return api; }
         completing = { text: SET_DONE_LINE, cb: cb };
@@ -228,7 +237,7 @@
     return api;
   }
 
-  var api = { say: say, makeCadence: makeCadence, sequence: sequence, PHASES: PHASES, CUES: CUES, CUE_MS: CUE_MS, SET_DONE_LINE: SET_DONE_LINE, REP_SECS: REP_SECS, TOP_K: TOP_K, estMs: estMs, COACH_GAP_MS: COACH_GAP_MS, STEP_MS: STEP_MS, REP_MS: REP_MS, LATE_MS: LATE_MS, VOICE: VOICE };
+  var api = { say: say, makeCadence: makeCadence, sequence: sequence, PHASES: PHASES, PHASE_WORD: PHASE_WORD, BEATS: BEATS, CUES: CUES, CUE_MS: CUE_MS, SET_DONE_LINE: SET_DONE_LINE, REP_SECS: REP_SECS, TOP_K: TOP_K, estMs: estMs, COACH_GAP_MS: COACH_GAP_MS, STEP_MS: STEP_MS, REP_MS: REP_MS, LATE_MS: LATE_MS, VOICE: VOICE };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.GyattCadence = api;
 })(this);
