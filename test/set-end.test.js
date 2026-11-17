@@ -66,10 +66,11 @@ function camExitFs() {} var HOLD_CAPPED_TEXT = "capped";
 const rep = (t0, per, n) => (t) => { if (t < t0) return { d: 0 }; const k = Math.floor((t - t0) / per); if (n != null && k >= n) return { d: 0 }; const p = (t - t0) % per, q = per / 2.5; return { d: p < q ? p / q : p < q * 1.3 ? 1 : p < q * 2.3 ? 1 - (p - q * 1.3) / q : 0 }; };
 (async () => {
   let ctx; const grab = (c) => { ctx = c; setup(c); };
-  // 24 reps at 2 s with the default target 20: reaching 20 must NOT end the set; the camera stays on and counting continues
+  check("default Sets target is 10 (preselected / fallback only; not a cap or end)", /id="pushTarget"[^>]*value="10"/.test(html) && /return n >= 1 && n <= 500 \? n : 10;/.test(html));
+  // 24 reps at 2 s with the default target 10: reaching 10 must NOT end the set; the camera stays on and counting continues
   let r = await run(HTML, { mode: "sets", script: rep(10000, 2000, 24), ms: 10000 + 24 * 2000 + 1000, setup: grab });
   let L = ctx.api.log;
-  check(`Sets, target 20: reaching 20 does not end the set, counting continues past it (${r.reps} reps), camera still on`, r.reps >= 22 && r.running === true && !L.some((x) => /^(finish|void):/.test(x)) && !L.includes("stopCam"));
+  check(`Sets, default target 10: reaching 10 does not end the set, counting continues past it (${r.reps} reps), camera still on`, r.reps >= 22 && r.running === true && !L.some((x) => /^(finish|void):/.test(x)) && !L.includes("stopCam"));
   r = await run(HTML, { mode: "sets", script: rep(10000, 2000, 10), ms: 10000 + 10 * 2000 + 1000, setup: (c) => { grab(c); c.$("pushTarget").value = "5"; } });
   L = ctx.api.log;
   check(`Sets, configured target 5: reaching it does not end the set (${r.reps} reps), camera still on`, r.reps >= 8 && r.running === true && !L.some((x) => /^(finish|void):/.test(x)) && !L.includes("stopCam"));

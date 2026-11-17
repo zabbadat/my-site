@@ -288,7 +288,7 @@
     var speak = safe(opts.speak || interruptSpeak), stopSpeech = safe(opts.speak ? (opts.stop || defaultStop) : function () {}), last = null;
     return { say: function (n) { if (n == null || n === last) return; last = n; stopSpeech(); speak(String(n)); }, reset: function () { last = null; } };
   }
-  // Spoken rep callout. With a target (Sets): counts DOWN, rep 1 of 20 says "20" ... rep 20 says "1";
+  // Spoken rep callout. With a target (Sets): counts DOWN, rep 1 of 10 says "10" ... rep 10 says "1";
   // reps past the target say "Plus 1", "Plus 2"... No target (One long set, challenge, battles): counts up "1", "2"...
   function repCallout(reps, target) {
     reps = Math.floor(Number(reps) || 0); if (reps < 1) return null;

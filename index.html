@@ -1502,7 +1502,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="note" id="pushHoldTimer" hidden style="text-align:center" aria-live="polite"></p>
     <p class="note" style="text-align:center;margin-top:-1rem"><span id="pushSetLabel">This set</span> &middot; <span id="pushClock">00:00</span></p>
     <div class="row">
-      <label class="note" id="pushTargetWrap" for="pushTarget" style="display:inline-flex;align-items:center;gap:.4rem;margin:0">Target reps <input id="pushTarget" type="number" inputmode="numeric" min="1" max="500" step="1" value="20" style="width:4.5rem"></label>
+      <label class="note" id="pushTargetWrap" for="pushTarget" style="display:inline-flex;align-items:center;gap:.4rem;margin:0">Target reps <input id="pushTarget" type="number" inputmode="numeric" min="1" max="500" step="1" value="10" style="width:4.5rem"></label>
       <button class="btn ghost rec-btn" type="button" data-rec="camWrap" hidden aria-pressed="false"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button>
       <button class="btn" id="pushStartBtn" type="button">Start set</button>
       <button class="btn" id="pushEndBtn" type="button" hidden>End session</button>
@@ -3402,7 +3402,7 @@ function getSetCountdown(show, cancelled) {
 }
 // Spoken rep numbers (Sets count down from the target; One long set / challenge count up). Cancels queued speech.
 const repVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makeRepVoice ? window.ZabbadatGetSet.makeRepVoice() : null;
-function pushTarget() { const n = Math.floor(Number(($("pushTarget") || {}).value)); return n >= 1 && n <= 500 ? n : 20; }
+function pushTarget() { const n = Math.floor(Number(($("pushTarget") || {}).value)); return n >= 1 && n <= 500 ? n : 10; }
 function sayRep(reps) { if (typeof repVoice === "undefined" || !repVoice || !window.ZabbadatGetSet.repCallout) return; repVoice.say(window.ZabbadatGetSet.repCallout(reps, pushMode === "sets" ? pushTarget() : 0)); }
 // Setup prompt: shown while the camera/model load, then held POSITION_MS after the camera opens, then the countdown.
 const POSITION_MS = 2000, POSITION_SPOKEN_MAX_MS = 10000;
