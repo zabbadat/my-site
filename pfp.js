@@ -15,9 +15,9 @@
   var P = { plausK: 3, plausBody: 0.75, plausSpread: 2.2, staleMs: 450, lockFrames: 2, shrinkMs: 280, growMs: 160, coverBack: "#0b0d1a", minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: Infinity, holdGrow: 1, clearMs: 1200,
     minCut: 0.7, beta: 6, dCut: 2.5, leadMax: 180, leadCap: 0.35, leadV0: 0.55, leadV1: 1.8, vCut: 12, snapMs: 350, rafDraw: true, fitMs: 1000,
     spDead: 1.0, rGrowCut: 4, rShrinkCut: 0.8, dispK: 0.35, dispMinMs: 16, dispMaxMs: 32, dispRK: 2, dispSpK: 0, dispLead: true, reacqSnapR: 1, reacqMs: 150,
-    shUp: 0.55, shR: 0.30, sideK: 0.35, sideUp: 0.35, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
-    headUp: 0.1, headRW: 0.6, coverPad: 0.45, topUp: 0.85, chinDn: 0.65, openR: 0.36, openY: 0.36, lockMs: 250, openMs: 8000,
-    blankR: 0.2, blankY: 0.36, staleK: 3, staleMaxMs: 1000 };
+    shUp: 0.55, shR: 0.25, sideK: 0.35, sideUp: 0.35, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
+    headUp: 0.1, headRW: 0.5, coverPad: 0.25, topUp: 0.85, chinDn: 0.65, openR: 0.36, openY: 0.36, lockMs: 250, openMs: 8000,
+    blankR: 0.16, blankY: 0.3, staleK: 3, staleMaxMs: 1000 };
   // Centre + size (Nov 16, owner): horizontally dead-centre on the shoulder midpoint (the anchor; zero offset), vertically on
   // the head (ear line, else eye line, headUp x head width above it). Size covers the whole head with margin: r = max(headRW x
   // head width, shR x shoulder width, and far enough to reach every face point, the estimated top of the head (topUp x head
@@ -25,9 +25,11 @@
   // for a slightly bigger logo: coverPad 0.25 -> 0.45, headRW 0.5 -> 0.6, shR 0.25 -> 0.30, so the whole cover (logo + edge)
   // scales up ~20% from the smallest passing size (about 0.8x shoulder width / 36.6 px on a 390-wide 4:3 view) to about 0.96x
   // / 44 px. Centering stays at 0 px; the plausibility guard and fallback are unchanged.
+  // Nov 17 (owner: "too big / overbearing", a little bigger than the head, centred between the shoulders): back to the
+  // smallest proven size, coverPad 0.45 -> 0.25, headRW 0.6 -> 0.5, shR 0.30 -> 0.25 (~0.8x shoulder width).
   // Check-in size (Nov 17, owner on iPhone: "the logo is entirely too big, looks broken"): while the shield has no lock (camera
   // check-in / startup, or tracking lost) the screen is the opaque backing with NO video, so the logo there only has to look
-  // right: blankR x the short side, centred at blankY (where a head usually is), instead of a disc past every box corner
+  // right: (Nov 17 9:37) diameter 0.32 x the camera picture height (blankR 0.16), centred, blankY 0.3 down it, instead of a disc past every box corner
   // (2.27x the short side on a phone). (openR is the overlay path, hidden under the shield; unchanged.) The shrink onto the head starts from the smallest circle
   // holding both that logo and the head circle (still nested: never uncovers the head). Stale is platform-aware: a pose
   // engine slower than staleMs/staleK per frame (Apple Vision over the app bridge) gets staleK x its own frame interval,
@@ -599,12 +601,21 @@
       if (s.vwSeen && (s.vwSeen !== v.videoWidth || s.vhSeen !== v.videoHeight)) { shieldUnlock(s); s.lostT = 0; } // resolution / orientation change: straight to the blanket (no frozen old frame)
       s.vwSeen = v.videoWidth; s.vhSeen = v.videoHeight;
     }
-    return { bw: bw, bh: bh, fit: s.fit, mir: s.mir, left: v.offsetLeft, top: v.offsetTop };
+    return { bw: bw, bh: bh, fit: s.fit, mir: s.mir, left: v.offsetLeft, top: v.offsetTop, vw: v.videoWidth, vh: v.videoHeight };
   }
   function lerpC(a, b, p) { return { x: a.x + (b.x - a.x) * p, y: a.y + (b.y - a.y) * p, r: a.r + (b.r - a.r) * p }; }
   function ease(p) { p = Math.max(0, Math.min(1, p)); return p * p * (3 - 2 * p); }
   // Check-in logo (no lock: the backing hides the whole picture, no video drawn): blankR x the short side, upper-middle.
-  function blanketLogo(g) { return { x: g.bw / 2, y: g.bh * P.blankY, r: Math.max(P.minR, P.blankR * Math.min(g.bw, g.bh)) }; }
+  // Opening logo (owner, Nov 17 9:37): about the top quarter to third of the camera picture (diameter 2 x blankR = 0.32 x the
+  // picture height; the picture = the video's own rect inside the box, object-fit aware), centred, blankY down it (head area).
+  // Nothing of the picture shows around it before the first lock (opaque backing): no face is seen while it is recognising.
+  function picRect(g) {
+    var vw = g.vw, vh = g.vh; if (!(vw > 0 && vh > 0) || !(g.fit === "contain" || g.fit === "cover")) return { x: 0, y: 0, w: g.bw, h: g.bh };
+    var k = g.fit === "contain" ? Math.min(g.bw / vw, g.bh / vh) : Math.max(g.bw / vw, g.bh / vh), w = vw * k, h = vh * k;
+    return { x: (g.bw - w) / 2, y: (g.bh - h) / 2, w: w, h: h };
+  }
+  function blanketLogo(g) { var R = picRect(g), vis = { x: Math.max(0, R.x), y: Math.max(0, R.y), w: Math.min(g.bw, R.w), h: Math.min(g.bh, R.h) };
+    return { x: vis.x + vis.w / 2, y: vis.y + vis.h * P.blankY, r: Math.max(P.minR, Math.min(P.blankR * vis.h, 0.45 * vis.w)) }; }
   function blanketAround(g, t) { // the check-in logo, or the smallest circle holding it and circle t (+1 px): t is always inside
     var c = blanketLogo(g);
     return t ? enclose(c, { x: t.x, y: t.y, r: t.r + 1 }) : c;
