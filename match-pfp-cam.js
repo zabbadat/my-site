@@ -229,6 +229,11 @@
     if (id !== loopId || !on || !isShow()) { if (id === loopId) looping = false; return; }
     var vid = $("zmCamVid"), cv = $("zmCamOverlay");
     try {
+      // if start() ran before the module engine was on window (or the first load failed), keep retrying so landscape / late loads still lock
+      if (vid && vid.readyState >= 2 && !vid._zmDet && (!tick._retryAt || perfNow() >= tick._retryAt)) {
+        tick._retryAt = perfNow() + 1000;
+        getDetector().then(function (d) { var v = $("zmCamVid"); if (v && d) { v._zmDet = d; setNote(noteDefault); } }).catch(function () {});
+      }
       if (vid && vid.readyState >= 2 && vid._zmDet) {
         var flip = facing === "user";
         var t = perfNow(); // stamped BEFORE inference: the pose is of this moment; the gap to the draw is what the lead makes up

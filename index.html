@@ -3671,6 +3671,10 @@ async function ensurePushPose() {
     return ensurePose();
   }
 }
+// Live Match camera (match-pfp-cam.js, a classic script) looks these up on window so it can reuse this one shared
+// engine. They live in this module, so they are not globals unless we assign them.
+window.ensurePose = ensurePose;
+window.ensurePushPose = ensurePushPose;
 
 // App only (iOS Apple Vision): Vision's body pose can lose a person whose face is hidden (hood up, head down) or who is
 // low in a front-camera picture, so no shoulders come back and the set never gets going. After VISION_RESCUE.blindMs
