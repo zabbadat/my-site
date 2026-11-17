@@ -124,10 +124,13 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
       var legMin = Math.max(o.minScore, o.kneeMin == null ? 0 : o.kneeMin);
       var s = sides[i], sh = pt(kps, s + "_shoulder", o.minScore), hip = pt(kps, s + "_hip", legMin),
           kn = pt(kps, s + "_knee", legMin), an = pt(kps, s + "_ankle", legMin), knRaw = rawPt(kps, s + "_knee");
+      var hipLow = !!(hip && fy != null && foldScale > 1 && fy - hip.y < (o.foldFloorFrac == null ? 0.5 : o.foldFloorFrac) * foldScale);
       if (hip && kn && an) {
         known = true;
         var a = angle(hip, kn, an);
-        if (a != null && a < o.kneeAngle) knees = true;
+        // Nov 17 (owner): from the front camera straight legs running away from the lens read bent in 2D. With hiddenKneeFold,
+        // a front-view knee angle counts only when the hips have also dropped to the floor line (hand height): a real kneel.
+        if (a != null && a < o.kneeAngle && (o.hiddenKneeFold !== true || hipLow || !isFrontView(w, sh, hip, o))) knees = true;
         if (sh) { var dy = Math.abs(an.y - sh.y), dx = Math.abs(an.x - sh.x); if (dy > o.upright * dx && a != null && a >= o.kneeAngle) upright = true; }
       } else if (hip && kn) {
         // Front camera: ankles are often missing. A kneel still shows the hips dropped to about knee height.
@@ -136,7 +139,6 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
         // the knee projects at about hip height ("folded") while the hips stay high above the planted hands. With no ankle,
         // that is only a kneel when the hips have also dropped to the floor line (hand height). Missing wrists = no floor
         // line = never a fail from this cue. Opt-in with hiddenKneeFold (push-up sets / TUT); plank keeps its rule.
-        var hipLow = fy != null && foldScale > 1 && fy - hip.y < (o.foldFloorFrac == null ? 0.5 : o.foldFloorFrac) * foldScale;
         if (foldedLegs(hip, kn, null, o, foldScale) && (o.hiddenKneeFold !== true || hipLow)) knees = true;
       }
       // Occluded or low-visibility knees: hip-to-ankle / floor line / front hip-drop, never a low-score full-leg guess.

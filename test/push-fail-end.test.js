@@ -23,7 +23,12 @@ check("front-facing setup, no prompt to rotate or switch cameras",
 { // hip (200,200) knee (200,320) ankle ~(285,405): about 135°, under the 140° failure angle, over the old 130° flag
   const soft = () => plank({ left_hip: [200, 200], left_knee: [200, 320], left_ankle: [285, 405] });
   const r = run(seq(0, 400, () => plank()).concat(seq(400, 2200, soft)));
-  check("softer kneel / collapse (about 135°) ends the set", r.out === "knees", r.out + "@" + r.at); }
+  // Nov 17 (owner): from the front camera a 2D knee bend with the hips still up is a foreshortened plank, not a kneel.
+  check("front camera: softer knee bend (about 135°) with the hips up does NOT end the set", r.out == null, r.out + "@" + r.at); }
+{ // same ~135° bend with the hips dropped near hand height (wrists y 370): a real soft kneel still ends the set
+  const lowSoft = () => plank({ left_hip: [220, 340], left_knee: [220, 420], left_ankle: [305, 505] });
+  const r = run(seq(0, 400, () => plank()).concat(seq(400, 2200, lowSoft)));
+  check("softer kneel (about 135°) with the hips low ends the set", r.out === "knees", r.out + "@" + r.at); }
 { const straight = () => plank({ left_hip: [230, 330], left_knee: [235, 400], left_ankle: [238, 470], right_hip: [400, 330], right_knee: [405, 400], right_ankle: [408, 470] });
   check("straight legs in a plank do not end the set", run(seq(0, 4000, straight)).out === null); }
 
