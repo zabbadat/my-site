@@ -132,7 +132,12 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
       } else if (hip && kn) {
         // Front camera: ankles are often missing. A kneel still shows the hips dropped to about knee height.
         known = true;
-        if (foldedLegs(hip, kn, null, o, foldScale)) knees = true;
+        // Nov 17 (owner, real iPhone): a front / three-quarter camera sees straight plank legs running AWAY from the lens, so
+        // the knee projects at about hip height ("folded") while the hips stay high above the planted hands. With no ankle,
+        // that is only a kneel when the hips have also dropped to the floor line (hand height). Missing wrists = no floor
+        // line = never a fail from this cue. Opt-in with hiddenKneeFold (push-up sets / TUT); plank keeps its rule.
+        var hipLow = fy != null && foldScale > 1 && fy - hip.y < (o.foldFloorFrac == null ? 0.5 : o.foldFloorFrac) * foldScale;
+        if (foldedLegs(hip, kn, null, o, foldScale) && (o.hiddenKneeFold !== true || hipLow)) knees = true;
       }
       // Occluded or low-visibility knees: hip-to-ankle / floor line / front hip-drop, never a low-score full-leg guess.
       if (!knees && hip && kneesFallback(hip, knRaw, an, sh, fy, foldScale, o)) { known = true; knees = true; }
