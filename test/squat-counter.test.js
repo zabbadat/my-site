@@ -11,12 +11,12 @@ function reps(depth, n, popts, o, extraFn) { const { c, t } = calibrated(o); let
 
 { const { c, ok } = calibrated(); check("calibration during setup: standing baseline after 0.5 s of upright frames", ok && c.baseline().thigh === 90 && c.baseline().leg === 180); }
 { const r = SC.createCounter().calibrate(pose(0.5), 0); check("calibration refuses a bent-knee frame (stand tall)", r.ok === false); }
-{ const r = reps(1.0, 5); check("5 full reps to parallel at the 3-4-5 cadence = 5 reps", r.last.reps === 5 && r.last.halfReps === 0, JSON.stringify([r.last.reps, r.last.halfReps])); }
+{ const r = reps(1.0, 5); check("5 full reps to parallel at the Down 4 / Hold 4 / Up 4 / Top 2 cadence = 5 reps", r.last.reps === 5 && r.last.halfReps === 0, JSON.stringify([r.last.reps, r.last.halfReps])); }
 { const r = reps(0.5, 3); check("depth just past threshold (hips 50 % of thigh down) counts", r.last.reps === 3); }
 { const r = reps(0.3, 4); check("half reps (30 % depth) never count; tracked as half reps", r.last.reps === 0 && r.last.halfReps === 4); }
 { // reach depth but never stand fully: stays below the top band, no rep until the full stand
   const { c, t } = calibrated(); let tt = t;
-  const part = repProfile(1.0, { upMs: 5000, topMs: 0 }).map((f) => ({ t: f.t, d: Math.max(f.d, 0.3) }));
+  const part = repProfile(1.0, { upMs: 4000, topMs: 0 }).map((f) => ({ t: f.t, d: Math.max(f.d, 0.3) }));
   let r = feed(c, tt, part); check("depth reached but no full stand (hips stay 30 % down): no rep", r.last.reps === 0);
   r = feed(c, r.t + 33, [{ t: 0, d: 0.05 }, { t: 100, d: 0.02 }, { t: 200, d: 0 }, { t: 300, d: 0 }]); check("then standing all the way up completes the rep", r.last.reps === 1);
 }

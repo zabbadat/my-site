@@ -243,7 +243,7 @@
   var COACH = {
     pushups: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Go all the way down and back up." },
     tut: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up." },
-    squats: { place: "Prop your phone up in front of you, camera facing you.", criteria: "Step back so your whole body is in frame, head to feet. Stand tall." },
+    squats: { place: "Prop your phone up in front of you, camera facing you.", criteria: "Step back and come in the frame, head to feet. Stand tall. Focus on firing your glutes." },
     plank: { clock: "Clock starts on a proper plank.", next: NEXT_SET_LINE, place: "Prop your phone on the floor, off to your side, sideways or upright. Turn to show your side.", criteria: "Step back until the outline shows you head to heels.", rules: "Stay steady. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold." }
   };
   function coachLines(kind) { return COACH[kind] || COACH.pushups; }

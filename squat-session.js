@@ -7,6 +7,7 @@
  *                 4 s hold, so it never trips), or hips almost to the floor (drop >= 1.6 thighs) for 1.5 s
  *   hands_down    hands below the knees for 1 s while down (fell / hands on the floor)
  *   left_frame    body out of the picture for 3 s
+ *   set_done      the tenth counted rep: a set is ten reps (10 squats = 1 ZAB), so a full set pays exactly 1 ZAB
  *   stopped       the End set button
  * Small wobbles, a brief tracking loss (< 3 s), walking to a new spot or bending over never end a set; they only pause
  * counting (and void the rep in progress).
@@ -18,9 +19,9 @@
   var SC = NODE ? require("./squat-counter.js") : root.ZabbadatSquat;
   var ETD = NODE ? require("./et-day.js") : root.ZabbadatEtDay;
   var L = { stallBottomMs: 15000, noRepMs: 45000, sitStillMs: 8000, sitDrop: 0.8, sitStillTol: 0.06, floorDrop: 1.6, floorMs: 1500,
-    handsMs: 1000, missingMs: 3000, maxReps: 1000 };
+    handsMs: 1000, missingMs: 3000, maxReps: 1000, setReps: 10 }; // a set is ten counted reps
   var REASON = { stall_bottom: "15 seconds at the bottom with no rep", no_rep: "45 seconds with no rep", sat: "sat down", hands_down: "hands down",
-    left_frame: "left the frame", stopped: "End set", max_reps: "1000 reps, the most one set can post" };
+    left_frame: "left the frame", stopped: "End set", set_done: "ten reps, set complete", max_reps: "1000 reps, the most one set can post" };
   function reasonText(r) { return REASON[r] || "set over"; }
 
   function createSquatSet(opts) {
@@ -40,7 +41,7 @@
       if (t0 == null) t0 = t;
       if (lastRepT == null) lastRepT = t0;
       var st = counter.update(kps, t, extra); lastSt = st;
-      if (st.event === "rep") { lastRepT = t; repTimes.push(Math.round(t - t0)); downT = null; still = null; if (st.reps >= lim.maxReps) return finish(t, "max_reps"); }
+      if (st.event === "rep") { lastRepT = t; repTimes.push(Math.round(t - t0)); downT = null; still = null; if (lim.setReps && st.reps >= lim.setReps) return finish(t, "set_done"); if (st.reps >= lim.maxReps) return finish(t, "max_reps"); }
       // out of frame
       if (st.frame === "missing") { if (missT == null) missT = t; if (t - missT >= lim.missingMs) return finish(t, "left_frame"); }
       else missT = null;

@@ -20,10 +20,10 @@ function pose(d, o) {
   };
   return Object.keys(pts).filter((k) => !(o.drop || []).includes(k)).map((k) => ({ name: k, x: pts[k].x + n(), y: pts[k].y + n(), score: o.score == null ? 0.9 : o.score }));
 }
-// cadence-style rep profile: 3 s down, holdMs at the bottom, 5 s up, then topMs standing. Returns [{t, d}] at fps.
+// cadence-style rep profile: 4 s down, holdMs (4 s) at the bottom, 4 s up, then topMs (2 s) standing. Returns [{t, d}] at fps.
 function repProfile(depth, o) {
   o = o || {};
-  const down = o.downMs == null ? 3000 : o.downMs, hold = o.holdMs == null ? 4000 : o.holdMs, up = o.upMs == null ? 5000 : o.upMs, top = o.topMs == null ? 500 : o.topMs;
+  const down = o.downMs == null ? 4000 : o.downMs, hold = o.holdMs == null ? 4000 : o.holdMs, up = o.upMs == null ? 4000 : o.upMs, top = o.topMs == null ? 2000 : o.topMs; // the cadence: Down 4, Hold 4, Up 4, Top 2
   const total = down + hold + up + top, step = 1000 / (o.fps || 30), out = [];
   for (let t = 0; t < total; t += step) {
     let d;
