@@ -6,6 +6,7 @@
        paint, before any camera opens; pfp.js shows only frames that already carry the logo (a canvas in the video's place). -->
   <style id="pfpShieldCss">html.zab-pfp-shield video#camVid,html.zab-pfp-shield video#plankVid,html.zab-pfp-shield video#tbVid,html.zab-pfp-shield video#sqVid,html.zab-pfp-shield video#zlSelf,html.zab-pfp-shield video#zmCamVid{opacity:0!important}</style>
   <script>try { if (localStorage.getItem("zabPfpOn") === "1") document.documentElement.classList.add("zab-pfp-shield"); } catch (e) {}</script>
+  <script>try { if (sessionStorage.getItem("zabbadat-washers-banner-off") === "1") document.documentElement.classList.add("washers-banner-off"); } catch (e) {}</script>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-273E209E9K"></script>
   <script>
@@ -1052,6 +1053,60 @@ body.arcade-live #playEarn10k{display:none}
       background: var(--accent); color: #0e1412; border-color: transparent;
     }
 
+
+/* Zabba Washers showcase banner: first in-flow content under the fixed nav. Compact on phones. */
+#washersBanner.washers-banner{
+  margin:calc(var(--navh,4.6rem) + .2rem) 8% .45rem;
+  position:relative;z-index:1;
+  background:linear-gradient(160deg,rgba(198,255,0,.14),rgba(255,46,147,.10)),var(--card,#1b2723);
+  border:2px solid rgba(255,60,172,.55);
+  border-radius:16px;
+  padding:.5rem .75rem;
+  box-shadow:0 0 18px rgba(198,255,0,.14);
+  overflow:hidden;
+}
+@media (max-width:700px){
+  #washersBanner.washers-banner{margin-left:6%;margin-right:6%;padding:.4rem .55rem;border-radius:14px}
+}
+html.washers-banner-off #washersBanner{display:none!important}
+html:not(.washers-banner-off) #playEarn10k.pe-10k{margin-top:.4rem}
+body.arcade-live #washersBanner{display:none}
+.wbanner-inner{display:flex;align-items:center;gap:.7rem;position:relative;z-index:1}
+@media (max-width:700px){.wbanner-inner{gap:.45rem}}
+.wbanner-ic{width:48px;height:48px;flex:0 0 auto;color:#fff;filter:drop-shadow(0 0 8px rgba(198,255,0,.35));animation:wbanner-bob 3.2s ease-in-out infinite}
+@media (max-width:700px){.wbanner-ic{width:36px;height:36px}}
+@keyframes wbanner-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.wbanner-copy{flex:1 1 auto;min-width:0}
+.wbanner-kicker{margin:0 0 .1rem;font-size:.68rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--lime,#C6FF00)}
+@media (max-width:700px){.wbanner-kicker{font-size:.6rem;letter-spacing:.12em}}
+.wbanner-headline{margin:0;font-weight:800;font-size:clamp(1.02rem,3.8vw,1.5rem);line-height:1.15;letter-spacing:-.02em;color:var(--text,#eef4f1)}
+.wbanner-pitch{margin:.12rem 0 0;color:var(--muted,#9aada4);font-size:.86rem;line-height:1.3}
+#washersBanner .btn{flex:0 0 auto;white-space:nowrap;padding:.6rem 1.05rem}
+@media (max-width:700px){
+  .wbanner-kicker{display:none}
+  .wbanner-pitch{font-size:.75rem;margin-top:.06rem}
+  .wbanner-inner{flex-wrap:wrap;align-items:center}
+  .wbanner-copy{flex:1 1 0;order:1}
+  .wbanner-ic{order:0}
+  .wbanner-dismiss{order:2}
+  #washersBanner .btn{flex:1 1 100%;order:3;margin-top:.3rem;padding:.45rem .7rem;font-size:.82rem;text-align:center}
+}
+.wbanner-dismiss{
+  flex:0 0 auto;width:36px;height:36px;padding:0;border:0;border-radius:999px;
+  background:transparent;color:var(--muted,#9aada4);font:inherit;font-size:1.35rem;line-height:1;
+  cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+}
+.wbanner-dismiss:hover,.wbanner-dismiss:focus-visible{color:var(--text,#eef4f1);background:rgba(239,244,241,.08)}
+#washersBanner::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(105deg,transparent 28%,rgba(198,255,0,.16) 50%,transparent 72%);
+  background-size:220% 100%;animation:wbanner-sheen 5.5s ease-in-out infinite;
+}
+@keyframes wbanner-sheen{0%,100%{background-position:120% 0}50%{background-position:-20% 0}}
+@media (prefers-reduced-motion: reduce){
+  .wbanner-ic,#washersBanner::after{animation:none}
+}
+
 </style>
 </head>
 <body>
@@ -1091,6 +1146,31 @@ body.arcade-live #playEarn10k{display:none}
 function f(){var m=n.scrollWidth-n.clientWidth;n.classList.toggle("fade-l",n.scrollLeft>2);n.classList.toggle("fade-r",m>2&&n.scrollLeft<m-2);}
 n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f);f();})();
 </script>
+  <aside class="washers-banner" id="washersBanner" role="region" aria-label="Zabba Washers">
+    <div class="wbanner-inner">
+      <svg class="wbanner-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="24" cy="34" rx="16" ry="6"/><ellipse cx="24" cy="34" rx="4.5" ry="1.7"/><path d="M8 34v-7M40 34v-7"/><ellipse cx="24" cy="23" rx="16" ry="6"/><ellipse cx="24" cy="23" rx="4.5" ry="1.7"/><path d="M8 23v-9M40 23v-9"/><ellipse cx="24" cy="12" rx="16" ry="6"/><ellipse cx="24" cy="12" rx="4.5" ry="1.7"/></svg>
+      <div class="wbanner-copy">
+        <p class="wbanner-kicker">Zabbadat</p>
+        <p class="wbanner-headline">Walk. Pitch. First to 21.</p>
+        <p class="wbanner-pitch">Zabba Washers, the step-counter arcade. Packs of 3, and 1 ZAB per win.</p>
+      </div>
+      <a class="btn" id="washersBannerPlay" href="#play">Play Washers</a>
+      <button type="button" class="wbanner-dismiss" id="washersBannerDismiss" aria-label="Dismiss Zabba Washers banner">×</button>
+    </div>
+  </aside>
+  <script>
+  (function () {
+    var b = document.getElementById("washersBanner");
+    var d = document.getElementById("washersBannerDismiss");
+    if (!b || !d) return;
+    if (document.documentElement.classList.contains("washers-banner-off")) b.hidden = true;
+    d.addEventListener("click", function () {
+      try { sessionStorage.setItem("zabbadat-washers-banner-off", "1"); } catch (e) {}
+      document.documentElement.classList.add("washers-banner-off");
+      b.hidden = true;
+    });
+  })();
+  </script>
   <div class="pe-10k" id="playEarn10k">
     <a class="pe-10k-main" href="#steps">
       <span class="pe-10k-count"><b id="playEarnSteps">0</b><span>Steps today</span></span>
