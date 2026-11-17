@@ -1,6 +1,12 @@
 {
   "name": "zabbadat-site",
   "private": true,
-  "scripts": { "test": "for f in test/*.js; do node $f || exit 1; done" },
-  "dependencies": { "firebase-admin": "^12.7.0", "stripe": "^17.3.1" }
+  "scripts": {
+    "test": "for f in test/*.js; do node $f || exit 1; done",
+    "pfp-cert": "node tools/pfp-cert/run.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "stripe": "^17.3.1"
+  }
 }
