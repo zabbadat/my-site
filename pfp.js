@@ -618,7 +618,7 @@
       s = shields[vid.id] = { vid: vid, cv: cv, bufs: [doc.createElement("canvas"), doc.createElement("canvas"), doc.createElement("canvas")], bi: 0, pend: null, snap: null, circle: null, good: 0, lockT: 0, lostT: 0, lastPoseT: -1e9, live: false, src: src, vw: 0, vh: 0, frames: 0 };
       shieldLoop(s);
     }
-    if (src !== undefined && s.src !== src) { s.src = src; shieldUnlock(s); s.lostT = 0; s.snap = null; s.wasLocked = 0; s.opening = 1; delete lockedOnce[vid.id]; } // new camera / track: opening hood until it locks again
+    if (src !== undefined && s.src !== src) { s.src = src; shieldUnlock(s); s.lostT = 0; s.snap = null; s.wasLocked = 0; s.opening = 1; s.dispM = null; s.dispT = 0; delete lockedOnce[vid.id]; } // new camera / track: opening hood until it locks again
     if (lockedOnce[vid.id]) s.wasLocked = 1; // canvas remount / shieldFor() without src must not forget a prior lock
     return s;
   }
@@ -688,6 +688,27 @@
   }
   function lerpC(a, b, p) { return { x: a.x + (b.x - a.x) * p, y: a.y + (b.y - a.y) * p, r: a.r + (b.r - a.r) * p }; }
   function ease(p) { p = Math.max(0, Math.min(1, p)); return p * p * (3 - 2 * p); }
+  // Display glide for every visible shield logo (pre-lock, shrink-to-head, locked, grow-on-loss, every camera including Live Match):
+  // same dead-zone + exp smoothing as the tracker, and the result always contains the target circle (zero exposure).
+  function smoothLogo(p, t, dtS) {
+    if (!t) return null;
+    if (!p) return { x: t.x, y: t.y, r: t.r };
+    dtS = Math.max(1 / 120, Math.min(0.05, dtS || 1 / 60));
+    var dead = Math.max(0.35, t.r * P.deadPos), deadR = Math.max(0.35, t.r * P.deadR);
+    var dx = t.x - p.x, dy = t.y - p.y, dist = Math.hypot(dx, dy), nx = p.x, ny = p.y, nr = p.r;
+    if (dist > dead) { var a = 1 - Math.exp(-dtS / Math.max(0.016, P.dispMinMs / 1000)); nx = p.x + dx * a; ny = p.y + dy * a; }
+    if (Math.abs(t.r - p.r) > deadR) { var ar = 1 - Math.exp(-dtS / Math.max(0.016, (P.dispMinMs * P.dispRK) / 1000)); nr = p.r + (t.r - p.r) * ar; }
+    var need = Math.hypot(t.x - nx, t.y - ny) + t.r;
+    if (need > nr) nr = need;
+    return { x: nx, y: ny, r: nr };
+  }
+  function glideMark(s, t, now) {
+    var p = s.dispM, dtS = s.dispT ? (now - s.dispT) / 1000 : 0;
+    s.dispT = now;
+    s.dispM = smoothLogo(p, t, dtS);
+    return s.dispM || t;
+  }
+  api.smoothLogo = smoothLogo;
   // Opening logo (no lock): diameter 2 x blankR = 0.32 x the camera picture height, centred, blankY down the picture (head area).
   // Nov 17 later (owner: no black screen before the camera comes on): from the first decoded frame the picture is drawn, with
   // an opaque branded hood over the top openMask of the picture (where the face is) so limbs can show below and the face
@@ -739,7 +760,7 @@
         x.fillStyle = P.coverBack; x.fillRect(R.x, R.y, R.w, Math.max(0, R.h * P.openMask)); // hood over the head area: face hidden, limbs below can show
       }
     }
-    ensureLogo(); drawLogo(x, m); s.lastM = s.lockT ? m : null; s.drawM = m; s.drawG = g; s.frames += 1;
+    ensureLogo(); m = glideMark(s, m, now); drawLogo(x, m); s.lastM = s.lockT ? m : null; s.drawM = m; s.drawG = g; s.frames += 1;
     if (!s.lockT && !(s.lostT && now - s.lostT < P.growMs && s.lockG === gk)) { s.lastM = null; s.lostT = 0; }
   }
   // Snapshot the current decoded frame for the opening feed (never read the live <video> in the same paint as a later pose).

@@ -67,6 +67,33 @@ check("params: dead-zone, lost-frame hysteresis, size rate limits; locked / open
   check("tracker: a single missed pose holds the last spot (no jump, no clear)", h && h.held && Math.abs(h.x - tr.at(66).x) < 3);
 }
 
+
+// Display glide on every visible shield logo (pre-lock, locked, grow-on-loss) — same dead-zone, always contains the target.
+{
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "pfp.js"), "utf8");
+  check("shield paints every logo through glideMark (pre-lock / shrink / locked / grow, every camera)", /m = glideMark\(s, m, now\); drawLogo\(x, m\)/.test(src) && /function smoothLogo/.test(src));
+  const match = require("fs").readFileSync(require("path").join(__dirname, "..", "match-pfp-cam.js"), "utf8");
+  check("Live Match floater uses the shared pfp.js createTracker (same dead-zone / One Euro)", /lib\.createTracker\(\{ holdMs: o\.hideMs/.test(match) && /tr\.step\(kps, t, fw, fh, drawT, floatAnchor\)/.test(match));
+  const a = { x: 200, y: 200, r: 80 };
+  const still = [];
+  let p0 = a;
+  for (let i = 0; i < 30; i++) {
+    const t = { x: 200 + (i % 2 ? 1.2 : -1.2), y: 200 + (i % 2 ? 0.8 : -0.8), r: 80 };
+    p0 = PF.smoothLogo(p0, t, 1 / 60);
+    still.push(Math.hypot(p0.x - 200, p0.y - 200));
+  }
+  const jitter = Math.max.apply(null, still);
+  check(`smoothLogo: sub-dead-zone noise holds the centre (max drift ${jitter.toFixed(3)} px < 2)`, jitter < 2, { jitter });
+  const jump = { x: 320, y: 180, r: 70 };
+  let p1 = { x: 200, y: 200, r: 80 };
+  let uncovered = 0;
+  for (let i = 0; i < 20; i++) {
+    p1 = PF.smoothLogo(p1, jump, 1 / 60);
+    if (Math.hypot(jump.x - p1.x, jump.y - p1.y) + jump.r > p1.r + 1e-6) uncovered++;
+  }
+  check(`smoothLogo: a fast move always contains the target (uncovered ${uncovered}/20, last r ${p1.r.toFixed(1)})`, uncovered === 0 && p1.r + 1e-6 >= Math.hypot(jump.x - p1.x, jump.y - p1.y) + jump.r);
+}
+
 const ok = R.filter(Boolean).length;
 console.log(`\n${ok}/${R.length} passed`);
 if (ok !== R.length) process.exit(1);
