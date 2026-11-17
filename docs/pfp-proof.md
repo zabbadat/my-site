@@ -29,14 +29,14 @@ On a FAIL, the exit code is 1 and every failing frame is listed with its frame n
 - **Fake detector.** It plugs that clip into Chromium as the camera (`--use-fake-device-for-media-stream`, `--use-file-for-fake-video-capture`). It then replaces the pose model's output with keypoints measured from the green face in the model's own input frame. That is a perfect detector with the real model's timing.
 - **Local site.** It serves this repo locally with a tiny built-in Node server. No Netlify is needed, and nothing is deployed.
 - **Frame checks.** Every displayed frame is checked two ways:
-  - the browser's real screen output (DevTools screencast), every frame;
-  - a pixel readback after every repaint of each visible camera video and logo canvas.
+  - the browser's real screen output (DevTools screencast), every frame, **only inside the on-screen camera/video area** (the camera video or shield canvas rectangle, plus its cover). Page UI outside that area is not scanned;
+  - a pixel readback after every repaint of each visible camera video and logo canvas (unchanged: the whole video / logo canvas).
 
-  The screencast is captured as lossless PNG. JPEG compression smears the site's lime text into "green" specks, which would be false alarms.
+  The screencast is captured as lossless PNG.
 
-  Both checks are strict: **zero** green face pixels are allowed in any frame, so a single green pixel counts as an exposed frame.
+  Both checks are strict: **zero** green face pixels are allowed in any frame, so a single green pixel in the checked area counts as an exposed frame.
 
-  A face pixel is the fake face's bright green, including where it blends into its edge: in the screencast, G > 150 with R and B both under 100 and under 0.4 × G. The site's own lime text, the green HUD digits and the plank guide's teal-green dashes are not face pixels and don't count.
+  A face pixel is the fake face's bright green, the same test on both checks: G > 150 with R and B both under 100.
 - **Scenarios:**
   - **startup:** open the camera cold, then reload and open again warm. Each surface is run on phone and desktop viewports, with the pose model normal, slow (8 s) or blocked.
   - **tracking:**
@@ -54,7 +54,7 @@ On a FAIL, the exit code is 1 and every failing frame is listed with its frame n
 
 - `npm run pfp-proof:quick`: a shorter matrix (push and Live Match startup on phone/desktop with the model normal/blocked, plus tracking on push, Go live and Live Match).
 - `npm run pfp-proof -- --only=push,match`: run only some surfaces. The names are push, plank, squats, tut, zlSelf and match.
-- `npm run pfp-proof -- --control`: a negative control. It forces the raw camera video visible and hides the logo, so it **must FAIL**. This proves the checker really sees faces.
+- `npm run pfp-proof -- --control`: a negative control. A proof-only hook (it must never ship in the site) bypasses the shield, forces the raw camera video visible and hides the logo, so the run **must FAIL** on both readback and the camera-area screencast. This proves the checker really sees faces.
 - `npm run pfp-proof -- --base=https://www.zabbadat.com`: check a deployed site instead of this repo (read only).
 - `--headed`: watch it run.
 

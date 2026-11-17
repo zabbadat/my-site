@@ -4,6 +4,9 @@
 // green face in the model's own input frame (a perfect detector, real model latency). Every displayed frame is checked two ways:
 //   1. screencast: the browser's real composited output (Chrome DevTools Page.startScreencast), every frame;
 //   2. readback: after each repaint, every visible camera <video> and every PFP canvas is read back pixel by pixel.
+// Screencast scans ONLY the on-screen camera area (the camera <video> / shield canvas rect plus its cover), still
+// with a strict zero-pixel rule and the same green test as readback. Readback is unchanged. Page UI outside the
+// camera (lime buttons, game art) is not scanned.
 // Any frame with green face pixels = EXPOSED. Exit code 1 on any exposed frame, unproven scenario or error.
 //
 //   npm run pfp-proof                 full matrix (~25-35 min)
@@ -67,16 +70,35 @@ function hooks() {
     for (const c of document.querySelectorAll("canvas.pfp-shield, canvas.pfp-mini")) { if (getComputedStyle(c).display === "none" || !c.width) continue; const n = cnt(c, c.width, c.height); if (n) { bad += n; src.push(c.className + ":" + n); } }
     if (bad) { window.__ex[seg] = (window.__ex[seg] || 0) + 1; window.__exList.push({ seg, frame: window.__fi, tMs: +performance.now().toFixed(1), pixels: src.join(",") }); }
     const S = window.ZabPfp && window.ZabPfp._shields; if (S) for (const k in S) { (window.__seen || (window.__seen = {}))[k] = 1; const s = S[k], now = performance.now(), st = s.lockT ? (now - s.lockT < 280 ? "shrink" : "locked") : (s.lostT && now - s.lostT < 160 ? "grow" : "cover"); window.__stage[st] = (window.__stage[st] || 0) + 1; }
+    // camera/video area for the screencast check (video + cover/shield), timestamped so each composited frame can use the matching rect
+    const boxes = []; const add = (el) => { if (!el) return; const r = el.getBoundingClientRect(); if (r.width > 0 && r.height > 0) boxes.push({ x: r.x, y: r.y, w: r.width, h: r.height }); };
+    for (const v of document.querySelectorAll("video")) if (v.srcObject || (v.videoWidth > 0) || v.id) add(v);
+    for (const c of document.querySelectorAll("canvas.pfp-shield, canvas.pfp-cover, canvas.pfp-mini")) add(c);
+    (window.__camAreas || (window.__camAreas = [])).push({ t: Date.now(), boxes });
   } catch (e) { window.__probeErr = String(e); } };
   const loop = () => { ch.port2.postMessage(0); requestAnimationFrame(loop); }; requestAnimationFrame(loop);
 }
-// Negative control: undo the protection the way a regression would - drop the <html> class that hides camera videos, force
-// every video visible above everything, hide the logo canvases. The checker must then report exposed frames.
+// Negative control (PROOF ONLY — must never ship in the site). Bypass the fail-safe shield in this hook only: force every
+// camera video visible (raw green face) and hide the logo canvases. The site's hide rule is html.zab-pfp-shield video#id
+// {opacity:0!important}, which beats a generic video[id] rule, and pfp.js re-adds the class; so this hook uses the same
+// id-level selectors (and inline !important styles) and wins even while the class stays on. The checker must then FAIL
+// on both readback and the camera-area screencast.
 function controlHook() {
-  const st = document.createElement("style"); st.textContent = ":root video, html.zab-pfp-shield video[id]{opacity:1!important;visibility:visible!important}canvas.pfp-shield,canvas.pfp-cover{display:none!important}";
-  const put = () => { const h = document.head || document.documentElement; if (h && !st.isConnected) h.appendChild(st); const de = document.documentElement; if (de && de.classList.contains("zab-pfp-shield")) de.classList.remove("zab-pfp-shield"); }; // guard: an unconditional remove() rewrites class and re-fires the observer forever
+  const IDS = ["camVid", "plankVid", "tbVid", "sqVid", "zlSelf", "zmCamVid"];
+  const vis = IDS.flatMap((id) => [`html.zab-pfp-shield video#${id}`, `html video#${id}`]).join(",");
+  const st = document.createElement("style"); st.setAttribute("data-pfp-proof-control", "1");
+  st.textContent = vis + "{opacity:1!important;visibility:visible!important;display:block!important;z-index:2147483647!important}" +
+    "canvas.pfp-shield,canvas.pfp-cover,canvas.pfp-mini{display:none!important;opacity:0!important;visibility:hidden!important}";
+  const put = () => {
+    const h = document.head || document.documentElement; if (h && !st.isConnected) h.appendChild(st);
+    for (const id of IDS) { const v = document.getElementById(id); if (!v) continue;
+      v.style.setProperty("opacity", "1", "important"); v.style.setProperty("visibility", "visible", "important");
+      v.style.setProperty("display", "block", "important"); v.style.setProperty("z-index", "2147483647", "important"); }
+    for (const c of document.querySelectorAll("canvas.pfp-shield, canvas.pfp-cover, canvas.pfp-mini")) {
+      c.style.setProperty("display", "none", "important"); c.style.setProperty("opacity", "0", "important"); }
+  };
   // observe the document itself: an init script runs before the parser creates <html>, so watching documentElement would miss it
-  put(); new MutationObserver(put).observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] }); setInterval(put, 50); }
+  put(); new MutationObserver(put).observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] }); setInterval(put, 50); }
 
 // ---------- one scenario ----------
 async function run(base, sc, y4m) {
@@ -104,7 +126,7 @@ async function run(base, sc, y4m) {
       r.fulfill({ response: rs, body }); });
     // screencast: every composited frame
     const shots = []; let phase = "cold"; const cdp = await c.newCDPSession(p);
-    cdp.on("Page.screencastFrame", async (f) => { shots.push({ phase, data: f.data }); try { await cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }); } catch (e) {} });
+    cdp.on("Page.screencastFrame", async (f) => { const m = f.metadata || {}; shots.push({ phase, data: f.data, ts: m.timestamp, dw: m.deviceWidth, dh: m.deviceHeight }); try { await cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }); } catch (e) {} });
     await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1 }); // lossless: JPEG ringing turns lime UI text into "green" specks
     const vidId = VID[sc.surface];
     const keepVisible = (id) => p.evaluate((id) => { const show = () => { let e = document.getElementById(id); while (e && e !== document.body) { if (e.hidden) e.hidden = false; if (getComputedStyle(e).display === "none") e.style.display = "block"; e = e.parentElement; } };
@@ -145,15 +167,33 @@ async function run(base, sc, y4m) {
       parts.push(await grab());
     }
     const shotPath = path.join(OUT, "shots", `${sc.name}.png`); fs.mkdirSync(path.dirname(shotPath), { recursive: true }); await p.screenshot({ path: shotPath }).catch(() => {});
+    const camAreas = await p.evaluate(() => window.__camAreas || []).catch(() => []);
     await cdp.send("Page.stopScreencast").catch(() => {}); await sleep(300);
-    // screencast analysis in a blank page (decode each PNG frame). Face pixel = the fake face's pure green, also where it blends
-    // into its edge: G > 150, R and B under 100 and under 0.4 x G. The site's own colours do not match: lime text (198,255,0),
-    // the arcade HUD green (125,255,122) and the plank guide's teal-green dashes (54,153,99). Zero face pixels allowed per frame.
+    // screencast analysis in a blank page (decode each PNG frame). Scan ONLY the on-screen camera/video area (video +
+    // shield/cover canvases), with the same green test as readback (G > 150, R < 100, B < 100) and a strict zero-pixel
+    // rule. If the camera was not on screen in that frame, the count is 0 (page UI outside the camera is not scanned).
+    const boxesFor = (s) => {
+      if (!camAreas.length) return [];
+      const t = s.ts != null ? s.ts * 1000 : null; // CDP timestamp is seconds since epoch
+      if (t == null) return camAreas[camAreas.length - 1].boxes || [];
+      let best = camAreas[0], bd = Math.abs(camAreas[0].t - t);
+      for (const a of camAreas) { const d = Math.abs(a.t - t); if (d < bd) { bd = d; best = a; } }
+      return best.boxes || [];
+    };
     const an = await c.newPage();
     const scan = [];
     for (let i = 0; i < shots.length; i += 40) scan.push(...await an.evaluate(async (batch) => Promise.all(batch.map(async (s) => {
+      if (!s.boxes || !s.boxes.length) return 0;
       const bm = await createImageBitmap(await (await fetch("data:image/png;base64," + s.data)).blob()), cv = new OffscreenCanvas(bm.width, bm.height), x = cv.getContext("2d"); x.drawImage(bm, 0, 0);
-      const d = x.getImageData(0, 0, bm.width, bm.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 1] > 150 && d[i] < 100 && d[i + 2] < 100 && d[i] * 10 < d[i + 1] * 4 && d[i + 2] * 10 < d[i + 1] * 4) n++; return n; })), shots.slice(i, i + 40).map((s) => ({ data: s.data }))));
+      const d = x.getImageData(0, 0, bm.width, bm.height).data, sx = s.dw ? bm.width / s.dw : 1, sy = s.dh ? bm.height / s.dh : 1;
+      let n = 0;
+      for (const b of s.boxes) {
+        const x0 = Math.max(0, Math.floor(b.x * sx)), y0 = Math.max(0, Math.floor(b.y * sy));
+        const x1 = Math.min(bm.width, Math.ceil((b.x + b.w) * sx)), y1 = Math.min(bm.height, Math.ceil((b.y + b.h) * sy));
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = (y * bm.width + x) * 4; if (d[i + 1] > 150 && d[i] < 100 && d[i + 2] < 100) n++; }
+      }
+      return n;
+    })), shots.slice(i, i + 40).map((s) => ({ data: s.data, boxes: boxesFor(s), dw: s.dw, dh: s.dh }))));
     const scExposed = []; scan.forEach((n, i) => { if (n > 0) scExposed.push({ index: i, phase: shots[i].phase, pixels: n }); });
     if (scExposed.length) { const d = path.join(OUT, "exposed", sc.name); fs.mkdirSync(d, { recursive: true }); for (const e of scExposed) { e.file = path.join(d, `screencast-${String(e.index).padStart(5, "0")}-${e.phase}-${e.pixels}px.png`); fs.writeFileSync(e.file, Buffer.from(shots[e.index].data, "base64")); } res.exposedDir = d; } // every exposed frame saved
     const sum = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
