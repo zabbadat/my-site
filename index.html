@@ -3693,7 +3693,10 @@ async function visionRescue(pose, vid, t) {
   if (visionSeenT == null) visionSeenT = t;
   if (t - visionSeenT < VISION_RESCUE.blindMs) return pose;
   let mn = null;
-  try { const d = await ensurePose(); const p = await d.estimatePoses(vid, { flipHorizontal: true }); mn = p && p[0]; } catch (e) { return pose; }
+  // PFP shield on: MoveNet runs on the same snapshot Vision ran on (the frame the shield will show), not the live video.
+  // ensurePose() can take seconds the first time (TF.js + model download), so the live video would be a much later frame.
+  const Zp = typeof window !== "undefined" ? window.ZabPfp : null, snap = Zp && Zp.pending && vid ? Zp.pending(vid.id) : null;
+  try { const d = await ensurePose(); const p = await d.estimatePoses(snap || vid, { flipHorizontal: true }); mn = p && p[0]; } catch (e) { return pose; }
   if (!shouldersIn(mn)) { visionRescueN = 0; return pose; }
   visionRescueN += 1;
   if (visionRescueN >= VISION_RESCUE.frames && !visionFailed) { visionFailed = true; if (typeof console !== "undefined") console.info("Apple Vision lost the body; MoveNet tracks the rest of this session"); }

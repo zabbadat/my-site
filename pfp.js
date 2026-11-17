@@ -614,7 +614,11 @@
   }
   // Recording (rec.js): the same covered, pose-matched frame, or null = blanket (draw the logo full frame, no video).
   function recFrame(id) { var s = shields[id]; return s && s.live && s.snap && s.circle ? { img: s.snap, c: s.circle } : null; }
-  api.input = input; api.recFrame = recFrame; api.shielded = function (id) { return !!shields[id] || shieldWanted(); };
+  // The snapshot input() took for this camera's current inference (null when the shield is off). A second model run on
+  // the same tick (iOS: MoveNet rescue after Apple Vision missed the body) must use THIS frame, never the live <video>,
+  // or its keypoints come from a later frame than the one the shield shows and the logo lands where the head moved to.
+  function pending(id) { var s = shields[id]; return s && !s.dead && s.pend ? s.pend : null; }
+  api.input = input; api.recFrame = recFrame; api.pending = pending; api.shielded = function (id) { return !!shields[id] || shieldWanted(); };
   api._shields = shields;
   api.plankFrame = plankFrame;
   // First-lock speed (Nov 16): one inference on a blank 192 px frame right after the pose model loads, so the GPU shaders are
