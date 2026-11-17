@@ -540,8 +540,8 @@
     if (src !== undefined && s.src !== src) { s.src = src; shieldUnlock(s); s.lostT = 0; s.snap = null; } // new camera / track: blanket until it locks again
     return s;
   }
-  // Called by the pose loops right before inference: snapshot the frame, and run the model on that snapshot when it can
-  // (MoveNet takes a canvas; the iOS Vision bridge reads the <video> itself, so it gets the video, snapshot taken first).
+  // Called by the pose loops right before inference: snapshot the frame, and the model always runs on that snapshot
+  // (MoveNet takes a canvas; pose-vision.js copies the canvas to its JPEG the same way it copied the video).
   function input(vid, det) {
     try {
       var s = shieldWanted() && vid && OPEN_IDS[vid.id] ? shieldFor(vid) : null, vw = vid && vid.videoWidth, vh = vid && vid.videoHeight;
@@ -550,7 +550,8 @@
       if (b.width !== vw || b.height !== vh) { b.width = vw; b.height = vh; }
       b.getContext("2d").drawImage(vid, 0, 0, vw, vh);
       s.pend = b; s.pendSrc = s.src;
-      return det && det.engine === "vision" ? vid : b;
+      return b; // every engine, Apple Vision too (Nov 17): reading the live <video> a second time can give a NEWER frame than this
+      // snapshot (the proof caught the logo on the previous face spot while the shown frame had the face elsewhere)
     } catch (e) { return vid; }
   }
   function enclose(a, b) { // smallest circle containing circles a and b
@@ -630,7 +631,9 @@
       m = lerpC(B, t, ease((now - s.lockT) / P.shrinkMs));
       x.clearRect(0, 0, g.bw, g.bh); drawSnap(x, g, s.snap, s.vw, s.vh);
     } else if (s.lostT && s.lostFrom && s.snap && now - s.lostT < P.growMs && s.lockG === gk && s.snap.width === s.vw && s.snap.height === s.vh) { // same box, fit, mirror and video size as the last locked frame only
-      var B2 = blanketAround(g, s.lostFrom); m = lerpC(s.lostFrom, B2, ease((now - s.lostT) / P.growMs));
+      // Start from a circle that holds both the last drawn logo AND the head of the frame actually frozen on screen (s.circle
+      // always belongs to s.snap): if a pose landed between the last paint and the loss, lostFrom was for the previous frame.
+      var L0 = enclose(s.lostFrom, s.circle ? mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit) : null), B2 = blanketAround(g, L0); m = lerpC(L0, B2, ease((now - s.lostT) / P.growMs));
       x.clearRect(0, 0, g.bw, g.bh); drawSnap(x, g, s.snap, s.vw, s.vh); // the last covered frame, frozen, while the logo grows
     } else { m = blanketAround(g, null); x.fillStyle = P.coverBack; x.fillRect(0, 0, g.bw, g.bh); }
     ensureLogo(); drawLogo(x, m); s.lastM = s.lockT ? m : null; s.drawM = m; s.drawG = g; s.frames += 1;

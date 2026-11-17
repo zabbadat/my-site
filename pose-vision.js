@@ -40,7 +40,7 @@
     var win = opts.win || root, p = opts.plugin || plugin(win), doc = opts.doc || (typeof document !== "undefined" ? document : null), cv = null;
     if (!p) return Promise.reject(new Error("ZabbaPose plugin not available"));
     var grab = opts.grab || function (video) { // off-screen JPEG of the current camera frame (base64, no prefix)
-      var vw = video.videoWidth || 640, vh = video.videoHeight || 480, s = frameSize(vw, vh, opts.maxSide);
+      var vw = video.videoWidth || video.width || 640, vh = video.videoHeight || video.height || 480, s = frameSize(vw, vh, opts.maxSide); // <video> or the PFP shield's snapshot canvas
       cv = cv || doc.createElement("canvas"); cv.width = s.w; cv.height = s.h;
       cv.getContext("2d").drawImage(video, 0, 0, s.w, s.h);
       return cv.toDataURL("image/jpeg", opts.quality || 0.7).split(",")[1];
@@ -48,7 +48,7 @@
     var det = {
       engine: "vision",
       estimatePoses: function (video, o) {
-        var vw = (video && video.videoWidth) || 640, vh = (video && video.videoHeight) || 480;
+        var vw = (video && (video.videoWidth || video.width)) || 640, vh = (video && (video.videoHeight || video.height)) || 480;
         if (!video || !(video.readyState == null || video.readyState >= 2)) return Promise.resolve([]);
         var img; try { img = grab(video); } catch (e) { return Promise.reject(e); }
         // include3D: iOS 17+ knee/elbow angles in body space, so a kneel toward the camera still fails the set.

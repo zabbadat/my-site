@@ -25,6 +25,7 @@ check(`shrink check-in -> head: every step contains the head circle (worst slack
 check(`grow head -> check-in on loss: every step contains the last head circle (worst slack ${worstG.toFixed(6)} px >= 0)`, worstG >= -1e-6);
 const g0 = { bw: 390, bh: 791 }, near = { x: 195, y: 280, r: 40 }, Bn = F.blanketAround(g0, near);
 check(`lock starts from about the check-in size, not a full-screen disc (start r ${Bn.r.toFixed(0)} px vs old ${(Math.hypot(390, 791) / 2 + 2).toFixed(0)})`, Bn.r < 0.3 * 390);
+check("grow on loss starts from a circle holding the frozen frame's own head (s.circle), not only the last drawn logo", /var L0 = enclose\(s\.lostFrom, s\.circle \? mapToBox\(s\.circle, s\.vw, s\.vh, g\.bw, g\.bh, g\.fit\) : null\), B2 = blanketAround\(g, L0\); m = lerpC\(L0, B2,/.test(src));
 // 3. no video while not locked: the blanket branch paints the opaque backing over the whole box and never draws the video
 check("not locked: opaque backing over the whole box, then the logo; the live <video> is never drawn", /else \{ m = blanketAround\(g, null\); x\.fillStyle = P\.coverBack; x\.fillRect\(0, 0, g\.bw, g\.bh\); \}/.test(src) && !/drawImage\(s\.vid|drawImage\(v,/.test(src.slice(src.indexOf("Fail-safe shield"))));
 // 4. platform-aware stale: browsers (fast MoveNet) keep staleMs; Apple Vision over the bridge (slow frames) gets 3x its interval, capped
@@ -37,3 +38,14 @@ check("shield measures this camera's pose-frame interval", /s\.poseT = pn; \/\/ 
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 check("iOS: Vision detector warmed right after it is created (not awaited)", /pushVisionDet = await window\.ZabbadatVision\.createDetector\(\);\s*if \(window\.ZabPfp && window\.ZabPfp\.warmDetector\) window\.ZabPfp\.warmDetector\(pushVisionDet\);/.test(html));
 console.log(`${pass}/${pass + fail} passed`); if (fail) process.exitCode = 1;
+// 6. Apple Vision runs on the shield's snapshot (not a second read of the live <video>, which can be a newer frame)
+{
+  const PV = require("../pose-vision.js");
+  check("pfp input(): the snapshot goes to every engine, Vision too", /return b; \/\/ every engine, Apple Vision too/.test(src) && !/engine === "vision" \? vid : b/.test(src));
+  let sent = null; const plug = { detect: async (o) => { sent = o; return { keypoints: [{ name: "nose", x: 0.25, y: 0.5, score: 0.9 }] }; } };
+  const drawn = []; const doc = { createElement: () => ({ width: 0, height: 0, getContext: () => ({ drawImage: (img, x, y, w, h) => drawn.push([w, h]) }), toDataURL: () => "data:image/jpeg;base64,AAA" }) };
+  PV.createDetector({ plugin: plug, doc }).then((d) => d.estimatePoses({ width: 1280, height: 720 }, { flipHorizontal: true })).then((p) => {
+    check(`pose-vision on a 1280x720 snapshot canvas: JPEG ${drawn[0]} (aspect kept), nose x ${p[0].keypoints[0].x} (mirrored, canvas px)`, drawn[0][0] === 320 && drawn[0][1] === 180 && p[0].keypoints[0].x === 960 && p[0].keypoints[0].y === 360);
+    console.log(`${pass}/${pass + fail} passed`); if (fail) process.exitCode = 1;
+  });
+}
