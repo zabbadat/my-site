@@ -33,5 +33,28 @@ const pt = seg("async function poseTick(", "const CAM_CONSTRAINTS");
   const tr = PF.createTracker(); const k = [{ name: "nose", x: 320, y: 200, score: 0.9 }, { name: "left_eye", x: 330, y: 190, score: 0.9 }, { name: "right_eye", x: 310, y: 190, score: 0.9 }, { name: "left_ear", x: 345, y: 195, score: 0.9 }, { name: "right_ear", x: 295, y: 195, score: 0.9 }, { name: "left_shoulder", x: 380, y: 300, score: 0.9 }, { name: "right_shoulder", x: 260, y: 300, score: 0.9 }];
   const c0 = tr.step(k, 0, 640, 480, 0); const a0 = tr.at(0);
   check("first detection draws at once on the detected spot (no fade / min-frames gate)", !!c0 && !!a0 && Math.abs(a0.x - c0.x) < 1e-6 && Math.abs(a0.y - c0.y) < 1e-6, JSON.stringify({ c0, a0 }));
+  // ---- every local camera video goes through the shared pfp.js cover
+  const openIds = /var OPEN_IDS = \{([^}]+)\}/.exec(pfpSrc)[1];
+  const CAMERAS = [
+    { id: "camVid", where: "push-ups / TUT", file: "index.html", hook: /ZabPfp\.frame\(vid, pose \? pose\.keypoints/ },
+    { id: "plankVid", where: "web plank", file: "index.html", hook: /ZabPfp\.plankFrame\(vid, kps/ },
+    { id: "tbVid", where: "TUT Battle", file: "index.html", hook: /ZabPfp\.frame\(v, kps, tFrame\)/ },
+    { id: "sqVid", where: "Gyatt Squats", file: "squat-page.js", hook: /ZabPfp\.frame\(vid, kps, t\)/ },
+    { id: "zlSelf", where: "Go live self preview", file: "index.html", hook: /zlPfpStart\(\)/ },
+    { id: "zmCamVid", where: "Live Match", file: "match-pfp-cam.js", hook: /Z\.frame\(vid, kps, t\)/ }
+  ];
+  check("OPEN_IDS lists every local getUserMedia camera and no extras",
+    CAMERAS.every((c) => new RegExp(c.id + ": 1").test(openIds)) && (openIds.match(/: 1/g) || []).length === CAMERAS.length, openIds);
+  for (const c of CAMERAS) {
+    const src = c.file === "index.html" ? html : fs.readFileSync(path.join(ROOT, c.file), "utf8");
+    const hasVid = c.file !== "index.html" || src.includes('id="' + c.id + '"');
+    check(`${c.where} (#${c.id} in ${c.file}): in the shared OPEN_IDS cover and hooked to ZabPfp`, hasVid && c.hook.test(src) && new RegExp(c.id + ": 1").test(openIds));
+  }
+  const rec = fs.readFileSync(path.join(ROOT, "rec.js"), "utf8");
+  check("recordings (rec.js): covered pose-matched frame via ZabPfp.recFrame, else the logo blanket", /ZabPfp\.recFrame/.test(rec));
+  const videos = [...html.matchAll(/<video\b[^>]*\bid=["']([^"']+)["']/g)].map((m) => m[1]);
+  const remote = ["zlVid0", "zlVid1"]; // other players' live tiles: not this user's camera
+  const unknown = videos.filter((id) => !CAMERAS.some((c) => c.id === id) && !remote.includes(id));
+  check(`every <video id> in index.html is a known local camera or a remote live tile (ids: ${videos.join(", ")})`, unknown.length === 0, unknown);
   const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); if (ok !== R.length) process.exit(1);
 })().catch((e) => { console.log("FAIL harness", e); process.exit(1); });

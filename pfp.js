@@ -12,10 +12,10 @@
 (function (root) {
   "use strict";
   var KEY = "zabPfpOn";
-  var P = { plausK: 3, plausBody: 0.75, plausSpread: 2.2, staleMs: 450, lockFrames: 2, shrinkMs: 280, growMs: 160, coverBack: "#0b0d1a", minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: Infinity, holdGrow: 1, clearMs: 1200,
-    minCut: 0.7, beta: 6, dCut: 2.5, leadMax: 180, leadCap: 0.35, leadV0: 0.55, leadV1: 1.8, vCut: 12, snapMs: 350, rafDraw: true, fitMs: 1000,
-    spDead: 1.0, rGrowCut: 4, rShrinkCut: 0.8, dispK: 0.35, dispMinMs: 16, dispMaxMs: 32, dispRK: 2, dispSpK: 0, dispLead: true, reacqSnapR: 1, reacqMs: 150,
-    shUp: 0.55, shR: 0.25, sideK: 0.35, sideUp: 0.35, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
+  var P = { plausK: 3, plausBody: 0.75, plausSpread: 2.2, staleMs: 450, lockFrames: 2, lostFrames: 4, shrinkMs: 280, growMs: 160, coverBack: "#0b0d1a", minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: Infinity, holdGrow: 1, clearMs: 1200,
+    minCut: 0.35, beta: 4.5, dCut: 2.5, leadMax: 180, leadCap: 0.35, leadV0: 0.55, leadV1: 1.8, vCut: 12, snapMs: 350, rafDraw: true, fitMs: 1000,
+    spDead: 1.0, deadPos: 0.02, deadR: 0.06, rGrowCut: 2.2, rShrinkCut: 0.4, rMaxGrow: 0.8, rMaxShrink: 0.35, dispK: 0.35, dispMinMs: 16, dispMaxMs: 32, dispRK: 2, dispSpK: 0, dispLead: true, reacqSnapR: 1, reacqMs: 150,
+    shUp: 0.55, shR: 0.25, sideK: 0.35, sideUp: 0.35, chestFrac: 0.22, sideLift: 0.16, armMargin: 0.1, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
     headUp: 0.1, headRW: 0.5, coverPad: 0.25, topUp: 0.85, chinDn: 0.65, openR: 0.36, openY: 0.36, lockMs: 250, openMs: 8000,
     blankR: 0.16, blankY: 0.3, staleK: 3, staleMaxMs: 1000 };
   // Centre + size (Nov 16, owner): horizontally dead-centre on the shoulder midpoint (the anchor; zero offset), vertically on
@@ -52,6 +52,10 @@
   // was gone snapMs+, it snaps straight onto the head when it comes back (no slide in from the old spot).
   // Sharper (Nov 16 later): the cover is a small canvas placed with a CSS transform (GPU) instead of a full-frame redraw;
   // One Euro is a bit quicker (beta / vCut / lead) while the rest dead zone is unchanged.
+  // Smooth (Nov 17, owner: face cover too twitchy on small moves): ignore centre moves under deadPos x shoulder
+  // width and size changes under deadR; heavier rest One Euro (minCut / beta); size rate limits; N=lostFrames bad
+  // frames before the shield grows / unlocks. The drawn circle always grows to contain the raw head (zero exposure).
+  // Side view (Nov 17): cover head down to the chest, lifted off the arms under the body; face always hidden.
 
   function photoUrl(user) {
     if (!user) return "";
@@ -108,66 +112,110 @@
   function capCircle(c, src, frameW, frameH) {
     if (!c) return null;
     var maxR = frameW > 0 && frameH > 0 ? P.maxRFrac * Math.min(frameW, frameH) : Infinity;
-    return { x: c.x, y: c.y, r: Math.max(P.minR, Math.min(maxR, c.r)), src: src };
+    return { x: c.x, y: c.y, r: Math.max(P.minR, Math.min(maxR, c.r)), src: src, sw: c.sw };
   }
   // Cover over face + shoulders: centred horizontally on the midpoint of the face (ears/eyes) and the shoulders;
   // vertically the circle starts at the top of the face and reaches toward the shoulder line; size from head and shoulder width.
   function coverCircle(face, ls, rs) {
     var shx = (ls.x + rs.x) / 2, shy = (ls.y + rs.y) / 2, sw = Math.hypot(ls.x - rs.x, ls.y - rs.y), w = face.w || (face.r * 2 / P.padK);
     var cx = shx, cy = Math.min(face.y - w * P.headUp, shy - sw * 0.2); // x: shoulder midpoint exactly; y: the head (never below the shoulder line)
-    return { x: cx, y: cy, r: Math.max(sw * P.shR, coverR(cx, cy, face)) };
+    return { x: cx, y: cy, r: Math.max(sw * P.shR, coverR(cx, cy, face)), sw: sw };
   }
   // Face only (no shoulder pair): centred on the head, same coverage rule.
   function faceOnly(face) { var w = face.w || (face.r * 2 / P.padK), cy = face.y - w * P.headUp; return { x: face.x, y: cy, r: coverR(face.x, cy, face) }; }
   function shoulderCircle(ls, rs) {
     var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y);
-    return sw > 8 ? { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 - sw * P.shUp, r: sw * P.shR } : null;
+    return sw > 8 ? { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 - sw * P.shUp, r: sw * P.shR, sw: sw } : null;
   }
   function headCircle(kps, frameW, frameH) {
-    var face = faceCircle(kps), by = kps && kps.length ? byName(kps) : {}, ls, rs, so, c, src;
+    var face = faceCircle(kps), by = kps && kps.length ? byName(kps) : {}, ls, rs, so, c, sw;
     ls = by.left_shoulder || (kps && kps[5] && !kps[5].name ? kps[5] : null);
     rs = by.right_shoulder || (kps && kps[6] && !kps[6].name ? kps[6] : null);
     so = sideOn(by);
-    if (face && ok(ls) && ok(rs)) {
-      var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y);
-      if (sw > 8 && !(so && sw < so.L * P.sideK)) return capCircle(coverCircle(face, ls, rs), "face", frameW, frameH);
-    }
+    sw = ok(ls) && ok(rs) ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : 0;
+    if (so && (!ok(ls) || !ok(rs) || sw < so.L * P.sideK)) return capCircle(sideCover(face, so, by), "side", frameW, frameH);
+    if (face && ok(ls) && ok(rs) && sw > 8) return capCircle(coverCircle(face, ls, rs), "face", frameW, frameH);
     if (face) return capCircle(faceOnly(face), "face", frameW, frameH);
-    if (ok(ls) && ok(rs)) { c = shoulderCircle(ls, rs); if (c && !(so && Math.hypot(ls.x - rs.x, ls.y - rs.y) < so.L * P.sideK)) return capCircle(c, "shoulders", frameW, frameH); }
-    if (so) return capCircle(so, "side", frameW, frameH);
+    if (ok(ls) && ok(rs)) { c = shoulderCircle(ls, rs); if (c) return capCircle(c, "shoulders", frameW, frameH); }
+    if (so) return capCircle(sideCover(face, so, by), "side", frameW, frameH);
     return null;
   }
   function byName(kps) { var by = {}; for (var i = 0; i < kps.length; i++) if (kps[i] && kps[i].name) by[kps[i].name] = kps[i]; return by; }
-  // Side-on head estimate: just past the shoulder on the hip->shoulder line, r from the torso length. null without a
-  // shoulder+hip pair on one side (or a torso under 20 px).
+  // Side-on body line (one shoulder+hip pair, torso > 20 px). Used to detect a profile and to place the head-to-chest cover.
   function sideOn(by) {
     var pick = function (a, b) { return ok(by[a]) && ok(by[b]) ? [by[a], by[b]] : null; }, pr = pick("left_shoulder", "left_hip") || pick("right_shoulder", "right_hip");
     if (!pr) return null;
     var sh = pr[0], hp = pr[1], L = Math.hypot(sh.x - hp.x, sh.y - hp.y);
-    return L > 20 ? { x: sh.x + (sh.x - hp.x) * P.sideUp, y: sh.y + (sh.y - hp.y) * P.sideUp, r: L * P.plankR, L: L } : null;
+    return L > 20 ? { x: sh.x + (sh.x - hp.x) * P.sideUp, y: sh.y + (sh.y - hp.y) * P.sideUp, r: L * P.plankR, L: L, sh: sh, hp: hp } : null;
   }
-  // Plank (side-on): the face cluster if it shows; else the head sits on the hip->shoulder line just past the shoulder
-  // (side-on shoulders overlap, so the shoulder-width estimate is useless there); else the usual shoulder estimate.
+  function armPts(by) {
+    var n = ["left_elbow", "right_elbow", "left_wrist", "right_wrist"], out = [], i;
+    for (i = 0; i < n.length; i++) if (ok(by[n[i]])) out.push(by[n[i]]);
+    return out;
+  }
+  // Side view (push-up or plank from the side): logo covers the head down to the chest, shifted off the arms that sit
+  // under the body. The face (every face point, head top, chin + coverPad) is always inside; elbows/wrists stay out when
+  // they can without uncovering the face.
+  function sideCover(face, so, by) {
+    var sh = so.sh, hp = so.hp, L = so.L, chest = { x: sh.x + (hp.x - sh.x) * P.chestFrac, y: sh.y + (hp.y - sh.y) * P.chestFrac };
+    var headPt, faceR = Math.max(P.minR, L * 0.22), w, arms = armPts(by || {}), i, cx, cy, upx, upy, ax = 0, ay = 0, al, bx, byy, bl, p1x, p1y, r, d, minFace, margin, push, sx, sy, need;
+    if (face) { w = face.w || (face.r * 2 / P.padK); headPt = { x: face.x, y: face.y - w * P.headUp }; }
+    else headPt = { x: sh.x + (sh.x - hp.x) * P.sideUp, y: sh.y + (sh.y - hp.y) * P.sideUp };
+    cx = (headPt.x + chest.x) / 2; cy = (headPt.y + chest.y) / 2;
+    if (arms.length) {
+      for (i = 0; i < arms.length; i++) { ax += arms[i].x - sh.x; ay += arms[i].y - sh.y; }
+      ax /= arms.length; ay /= arms.length; al = Math.hypot(ax, ay) || 1; upx = -ax / al; upy = -ay / al;
+    } else {
+      bx = hp.x - sh.x; byy = hp.y - sh.y; bl = Math.hypot(bx, byy) || 1; p1x = -byy / bl; p1y = bx / bl;
+      if (p1y > 0) { p1x = -p1x; p1y = -p1y; }
+      upx = p1x; upy = p1y;
+    }
+    cx += upx * L * P.sideLift; cy += upy * L * P.sideLift;
+    need = function (x, y) {
+      var rr = Math.hypot(x - headPt.x, y - headPt.y) + (face ? 0 : faceR);
+      if (face) rr = Math.max(rr, coverR(x, y, face));
+      return Math.max(rr, Math.hypot(x - chest.x, y - chest.y) + L * 0.06);
+    };
+    r = need(cx, cy);
+    margin = L * P.armMargin;
+    for (i = 0; i < arms.length; i++) {
+      d = Math.hypot(cx - arms[i].x, cy - arms[i].y);
+      if (d < r + margin) {
+        minFace = face ? coverR(cx, cy, face) : Math.hypot(cx - headPt.x, cy - headPt.y) + faceR;
+        if (d - margin >= minFace) r = Math.min(r, d - margin);
+        else {
+          sx = (cx - arms[i].x) / (d || 1); sy = (cy - arms[i].y) / (d || 1); push = (r + margin) - d;
+          cx += sx * push; cy += sy * push; r = need(cx, cy);
+          d = Math.hypot(cx - arms[i].x, cy - arms[i].y);
+          minFace = face ? coverR(cx, cy, face) : Math.hypot(cx - headPt.x, cy - headPt.y) + faceR;
+          r = Math.max(minFace, Math.min(r, Math.max(minFace, d - margin)));
+        }
+      }
+    }
+    if (face) r = Math.max(r, coverR(cx, cy, face));
+    else r = Math.max(r, Math.hypot(cx - headPt.x, cy - headPt.y) + faceR);
+    return { x: cx, y: cy, r: r, sw: L };
+  }
+  // Plank (side-on): same side cover as a side push-up when the body is in profile; otherwise the usual face / shoulder path.
   function plankHead(kps, frameW, frameH) {
     var face = faceCircle(kps), by = kps && kps.length ? byName(kps) : {}, so = sideOn(by);
     var ls = by.left_shoulder || (kps && kps[5] && !kps[5].name ? kps[5] : null);
     var rs = by.right_shoulder || (kps && kps[6] && !kps[6].name ? kps[6] : null);
     var sw = ok(ls) && ok(rs) ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : 0;
-    if (face && sw > 8 && !(so && sw < so.L * P.sideK)) return capCircle(coverCircle(face, ls, rs), "face", frameW, frameH);
+    if (so && (!ok(ls) || !ok(rs) || sw < so.L * P.sideK)) return capCircle(sideCover(face, so, by), "plank", frameW, frameH);
+    if (face && sw > 8) return capCircle(coverCircle(face, ls, rs), "face", frameW, frameH);
     if (face) return capCircle(faceOnly(face), "plank", frameW, frameH);
-    if (so) return capCircle(so, "plank", frameW, frameH);
+    if (so) return capCircle(sideCover(face, so, by), "plank", frameW, frameH);
     return headCircle(kps, frameW, frameH);
   }
   // One Euro low-pass (Casiez et al. 2012): alpha from a cutoff that rises with speed. Pure.
   function lpA(cut, dtS) { var tau = 1 / (2 * Math.PI * cut); return 1 / (1 + tau / dtS); }
-  // Head tracker: adaptive smoothing + latency lead; hold the last spot ~1 s (slightly bigger) when the face drops, then clear
-  // (never blocks a hood). step(kps, t, fw, fh, drawT): t = frame stamp (before inference), drawT = now (optional, same clock).
-  // at(now) (Nov 16): the same spot predicted for ANY moment, so the logo can be redrawn every screen refresh between pose
-  // frames instead of freezing until the next one (the main lag at 10-15 pose fps). Same clock as t.
+  // Head tracker: adaptive smoothing + latency lead; hold the last spot while the face is missing (default: no clear).
+  // step(kps, t, fw, fh, drawT): t = frame stamp (before inference), drawT = now (optional, same clock).
+  // at(now): the same spot predicted for ANY moment, so the logo can be redrawn every screen refresh between pose frames.
+  // Nov 17: dead-zone + stronger rest filter + size rate limits + coverage grow so the raw head never leaves the logo.
   function createTracker(opts) {
-    var o = Object.assign({}, P, opts || {}), last = null, lastT = -1e9, f = null, held = null; // f: filter state {x, y, dx, dy} (px, px/s)
-    // Display stage (Nov 16, smoother): the drawn spot glides toward the tracker's target at screen-refresh rate instead of
-    // stepping on each pose frame (10-15 per second on phones). disp = what is on screen; pi = measured pose-frame interval.
+    var o = Object.assign({}, P, opts || {}), last = null, lastT = -1e9, f = null, held = null, raw = null, bad = 0; // f: filter state {x, y, dx, dy} (px, px/s)
     var disp = null, pi = 66, lastStepT = null, reacq = false, dflt = null, locked = false;
     function predict(now, extra) {
       var x = f.x, y = f.y, lead = typeof now === "number" && isFinite(now) ? Math.max(0, Math.min(o.leadMax, now - f.t + (extra || 0))) / 1000 : 0;
@@ -178,74 +226,93 @@
         if (ll > cap) { lx *= cap / ll; ly *= cap / ll; }
         x += lx; y += ly;
       }
-      return { x: x, y: y, r: f.r, held: false, src: f.src };
+      return coverRaw({ x: x, y: y, r: f.r, held: false, src: f.src });
+    }
+    // Grow r so the raw (unsmoothed) head circle stays inside. Never shrinks. Centre stays put (no jump toward noise).
+    function coverRaw(c) {
+      if (!c || !raw || c.held || c.open) return c;
+      var need = Math.hypot(raw.x - c.x, raw.y - c.y) + raw.r;
+      if (need > c.r) return { x: c.x, y: c.y, r: need, held: c.held, src: c.src, open: c.open };
+      return c;
     }
     function place(head, src, t, drawT) {
       var dtS = f ? (t - f.t) / 1000 : 0;
+      raw = { x: head.x, y: head.y, r: head.r, sw: head.sw, src: src };
       // Fresh start, or the face is back after a gap (held / lost): snap straight onto it with no velocity (no slide, no fling).
-      if (!f || !(dtS > 0) || dtS > o.snapMs / 1000) { reacq = !!f || !!held || !!disp; f = { x: head.x, y: head.y, dx: 0, dy: 0, vx: 0, vy: 0, k: 0, t: t, r: head.r, mx: head.x, my: head.y }; }
+      if (!f || !(dtS > 0) || dtS > o.snapMs / 1000) { reacq = !!f || !!held || !!disp; f = { x: head.x, y: head.y, dx: 0, dy: 0, vx: 0, vy: 0, k: 0, t: t, r: head.r, mx: head.x, my: head.y, sw: head.sw || 0, ax: head.x, ay: head.y, ar: head.r }; }
       else {
-        var rx = (head.x - f.x) / dtS, ry = (head.y - f.y) / dtS, ad = lpA(o.dCut, dtS), al = lpA(o.vCut, dtS);
-        f.dx += (rx - f.dx) * ad; f.dy += (ry - f.dy) * ad; // slow speed estimate: sets the smoothing (steady when still)
-        f.vx += (rx - f.vx) * al; f.vy += (ry - f.vy) * al; // quick velocity: drives the prediction (follows a fast head)
-        var mx = (head.x - f.mx) / dtS, my = (head.y - f.my) / dtS; f.mx = head.x; f.my = head.y; // this frame's own move (measured, not filtered)
-        var vv = f.vx * f.vx + f.vy * f.vy; f.k = vv > 0 ? Math.max(0, Math.min(1, (mx * f.vx + my * f.vy) / vv)) : 0; // lead only while the head itself still moves that way (stops -> lead drops at once, no overshoot)
-        var rr = Math.max(o.minR, head.r), sp = Math.max(0, Math.hypot(f.dx, f.dy) / rr - o.spDead), a = lpA(o.minCut + o.beta * sp, dtS); // spDead: landmark noise alone never opens the filter
-        f.x += (head.x - f.x) * a; f.y += (head.y - f.y) * a;
-        // Size on its own, heavier filter (Nov 16): grows quickly but smoothly (still covers), shrinks slowly; a flickering ear
-        // or a one-frame source change no longer pops the size.
-        var ar = lpA(head.r > f.r ? o.rGrowCut : o.rShrinkCut, dtS);
-        f.r += (head.r - f.r) * ar; f.t = t;
+        var scale = (head.sw > 8) ? head.sw : (f.sw > 8 ? f.sw : Math.max(2 * Math.max(o.minR, head.r), 40));
+        if (head.sw > 8) f.sw = head.sw;
+        // Dead-zone vs the last accepted raw target (not the filtered centre): otherwise a lag of a few px freezes short of the head.
+        var ax = f.ax != null ? f.ax : f.x, ay = f.ay != null ? f.ay : f.y, ar0 = f.ar != null ? f.ar : f.r;
+        var dead = o.deadPos * scale, tx, ty, tr, still;
+        if (Math.hypot(head.x - ax, head.y - ay) < dead) {
+          // Slow leak of the accepted target toward the raw head (0.1 Hz): a stuck first-sample bias bleeds out,
+          // frame-to-frame noise does not twitch. Velocity stays off (still).
+          var leak = lpA(0.1, dtS); tx = ax + (head.x - ax) * leak; ty = ay + (head.y - ay) * leak; still = true;
+        } else { tx = head.x; ty = head.y; still = false; }
+        if (Math.abs(head.r - ar0) < o.deadR * Math.max(o.minR, ar0)) tr = ar0 + (head.r - ar0) * (still ? lpA(0.1, dtS) : 1);
+        else tr = head.r;
+        f.ax = tx; f.ay = ty; f.ar = tr;
+        var rx = still ? 0 : (tx - f.x) / dtS, ry = still ? 0 : (ty - f.y) / dtS, ad = lpA(o.dCut, dtS), al = lpA(o.vCut, dtS);
+        f.dx += (rx - f.dx) * ad; f.dy += (ry - f.dy) * ad;
+        f.vx += (rx - f.vx) * al; f.vy += (ry - f.vy) * al;
+        var mx = (head.x - f.mx) / dtS, my = (head.y - f.my) / dtS; f.mx = head.x; f.my = head.y;
+        var vv = f.vx * f.vx + f.vy * f.vy; f.k = still ? 0 : (vv > 0 ? Math.max(0, Math.min(1, (mx * f.vx + my * f.vy) / vv)) : 0);
+        var rr = Math.max(o.minR, tr), sp = Math.max(0, Math.hypot(f.dx, f.dy) / rr - o.spDead), a = lpA(o.minCut + o.beta * sp, dtS);
+        f.x += (tx - f.x) * a; f.y += (ty - f.y) * a;
+        var ar = lpA(tr > f.r ? o.rGrowCut : o.rShrinkCut, dtS), nr = f.r + (tr - f.r) * ar;
+        var maxUp = f.r * o.rMaxGrow * dtS, maxDn = f.r * o.rMaxShrink * dtS;
+        if (nr > f.r + maxUp) nr = f.r + maxUp;
+        if (nr < f.r - maxDn) nr = f.r - maxDn;
+        f.r = nr; f.t = t;
       }
+      var need = Math.hypot(raw.x - f.x, raw.y - f.y) + raw.r;
+      if (need > f.r) f.r = need;
       f.src = src;
       return predict(drawT);
     }
     function holdOf(fw, fh) { return { x: last.x, y: last.y, r: Math.min(last.r * o.holdGrow, fw > 0 && fh > 0 ? o.maxRFrac * Math.min(fw, fh) * o.holdGrow : Infinity), held: true }; }
-    function tauOf() { var t0 = Math.max(o.dispMinMs, Math.min(o.dispMaxMs, o.dispK * pi)), sp = f ? Math.hypot(f.dx, f.dy) / Math.max(o.minR, f.r) : 0; return Math.max(o.dispMinMs, t0 / (1 + o.dispSpK * sp)); } // quicker glide while the head moves fast (less lag)
-    // What to draw at `now`: the target (prediction, or the held spot) passed through the display glide.
-    // First lock: on the target at once (no ease-in, no slide from anywhere). Reacquire after a loss: a far jump snaps at
-    // once; a small one (< reacqSnapR x r) eases over ~reacqMs instead of popping.
+    function tauOf() { var t0 = Math.max(o.dispMinMs, Math.min(o.dispMaxMs, o.dispK * pi)), sp = f ? Math.hypot(f.dx, f.dy) / Math.max(o.minR, f.r) : 0; return Math.max(o.dispMinMs, t0 / (1 + o.dispSpK * sp)); }
     function show(now) {
       var tau = tauOf(), tg = held ? held : (last && f ? predict(now, o.dispLead ? tau : 0) : null);
       if (!tg && dflt) { disp = { x: dflt.x, y: dflt.y, r: dflt.r, t: now, ease: 0 }; return { x: dflt.x, y: dflt.y, r: dflt.r, held: false, open: true }; }
       if (!tg) { disp = null; return null; }
-      if (dflt) { dflt = null; reacq = false; if (disp) { disp.x = tg.x; disp.y = tg.y; disp.t = now; disp.ease = disp.lockEnd = now + o.lockMs; } } // first lock from the big start: centre snaps onto the head at once, only the size shrinks over lockMs
+      if (dflt) { dflt = null; reacq = false; if (disp) { disp.x = tg.x; disp.y = tg.y; disp.t = now; disp.ease = disp.lockEnd = now + o.lockMs; } }
       if (!disp || !(now >= disp.t - 1e-6) && now < disp.t - 1000) { disp = { x: tg.x, y: tg.y, r: tg.r, t: now, ease: 0 }; reacq = false; }
       else {
         if (reacq) { reacq = false; if (Math.hypot(tg.x - disp.x, tg.y - disp.y) > o.reacqSnapR * Math.max(o.minR, tg.r)) { disp.x = tg.x; disp.y = tg.y; disp.r = tg.r; disp.t = now; } else disp.ease = now + o.reacqMs; }
         var dt = Math.max(0, now - disp.t), tp = disp.ease && now < disp.ease ? Math.max(tau, (disp.lockEnd ? o.lockMs : o.reacqMs) / 3) : tau;
         var lk = disp.lockEnd && now < disp.lockEnd, a = 1 - Math.exp(-dt / tp), ar = 1 - Math.exp(-dt / (lk ? tp : tp * o.dispRK));
-        if (disp.lockEnd && now >= disp.lockEnd) { disp.x = tg.x; disp.y = tg.y; disp.r = tg.r; disp.lockEnd = 0; a = ar = 0; } // ease done: on the head
-        if (lk) { disp.x = tg.x; disp.y = tg.y; } else { disp.x += (tg.x - disp.x) * a; disp.y += (tg.y - disp.y) * a; } // while shrinking after the first lock the centre stays locked on the head
+        if (disp.lockEnd && now >= disp.lockEnd) { disp.x = tg.x; disp.y = tg.y; disp.r = tg.r; disp.lockEnd = 0; a = ar = 0; }
+        if (lk) { disp.x = tg.x; disp.y = tg.y; } else { disp.x += (tg.x - disp.x) * a; disp.y += (tg.y - disp.y) * a; }
         disp.r += (tg.r - disp.r) * ar; disp.t = now;
       }
-      return { x: disp.x, y: disp.y, r: disp.r, held: !!(held && tg === held), src: tg.src };
+      return coverRaw({ x: disp.x, y: disp.y, r: disp.r, held: !!(held && tg === held), src: tg.src });
     }
     return {
       step: function (kps, t, fw, fh, drawT, where) {
-        if (lastStepT != null && t > lastStepT && t - lastStepT < 250) pi += (t - lastStepT - pi) * 0.2; // pose-frame interval (ms)
+        if (lastStepT != null && t > lastStepT && t - lastStepT < 250) pi += (t - lastStepT - pi) * 0.2;
         lastStepT = t;
         var c = (where || headCircle)(kps, fw, fh);
-        if (c) { var out = place(c, c.src, t, drawT); last = out; lastT = t; held = null; locked = true; return out; }
+        if (c) { bad = 0; var out = place(c, c.src, t, drawT); last = out; lastT = t; held = null; locked = true; return out; }
+        bad += 1;
         if (last && t - lastT <= o.holdMs) { held = holdOf(fw, fh); return held; }
-        if (dflt) return { x: dflt.x, y: dflt.y, r: dflt.r, held: false, open: true }; // still waiting for the first lock: keep the big start
-        last = null; f = null; held = null; disp = null; return null;
+        if (dflt) return { x: dflt.x, y: dflt.y, r: dflt.r, held: false, open: true };
+        last = null; f = null; held = null; disp = null; raw = null; return null;
       },
-      // Camera opened: show the big start spot until the first lock (only before any lock on this camera).
       open: function (fw, fh, now) { if (locked) return null; dflt = openCircle(fw, fh); if (dflt) disp = { x: dflt.x, y: dflt.y, r: dflt.r, t: now || 0, ease: 0 }; return dflt; },
       locked: function () { return locked; },
-      // Spot to draw at `now` (every screen refresh): the glided display spot following the prediction while the head moves,
-      // the held spot while the face is missing, null when there is nothing to draw. The target never runs more than leadMax ms
-      // past the last pose frame.
+      raw: function () { return raw; },
       at: function (now) {
         if (!held && (!last || !f) && !dflt) return null;
         return show(now);
       },
       target: function (now) { if (held) return held; if (!last || !f) return null; return predict(now); },
-      reset: function () { last = null; lastT = -1e9; f = null; held = null; disp = null; reacq = false; lastStepT = null; dflt = null; locked = false; }
+      reset: function () { last = null; lastT = -1e9; f = null; held = null; disp = null; reacq = false; lastStepT = null; dflt = null; locked = false; raw = null; bad = 0; }
     };
   }
-  // Video pixels -> CSS pixels of the element box (object-fit fill/contain/cover).
+    // Video pixels -> CSS pixels of the element box (object-fit fill/contain/cover).
   function mapToBox(c, vw, vh, bw, bh, fit) {
     if (!c || !(vw > 0) || !(vh > 0)) return null;
     var sx = bw / vw, sy = bh / vh, ox = 0, oy = 0;
@@ -289,7 +356,7 @@
     det._zabFlip = 1;
     return det;
   }
-  var api = { honorFlip: honorFlip, photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, coverCircle: coverCircle, coverTransform: coverTransform, openCircle: openCircle, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
+  var api = { honorFlip: honorFlip, photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, sideCover: sideCover, coverCircle: coverCircle, coverTransform: coverTransform, openCircle: openCircle, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 
   // ---- browser side ----
@@ -526,7 +593,7 @@
       if (!on) for (var q in shields) shieldDrop(q);
     } catch (e) {}
   }
-  function shieldUnlock(s) { if (s.lockT) { s.lostT = perfNow(); s.lostFrom = s.lastM; } s.lockT = 0; s.good = 0; s.live = false; }
+  function shieldUnlock(s) { if (s.lockT) { s.lostT = perfNow(); s.lostFrom = s.lastM; } s.lockT = 0; s.good = 0; s.bad = 0; s.live = false; }
   function shieldDrop(id) { var s = shields[id]; if (!s) return; s.dead = true; try { if (s.cv.parentNode) s.cv.parentNode.removeChild(s.cv); } catch (e) {} delete shields[id]; }
   function shieldFor(vid, src) {
     if (!doc || !vid || !vid.parentNode || !OPEN_IDS[vid.id] || !shieldWanted()) return null;
@@ -585,11 +652,11 @@
     var s = shields[vid.id]; if (!s || s.dead) return;
     var vw = vid.videoWidth, vh = vid.videoHeight, snap = s.pend, pn = perfNow(); s.pend = null;
     if (s.poseT && pn - s.poseT < 3000) s.pi = s.pi ? s.pi + (pn - s.poseT - s.pi) * 0.3 : pn - s.poseT; s.poseT = pn; // pose-frame interval (ms) of this engine
-    if (!snap || s.pendSrc !== s.src || snap.width !== vw || snap.height !== vh) { shieldUnlock(s); return; } // no matched frame (or a camera change in between): stay blanket
+    if (!snap || s.pendSrc !== s.src || snap.width !== vw || snap.height !== vh) { s.bad = (s.bad || 0) + 1; s.good = 0; if (s.bad >= P.lostFrames) shieldUnlock(s); return; } // brief mismatches do not drop the lock
     var face = faceCircle(kps), raw = face && plausible(kps, face) ? (where || headCircle)(kps, vw, vh) : null;
     s.dbg = raw ? { kps: kps, c: null } : null;
-    if (!raw) { shieldUnlock(s); return; } // no face points (lost / low confidence / hood) or an implausible pose: blanket, never a jump
-    s.good += 1;
+    if (!raw) { s.bad = (s.bad || 0) + 1; s.good = 0; if (s.bad >= P.lostFrames) shieldUnlock(s); return; } // N consecutive bad frames before growing / unlocking (no flap on a one-frame dip)
+    s.bad = 0; s.good += 1;
     s.snap = snap; s.circle = enclose(raw, hc && hc.c && !hc.c.open ? hc.c : null); s.dbg.c = s.circle; s.lastPoseT = perfNow(); s.vw = vw; s.vh = vh;
     if (!s.lockT && s.good >= P.lockFrames) { s.lockT = perfNow(); s.lostT = 0; }
     s.live = !!s.lockT;
