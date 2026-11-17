@@ -8,7 +8,17 @@ const K = (o, s = 0.9) => Object.entries(o).map(([name, [x, y]]) => ({ name, x, 
 const head = html.slice(0, html.indexOf("</head>")), css = /<style id="pfpShieldCss">([^<]*)<\/style>/.exec(head);
 const ids = ["camVid", "plankVid", "tbVid", "sqVid", "zlSelf", "zmCamVid"];
 check("index.html <head>: rule hides every camera video (opacity 0) while the switch is on", !!css && ids.every((i) => css[1].includes("html.zab-pfp-shield video#" + i)) && /opacity:0!important/.test(css[1]));
-check("index.html <head>: switch read from storage before first paint (class on <html>)", /<script>try \{ if \(localStorage\.getItem\("zabPfpOn"\) === "1"\) document\.documentElement\.classList\.add\("zab-pfp-shield"\); \} catch \(e\) \{\}<\/script>/.test(head) && head.indexOf("pfpShieldCss") < head.indexOf("<script async"));
+check("index.html <head>: shield on before first paint unless the key is explicitly off (unset or \"1\")", /<script>try \{ if \(localStorage\.getItem\("zabPfpOn"\) !== "0"\) document\.documentElement\.classList\.add\("zab-pfp-shield"\); \} catch \(e\) \{ try \{ document\.documentElement\.classList\.add\("zab-pfp-shield"\); \} catch \(e2\) \{\} \}<\/script>/.test(head) && head.indexOf("pfpShieldCss") < head.indexOf("<script async"));
+function earlyShield(getItem, shouldThrow) {
+  const added = { n: 0 }; const document = { documentElement: { classList: { add() { added.n++; } } } };
+  const localStorage = { getItem(k) { if (shouldThrow) throw new Error("blocked"); return getItem(k); } };
+  try { if (localStorage.getItem("zabPfpOn") !== "0") document.documentElement.classList.add("zab-pfp-shield"); } catch (e) { try { document.documentElement.classList.add("zab-pfp-shield"); } catch (e2) {} }
+  return added.n === 1;
+}
+check("early shield: unset key adds the class (zero first-paint exposure)", earlyShield(() => null) === true);
+check("early shield: stored on adds the class", earlyShield(() => "1") === true);
+check("early shield: explicit off does not add the class", earlyShield(() => "0") === false);
+check("early shield: storage throw still adds the class (fail closed)", earlyShield(() => null, true) === true);
 check("every camera video exists in the page with those ids", ids.every((i) => html.includes('id="' + i + '"')));
 // 2. the model runs on the snapshot the shield shows (every pose loop)
 const sq = fs.readFileSync(path.join(ROOT, "squat-page.js"), "utf8"), mt = fs.readFileSync(path.join(ROOT, "match-pfp-cam.js"), "utf8");

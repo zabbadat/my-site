@@ -98,10 +98,10 @@
   }
 
   // "Show my PFP" (#zmShowPfp) is NOT a separate setting: it is the site-wide "Enable profile - PFP" switch (pfp.js KEY,
-  // localStorage on this device, "1" = on). Same key, same default as the top-bar switch (off until turned on), and flipping
-  // either one updates the other and this camera live.
+  // localStorage on this device, "1" = on, unset = on, only "0" is off). Same key, same default as the top-bar switch
+  // (on until turned off), and flipping either one updates the other and this camera live.
   var SHOW_KEY = "zabPfpOn";
-  function readShow(store) { try { return !!store && store.getItem(SHOW_KEY) === "1"; } catch (e) { return false; } }
+  function readShow(store) { try { return !store || store.getItem(SHOW_KEY) !== "0"; } catch (e) { return true; } }
   function saveShow(store, v) { try { if (store) store.setItem(SHOW_KEY, v ? "1" : "0"); } catch (e) {} return !!v; }
 
   var api = { P: P, SHOW_KEY: SHOW_KEY, readShow: readShow, saveShow: saveShow, floatAnchor: floatAnchor, createFloater: createFloater, pickPerson: pickPerson, overlaySrc: overlaySrc, initialOf: initialOf };

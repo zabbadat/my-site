@@ -294,7 +294,7 @@
 
   // ---- browser side ----
   var doc = root && root.document;
-  var userSeen = false, user = null, img = null, imgUrl = "", imgOk = false, overlays = {}, logo = null, logoOk = false, mini = { cv: null, lastT: -1e9, timer: null };
+  var user = null, img = null, imgUrl = "", imgOk = false, overlays = {}, logo = null, logoOk = false, mini = { cv: null, lastT: -1e9, timer: null };
   function ensureLogo() {
     if (logo || typeof Image === "undefined") return;
     logo = new Image(); logo.decoding = "async"; logo.onload = function () { logoOk = true; for (var k in overlays) overlays[k].painted = false; }; logo.onerror = function () { logoOk = false; }; logo.src = P.logo;
@@ -308,7 +308,10 @@
     x.restore(); x.beginPath(); x.arc(m.x, m.y, m.r, 0, Math.PI * 2); x.lineWidth = Math.max(1, m.r * 0.04); x.strokeStyle = "rgba(255,255,255,.85)"; x.stroke();
   }
   function store() { try { return root.localStorage; } catch (e) { return null; } }
-  function isOn() { try { var s = store(); return !!user && !!s && s.getItem(KEY) === "1"; } catch (e) { return false; } }
+  // Default ON (Nov 17): unset key (never chosen) is on; only an explicit "0" is off, and that choice persists on this device.
+  // No sign-in requirement: the cover follows the setting even signed out, so a camera is never face-exposed by default.
+  function storedOn() { try { var s = store(); return !s || s.getItem(KEY) !== "0"; } catch (e) { return true; } }
+  function isOn() { try { return storedOn(); } catch (e) { return true; } }
   // ONE shared PFP setting (KEY, this device only): the top-bar "Enable profile - PFP" switch and the Live Match camera's
   // "Show my PFP" switch both read and write it. It drives, together: the avatar on camera, the head tracking that moves it,
   // and the avatar in recordings. Listeners (onChange) hear every flip so an open camera updates live.
@@ -354,8 +357,7 @@
     } catch (e) {}
   }
   function setUser(u) {
-    user = u && u.uid ? u : null; userSeen = true; try { syncHide(); } catch (e) {}
-    if (!user) clearAll();
+    user = u && u.uid ? u : null; try { syncHide(); } catch (e) {}
     syncRow(); paintBadge();
   }
   function overlayFor(vid) {
@@ -514,8 +516,7 @@
   //    each step is a circle between two nested circles, so it always contains the head circle (no mid-shrink exposure).
   //  * Lost: the last covered frame stays frozen while the logo grows back to the blanket (growMs), then the blanket.
   var shields = {}, hideCss = null, HIDE_SEL = Object.keys(OPEN_IDS).map(function (k) { return "html.zab-pfp-shield video#" + k; }).join(",");
-  function authPending() { return !userSeen; }
-  function shieldWanted() { try { var s = store(); return !!s && s.getItem(KEY) === "1" && (!!user || authPending()); } catch (e) { return false; } }
+  function shieldWanted() { return storedOn(); }
   function syncHide() {
     try {
       if (!doc || !doc.documentElement) return;

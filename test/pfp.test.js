@@ -79,6 +79,7 @@ function fakeDom(store) {
 }
 function loadPfp(w) { const ctx = Object.assign({}, w); ctx.window = ctx; vm.createContext(ctx); vm.runInContext(fs.readFileSync(path.join(ROOT, "pfp.js"), "utf8"), ctx); return ctx; }
 { const store = {}, D = fakeDom(store), ctx = loadPfp(D.w), P = ctx.ZabPfp; const frozen = JSON.parse(JSON.stringify(face)); face.forEach(Object.freeze); Object.freeze(face);
+  P.setOn(false);
   P.setUser({ uid: "u1", displayName: "Zab", photoURL: "https://lh3.googleusercontent.com/a/x" });
   P.frame(D.vid, face, 0); check("switch off: no overlay canvas created", D.parent.children.length === 0 && P.isOn() === false);
   P.setOn(true); const ret = P.frame(D.vid, face, 33);
@@ -94,7 +95,23 @@ function loadPfp(w) { const ctx = Object.assign({}, w); ctx.window = ctx; vm.cre
     const n1 = sp.children.length; check("mini-feed: one round canvas in the top-bar avatar while frames arrive", n1 === 1 && sp.children[0].className === "pfp-mini" && sp.live === 1);
     D.calls.length = 0; P.frame(D.vid, face, 1020); const throttled = !D.calls.includes("arc"); P.frame(D.vid, face, 1100); check("mini-feed throttled to ~15 fps (skips a frame 10 ms later, draws at +100 ms)", throttled && D.calls.includes("arc"));
     P.setOn(false); check("switch off: mini-feed removed, static avatar back", sp.children.length === 0 && sp.live === 0); P.setOn(true); }
-  P.setUser(null); check("signed out: switch reads off even if stored on", P.isOn() === false && store.zabPfpOn === "1"); }
+  P.setUser(null); check("signed out: explicit on stays on (cover does not require sign-in)", P.isOn() === true && store.zabPfpOn === "1"); }
+
+// Default ON (Nov 17): unset key => on; explicit "0" stays off across sign-in / sign-out; nothing is written until the user flips it.
+{ const store = {}, D = fakeDom(store), ctx = loadPfp(D.w), P = ctx.ZabPfp;
+  check("unset key (never chosen): isOn is true with no user yet", P.isOn() === true && store.zabPfpOn == null);
+  P.setUser({ uid: "u1", displayName: "Zab" });
+  check("unset key after sign-in: still on, key still unset", P.isOn() === true && store.zabPfpOn == null);
+  P.setOn(false);
+  check("explicit off persists on this device", store.zabPfpOn === "0" && P.isOn() === false);
+  P.setUser(null);
+  check("explicit off stays off after sign-out", P.isOn() === false && store.zabPfpOn === "0");
+  P.setUser({ uid: "u2", displayName: "Zab" });
+  check("explicit off stays off after a later sign-in", P.isOn() === false && store.zabPfpOn === "0");
+  P.setOn(true);
+  check("turning it on writes 1 and stays on", store.zabPfpOn === "1" && P.isOn() === true); }
+{ const store = {}, D = fakeDom(store), ctx = loadPfp(D.w), P = ctx.ZabPfp;
+  check("top-bar switch initial checked state follows default on (via isOn, before any click)", (P.isOn() === true)); }
 
 // 4. page wiring
 const nav = html.slice(html.indexOf("<nav>"), html.indexOf("</nav>"));

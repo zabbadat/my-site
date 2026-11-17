@@ -12,13 +12,14 @@
 //   npm run pfp-proof                 full matrix (~25-35 min)
 //   npm run pfp-proof:quick           short matrix (~5-7 min)
 //   npm run pfp-proof -- --control    negative control: forces the raw video visible -> must FAIL (proves the checker works)
-//   options: --only=push,match  --base=https://...  (test another server instead of this repo)  --headed  --keep
+//   npm run pfp-proof:quick -- --unset-key   default-on proof: leave zabPfpOn unset (must still be 0 exposed frames)
+//   options: --only=push,match  --base=https://...  (test another server instead of this repo)  --headed  --keep  --unset-key
 import { createRequire } from "module";
 import fs from "fs"; import os from "os"; import path from "path"; import { fileURLToPath } from "url";
 const require = createRequire(import.meta.url);
 const HERE = path.dirname(fileURLToPath(import.meta.url)), ROOT = path.resolve(HERE, "../..");
 const ARG = Object.fromEntries(process.argv.slice(2).map((a) => { const m = /^--([^=]+)(?:=(.*))?$/.exec(a); return m ? [m[1], m[2] == null ? true : m[2]] : [a, true]; }));
-const QUICK = !!ARG.quick, CONTROL = !!ARG.control;
+const QUICK = !!ARG.quick, CONTROL = !!ARG.control, UNSET_KEY = !!ARG["unset-key"];
 let chromium; try { ({ chromium } = require("playwright")); } catch (e) { console.error("Playwright is not installed. Run: npm install && npx playwright install chromium"); process.exit(2); }
 const makeY4m = require("./make-face-y4m.js"), serve = require("./serve.js");
 const KPS = JSON.parse(fs.readFileSync(path.join(HERE, "push-top-kps.json"), "utf8"));
@@ -31,8 +32,8 @@ const only = ARG.only ? String(ARG.only).split(",") : null, want = (s) => !only 
 
 // ---------- in-page hooks (run before any page script) ----------
 function hooks() {
-  try { localStorage.setItem("zabPfpOn", "1"); } catch (e) {}
-  // a signed-in test user all along (signed out = PFP off by design)
+  try { if (window.__pfpUnsetKey) localStorage.removeItem("zabPfpOn"); else localStorage.setItem("zabPfpOn", "1"); } catch (e) {}
+  // a signed-in test user so the row and photo paths run; the cover itself is on by default even signed out
   let zp; Object.defineProperty(window, "ZabPfp", { configurable: true, get: () => zp, set(v) { zp = v; if (v && v.setUser && !v.setUser.__w) { const su = v.setUser; v.setUser = (u) => su(u && u.uid ? u : { uid: "proof", displayName: "Proof" }); v.setUser.__w = 1; } } });
   window.__mode = "normal"; window.__seg = "open"; window.__ex = {}; window.__fr = {}; window.__stage = {}; window.__exList = [];
   const sample = (img, flip) => { // keypoints from the green face in the model's input (the same pixels the model sees)
@@ -109,6 +110,7 @@ async function run(base, sc, y4m) {
     const desk = sc.view === "desktop", land = sc.view === "landscape";
     const c = await b.newContext({ viewport: desk ? { width: 1280, height: 800 } : land ? { width: 844, height: 390 } : { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: !desk, hasTouch: !desk, permissions: ["camera"],
       userAgent: desk ? undefined : "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1" });
+    await c.addInitScript((u) => { if (u) window.__pfpUnsetKey = true; }, UNSET_KEY);
     await c.addInitScript(hooks); if (CONTROL) await c.addInitScript(controlHook);
     if (/^(push|plank|tut)$/.test(sc.surface)) await c.addInitScript((T) => { window.__body = T; }, KPS);
     const p = await c.newPage(); const errs = []; p.on("pageerror", (e) => errs.push(String(e).slice(0, 160)));

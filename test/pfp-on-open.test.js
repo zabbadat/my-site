@@ -22,7 +22,7 @@ check("TUT Battle: PFP is drawn before the live-set gate (camera on, before Go)"
 check("Stop camera / End set / fail exit clears the push-up cover at once", /function stopCam\(\)[\s\S]*ZabPfp\.clear\("camVid"\)/.test(html));
 check("stopPlankCam and cancel during preview clear the plank cover", /ZabPfp\.clear\("plankVid"\)/.test(stopPlank) && /ZabPfp\.clear\("plankVid"\)/.test(html.slice(html.indexOf("function cancelPlankStart()"), html.indexOf("function stopPlankCam()"))));
 check("tbCamOff clears the TUT Battle cover", /ZabPfp\.clear\("tbVid"\)/.test(tbOff));
-check("switch off / missing user: isOn is false (toggle still required)", PF.isOn() === false);
+check("Node require / no store: default is on (cover does not wait for a user)", PF.isOn() === true);
 
 function fakeDom(store) {
   const calls = []; const ctx2d = new Proxy({}, { get: (t, k) => (k in t ? t[k] : (...a) => { calls.push(k); return { addColorStop() {} }; }), set: (t, k, v) => ((t[k] = v), true) });
