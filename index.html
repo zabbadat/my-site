@@ -1008,6 +1008,78 @@ body.arcade-live #playEarn10k{display:none}
 .home-games .tile-ic{width:60px;height:60px;color:#fff;flex:0 0 auto}
 .home-games + .hero{padding-top:2.4rem}
 
+    /* Title-screen montage of the eight home-games figures. In-flow, dismissible, no overlay. */
+    .fig-montage{max-width:56rem;margin:.2rem auto 1.1rem;padding:0 16px}
+    .fig-montage[hidden]{display:none!important}
+    .fm-inner{background:var(--card,#1b2723);border:2px solid rgba(255,46,147,.42);border-radius:18px;padding:1.05rem .85rem .85rem;text-align:center}
+    .fm-title{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:clamp(2.2rem,6.5vw,4.2rem);line-height:1.08;color:var(--text,#eef4f1);margin:0 0 .55rem}
+    .fm-cast{list-style:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4rem;margin:0;padding:0}
+    @media (min-width:760px){.fm-cast{grid-template-columns:repeat(8,minmax(0,1fr));gap:.3rem}}
+    .fm-item{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:.4rem .15rem .3rem;border-radius:14px;border:1px solid transparent;opacity:.42;color:#fff;animation:fm-spot 24s linear infinite}
+    .fm-item svg.tile-ic{width:68px;height:68px;display:block;overflow:visible}
+    @media (min-width:760px){.fm-item svg.tile-ic{width:80px;height:80px}}
+    .fm-item:nth-child(1){animation-delay:0s;opacity:1;border-color:rgba(198,255,0,.55);background:rgba(198,255,0,.07)}
+    .fm-item:nth-child(2){animation-delay:3s}
+    .fm-item:nth-child(3){animation-delay:6s}
+    .fm-item:nth-child(4){animation-delay:9s}
+    .fm-item:nth-child(5){animation-delay:12s}
+    .fm-item:nth-child(6){animation-delay:15s}
+    .fm-item:nth-child(7){animation-delay:18s}
+    .fm-item:nth-child(8){animation-delay:21s}
+    .fm-name{font-size:.66rem;font-weight:600;line-height:1.2;color:var(--accent-2,#d7e8de)}
+    .fm-caps{position:relative;min-height:4.4em;margin:.7rem .2rem .15rem;font-size:.9rem;line-height:1.35;color:var(--text,#eef4f1)}
+    .fm-caps span{position:absolute;left:0;right:0;opacity:0;animation:fm-cap 24s linear infinite}
+    .fm-caps span:nth-child(1){animation-delay:0s;opacity:1}
+    .fm-caps span:nth-child(2){animation-delay:3s}
+    .fm-caps span:nth-child(3){animation-delay:6s}
+    .fm-caps span:nth-child(4){animation-delay:9s}
+    .fm-caps span:nth-child(5){animation-delay:12s}
+    .fm-caps span:nth-child(6){animation-delay:15s}
+    .fm-caps span:nth-child(7){animation-delay:18s}
+    .fm-caps span:nth-child(8){animation-delay:21s}
+    .fm-roster{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+    .fig-montage button.fm-skip{appearance:none;-webkit-appearance:none;background:none!important;border:0!important;border-radius:0!important;min-width:0!important;box-shadow:none!important;outline:none!important;color:var(--muted,#9aada4)!important;font:inherit;font-size:.85rem!important;font-weight:400!important;text-decoration:underline;text-underline-offset:.18em;cursor:pointer;padding:.35rem .5rem!important;transform:none!important}
+    .fig-montage button.fm-skip:hover,.fig-montage button.fm-skip:focus-visible{color:var(--accent-2,#d7e8de)!important;background:none!important;outline:2px solid var(--pink-2)!important;outline-offset:2px!important}
+    @keyframes fm-spot{0%,12.4%{opacity:1;border-color:rgba(198,255,0,.55);background:rgba(198,255,0,.07)}12.5%,100%{opacity:.42;border-color:transparent;background:transparent}}
+    @keyframes fm-cap{0%,12.4%{opacity:1}12.5%,100%{opacity:0}}
+    .fm-pitch{transform-box:view-box;transform-origin:0 0;animation:fm-pitch 2s linear infinite both}
+    .fm-pitch:nth-of-type(2){animation-delay:.45s}
+    .fm-pitch:nth-of-type(3){animation-delay:.9s}
+    @keyframes fm-pitch{0%{transform:translate(7px,7px) scale(.4) rotate(-28deg);opacity:1}72%{transform:translate(30px,23px) scale(.3) rotate(8deg);opacity:1}100%{transform:translate(32px,26px) scale(.18);opacity:0}}
+    .fm-push-fig{transform-box:view-box;transform-origin:24px 34px;animation:fm-push 1.3s ease-in-out infinite}
+    @keyframes fm-push{0%,100%{transform:none}50%{transform:translateY(5px) scaleY(.7)}}
+    .fm-plank-fig{transform-box:view-box;transform-origin:0 0;animation:fm-crawl 5s ease-in-out infinite}
+    @keyframes fm-crawl{0%{transform:translateX(-18px)}40%,100%{transform:translateX(0)}}
+    .fm-tut{transform-box:view-box;transform-origin:24px 24px;animation:fm-hold 2.2s ease-in-out infinite}
+    @keyframes fm-hold{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+    .fm-tut-clock{fill:currentColor;stroke:none;font-family:Outfit,sans-serif;font-size:6.5px;font-weight:600;animation:fm-clock 4s ease-in-out infinite}
+    @keyframes fm-clock{0%,25%{opacity:.25}50%,100%{opacity:1}}
+    .fm-sw-l,.fm-sw-r{transform-box:view-box;animation:fm-cl 1.5s ease-in-out infinite}
+    .fm-sw-l{transform-origin:8px 8px}
+    .fm-sw-r{transform-origin:40px 8px}
+    @keyframes fm-cl{0%,100%{transform:rotate(0)}45%{transform:rotate(-11deg)}55%{transform:rotate(5deg)}}
+    .fm-sw-r{animation-name:fm-clr}
+    @keyframes fm-clr{0%,100%{transform:rotate(0)}45%{transform:rotate(11deg)}55%{transform:rotate(-5deg)}}
+    .fm-sq{transform-box:view-box;transform-origin:16px 42px;animation:fm-sq 14s ease-in-out infinite}
+    @keyframes fm-sq{0%,100%{transform:none}28.6%,57.1%{transform:translate(-1px,7px) scaleX(1.08) scaleY(.7)}85.7%{transform:none}}
+    .fm-arrow{transform-box:view-box;transform-origin:22px 12px;animation:fm-arrow 1.8s ease-in-out infinite}
+    @keyframes fm-arrow{0%,100%{transform:translateY(0);opacity:1}50%{transform:translateY(-3px);opacity:.65}}
+    .fm-ppp-clock{fill:currentColor;stroke:none;font-family:Outfit,sans-serif;font-size:6px;font-weight:600;animation:fm-clock 3s ease-in-out infinite}
+    .fm-foot-a,.fm-foot-b{transform-box:view-box;transform-origin:center;animation:fm-step .9s ease-in-out infinite}
+    .fm-foot-b{animation-delay:.45s}
+    @keyframes fm-step{0%,100%{transform:translateY(1.5px);opacity:1}50%{transform:translateY(-2.5px);opacity:.4}}
+    .fm-steps-n{fill:currentColor;stroke:none;font-family:Outfit,sans-serif;font-size:5.5px;font-weight:600}
+    .fm-pitch-static{display:none}
+    @media (prefers-reduced-motion:reduce){
+      .fig-montage *{animation:none!important;transition:none!important}
+      .fm-item,.fm-item:nth-child(1){opacity:1;border-color:rgba(143,191,168,.28);background:transparent}
+      .fm-pitch{display:none}
+      .fm-pitch-static{display:block}
+      .fm-caps{display:none}
+      .fm-roster{position:static;width:auto;height:auto;overflow:visible;clip:auto;white-space:normal;margin:.65rem 0 0;padding:0 0 0 1.1rem;text-align:left;font-size:.86rem;line-height:1.45;color:var(--text,#eef4f1)}
+    }
+
+
     /* Play and Earn: tabbed shell for ZAB, Washer Battle, Steps, TUT Battles, Plank House, Battles. */
     #live-cameras { padding: 0 8% 1.2rem; }
     @media (max-width: 700px) { #live-cameras { padding-left: 6%; padding-right: 6%; } }
@@ -1285,6 +1357,44 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <a class="walk-bubble" href="#steps"><span class="walk-dot" aria-hidden="true"></span>Pitch, push &amp; step - earn <span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></a>
   </aside>
   <div class="home-lockup"><div class="lk"><img src="/zd-v2-mark.svg" width="220" height="220" alt="Zabbadat"></div></div>
+  <div id="figMontage" class="fig-montage" aria-label="Zabbadat movement title screen">
+    <script>(function(){try{if(sessionStorage.getItem("zabFigMontageOff")==="1"){var s=document.getElementById("figMontage");if(s)s.hidden=true;}}catch(e){}})();</script>
+    <div class="fm-inner">
+      <p class="fm-title">Zabbadat</p>
+      <ul class="fm-cast">
+      <li class="fm-item"><span class="fm-fig"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 28l12-6 12 6-12 6z"/><path d="M20 28v7l12 6 12-6v-7"/><ellipse cx="32" cy="28" rx="4.2" ry="2"/><text class="fm-score" x="6" y="14" fill="currentColor" stroke="none" font-family="Outfit,sans-serif" font-size="8" font-weight="600">21</text><g class="fm-pitch"><g transform="scale(.4)"><ellipse cx="0" cy="0" rx="16" ry="6"/><ellipse cx="0" cy="0" rx="4.5" ry="1.7"/></g></g><g class="fm-pitch"><g transform="scale(.4)"><ellipse cx="0" cy="0" rx="16" ry="6"/><ellipse cx="0" cy="0" rx="4.5" ry="1.7"/></g></g><g class="fm-pitch"><g transform="scale(.4)"><ellipse cx="0" cy="0" rx="16" ry="6"/><ellipse cx="0" cy="0" rx="4.5" ry="1.7"/></g></g><g class="fm-pitch-static" transform="translate(32 26) scale(.28)"><ellipse cx="0" cy="0" rx="16" ry="6"/><ellipse cx="0" cy="0" rx="4.5" ry="1.7"/></g></svg></span><span class="fm-name">Zabba Washers</span></li>
+      <li class="fm-item"><span class="fm-fig"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><g class="fm-push-fig"><circle cx="38" cy="16" r="3.5"/><path d="M34 19 10 27M30 21v11M14 26l-2 8"/></g><path d="M8 34h34"/></svg></span><span class="fm-name">Sets</span></li>
+      <li class="fm-item"><span class="fm-fig"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20 24 8l16 12M12 18v4M36 18v4"/><g class="fm-plank-fig"><circle cx="38" cy="30" r="3.5"/><path d="M34 32H10M30 32l-1 6"/></g><path d="M8 38h34"/></svg></span><span class="fm-name">Plank House</span></li>
+      <li class="fm-item"><span class="fm-fig"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(24 20) scale(.86) translate(-24 -20)"><g class="fm-tut"><circle cx="24" cy="9" r="3.5"/><path d="M24 12.5v17M24 29.5l-6 13M24 29.5l6 13M24 20H11v-9M24 20h13v-9M12 20c1-7 8-9 10.5-1M36 20c-1-7-8-9-10.5-1"/><circle cx="11" cy="9" r="2.2"/><circle cx="37" cy="9" r="2.2"/></g></g><text class="fm-tut-clock" x="24" y="47.5" text-anchor="middle" fill="currentColor" stroke="none" font-family="Outfit,sans-serif" font-size="6.5" font-weight="600">1:20</text></svg></span><span class="fm-name">TUTS</span></li>
+      <li class="fm-item"><span class="fm-fig"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><g class="fm-sw-l"><path d="M8 8l22 22M8 8h6M8 8v6M26 34l8-8M31 37l6-6"/></g><g class="fm-sw-r"><path d="M40 8 18 30M40 8h-6M40 8v6M22 34l-8-8M17 37l-6-6"/></g></svg></span><span class="fm-name">Battles</span></li>
+      <li class="fm-item"><span class="fm-fig"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 42h38"/><g class="fm-sq"><circle cx="13" cy="8.4" r="3.5"/><path d="M14.3 12 22.8 22.2M23.6 28.2 9.6 29.4M9.6 29.4 10.4 42M15.4 15.6 5.6 22.4"/><path d="M22.8 22.2 A6.6 6.6 0 1 1 34 22.4 A7 7 0 1 1 25.6 31 C24.7 30.3 24.1 29.3 23.6 28.2"/></g></svg></span><span class="fm-name">Gyatt Squats</span></li>
+      <li class="fm-item"><span class="fm-fig"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="38" cy="22" r="3.5"/><path d="M34 25 10 31M32 26v10M8 36h34M14 30l-2 6"/><g class="fm-arrow"><path d="M22 18V6M17 11l5-5 5 5"/></g><text class="fm-ppp-clock" x="6" y="9" fill="currentColor" stroke="none" font-family="Outfit,sans-serif" font-size="6" font-weight="600">30s</text></svg></span><span class="fm-name">Plank Push Press</span></li>
+      <li class="fm-item"><span class="fm-fig"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><g class="fm-foot-a"><path d="M14 10c4 0 6 4 6 9s-2 8-5 8-5-3-5-8 0-9 4-9Z"/><path d="M11 31h7v3a3.5 3.5 0 0 1-7 0Z"/></g><g class="fm-foot-b"><path d="M34 6c4 0 4 4 4 9s-2 8-5 8-5-3-5-8 2-9 6-9Z"/><path d="M29 27h7v3a3.5 3.5 0 0 1-7 0Z"/></g><text class="fm-steps-n" x="24" y="47" text-anchor="middle" fill="currentColor" stroke="none" font-family="Outfit,sans-serif" font-size="5.5" font-weight="600">10,000</text></svg></span><span class="fm-name">Step Equity</span></li>
+      </ul>
+      <p class="fm-caps" aria-hidden="true">
+      <span>Zabba Washers. Packs of 3, first to 21, Bariboshi style. A win is 1 ZAB.</span>
+      <span>Sets. 1 push-up = 0.1 ZAB.</span>
+      <span>Plank House. 1 ZAB for a 60-second plank.</span>
+      <span>TUTS. A TUT set is complete at 1:20 with at least 10 push-ups.</span>
+      <span>Battles. Head-to-head washer, TUT, and plank battles, with an optional ZAB wager.</span>
+      <span>Gyatt Squats. One set of 10 Gyatt Squats = 1 ZAB, no daily cap, 4 s down / 4 s hold / 4 s up.</span>
+      <span>Plank Push Press. 30-second plank push press = 0.5 ZAB bonus.</span>
+      <span>Step Equity. 4 ZAB for 10,000 steps in an Eastern day.</span>
+      </p>
+      <ol class="fm-roster">
+      <li>Zabba Washers. Packs of 3, first to 21, Bariboshi style. A win is 1 ZAB.</li>
+      <li>Sets. 1 push-up = 0.1 ZAB.</li>
+      <li>Plank House. 1 ZAB for a 60-second plank.</li>
+      <li>TUTS. A TUT set is complete at 1:20 with at least 10 push-ups.</li>
+      <li>Battles. Head-to-head washer, TUT, and plank battles, with an optional ZAB wager.</li>
+      <li>Gyatt Squats. One set of 10 Gyatt Squats = 1 ZAB, no daily cap, 4 s down / 4 s hold / 4 s up.</li>
+      <li>Plank Push Press. 30-second plank push press = 0.5 ZAB bonus.</li>
+      <li>Step Equity. 4 ZAB for 10,000 steps in an Eastern day.</li>
+      </ol>
+      <button type="button" class="fm-skip" id="figMontageSkip">Skip intro</button>
+    </div>
+    <script>(function(){var s=document.getElementById("figMontage"),b=document.getElementById("figMontageSkip");if(!s||!b)return;b.addEventListener("click",function(){s.hidden=true;try{sessionStorage.setItem("zabFigMontageOff","1");}catch(e){}});})();</script>
+  </div>
   <div class="home-games" role="navigation" aria-label="Games">
     <a href="#washers"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="24" cy="34" rx="16" ry="6"/><ellipse cx="24" cy="34" rx="4.5" ry="1.7"/><path d="M8 34v-7M40 34v-7"/><ellipse cx="24" cy="23" rx="16" ry="6"/><ellipse cx="24" cy="23" rx="4.5" ry="1.7"/><path d="M8 23v-9M40 23v-9"/><ellipse cx="24" cy="12" rx="16" ry="6"/><ellipse cx="24" cy="12" rx="4.5" ry="1.7"/></svg><span>Zabba Washers</span></a>
     <a class="featured" href="#push" id="tileTut"><svg class="tile-ic" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="9" r="3.5"/><path d="M24 12.5v17M24 29.5l-6 13M24 29.5l6 13M24 20H11v-9M24 20h13v-9M12 20c1-7 8-9 10.5-1M36 20c-1-7-8-9-10.5-1"/><circle cx="11" cy="9" r="2.2"/><circle cx="37" cy="9" r="2.2"/></svg><span>TUTS</span></a>
