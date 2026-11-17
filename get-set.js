@@ -86,11 +86,12 @@
   var NEXT_COUNT_MS = 3600;
   var NEXT_TOTAL_MS = NEXT_LEAD_MS + NEXT_COUNT_MS; // 7600
   // Legacy names kept so older tests and any leftover callers still resolve. STEPS/QUICK now follow the same go-cue
-  // (no separate hasty 2.4 s restart). Plank uses the same One / two / three / Go; the clock starts at "Go".
+  // (no separate hasty 2.4 s restart). Plank (owner, Nov 16): same pace and voice, but "One, two, three, Hold" after "Set up, hold on three."; the clock starts at "Hold", and only once a proper plank is locked in.
   var STEPS = [[0, NEXT_SET_LINE, NEXT_SET_LINE], [4000, "One", "1"], [5200, "two", "2"], [6400, "three", "3"], [7600, "Go", "GO"]], DEFAULT_STEPS = STEPS;
   var COUNTDOWN_MS = NEXT_TOTAL_MS;
   var PLANK_STEP_MS = 1200;
-  var PLANK_STEPS = NEXT_STEPS;
+  var PLANK_SET_LINE = "Set up, hold on three.";
+  var PLANK_STEPS = [[0, "One", "1"], [1200, "two", "2"], [2400, "three", "3"], [3600, "Hold", "HOLD"]];
   var PLANK_COUNT_MS = NEXT_COUNT_MS;
   var QUICK_STEPS = STEPS;
   var QUICK_MS = NEXT_TOTAL_MS;
@@ -244,7 +245,7 @@
     pushups: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Go all the way down and back up." },
     tut: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up." },
     squats: { place: "Prop your phone up in front of you, camera facing you.", criteria: "Step back and come in the frame, head to feet. Stand tall. Focus on firing your glutes." },
-    plank: { clock: "Clock starts on a proper plank.", next: NEXT_SET_LINE, place: "Prop your phone on the floor, off to your side, sideways or upright. Turn to show your side.", criteria: "Step back until the outline shows you head to heels.", rules: "Stay steady. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold." }
+    plank: { clock: "Clock starts on a proper plank.", next: PLANK_SET_LINE, place: "Prop your phone on the floor, off to your side, sideways or upright. Turn to show your side.", criteria: "Step back until the outline shows you head to heels.", rules: "Stay steady. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold." }
   };
   function coachLines(kind) { return COACH[kind] || COACH.pushups; }
   function positionPrompt(kind) { return (POSITION[kind] || POSITION.pushups).join("\n"); }
@@ -360,7 +361,7 @@
     try { var n = w && w.navigator; if (n && typeof n.vibrate === "function") { n.vibrate([120, 80, 120]); buzzed = true; } } catch (e) {}
     return { line: POCKET_LINE, spoke: spoke, buzzed: buzzed };
   }
-  var api = { POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
+  var api = { POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_SET_LINE: PLANK_SET_LINE, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatGetSet = api;
 })(this);

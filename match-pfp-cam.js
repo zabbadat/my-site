@@ -260,20 +260,28 @@
     if (on) return true;
     if (!doc || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { setNote("Camera is not available in this browser."); return false; }
     var vid = $("zmCamVid"); if (!vid) { setNote("Camera preview is missing from the page."); return false; }
+    var my = start.seq = (start.seq || 0) + 1, current = function () { return my === start.seq; }; // each start / stop bumps it: a superseded open (double tap, Stop while opening) drops its own stream
     setNote("Starting camera…");
+    var s = null;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
     } catch (e) {
-      try { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); } catch (e2) { setNote((e2 && e2.message) || "Couldn't open the camera."); paintButtons(); return false; }
+      try { s = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); } catch (e2) { if (!current()) return false; stopTracks(); setNote((e2 && e2.message) || "Couldn't open the camera."); paintButtons(); return false; }
     }
+    if (!current()) { try { s.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} return false; }
+    if (stream && stream !== s) { try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} } // never two live streams
+    stream = s;
     vid.srcObject = stream;
     try { await vid.play(); } catch (e) {}
+    if (!current()) return false; // stop() already stopped it, or the newer start stops it before taking over
     on = true; floater = createFloater(); paintButtons();
     try { vid._zmDet = await getDetector(); setNote(noteDefault); } catch (e) { setNote("Preview on. Pose model couldn't load, so the picture won't follow your head yet."); }
+    if (!current()) return false;
     applyShow(); // starts the avatar loop only when the PFP setting is on
     return true;
   }
   function stop() {
+    start.seq = (start.seq || 0) + 1; // a camera still opening is dropped
     loopId += 1; looping = false; on = false; stopTracks(); if (floater) floater.reset(); clearOverlay(); paintButtons();
     if (live) setNote(noteDefault);
   }

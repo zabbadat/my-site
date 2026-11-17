@@ -3794,23 +3794,30 @@ async function openCam() {
   const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
   if (!native) { // browser: unchanged (dffac32)
     if (camOn && poseLoopOn) return true; // already running: never a second stream or loop
+    const my = openCam.seq = (openCam.seq || 0) + 1, current = () => my === openCam.seq; // each openCam / stopCam bumps it: a superseded open (double tap, Stop camera while opening) drops its own stream, never the newer one
     if (camWake) camWake.start().catch(() => {});
+    let stream = null;
     try {
       $("camNote").textContent = "Loading camera counter…";
       await loadCamLibs();
+      if (!current()) return false;
       $("camNote").textContent = "Loading pose model…";
-      if (camStream) camStream.getTracks().forEach((t) => t.stop());
+      if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; }
       const gum = navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false
       });
       ensurePose().catch(() => {}); // model + warm-up load while the camera opens (first face locks on the first frame)
-      camStream = await gum;
+      stream = await gum;
+      if (!current()) { stream.getTracks().forEach((t) => t.stop()); return false; }
+      camStream = stream;
       const vid = $("camVid");
       vid.srcObject = camStream;
       vid.setAttribute("playsinline", "");
       await vid.play();
+      if (!current()) return false;
       await ensurePose();
+      if (!current()) return false;
       camOn = true;
       poseLoopOn = true;
       resetPoseBaseline();
@@ -3821,26 +3828,35 @@ async function openCam() {
       poseTick(++poseLoopId);
       return true;
     } catch (e) {
+      if (!current()) { if (stream && stream !== camStream) stream.getTracks().forEach((t) => t.stop()); return false; }
+      if (camStream) camStream.getTracks().forEach((t) => t.stop()); camStream = null; if ($("camVid")) $("camVid").srcObject = null; // a failed open never leaves a live track
       if (camWake && !camOn) camWake.stop().catch(() => {});
       $("camNote").textContent = "Camera or pose blocked.";
       return false;
     }
   }
   if (camOn && poseLoopOn) return true; // already running: never a second stream or loop
+  const my = openCam.seq = (openCam.seq || 0) + 1, current = () => my === openCam.seq; // each openCam / stopCam bumps it: a superseded open (double tap, Stop camera while opening) drops its own stream, never the newer one
   if (camWake) camWake.start().catch(() => {});
+  let stream = null;
   try {
     if (camStream) { stopCamTracks(camStream); camStream = null; }
     $("camNote").textContent = "Starting camera…";
-    camStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+    stream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+    if (!current()) { stopCamTracks(stream); return false; }
+    camStream = stream;
     const vid = $("camVid");
     await attachCam(vid, camStream);
+    if (!current()) return false;
     $("camWrap").hidden = false;
     if (typeof camFs === "function") camFs("camWrap", true); // full screen at once (app)
     $("camStopBtn").hidden = false;
     $("camNote").textContent = "Loading camera counter…";
     await loadCamLibs();
+    if (!current()) return false;
     $("camNote").textContent = "Loading pose model…";
     await (typeof ensurePushPose === "function" ? ensurePushPose() : ensurePose()); // iOS app: Apple Vision when the plugin is there
+    if (!current()) return false;
     camOn = true;
     poseLoopOn = true;
     resetPoseBaseline();
@@ -3849,6 +3865,7 @@ async function openCam() {
     poseTick(++poseLoopId);
     return true;
   } catch (e) {
+    if (!current()) { if (stream && stream !== camStream) stopCamTracks(stream); return false; }
     stopCamTracks(camStream);
     camStream = null;
     if ($("camVid")) $("camVid").srcObject = null;
@@ -3862,6 +3879,7 @@ async function openCam() {
 function stopCam() {
   if (typeof endPushOnCameraStop === "function") endPushOnCameraStop();
   cancelPushStart("Start cancelled.");
+  if (typeof openCam === "function") openCam.seq = (openCam.seq || 0) + 1; // a camera still opening is dropped
   poseLoopOn = false; poseLoopId += 1;
   camOn = false;
   try { if (window.ZabPfp && window.ZabPfp.clear) window.ZabPfp.clear("camVid"); } catch (e) {}
@@ -3999,7 +4017,7 @@ function plankEnded(r) {
 // to finish instead of cutting it off, and starts on its own if speech is silent or stuck (sayAndWait caps, cueMaxMs in the logic).
 let plankCueSeq = 0, plankLeadUntil = 0; const PLANK_LEAD_MS = (window.ZabbadatGetSet && window.ZabbadatGetSet.NEXT_LEAD_MS) || 4000;
 function plankSpeechIdle() { const GS = window.ZabbadatGetSet; return !(GS && GS.isSpeaking && GS.isSpeaking()); }
-// Plank start: once a good plank is locked in (cue phase), show AND speak 3, 2, 1, Hold (1.2 s each, slower plank voice, queued not cut, big digits); the clock starts at "Hold".
+// Plank start: once a good plank is locked in (cue phase), show AND speak One, two, three, Hold (1.2 s each, slower plank voice, queued not cut, big digits); the clock starts at "Hold".
 // This is the only plank countdown (the old Ready / get set / 3-2-1 / Go before the camera loop and the "Hold it… 1.5s" digits are gone).
 const plankCount = window.ZabbadatGetSet && window.ZabbadatGetSet.PLANK_STEPS ? window.ZabbadatGetSet.makeGoCountdown({ steps: window.ZabbadatGetSet.PLANK_STEPS, speak: window.ZabbadatGetSet.plankSpeak, stop: () => {} }) : null;
 function plankCountShow(t) {
@@ -4110,7 +4128,7 @@ async function startPlankCam() {
     if (!live()) return;
     if (!restart && !(await showPositioning("plank", $("plankStatus"), () => !live(), "criteria"))) return;
     if (!live()) return;
-    // no pre-countdown here: 3, 2, 1, Hold runs once the plank is locked in (plankCue); the clock starts at "Hold"
+    // no pre-countdown here: One, two, three, Hold runs once the plank is locked in (plankCue); the clock starts at "Hold"
     sessionCommit("plank");
     plankStarting = false;
     plankSessionStartedAt = Date.now();
@@ -4118,7 +4136,7 @@ async function startPlankCam() {
     if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(restart ? window.ZabbadatGetSet.COACH.plank.next : window.ZabbadatGetSet.COACH.plank.clock);
     $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts on a proper plank. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold.";
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once on a fresh start, before the go-cue */
-    if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); /* counts (One / two / three / Go) run at lock-in */
+    if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); /* counts (One / two / three / Hold) run at lock-in */
     plankPreview = false;
     if (!plankLoop) { plankLoop = true; plankTick(++plankLoopId); }
     else plankLoop = true;
@@ -5189,31 +5207,45 @@ function tbGoLive(r) {
 }
 async function tbCamOn(placed) {
   const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
+  const my = tbCamOn.seq = (tbCamOn.seq || 0) + 1, current = () => my === tbCamOn.seq; // each tap / tbCamOff bumps it: a double tap or a stop while opening never leaves a second stream
+  let stream = null;
   if (!native) { // browser: unchanged (dffac32)
     try {
       if (!placed) $("tbCamNote").textContent = "Loading camera counter…"; await loadCamLibs();
+      if (!current()) return;
+      if (tbStream) { tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; }
       const gum = navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
       ensurePose().catch(() => {}); // model + warm-up load while the camera opens
-      tbStream = await gum;
-      const v = $("tbVid"); v.srcObject = tbStream; await v.play(); await ensurePose();
+      stream = await gum;
+      if (!current()) { stream.getTracks().forEach((t) => t.stop()); return; }
+      tbStream = stream;
+      const v = $("tbVid"); v.srcObject = tbStream; await v.play();
+      if (!current()) return;
+      await ensurePose();
+      if (!current()) return;
       tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
       $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
       if (placed) { tbCoaching = true; await placed; await showPositioning("tut", $("tbCamNote"), () => !tbLoop, "criteria"); tbCoaching = false; }
-    } catch (e) { $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
+    } catch (e) { if (!current()) { if (stream && stream !== tbStream) stream.getTracks().forEach((t) => t.stop()); return; } if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; if ($("tbVid")) $("tbVid").srcObject = null; $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
     return;
   }
   try {
     if (!placed) $("tbCamNote").textContent = "Starting camera…";
     if (tbStream) { stopCamTracks(tbStream); tbStream = null; }
-    tbStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+    stream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+    if (!current()) { stopCamTracks(stream); return; }
+    tbStream = stream;
     const v = $("tbVid"); await attachCam(v, tbStream);
+    if (!current()) return;
     $("tbCamWrap").hidden = false;
     await loadCamLibs();
     await (typeof ensurePushPose === "function" ? ensurePushPose() : ensurePose()); // iOS app: Apple Vision when the plugin is there
+    if (!current()) return;
     tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
     tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
     if (placed) { tbCoaching = true; await placed; await showPositioning("tut", $("tbCamNote"), () => !tbLoop, "criteria"); tbCoaching = false; }
   } catch (e) {
+    if (!current()) { if (stream && stream !== tbStream) stopCamTracks(stream); return; }
     stopCamTracks(tbStream);
     tbStream = null;
     if ($("tbVid")) $("tbVid").srcObject = null;
@@ -5239,7 +5271,7 @@ function tbEndSetNow() {
   tbCamOff(); if (tbWake && !(tbRoom && tbRoom.status === "live")) tbWake.stop().catch(() => {});
   tbPaint();
 }
-function tbCamOff() { tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; if (typeof camFs === "function") camFs("tbCamWrap", false); try { if (window.ZabPfp && window.ZabPfp.clear) window.ZabPfp.clear("tbVid"); } catch (e) {} }
+function tbCamOff() { if (typeof tbCamOn === "function") tbCamOn.seq = (tbCamOn.seq || 0) + 1; tbLoop = false; if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; $("tbCamWrap").hidden = true; if (typeof camFs === "function") camFs("tbCamWrap", false); try { if (window.ZabPfp && window.ZabPfp.clear) window.ZabPfp.clear("tbVid"); } catch (e) {} }
 async function tbPose() {
   if (!tbLoop) return;
   try {

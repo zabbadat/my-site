@@ -3,8 +3,8 @@ let pass = 0, fail = 0;
 function check(n, ok) { console.log((ok ? "PASS " : "FAIL ") + n); ok ? pass++ : fail++; }
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 check("one site-wide voice: relaxed rate 0.85-0.9, default pitch, no chosen voice; plank uses the same", G.VOICE.rate >= 0.85 && G.VOICE.rate <= 0.9 && !("pitch" in G.VOICE) && !("voice" in G.VOICE) && G.PLANK_VOICE === G.VOICE);
-check("plank countdown is 1.2 s per step, ending on Go at 3.6 s", JSON.stringify(G.PLANK_STEPS.map((s) => s[0])) === "[0,1200,2400,3600]" && G.PLANK_STEPS[3][2] === "GO");
-check("plank counts match the shared go-cue; digits on screen unchanged", G.PLANK_STEPS.map((s) => s[1]).join(" ") === "One two three Go" && G.PLANK_STEPS.map((s) => s[2]).join(" ") === "1 2 3 GO");
+check("plank countdown is 1.2 s per step, ending on Hold at 3.6 s", JSON.stringify(G.PLANK_STEPS.map((s) => s[0])) === "[0,1200,2400,3600]" && G.PLANK_STEPS[3][2] === "HOLD");
+check("plank counts: One, two, three, Hold (owner Nov 16); digits 1 2 3 then HOLD on screen", G.PLANK_STEPS.map((s) => s[1]).join(" ") === "One two three Hold" && G.PLANK_STEPS.map((s) => s[2]).join(" ") === "1 2 3 HOLD");
 global.window = { speechSynthesis: { speaking: true, pending: false, cancelled: 0, spoken: [], cancel() { this.cancelled++; }, speak(u) { this.spoken.push(u); } }, SpeechSynthesisUtterance: function (t) { this.text = t; } };
 G.plankSpeak("Go");
 const ss = window.speechSynthesis, u = ss.spoken[0];
