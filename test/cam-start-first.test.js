@@ -25,17 +25,17 @@ const liveBlk = html.slice(html.indexOf("/* ---- Live tab (zabba-live.js)"), htm
 check("Live tab camera (zabba-live.js) is its own getUserMedia in zlCam / Go live only", liveBlk.length > 500 && (liveBlk.match(/getUserMedia/g) || []).length === 2);
 check("getUserMedia only in openCam, startPlankCam, tbCamOn (app + browser branch each: 6) + the Live tab block", (html.replace(liveBlk, "").match(/getUserMedia/g) || []).length === 6 && [openAll, plankAll, tbAll].every((x) => (x.match(/getUserMedia/g) || []).length === 2));
 check("each camera start branches on the native app check", [openAll, plankAll, tbAll, sliceFn("async function startPush()", "function beginPushClock()")].every((x) => x.includes(NATIVE_LINE)));
-check("browser openCam: dffac32 order (loadCamLibs, then getUserMedia) and copy", first(openWeb, "loadCamLibs", "getUserMedia") && openWeb.includes('"Camera or pose blocked."') && !openWeb.includes("camErrorText"));
-check("browser startPlankCam: dffac32 order and copy", first(plankWeb, "loadCamLibs", "getUserMedia") && /native \? camErrorText\(e\) : "Camera or pose blocked\."/.test(plankAll));
-check("browser tbCamOn: dffac32 order and copy", first(tbWeb, "loadCamLibs", "getUserMedia") && tbWeb.includes('"Camera unavailable: "'));
+check("browser openCam: getUserMedia first (feed does not wait for libs) and copy", first(openWeb, "getUserMedia", "await loadCamLibs") && first(openWeb, "ZabPfp.prepare", "getUserMedia") && openWeb.includes('"Camera or pose blocked."') && !openWeb.includes("camErrorText"));
+check("browser startPlankCam: getUserMedia first and copy", first(plankWeb, "getUserMedia", "await loadCamLibs") && /native \? camErrorText\(e\) : "Camera or pose blocked\."/.test(plankAll));
+check("browser tbCamOn: getUserMedia first and copy", first(tbWeb, "getUserMedia", "await loadCamLibs") && tbWeb.includes('"Camera unavailable: "'));
 check("browser startPush: dffac32 copy", (startPushSrc.match(/: "Camera or pose blocked\."/g) || []).length === 2);
 check("prefetch is app-only", /function prefetchCamLibs\(\) \{[^\n]*\n\s*if \(!\(typeof window !== "undefined" && window\.Capacitor/.test(html));
 check("openCam: getUserMedia before loadCamLibs and ensurePose", first(openSrc, "getUserMedia", "loadCamLibs") && first(openSrc, "getUserMedia", "ensurePose"));
-check("openCam: preview (#camWrap) shown before loadCamLibs", first(openSrc, '$("camWrap").hidden = false', "loadCamLibs"));
+check("openCam: preview (#camWrap) shown before loadCamLibs", first(openSrc, "showCamBox(\"camWrap\"", "loadCamLibs") || first(openSrc, '$("camWrap").hidden = false', "loadCamLibs"));
 check("startPlankCam: getUserMedia before loadCamLibs and ensurePose", first(plankSrc, "getUserMedia", "loadCamLibs") && first(plankSrc, "getUserMedia", "ensurePose"));
-check("startPlankCam: preview (#plankWrap) shown before loadCamLibs", first(plankSrc, '$("plankWrap").hidden = false', "loadCamLibs"));
+check("startPlankCam: preview (#plankWrap) shown before loadCamLibs", first(plankSrc, "showCamBox(\"plankWrap\"", "loadCamLibs") || first(plankSrc, '$("plankWrap").hidden = false', "loadCamLibs"));
 check("tbCamOn: getUserMedia before loadCamLibs and ensurePose", first(tbSrc, "getUserMedia", "loadCamLibs") && first(tbSrc, "getUserMedia", "ensurePose"));
-check("tbCamOn: preview (#tbCamWrap) shown before loadCamLibs", first(tbSrc, '$("tbCamWrap").hidden = false', "loadCamLibs"));
+check("tbCamOn: preview (#tbCamWrap) shown before loadCamLibs", first(tbSrc, "showCamBox(\"tbCamWrap\"", "loadCamLibs") || first(tbSrc, '$("tbCamWrap").hidden = false', "loadCamLibs"));
 check("startPush still runs the sign-in gate (practice allowed) before openCam", /requireSignIn\("pushups", \(\) => startPush\(\), \{ practice: true \}\)/.test(startPushSrc) && startPushSrc.indexOf("requireSignIn") < startPushSrc.indexOf("openCam"));
 check("startPlankCam still runs the sign-in gate (practice allowed) before getUserMedia", /requireSignIn\("plank", \(\) => startPlankCam\(\), \{ practice: true \}\)/.test(plankSrc) && plankSrc.indexOf("requireSignIn") < plankSrc.indexOf("getUserMedia"));
 check("TUT battle camera tap still requires sign-in before tbCamOn", /requireSignIn\("tut battle"\)/.test(tbClick) && tbClick.indexOf("requireSignIn") < tbClick.indexOf("tbCamOn"));
@@ -72,13 +72,14 @@ function poseTick() { log.push("tick"); } function resetPoseBaseline() {} functi
 function cancelGetSet() {} function unlockGetSet() {} function sessionPlan() { return "restart"; } function sessionCommit() {}
 function endPushOnCameraStop() {} function cancelPushStart() {} function syncPushStartBtn() {}
 function showPositioning() { return Promise.resolve(true); }
+function camFs() {}
 function newPlankHold() { log.push("plankHold"); } function plankTick() {} function plankEnded() {}
 let plankLeadUntil = 0; const PLANK_LEAD_MS = 5500;
 window.ZabbadatPush = { createCounter: () => ({}) };
 function tbPose() {} function tbPaint() { log.push("paint"); }
 `;
   // Real helpers + camera functions from the page
-  const helpers = [between("const CAM_CONSTRAINTS = ", "\n"), fnSrc("camErrorText"), fnSrc("stopCamTracks"), fnSrc("attachCam")].join("\n");
+  const helpers = [between("const CAM_CONSTRAINTS = ", "\n"), fnSrc("camErrorText"), fnSrc("stopCamTracks"), fnSrc("attachCam"), fnSrc("showCamBox")].join("\n");
   vm.runInContext([STUBS, helpers, "async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"), "async " + fnSrc("tbCamOn"), fnSrc("tbCamOff")].join("\n"), ctx);
   const run = (c) => vm.runInContext(c, ctx);
   const flush = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r)); };

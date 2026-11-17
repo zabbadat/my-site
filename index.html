@@ -3815,38 +3815,41 @@ async function openCam() {
     if (camWake) camWake.start().catch(() => {});
     let stream = null;
     try {
-      $("camNote").textContent = "Loading camera counter…";
-      await loadCamLibs();
-      if (!current()) return false;
-      $("camNote").textContent = "Loading pose model…";
+      $("camNote").textContent = "Starting camera…";
+      const vid = $("camVid");
+      $("camStopBtn").hidden = false;
+      $("camWrap").hidden = false;
+      if (typeof camFs === "function") camFs("camWrap", true); // full screen at once
+      try { if (window.ZabPfp && window.ZabPfp.prepare && vid) window.ZabPfp.prepare(vid); } catch (e) {}
+      await Promise.resolve(); // let the tap's on-screen / spoken line commit; the camera request still starts before any lib or model wait
       if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; }
       const gum = navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false
       });
-      ensurePose().catch(() => {}); // model + warm-up load while the camera opens (first face locks on the first frame)
+      loadCamLibs().catch(() => {});
+      ensurePose().catch(() => {}); // model + warm-up load while the camera opens; the feed does not wait
       stream = await gum;
       if (!current()) { stream.getTracks().forEach((t) => t.stop()); return false; }
       camStream = stream;
-      const vid = $("camVid");
       vid.srcObject = camStream;
       vid.setAttribute("playsinline", "");
       await vid.play();
+      if (!current()) return false;
+      $("camNote").textContent = "Get into a push-press plank. After Go, your first full push-up counts.";
+      await loadCamLibs();
       if (!current()) return false;
       await ensurePose();
       if (!current()) return false;
       camOn = true;
       poseLoopOn = true;
       resetPoseBaseline();
-      $("camWrap").hidden = false;
-      if (typeof camFs === "function") camFs("camWrap", true); // full screen at once
-      $("camStopBtn").hidden = false;
-      $("camNote").textContent = "Get into a push-press plank. After Go, your first full push-up counts.";
       poseTick(++poseLoopId);
       return true;
     } catch (e) {
       if (!current()) { if (stream && stream !== camStream) stream.getTracks().forEach((t) => t.stop()); return false; }
       if (camStream) camStream.getTracks().forEach((t) => t.stop()); camStream = null; if ($("camVid")) $("camVid").srcObject = null; // a failed open never leaves a live track
+      $("camWrap").hidden = true; $("camStopBtn").hidden = true; if (typeof camFs === "function") camFs("camWrap", false);
       if (camWake && !camOn) camWake.stop().catch(() => {});
       $("camNote").textContent = "Camera or pose blocked.";
       return false;
@@ -3859,6 +3862,9 @@ async function openCam() {
   try {
     if (camStream) { stopCamTracks(camStream); camStream = null; }
     $("camNote").textContent = "Starting camera…";
+    $("camStopBtn").hidden = false;
+    $("camWrap").hidden = false; if (typeof camFs === "function") camFs("camWrap", true);
+    try { if (window.ZabPfp && window.ZabPfp.prepare) window.ZabPfp.prepare($("camVid")); } catch (e) {}
     stream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
     if (!current()) { stopCamTracks(stream); return false; }
     camStream = stream;
@@ -3892,6 +3898,12 @@ async function openCam() {
     $("camNote").textContent = camErrorText(e);
     return false;
   }
+}
+// Show the camera box at once (branded PFP placeholder, or the raw feed when PFP is off) without waiting for the pose model.
+function showCamBox(wrapId, vid) {
+  try { const w = $(wrapId); if (w) w.hidden = false; } catch (e) {}
+  try { if (typeof camFs === "function") camFs(wrapId, true); } catch (e) {}
+  try { if (window.ZabPfp && window.ZabPfp.prepare && vid) window.ZabPfp.prepare(vid); } catch (e) {}
 }
 function stopCam() {
   if (typeof endPushOnCameraStop === "function") endPushOnCameraStop();
@@ -4115,30 +4127,31 @@ async function startPlankCam() {
     const placed = restart ? true : showPositioning("plank", $("plankStatus"), () => !live(), "place"); // spoken inside the tap
     if (restart) $("plankStatus").textContent = "Starting camera…";
     if ($("plankStatus").style) $("plankStatus").style.whiteSpace = "pre-line";
+    $("plankWrap").hidden = false; if (typeof camFs === "function") camFs("plankWrap", true);
+    try { if (window.ZabPfp && window.ZabPfp.prepare) window.ZabPfp.prepare($("plankVid")); } catch (e) {}
     if (native) { // app: camera first, inside the tap, then the pose libraries
       if (plankStream) { stopCamTracks(plankStream); plankStream = null; }
       const stream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
       if (!live()) { stopCamTracks(stream); return; }
       plankStream = stream;
       const vid = $("plankVid"); await attachCam(vid, plankStream);
-      $("plankWrap").hidden = false; if (typeof camFs === "function") camFs("plankWrap", true);
       await loadCamLibs();
       if (!live()) return;
       await ensurePose();
       if (!live()) return;
-    } else { // browser: unchanged (dffac32)
-      await loadCamLibs();
-      if (!live()) return;
+    } else { // browser: camera first, same as the app; the feed does not wait for the pose model
+      await Promise.resolve(); // let the tap's placement line commit; the camera request still starts before any lib or model wait
       if (plankStream) plankStream.getTracks().forEach((t) => t.stop());
       const gum = navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
-      ensurePose().catch(() => {}); // model + warm-up load while the camera opens
+      loadCamLibs().catch(() => {});
+      ensurePose().catch(() => {}); // model + warm-up load while the camera opens; the feed does not wait
       const stream = await gum;
       if (!live()) { stream.getTracks().forEach((t) => t.stop()); return; }
       plankStream = stream;
       const vid = $("plankVid"); vid.srcObject = plankStream; await vid.play();
+      await loadCamLibs();
       await ensurePose();
       if (!live()) return;
-      $("plankWrap").hidden = false; if (typeof camFs === "function") camFs("plankWrap", true);
     }
     if (!live()) return;
     // Pose + PFP start as soon as the camera is up (setup / coaching / countdown). The hold itself still starts later.
@@ -5229,28 +5242,34 @@ async function tbCamOn(placed) {
   const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
   const my = tbCamOn.seq = (tbCamOn.seq || 0) + 1, current = () => my === tbCamOn.seq; // each tap / tbCamOff bumps it: a double tap or a stop while opening never leaves a second stream
   let stream = null;
-  if (!native) { // browser: unchanged (dffac32)
+  if (!native) { // browser: camera first; the feed does not wait for the pose model
     try {
-      if (!placed) $("tbCamNote").textContent = "Loading camera counter…"; await loadCamLibs();
-      if (!current()) return;
+      if (!placed) $("tbCamNote").textContent = "Starting camera…";
+      $("tbCamWrap").hidden = false; if (typeof camFs === "function") camFs("tbCamWrap", true);
+      try { if (window.ZabPfp && window.ZabPfp.prepare) window.ZabPfp.prepare($("tbVid")); } catch (e) {}
+      await Promise.resolve(); // let the tap's on-screen / spoken line commit; the camera request still starts before any lib or model wait
       if (tbStream) { tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; }
       const gum = navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
-      ensurePose().catch(() => {}); // model + warm-up load while the camera opens
+      loadCamLibs().catch(() => {});
+      ensurePose().catch(() => {}); // model + warm-up load while the camera opens; the feed does not wait
       stream = await gum;
       if (!current()) { stream.getTracks().forEach((t) => t.stop()); return; }
       tbStream = stream;
       const v = $("tbVid"); v.srcObject = tbStream; await v.play();
       if (!current()) return;
+      await loadCamLibs();
       await ensurePose();
       if (!current()) return;
       tbCounter = window.ZabbadatPush.createCounter(); // separate instance; solo counter untouched
-      $("tbCamWrap").hidden = false; tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
+      tbLoop = true; $("tbCamNote").textContent = "Lean your phone up in front of you. Shoulders and hands in frame."; requestAnimationFrame(tbPose); tbPaint();
       if (placed) { tbCoaching = true; await placed; await showPositioning("tut", $("tbCamNote"), () => !tbLoop, "criteria"); tbCoaching = false; }
-    } catch (e) { if (!current()) { if (stream && stream !== tbStream) stream.getTracks().forEach((t) => t.stop()); return; } if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; if ($("tbVid")) $("tbVid").srcObject = null; $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
+    } catch (e) { if (!current()) { if (stream && stream !== tbStream) stream.getTracks().forEach((t) => t.stop()); return; } if (tbStream) tbStream.getTracks().forEach((t) => t.stop()); tbStream = null; if ($("tbVid")) $("tbVid").srcObject = null; $("tbCamWrap").hidden = true; if (typeof camFs === "function") camFs("tbCamWrap", false); $("tbCamNote").textContent = "Camera unavailable: " + (e.message || e); tbPaint(); }
     return;
   }
   try {
     if (!placed) $("tbCamNote").textContent = "Starting camera…";
+    $("tbCamWrap").hidden = false; if (typeof camFs === "function") camFs("tbCamWrap", true);
+    try { if (window.ZabPfp && window.ZabPfp.prepare) window.ZabPfp.prepare($("tbVid")); } catch (e) {}
     if (tbStream) { stopCamTracks(tbStream); tbStream = null; }
     stream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
     if (!current()) { stopCamTracks(stream); return; }
@@ -6152,6 +6171,7 @@ if (ZL) {
     if (zlWake) zlWake.start();
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("This browser has no camera access.");
+      const v0 = $("zlSelf"); if (v0) { v0.hidden = false; try { if (window.ZabPfp && window.ZabPfp.prepare) window.ZabPfp.prepare(v0); } catch (e) {} }
       const gum = zlCam(zlFacing);
       if (window.ZabPfp && window.ZabPfp.isOn && window.ZabPfp.isOn()) zlPfpWarm(); // PFP model loads while the camera opens
       zlStream = await gum;

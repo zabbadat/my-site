@@ -30,7 +30,7 @@ has(/pushStarting = true; \$\("pushStartBtn"\)\.disabled = true;\n\s+if \(camOn 
 has(/pushState\.running = false; pushState\.finished = true;\n\s+if \(typeof camFs === "function"\) camFs\("camWrap", false\);/, "push/TUT: failed set end leaves full screen");
 check("push/TUT: Stop camera leaves full screen (camExitFs)", /camExitFs\(\);/.test(fnSrc("stopCam")));
 check("TUT Battle: full screen at Go (tbGoLive), off when the camera turns off", /camFs\("tbCamWrap", true\)/.test(fnSrc("tbGoLive")) && /camFs\("tbCamWrap", false\)/.test(fnSrc("tbCamOff")));
-check("web plank: full screen when the camera shows, off at hold end and on stop", (html.match(/\$\("plankWrap"\)\.hidden = false; if \(typeof camFs === "function"\) camFs\("plankWrap", true\);/g) || []).length === 2 && /camFs\("plankWrap", false\)/.test(fnSrc("plankEnded")) && /camFs\("plankWrap", false\)/.test(fnSrc("stopPlankCam")));
+check("web plank: full screen when the camera shows, off at hold end and on stop", (html.match(/\$\("plankWrap"\)\.hidden = false; if \(typeof camFs === "function"\) camFs\("plankWrap", true\);/g) || []).length === 1 && html.indexOf('$("plankWrap").hidden = false; if (typeof camFs === "function") camFs("plankWrap", true);') < html.indexOf("if (native) { // app: camera first, inside the tap") && /camFs\("plankWrap", false\)/.test(fnSrc("plankEnded")) && /camFs\("plankWrap", false\)/.test(fnSrc("stopPlankCam")));
 check("countdown / counter untouched: camFs is never called from poseTick or the counter", !/camFs/.test(html.slice(html.indexOf("async function poseTick("), html.indexOf("async function openCam()"))));
 
 // 2. plank pin (pfp.js, fake DOM)

@@ -1,5 +1,5 @@
 // Check-in logo size (Nov 17, owner on iPhone: "the logo is entirely too big, almost looks broken" at camera start).
-// Before lock the shield shows the opaque backing (no video) with the logo at check-in size, not a disc past every corner;
+// Before lock the shield shows the first decoded frame with a branded hood over the head area and the 0.32 check-in logo, not a disc past every corner;
 // the shrink onto the head and the grow back on loss stay nested (zero face exposure); stale is platform-aware.
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const src = fs.readFileSync(path.join(__dirname, "..", "pfp.js"), "utf8");
@@ -30,8 +30,8 @@ check(`grow head -> check-in on loss: every step contains the last head circle (
 const g0 = { bw: 390, bh: 791, vw: 640, vh: 480, fit: "contain" }, near = { x: 195, y: 280, r: 40 }, Bn = F.blanketAround(g0, near);
 check(`lock starts from about the opening size, not a full-screen disc (start r ${Bn.r.toFixed(0)} px vs old ${(Math.hypot(390, 791) / 2 + 2).toFixed(0)})`, Bn.r < 0.3 * 390);
 check("grow on loss starts from a circle holding the frozen frame's own head (s.circle), not only the last drawn logo", /var L0 = enclose\(s\.lostFrom, s\.circle \? mapToBox\(s\.circle, s\.vw, s\.vh, g\.bw, g\.bh, g\.fit\) : null\), B2 = blanketAround\(g, L0\); m = lerpC\(L0, B2,/.test(src));
-// 3. no video while not locked: the blanket branch paints the opaque backing over the whole box and never draws the video
-check("not locked: opaque backing over the whole box, then the logo; the live <video> is never drawn", /else \{ m = blanketAround\(g, null\); x\.fillStyle = P\.coverBack; x\.fillRect\(0, 0, g\.bw, g\.bh\); \}/.test(src) && !/drawImage\(s\.vid|drawImage\(v,/.test(src.slice(src.indexOf("Fail-safe shield"))));
+// 3. opening: branded placeholder, then the first decoded frame with a hood over the head area (never a plain black fill, never the live <video>)
+check("not locked: branded placeholder / first-frame feed with head hood; the live <video> is never drawn raw", /function grabPreview/.test(src) && /R\.h \* P\.openMask/.test(src) && /x\.fillStyle = P\.coverBack; x\.fillRect\(0, 0, g\.bw, g\.bh\)/.test(src) && !/x\.drawImage\((s\.vid|v),/.test(src.slice(src.indexOf("Fail-safe shield"))));
 // 4. platform-aware stale: browsers (fast MoveNet) keep staleMs; Apple Vision over the bridge (slow frames) gets 3x its interval, capped
 check("stale: MoveNet at 60 ms/frame -> staleMs (450)", F.staleOf({ pi: 60 }) === PF.P.staleMs);
 check("stale: no interval yet -> staleMs", F.staleOf({}) === PF.P.staleMs);

@@ -172,13 +172,15 @@
       var restart = H.sessionPlan("squats") === "restart";
       var C = GS && GS.coachLines ? GS.coachLines("squats") : null;
       if (!restart && C) { status(C.place); speak(C.place); } else status("Starting camera…");
+      var vid0 = $("sqVid");
+      $("sqWrap").hidden = false; H.camFs("sqWrap", true);
+      try { if (window.ZabPfp && window.ZabPfp.prepare && vid0) window.ZabPfp.prepare(vid0); } catch (e) {}
       var gum = navigator.mediaDevices.getUserMedia(H.CAM_CONSTRAINTS);
-      H.ensurePose().catch(function () {}); // instant lock: the pose model loads (and warms up) while the camera opens
+      H.ensurePose().catch(function () {}); // pose model loads while the camera opens; the feed does not wait
       var stream = await gum;
       if (!live()) { H.stopCamTracks(stream); return; }
       st.stream = stream;
       var vid = $("sqVid"); await H.attachCam(vid, stream);
-      $("sqWrap").hidden = false; H.camFs("sqWrap", true);
       await H.ensurePose();
       if (!live()) return;
       st.counter = SQ.createCounter(); paintReps(0);

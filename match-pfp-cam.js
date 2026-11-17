@@ -271,6 +271,8 @@
     var vid = $("zmCamVid"); if (!vid) { setNote("Camera preview is missing from the page."); return false; }
     var my = start.seq = (start.seq || 0) + 1, current = function () { return my === start.seq; }; // each start / stop bumps it: a superseded open (double tap, Stop while opening) drops its own stream
     setNote("Starting camera…");
+    try { var wrap = $("zmCamWrap"); if (wrap) wrap.hidden = false; } catch (e) {}
+    try { if (root.ZabPfp && root.ZabPfp.prepare) root.ZabPfp.prepare(vid); } catch (e) {}
     var s = null;
     try {
       s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
@@ -284,9 +286,10 @@
     try { await vid.play(); } catch (e) {}
     if (!current()) return false; // stop() already stopped it, or the newer start stops it before taking over
     on = true; floater = createFloater(); paintButtons();
+    applyShow(); // starts the avatar loop; covered preview from the first decoded frame
     try { vid._zmDet = await getDetector(); setNote(noteDefault); } catch (e) { setNote("Preview on. Pose model couldn't load, so the picture won't follow your head yet."); }
     if (!current()) return false;
-    applyShow(); // starts the avatar loop only when the PFP setting is on
+    applyShow();
     return true;
   }
   function stop() {
