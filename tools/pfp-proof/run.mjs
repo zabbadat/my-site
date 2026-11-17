@@ -20,7 +20,8 @@ let chromium; try { ({ chromium } = require("playwright")); } catch (e) { consol
 const makeY4m = require("./make-face-y4m.js"), serve = require("./serve.js");
 const KPS = JSON.parse(fs.readFileSync(path.join(HERE, "push-top-kps.json"), "utf8"));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const CACHE = path.join(os.tmpdir(), "zab-pfp-proof");
+const CACHE = process.env.PFP_PROOF_DIR || path.join(os.tmpdir(), "zab-pfp-proof"); // fake camera clips (reused)
+const OUT = path.join(CACHE, "run-" + new Date().toISOString().replace(/[:.]/g, "-")); // this run's report, screenshots and exposed frames
 const SURFACES = ["push", "plank", "squats", "tut", "zlSelf", "match"];
 const VID = { push: "camVid", plank: "plankVid", squats: "sqVid", tut: "tbVid", zlSelf: "zlSelf", match: "zmCamVid" };
 const only = ARG.only ? String(ARG.only).split(",") : null, want = (s) => !only || only.includes(s);
@@ -65,7 +66,7 @@ function hooks() {
       if (r.width > 0 && op > 0.01 && (!v.checkVisibility || v.checkVisibility())) { vc.width = Math.ceil(v.videoWidth / 4); vc.height = Math.ceil(v.videoHeight / 4); vc.getContext("2d").drawImage(v, 0, 0, vc.width, vc.height); const n = cnt(vc, vc.width, vc.height); if (n) { bad += n; src.push("video#" + v.id + ":" + n); } } }
     for (const c of document.querySelectorAll("canvas.pfp-shield, canvas.pfp-mini")) { if (getComputedStyle(c).display === "none" || !c.width) continue; const n = cnt(c, c.width, c.height); if (n) { bad += n; src.push(c.className + ":" + n); } }
     if (bad) { window.__ex[seg] = (window.__ex[seg] || 0) + 1; window.__exList.push({ seg, frame: window.__fi, tMs: +performance.now().toFixed(1), pixels: src.join(",") }); }
-    const S = window.ZabPfp && window.ZabPfp._shields; if (S) for (const k in S) { const s = S[k], now = performance.now(), st = s.lockT ? (now - s.lockT < 280 ? "shrink" : "locked") : (s.lostT && now - s.lostT < 160 ? "grow" : "cover"); window.__stage[st] = (window.__stage[st] || 0) + 1; }
+    const S = window.ZabPfp && window.ZabPfp._shields; if (S) for (const k in S) { (window.__seen || (window.__seen = {}))[k] = 1; const s = S[k], now = performance.now(), st = s.lockT ? (now - s.lockT < 280 ? "shrink" : "locked") : (s.lostT && now - s.lostT < 160 ? "grow" : "cover"); window.__stage[st] = (window.__stage[st] || 0) + 1; }
   } catch (e) { window.__probeErr = String(e); } };
   const loop = () => { ch.port2.postMessage(0); requestAnimationFrame(loop); }; requestAnimationFrame(loop);
 }
@@ -99,7 +100,7 @@ async function run(base, sc, y4m) {
     // screencast: every composited frame
     const shots = []; let phase = "cold"; const cdp = await c.newCDPSession(p);
     cdp.on("Page.screencastFrame", async (f) => { shots.push({ phase, data: f.data }); try { await cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }); } catch (e) {} });
-    await cdp.send("Page.startScreencast", { format: "jpeg", quality: 92, everyNthFrame: 1 });
+    await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1 }); // lossless: JPEG ringing turns lime UI text into "green" specks
     const vidId = VID[sc.surface];
     const keepVisible = (id) => p.evaluate((id) => { const show = () => { let e = document.getElementById(id); while (e && e !== document.body) { if (e.hidden) e.hidden = false; if (getComputedStyle(e).display === "none") e.style.display = "block"; e = e.parentElement; } };
       show(); setInterval(() => { show(); const v = document.getElementById(id); if (v && v.srcObject) v.scrollIntoView({ block: "center" }); }, 150); }, id);
@@ -113,7 +114,7 @@ async function run(base, sc, y4m) {
       await sleep(150); await p.evaluate(() => { const g = document.getElementById("signGate"), b = document.getElementById("signGatePractice"); if (g && b && !g.hidden && getComputedStyle(g).display !== "none") b.click(); });
       if (!["tut", "zlSelf", "match"].includes(sc.surface)) await keepVisible(vidId);
     };
-    const grab = () => p.evaluate((id) => ({ ex: window.__ex, fr: window.__fr, stage: window.__stage, exList: window.__exList, probeErr: window.__probeErr || null, shield: !!(window.ZabPfp && window.ZabPfp._shields && window.ZabPfp._shields[id]) }), vidId);
+    const grab = () => p.evaluate((id) => ({ ex: window.__ex, fr: window.__fr, stage: window.__stage, exList: window.__exList, probeErr: window.__probeErr || null, shield: !!(window.__seen && window.__seen[id]) }), vidId);
     const seg = (n, m) => p.evaluate(([n, m]) => { window.__seg = n; window.__mode = m; }, [n, m]);
     const parts = [];
     await p.goto(base + ({ push: "/#push", plank: "/#plank", squats: "/#squats" }[sc.surface] || "/"), { waitUntil: "domcontentloaded" }); await sleep(1200);
@@ -138,16 +139,18 @@ async function run(base, sc, y4m) {
       await seg("stall", "stall"); await sleep(1200); await seg("afterStall", "normal"); await sleep(1500);
       parts.push(await grab());
     }
-    const shotPath = path.join(CACHE, "shots", `${sc.name}.png`); fs.mkdirSync(path.dirname(shotPath), { recursive: true }); await p.screenshot({ path: shotPath }).catch(() => {});
+    const shotPath = path.join(OUT, "shots", `${sc.name}.png`); fs.mkdirSync(path.dirname(shotPath), { recursive: true }); await p.screenshot({ path: shotPath }).catch(() => {});
     await cdp.send("Page.stopScreencast").catch(() => {}); await sleep(300);
-    // screencast analysis in a blank page (decode each JPEG, count green pixels)
+    // screencast analysis in a blank page (decode each PNG frame). Face pixel = the fake face's pure green, also where it blends
+    // into its edge: G > 150, R and B under 100 and under 0.4 x G. The site's own colours do not match: lime text (198,255,0),
+    // the arcade HUD green (125,255,122) and the plank guide's teal-green dashes (54,153,99). Zero face pixels allowed per frame.
     const an = await c.newPage();
     const scan = [];
     for (let i = 0; i < shots.length; i += 40) scan.push(...await an.evaluate(async (batch) => Promise.all(batch.map(async (s) => {
-      const bm = await createImageBitmap(await (await fetch("data:image/jpeg;base64," + s.data)).blob()), cv = new OffscreenCanvas(bm.width, bm.height), x = cv.getContext("2d"); x.drawImage(bm, 0, 0);
-      const d = x.getImageData(0, 0, bm.width, bm.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 1] > 150 && d[i] < 100 && d[i + 2] < 100) n++; return n; })), shots.slice(i, i + 40).map((s) => ({ data: s.data }))));
+      const bm = await createImageBitmap(await (await fetch("data:image/png;base64," + s.data)).blob()), cv = new OffscreenCanvas(bm.width, bm.height), x = cv.getContext("2d"); x.drawImage(bm, 0, 0);
+      const d = x.getImageData(0, 0, bm.width, bm.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 1] > 150 && d[i] < 100 && d[i + 2] < 100 && d[i] * 10 < d[i + 1] * 4 && d[i + 2] * 10 < d[i + 1] * 4) n++; return n; })), shots.slice(i, i + 40).map((s) => ({ data: s.data }))));
     const scExposed = []; scan.forEach((n, i) => { if (n > 0) scExposed.push({ index: i, phase: shots[i].phase, pixels: n }); });
-    if (scExposed.length) { const d = path.join(CACHE, "exposed", sc.name); fs.mkdirSync(d, { recursive: true }); for (const e of scExposed) { e.file = path.join(d, `screencast-${String(e.index).padStart(5, "0")}-${e.phase}-${e.pixels}px.jpg`); fs.writeFileSync(e.file, Buffer.from(shots[e.index].data, "base64")); } res.exposedDir = d; } // every exposed frame saved
+    if (scExposed.length) { const d = path.join(OUT, "exposed", sc.name); fs.mkdirSync(d, { recursive: true }); for (const e of scExposed) { e.file = path.join(d, `screencast-${String(e.index).padStart(5, "0")}-${e.phase}-${e.pixels}px.png`); fs.writeFileSync(e.file, Buffer.from(shots[e.index].data, "base64")); } res.exposedDir = d; } // every exposed frame saved
     const sum = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
     res.readbackFrames = parts.reduce((a, q) => a + sum(q.fr), 0); res.readbackExposed = parts.reduce((a, q) => a + sum(q.ex), 0);
     res.readbackList = parts.flatMap((q) => q.exList || []); res.bySegment = Object.assign({}, ...parts.map((q) => q.ex));
@@ -177,7 +180,7 @@ function matrix() {
 }
 
 const t0 = Date.now();
-fs.mkdirSync(CACHE, { recursive: true });
+fs.mkdirSync(OUT, { recursive: true });
 const list = matrix(); if (!list.length) { console.error("No scenarios selected."); process.exit(2); }
 for (const r of new Set(list.map((s) => s.res))) { const f = path.join(CACHE, `face-${r}.y4m`); if (!fs.existsSync(f)) { const [w, h] = r.split("x").map(Number); process.stdout.write(`Generating fake camera clip ${r} ... `); makeY4m(w, h, 240, f); console.log("done"); } }
 let srv = null, base = ARG.base; if (!base) { srv = await serve(ROOT, 0); base = `http://127.0.0.1:${srv.port}`; }
@@ -197,7 +200,7 @@ for (const [i, sc] of list.entries()) {
 if (srv) await srv.close();
 const bad = results.filter((r) => !r.ok), totalSc = results.reduce((a, r) => a + (r.screencastFrames || 0), 0), totalRb = results.reduce((a, r) => a + (r.readbackFrames || 0), 0);
 const exSc = results.reduce((a, r) => a + (r.screencastExposed || 0), 0), exRb = results.reduce((a, r) => a + (r.readbackExposed || 0), 0);
-fs.writeFileSync(path.join(CACHE, "report.json"), JSON.stringify({ when: new Date().toISOString(), quick: QUICK, control: CONTROL, base, results: results.map(({ readbackList, screencastList, ...r }) => r) }, null, 1));
-console.log(`\nTotal: ${exSc} exposed of ${totalSc} screencast frames, ${exRb} exposed of ${totalRb} readback frames; ${results.length - bad.length}/${results.length} scenarios passed. ${((Date.now() - t0) / 60000).toFixed(1)} min. Report: ${path.join(CACHE, "report.json")}`);
+fs.writeFileSync(path.join(OUT, "report.json"), JSON.stringify({ when: new Date().toISOString(), quick: QUICK, control: CONTROL, base, results: results.map(({ readbackList, screencastList, ...r }) => r) }, null, 1));
+console.log(`\nTotal: ${exSc} exposed of ${totalSc} screencast frames, ${exRb} exposed of ${totalRb} readback frames; ${results.length - bad.length}/${results.length} scenarios passed. ${((Date.now() - t0) / 60000).toFixed(1)} min. Report: ${path.join(OUT, "report.json")}`);
 console.log(bad.length ? `\nRESULT: FAIL (${bad.length} scenario(s): ${bad.map((r) => r.sc.name).join(", ")})` : "\nRESULT: PASS - zero exposed face frames in every scenario");
 process.exit(bad.length ? 1 : 0);

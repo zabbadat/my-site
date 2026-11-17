@@ -32,7 +32,11 @@ On a FAIL, the exit code is 1 and every failing frame is listed with its frame n
   - the browser's real screen output (DevTools screencast), every frame;
   - a pixel readback after every repaint of each visible camera video and logo canvas.
 
+  The screencast is captured as lossless PNG. JPEG compression smears the site's lime text into "green" specks, which would be false alarms.
+
   Both checks are strict: **zero** green face pixels are allowed in any frame, so a single green pixel counts as an exposed frame.
+
+  A face pixel is the fake face's bright green, including where it blends into its edge: in the screencast, G > 150 with R and B both under 100 and under 0.4 × G. The site's own lime text, the green HUD digits and the plank guide's teal-green dashes are not face pixels and don't count.
 - **Scenarios:**
   - **startup:** open the camera cold, then reload and open again warm. Each surface is run on phone and desktop viewports, with the pose model normal, slow (8 s) or blocked.
   - **tracking:**
@@ -59,7 +63,7 @@ On a FAIL, the exit code is 1 and every failing frame is listed with its frame n
 - **Full run:** about 25-35 minutes (51 scenarios). **Quick:** about 5-7 minutes (11 scenarios). It is slower on old laptops, because all video work runs on the CPU.
 - **Disk:**
   - about 200 MB for `npm install` plus Chromium;
-  - the fake camera clips go in your temp folder (`zab-pfp-proof`): 110 MB for quick, about 800 MB for full. Delete that folder any time.
+  - the fake camera clips go in your temp folder (`zab-pfp-proof`, or set `PFP_PROOF_DIR`); each run's report, screenshots and exposed frames go in a `run-<time>` folder inside it: 110 MB for quick, about 800 MB for full. Delete that folder any time.
 - **Internet:** needed while it runs, because the page loads its pose library (TensorFlow.js) from a CDN, as on the live site.
 
 `npm test` (the unit tests) is unchanged and does not need Playwright.
