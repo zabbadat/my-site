@@ -35,6 +35,7 @@
   // exception used to abort the start ("Camera or pose blocked.") and the hold loop never began.
   function interruptSpeak(word) {
     try {
+      if (speechProtect) return; // never cancel Set up / One / two / three / Hold mid-cue
       var w = g(); if (!w || !w.speechSynthesis) return;
       var ss = w.speechSynthesis;
       if (ss.speaking || ss.pending) { ss.cancel(); setTimeout(function () { try { utter(word); } catch (e) {} }, 60); }
@@ -43,11 +44,67 @@
   }
   // true while a spoken line is playing or queued (lets a later cue wait instead of cutting it off)
   function isSpeaking() { var w = g(); return !!(w && w.speechSynthesis && (w.speechSynthesis.speaking || w.speechSynthesis.pending)); }
-  // plankSpeak: same voice and rate, but QUEUES behind anything already speaking instead of cancelling it
-  // (no clipped words). Used for every plank line. Never throws.
+  // Serial speech (Nov 17): iOS WKWebView (and some Android WebView TTS paths) silently drop utterances
+  // passed to speak() while another is still speaking, or queued from a timer before onend. We speak one
+  // line at a time, wait for onend/onerror, and only then start the next; a timed fallback runs if onend
+  // never fires. Protected sequences (the plank One / two / three / Hold cue) are not cancelled by
+  // interruptSpeak or defaultStop.
+  var speechProtect = 0, speechQueued = 0, speechChain = Promise.resolve();
+  function protectSpeech() { speechProtect += 1; return function () { speechProtect = Math.max(0, speechProtect - 1); }; }
+  function speechFallbackMs(text) {
+    var n = String(text == null ? "" : text).length, rate = VOICE.rate || 0.88;
+    return Math.max(1500, Math.min(10000, 1000 + (120 * n) / rate));
+  }
+  function speakAndWait(text, opts) {
+    opts = opts || {};
+    var schedule = opts.schedule || function (f, d) { return setTimeout(f, d); };
+    var fallback = opts.fallbackMs != null ? opts.fallbackMs : speechFallbackMs(text);
+    var volume = opts.volume, voice = opts.voice;
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish() { if (done) return; done = true; resolve(); }
+      try {
+        var w = g();
+        if (!w || !w.speechSynthesis || typeof w.SpeechSynthesisUtterance !== "function") { schedule(finish, 0); return; }
+        try { if (typeof w.speechSynthesis.resume === "function") w.speechSynthesis.resume(); } catch (e) {}
+        var u = new w.SpeechSynthesisUtterance(say(text));
+        u.rate = (voice && voice.rate) || VOICE.rate;
+        if (volume !== undefined) u.volume = volume;
+        u.onend = finish; u.onerror = finish;
+        w.speechSynthesis.speak(u);
+      } catch (e) { finish(); return; }
+      schedule(finish, fallback);
+    });
+  }
+  function enqueueSpeak(text, opts) {
+    speechQueued += 1;
+    // Start immediately when the queue is idle so resume()+speak() run in this tick
+    // (iOS can drop a speak deferred to a microtask; tests also expect a sync first line).
+    var p = speechQueued === 1
+      ? speakAndWait(text, opts)
+      : speechChain.then(function () { return speakAndWait(text, opts); }, function () { return speakAndWait(text, opts); });
+    p = p.then(function () { speechQueued = Math.max(0, speechQueued - 1); }, function () { speechQueued = Math.max(0, speechQueued - 1); });
+    speechChain = p.catch(function () {});
+    return p;
+  }
+  function waitSpeechIdle(maxMs, schedule) {
+    schedule = schedule || function (f, d) { return setTimeout(f, d); };
+    maxMs = maxMs != null ? maxMs : 12000;
+    var t0 = Date.now();
+    return new Promise(function (resolve) {
+      (function poll() {
+        var engine = false; try { engine = isSpeaking(); } catch (e) {}
+        if (speechQueued <= 0 && !engine) return resolve(true);
+        if (Date.now() - t0 >= maxMs) return resolve(false);
+        schedule(poll, 50);
+      })();
+    });
+  }
+  // plankSpeak: same voice and rate; now serial (waits for the previous plank line to end) so iOS never
+  // drops a queued count. Never throws, never cancels.
   var PLANK_VOICE = VOICE;
-  function plankSpeak(word) { try { utter(word, undefined, VOICE); } catch (e) { /* on-screen only */ } }
-  function defaultStop() { var w = g(); if (w && w.speechSynthesis) w.speechSynthesis.cancel(); }
+  function plankSpeak(word) { try { enqueueSpeak(word); } catch (e) { /* on-screen only */ } }
+  function defaultStop() { if (speechProtect) return; var w = g(); if (w && w.speechSynthesis) w.speechSynthesis.cancel(); }
   function safe(f) { return function () { try { return f.apply(null, arguments); } catch (e) { /* on-screen only */ } }; }
   function makeGetSet(opts) {
     opts = opts || {};
@@ -163,21 +220,47 @@
     var STEPS = opts.steps || DEFAULT_STEPS;
     var speak = safe(opts.speak || defaultSpeak), unlock = safe(opts.unlock || defaultUnlock), stopSpeech = safe(opts.stop || defaultStop);
     var schedule = opts.schedule || function (f, d) { return setTimeout(f, d); }, runId = 0;
+    var waitEnd = !!opts.waitEnd, line = opts.line, idleMax = opts.idleMaxMs != null ? opts.idleMaxMs : 12000;
     return {
-      ms: STEPS[STEPS.length - 1][0], words: STEPS.map(function (x) { return x[1]; }), steps: STEPS,
+      ms: STEPS[STEPS.length - 1][0], words: STEPS.map(function (x) { return x[1]; }), steps: STEPS, waitEnd: waitEnd, line: line,
       unlock: function () { unlock(); },
       run: function (show, cancelled) {
         var my = ++runId; cancelled = cancelled || function () { return false; };
         var dead = function () { return my !== runId || cancelled(); };
+        var release = opts.protect ? protectSpeech() : function () {};
         return new Promise(function (resolve) {
-          var step = function (i) {
-            if (dead()) { stopSpeech(); return resolve(false); }
-            try { show(STEPS[i][2]); } catch (e) {}
-            speak(STEPS[i][1]);
-            if (i === STEPS.length - 1) return resolve(true);
-            schedule(function () { step(i + 1); }, STEPS[i + 1][0] - STEPS[i][0]);
-          };
-          step(0);
+          function finish(ok) { try { release(); } catch (e) {} resolve(ok); }
+          if (!waitEnd) {
+            var step = function (i) {
+              if (dead()) { stopSpeech(); return finish(false); }
+              try { show(STEPS[i][2]); } catch (e) {}
+              speak(STEPS[i][1]);
+              if (i === STEPS.length - 1) return finish(true);
+              schedule(function () { step(i + 1); }, STEPS[i + 1][0] - STEPS[i][0]);
+            };
+            return step(0);
+          }
+          // Wait for any earlier line (Set up, hold on three. / rules / camera-on) to finish, then
+          // speak each count on utterance end (timed fallback if onend never fires). Clock starts
+          // when the last word (Hold) is *started*, not when it ends.
+          function counts() {
+            if (dead()) { stopSpeech(); return finish(false); }
+            var i = 0;
+            function lead() {
+              if (!line) return step();
+              try { show(line); } catch (e) {}
+              enqueueSpeak(line, { schedule: schedule }).then(function () { if (dead()) return finish(false); step(); }, function () { if (dead()) return finish(false); step(); });
+            }
+            function step() {
+              if (dead()) { stopSpeech(); return finish(false); }
+              try { show(STEPS[i][2]); } catch (e) {}
+              var last = i === STEPS.length - 1;
+              if (last) { enqueueSpeak(STEPS[i][1], { schedule: schedule }); return finish(true); }
+              enqueueSpeak(STEPS[i][1], { schedule: schedule }).then(function () { i += 1; step(); }, function () { i += 1; step(); });
+            }
+            lead();
+          }
+          waitSpeechIdle(idleMax, schedule).then(counts, counts);
         });
       },
       cancel: function () { runId += 1; stopSpeech(); }
@@ -355,7 +438,8 @@
   }
   function makePlankTimeVoice(opts) {
     opts = opts || {};
-    var speak = safe(opts.speak || plankSpeak), every = opts.everyMs || PLANK_TIME_EVERY_MS, busy = opts.busy || isSpeaking, muted = opts.muted || null, last = 0, ended = false;
+    // defaultSpeak (not plankSpeak): tick() must stay polite and non-blocking — a mark is skipped when busy, never queued behind another line, never cancelled.
+    var speak = safe(opts.speak || defaultSpeak), every = opts.everyMs || PLANK_TIME_EVERY_MS, busy = opts.busy || isSpeaking, muted = opts.muted || null, last = 0, ended = false;
     return {
       tick: function (ms) {
         if (ended) return null;
@@ -394,7 +478,7 @@
     try { var n = w && w.navigator; if (n && typeof n.vibrate === "function") { n.vibrate([120, 80, 120]); buzzed = true; } } catch (e) {}
     return { line: POCKET_LINE, spoke: spoke, buzzed: buzzed };
   }
-  var api = { CAMERA_ON: CAMERA_ON, FACE_COVERED: FACE_COVERED, CAMERA_GUIDE: CAMERA_GUIDE, cameraOnLine: cameraOnLine, withCameraOn: withCameraOn, watchCameraVoice: watchCameraVoice, POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_SET_LINE: PLANK_SET_LINE, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
+  var api = { speakAndWait: speakAndWait, enqueueSpeak: enqueueSpeak, waitSpeechIdle: waitSpeechIdle, protectSpeech: protectSpeech, CAMERA_ON: CAMERA_ON, FACE_COVERED: FACE_COVERED, CAMERA_GUIDE: CAMERA_GUIDE, cameraOnLine: cameraOnLine, withCameraOn: withCameraOn, watchCameraVoice: watchCameraVoice, POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_SET_LINE: PLANK_SET_LINE, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else {
     root.ZabbadatGetSet = api;

@@ -111,7 +111,7 @@ for (const [name, pose, dims] of [
   check("no-cue hold: standing never starts the clock", s.phase === "ready" && s.ms === 0);
 }
 
-// Later utterances (the lock-in One / two / three / Go) resume a paused speechSynthesis (Safari).
+// Later utterances (the lock-in One / two / three / Hold) resume a paused speechSynthesis (Safari).
 {
   const calls = [];
   global.window = { speechSynthesis: { speaking: false, pending: false, resume() { calls.push("resume"); }, speak(u) { calls.push("speak:" + u.text); } }, SpeechSynthesisUtterance: function (t) { this.text = t; } };

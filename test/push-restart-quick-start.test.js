@@ -61,8 +61,8 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   const NOINTRO = (e, from) => !SAID(e).slice(from || 0).some((x) => [].concat(INTRO("pushups"), INTRO("tut"), INTRO("plank")).includes(x.w));
   const LINE = GS.NEXT_SET_LINE;
   const FULL = (k, t0) => [C[k].place + "@" + t0, GS.withCameraOn(C[k].criteria, false) + "@" + (t0 + 1000), LINE + "@" + (t0 + 3000), "One@" + (t0 + 7000), "two@" + (t0 + 8200), "three@" + (t0 + 9400), "Go@" + (t0 + 10600)].join(",");
-  // Plank: no pre-loop countdown any more (3, 2, 1, Hold runs at the plank lock-in, see plank-cue.test.js): fresh = place, criteria, clock, rules; restart = short next-set intro.
-  const FULLP = (t0) => [C.plank.place + "@" + t0, GS.withCameraOn(C.plank.criteria, false) + "@" + (t0 + 1000), C.plank.clock + "@" + (t0 + 3000), C.plank.rules + "@" + (t0 + 3000), C.plank.next + "@" + (t0 + 3000)].join(",");
+  // Plank: no pre-loop countdown any more (One, two, three, Hold runs at lock-in, see plank-cue.test.js): fresh = place, criteria, then clock / rules / next in series (each waits for onend); restart = short next-set intro.
+  const FULLP = (t0) => [C.plank.place + "@" + t0, GS.withCameraOn(C.plank.criteria, false) + "@" + (t0 + 1000), C.plank.clock + "@" + (t0 + 3000), C.plank.rules + "@" + (t0 + 4000), C.plank.next + "@" + (t0 + 5000)].join(",");
   const QUICK = (t0) => [LINE + "@" + t0, "One@" + (t0 + 4000), "two@" + (t0 + 5200), "three@" + (t0 + 6400), "Go@" + (t0 + 7600)].join(",");
   // ---- get-set.js: quick countdown
   { const said = [], shown = [], q = []; const g = GS.makeQuickCountdown({ speak: (w) => said.push(w), unlock() {}, schedule: (f, d) => q.push([f, d]) });

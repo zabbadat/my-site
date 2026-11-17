@@ -4036,7 +4036,7 @@ let plankCueSeq = 0, plankLeadUntil = 0; const PLANK_LEAD_MS = (window.ZabbadatG
 function plankSpeechIdle() { const GS = window.ZabbadatGetSet; return !(GS && GS.isSpeaking && GS.isSpeaking()); }
 // Plank start: once a good plank is locked in (cue phase), show AND speak One, two, three, Hold (1.2 s each, slower plank voice, queued not cut, big digits); the clock starts at "Hold".
 // This is the only plank countdown (the old Ready / get set / 3-2-1 / Go before the camera loop and the "Hold it… 1.5s" digits are gone).
-const plankCount = window.ZabbadatGetSet && window.ZabbadatGetSet.PLANK_STEPS ? window.ZabbadatGetSet.makeGoCountdown({ steps: window.ZabbadatGetSet.PLANK_STEPS, speak: window.ZabbadatGetSet.plankSpeak, stop: () => {} }) : null;
+const plankCount = window.ZabbadatGetSet && window.ZabbadatGetSet.PLANK_STEPS ? window.ZabbadatGetSet.makeGoCountdown({ steps: window.ZabbadatGetSet.PLANK_STEPS, speak: window.ZabbadatGetSet.plankSpeak, stop: () => {}, waitEnd: true, protect: true }) : null;
 function plankCountShow(t) {
   const b = $("plankCount"); if (b) { b.textContent = t || ""; b.hidden = !t; }
   if (t) $("plankMsg").textContent = t;
@@ -4050,9 +4050,11 @@ function plankCue(r) {
   const hold = plankHold, seq = r.cueSeq, cancelled = () => hold !== plankHold || !plankLoop || plankSaved || hold.state().phase !== "cue" || hold.state().cueSeq !== seq;
   const begin = (ok) => { if (ok && !cancelled()) hold.begin(performance.now()); setTimeout(() => plankCountShow(""), 700); };
   const say = () => (plankCount ? plankCount.run(plankCountShow, cancelled) : Promise.resolve(true)).then(begin, () => begin(false));
-  let waited = 0;
-  // Lead-in: never count before plankLeadUntil (~5.5 s after the get-into-plank line) so there is time to get down into position.
-  const wait = () => { if (cancelled()) return; if (performance.now() >= plankLeadUntil && (plankSpeechIdle() || waited >= 5000)) return say(); if (performance.now() >= plankLeadUntil) waited += 100; setTimeout(wait, 100); };
+  // Lead-in: never count before plankLeadUntil so there is time to get down into position. After that,
+  // waitEnd (makeGoCountdown) waits for earlier speech to end, then speaks One / two / three / Hold one
+  // at a time on utterance end. Do not force-start on a 5 s cap: that queued the counts under the intro
+  // and iOS / some WebViews dropped them.
+  const wait = () => { if (cancelled()) return; if (performance.now() >= plankLeadUntil) return say(); setTimeout(wait, 100); };
   wait();
 }
 function plankOutlineSet(r) {
