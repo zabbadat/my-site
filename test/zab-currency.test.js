@@ -8,7 +8,7 @@ check("ring() adds the icon once to plain text", (() => { const el = { textConte
 check("speech says Zab, never spelled out", C.spoken("You won 5 ZAB.") === "You won 5 Zab." && C.spoken("ZABBA") === "ZABBA");
 { let said = []; global.window = { speechSynthesis: { speak: (u) => said.push(u.text), cancel() {} }, SpeechSynthesisUtterance: function (t) { this.text = t; } };
   const GS = require("../get-set.js"); const v = GS.makeHoldVoice ? null : null; delete global.window;
-  const src = P("get-set.js"); check("get-set speech: all utterance paths normalise ZAB -> Zab", /function say\(t\)[^\n]*"Zab"/.test(src) && (src.match(/SpeechSynthesisUtterance\(say\(text\)\)/g) || []).length === 3); }
+  const src = P("get-set.js"); check("get-set speech: all utterance paths normalise ZAB -> Zab", /function say\(t\)/.test(src) && /\\bZAB\\b/.test(src) && /"Zab"/.test(src) && (src.match(/SpeechSynthesisUtterance\(say\(text\)\)/g) || []).length === 3); }
 const html = P("index.html"), rules = P("rules.html"), vis = (h) => h.replace(/<script[\s\S]*?<\/script>/g, "").replace(/<style[\s\S]*?<\/style>/g, "").replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, " ");
 check("page text: no old currency wording (Zabba/Zaba + the old currency noun)", !/Zab+a Tok[e]ns?/i.test(vis(html)) && !/Zab+a Tok[e]ns?/i.test(vis(rules)) && !/Zab+a Tok[e]ns?/.test(html));
 check("nav, ZAB heading, table header, row label use ZAB + ring", (html.match(/<span class="zab">ZAB<svg class="zab-ring"/g) || []).length >= 5 && /g\.textContent = "Sign in"/.test(html));

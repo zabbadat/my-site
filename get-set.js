@@ -15,8 +15,15 @@
   // voice (never a chosen voice), default pitch, relaxed unhurried rate 0.88 (was 1.3 for cues and 1.1 for coaching lines).
   var VOICE = { rate: 0.88 };
   function g() { return typeof window !== "undefined" ? window : root; }
-  /* the currency is written ZAB but spoken "Zab" (never spelled out) */
-  function say(t) { return String(t == null ? "" : t).replace(/\bZAB\b/g, "Zab"); }
+  /* Pronunciation map applied only to utterance text (on-screen spelling is unchanged):
+   * written ZAB is spoken "Zab" (never spelled out); written Gyatt is spoken "Gyot"
+   * (owner, Nov 17: one syllable, like "gyot", rhymes with yacht). */
+  var PRONOUNCE = [[/\bZAB\b/g, "Zab"], [/Gyatt/gi, "Gyot"]];
+  function say(t) {
+    var s = String(t == null ? "" : t);
+    for (var i = 0; i < PRONOUNCE.length; i++) s = s.replace(PRONOUNCE[i][0], PRONOUNCE[i][1]);
+    return s;
+  }
   function utter(text, volume, voice) {
     var w = g();
     if (!w || !w.speechSynthesis || typeof w.SpeechSynthesisUtterance !== "function") return;
@@ -478,7 +485,7 @@
     try { var n = w && w.navigator; if (n && typeof n.vibrate === "function") { n.vibrate([120, 80, 120]); buzzed = true; } } catch (e) {}
     return { line: POCKET_LINE, spoke: spoke, buzzed: buzzed };
   }
-  var api = { speakAndWait: speakAndWait, enqueueSpeak: enqueueSpeak, waitSpeechIdle: waitSpeechIdle, protectSpeech: protectSpeech, CAMERA_ON: CAMERA_ON, FACE_COVERED: FACE_COVERED, CAMERA_GUIDE: CAMERA_GUIDE, cameraOnLine: cameraOnLine, withCameraOn: withCameraOn, watchCameraVoice: watchCameraVoice, POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_SET_LINE: PLANK_SET_LINE, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
+  var api = { say: say, PRONOUNCE: PRONOUNCE, speakAndWait: speakAndWait, enqueueSpeak: enqueueSpeak, waitSpeechIdle: waitSpeechIdle, protectSpeech: protectSpeech, CAMERA_ON: CAMERA_ON, FACE_COVERED: FACE_COVERED, CAMERA_GUIDE: CAMERA_GUIDE, cameraOnLine: cameraOnLine, withCameraOn: withCameraOn, watchCameraVoice: watchCameraVoice, POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_SET_LINE: PLANK_SET_LINE, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else {
     root.ZabbadatGetSet = api;

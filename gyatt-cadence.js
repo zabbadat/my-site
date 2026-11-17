@@ -63,13 +63,20 @@
 
   function g() { return typeof window !== "undefined" ? window : root; }
   function nowDefault() { var w = g(); return w && w.performance && typeof w.performance.now === "function" ? w.performance.now() : Date.now(); }
+  // Same pronunciation map as get-set.js say() so a Gyatt line is spoken "Gyot" even when this
+  // module speaks through its own speechSynthesis path (and so the Android TTS bridge, which
+  // receives utterance.text, hears it too). Prefer the shared helper when the page has loaded it.
+  function say(text) {
+    try { var w = g(), GS = w && w.ZabbadatGetSet; if (GS && typeof GS.say === "function") return GS.say(text); } catch (e) {}
+    return String(text == null ? "" : text).replace(/\bZAB\b/g, "Zab").replace(/Gyatt/gi, "Gyot");
+  }
   function speakDefault(text) {
     try {
       var w = g(); if (!w || !w.speechSynthesis || typeof w.SpeechSynthesisUtterance !== "function") return;
       var ss = w.speechSynthesis;
       try { if (typeof ss.resume === "function") ss.resume(); } catch (e) {}
       if (ss.speaking || ss.pending) ss.cancel(); // never queue: the previous count is cut, not lagged behind
-      var u = new w.SpeechSynthesisUtterance(text); u.rate = VOICE.rate;
+      var u = new w.SpeechSynthesisUtterance(say(text)); u.rate = VOICE.rate;
       ss.speak(u);
     } catch (e) { /* on-screen only */ }
   }
@@ -221,7 +228,7 @@
     return api;
   }
 
-  var api = { makeCadence: makeCadence, sequence: sequence, PHASES: PHASES, CUES: CUES, CUE_MS: CUE_MS, SET_DONE_LINE: SET_DONE_LINE, REP_SECS: REP_SECS, TOP_K: TOP_K, estMs: estMs, COACH_GAP_MS: COACH_GAP_MS, STEP_MS: STEP_MS, REP_MS: REP_MS, LATE_MS: LATE_MS, VOICE: VOICE };
+  var api = { say: say, makeCadence: makeCadence, sequence: sequence, PHASES: PHASES, CUES: CUES, CUE_MS: CUE_MS, SET_DONE_LINE: SET_DONE_LINE, REP_SECS: REP_SECS, TOP_K: TOP_K, estMs: estMs, COACH_GAP_MS: COACH_GAP_MS, STEP_MS: STEP_MS, REP_MS: REP_MS, LATE_MS: LATE_MS, VOICE: VOICE };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.GyattCadence = api;
 })(this);
