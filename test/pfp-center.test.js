@@ -27,12 +27,12 @@ for (const fit of ["cover", "contain", "fill"]) {
 const shift = (o, dx) => { const q = {}; for (const [k, [x, y]] of Object.entries(o)) q[k] = [x + dx, y]; return q; };
 const h2 = PF.headCircle(K(shift(mir, 40)), vw, vh); check("follows the shoulders 1:1 sideways (no drift)", Math.abs(h2.x - h.x - 40) < 1e-9);
 
-// 3. Coverage: whole head inside with margin, sized from ears / shoulders, 1.3-1.5x the old size
+// 3. Coverage: whole head inside with margin, sized from ears / shoulders (~0.96x on the size-sweep front pose, ~1.05x on this portrait fixture)
 const w = Math.abs(mir.left_ear[0] - mir.right_ear[0]), earY = 460; // head width = ear to ear
 const pts = [mir.nose, mir.left_eye, mir.right_eye, mir.left_ear, mir.right_ear, [h.x, earY - w * PF.P.topUp], [h.x, earY + w * PF.P.chinDn]];
 const minMargin = Math.min(...pts.map(([x, y]) => h.r - Math.hypot(x - h.x, y - h.y)));
 check(`covers every face point, head top and chin with margin (min margin ${minMargin.toFixed(1)} px >= ${(PF.P.coverPad * w).toFixed(1)} = ${PF.P.coverPad} x ear width)`, minMargin >= PF.P.coverPad * w - 1e-6);
-const prop = 2 * h.r / 320; check(`looks like a head on the shoulders: logo width ${prop.toFixed(2)} x shoulder width (0.5-0.95)`, prop >= 0.5 && prop <= 0.95);
+const prop = 2 * h.r / 320; check(`looks like a head on the shoulders: logo width ${prop.toFixed(2)} x shoulder width (0.7-1.15; ~1.05 on this pose, ~0.96 on the size-sweep front view)`, prop >= 0.7 && prop <= 1.15);
 const far = {}; for (const [k, [x, y]] of Object.entries(mir)) far[k] = [360 + (x - 360) * 0.5, 640 + (y - 640) * 0.5];
 const hf = PF.headCircle(K(far), vw, vh); check(`scales with distance (half as far -> half the size: ${(hf.r / h.r).toFixed(3)})`, Math.abs(hf.r / h.r - 0.5) < 0.02);
 

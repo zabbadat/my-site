@@ -15,12 +15,15 @@
   var P = { plausK: 3, plausBody: 0.75, plausSpread: 2.2, staleMs: 450, lockFrames: 2, shrinkMs: 280, growMs: 160, coverBack: "#0b0d1a", minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: Infinity, holdGrow: 1, clearMs: 1200,
     minCut: 0.7, beta: 6, dCut: 2.5, leadMax: 180, leadCap: 0.35, leadV0: 0.55, leadV1: 1.8, vCut: 12, snapMs: 350, rafDraw: true, fitMs: 1000,
     spDead: 1.0, rGrowCut: 4, rShrinkCut: 0.8, dispK: 0.35, dispMinMs: 16, dispMaxMs: 32, dispRK: 2, dispSpK: 0, dispLead: true, reacqSnapR: 1, reacqMs: 150,
-    shUp: 0.55, shR: 0.25, sideK: 0.35, sideUp: 0.35, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
-    headUp: 0.1, headRW: 0.5, coverPad: 0.25, topUp: 0.85, chinDn: 0.65, openR: 0.36, openY: 0.36, lockMs: 250, openMs: 8000 };
+    shUp: 0.55, shR: 0.30, sideK: 0.35, sideUp: 0.35, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
+    headUp: 0.1, headRW: 0.6, coverPad: 0.45, topUp: 0.85, chinDn: 0.65, openR: 0.36, openY: 0.36, lockMs: 250, openMs: 8000 };
   // Centre + size (Nov 16, owner): horizontally dead-centre on the shoulder midpoint (the anchor; zero offset), vertically on
   // the head (ear line, else eye line, headUp x head width above it). Size covers the whole head with margin: r = max(headRW x
   // head width, shR x shoulder width, and far enough to reach every face point, the estimated top of the head (topUp x head
-  // width above the ear line) and the chin (chinDn below) plus coverPad x head width) - about 1.35x the old size.
+  // width above the ear line) and the chin (chinDn below) plus coverPad x head width). Later the same night the owner asked
+  // for a slightly bigger logo: coverPad 0.25 -> 0.45, headRW 0.5 -> 0.6, shR 0.25 -> 0.30, so the whole cover (logo + edge)
+  // scales up ~20% from the smallest passing size (about 0.8x shoulder width / 36.6 px on a 390-wide 4:3 view) to about 0.96x
+  // / 44 px. Centering stays at 0 px; the plausibility guard and fallback are unchanged.
   // Open (Nov 16): when a camera opens the logo shows LARGE at once (openR x the short side, openY down the view, centred)
   // before any detection; the first lock moves + shrinks it onto the head over ~lockMs; a lost head holds its last spot.
   // Sizes: face r = (ear-to-ear or eye spread x2.7)/2 x padK 1.65; when shoulders are also visible the cover is recentred
