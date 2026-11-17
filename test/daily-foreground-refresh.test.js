@@ -91,5 +91,6 @@ const tick = () => new Promise((r) => setTimeout(r, 5));
   check("old visibility-only listener removed", !/!document\.hidden && daily\.source\.kind === "native"\) daily\.refreshNative/.test(html));
   const bridge = fs.readFileSync(__dirname + "/../app-bridge.js", "utf8");
   check("app-bridge untouched by step refresh", !/refreshNative|ZabbaSteps/.test(bridge));
+  check("app-bridge no longer injects the Daily reminder button", !/zdReminder|reminderButton|Daily reminder|LocalNotifications/.test(bridge));
   process.exit(R.every(Boolean) ? 0 : 1);
 })();

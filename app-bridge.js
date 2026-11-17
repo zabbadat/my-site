@@ -1,6 +1,6 @@
 /* ZabbaDat app bridge: does nothing in a normal browser. Inside the
-   Capacitor app it mirrors personal bests to native storage, adds haptics
-   when a plank hold ends, and offers an opt-in daily practice reminder. */
+   Capacitor app it mirrors personal bests to native storage and adds haptics
+   when a plank hold ends. */
 (function () {
   var C = window.Capacitor;
   if (!C || !C.isNativePlatform || !C.isNativePlatform()) return;
@@ -32,26 +32,6 @@
       try { P.Haptics && P.Haptics.impact({ style: "HEAVY" }); } catch (e) {}
     } else if (String(k).indexOf("zabbadat-push-total-") === 0) save("zabbadat-push-today", pushToday());
   };
-  function reminderButton() {
-    if (!P.LocalNotifications || document.getElementById("zdReminder")) return;
-    var b = document.createElement("button");
-    b.id = "zdReminder"; b.type = "button";
-    b.style.cssText = "position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:9999;padding:10px 14px;border-radius:20px;border:0;background:#222;color:#fff;font:14px system-ui;box-shadow:0 2px 8px rgba(0,0,0,.4)";
-    function label(on) { b.textContent = on ? "Daily reminder: on" : "Daily reminder: off"; b.setAttribute("aria-pressed", on ? "true" : "false"); }
-    P.LocalNotifications.getPending().then(function (r) { label(r && r.notifications && r.notifications.some(function (n) { return n.id === 7001; })); }).catch(function () { label(false); });
-    b.onclick = function () {
-      if (b.getAttribute("aria-pressed") === "true") {
-        P.LocalNotifications.cancel({ notifications: [{ id: 7001 }] }).then(function () { label(false); });
-        return;
-      }
-      P.LocalNotifications.requestPermissions().then(function (p) {
-        if (p.display !== "granted") { b.textContent = "Notifications blocked in Settings"; return; }
-        return P.LocalNotifications.schedule({ notifications: [{ id: 7001, title: "ZabbaDat™", body: "Time for today's push-ups and plank. Beat your best!", schedule: { on: { hour: 18, minute: 0 }, allowWhileIdle: true } }] }).then(function () { label(true); });
-      }).catch(function () {});
-    };
-    document.body.appendChild(b);
-  }
   sync();
   document.addEventListener("visibilitychange", function () { if (!document.hidden) sync(); });
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", reminderButton); else reminderButton();
 })();
