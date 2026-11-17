@@ -18,7 +18,7 @@ for (const [n, g] of views) { const c = F.blanketLogo(g), R = F.picRect(g), old 
   check(`${n} (box ${g.bw}x${g.bh}, picture ${R.w.toFixed(0)}x${R.h.toFixed(0)}): opening logo ${(2 * c.r).toFixed(0)} px = ${f.toFixed(2)} of the picture height (was ${(2 * old).toFixed(0)} px = ${(2 * old / R.h).toFixed(2)}), upper-centre, inside the picture`,
     f >= 0.24 && f <= 0.34 && Math.abs(c.x - (R.x + R.w / 2)) < 1e-6 && c.y < R.y + R.h / 2 && c.y - c.r >= R.y - 1e-6 && c.x - c.r >= R.x - 1e-6 && c.x + c.r <= R.x + R.w + 1e-6); }
 check("overlay cover is hidden while the shield draws the camera (the check-in logo is the shield's)", /if \(!m \|\| shields\[o\.vid\.id\]\) \{ o\.cv\.style\.display = "none"; return false; \}/.test(src));
-check("locked size (Nov 17): coverPad 0.25, headRW 0.5, shR 0.25 (was 0.45 / 0.6 / 0.30)", PF.P.coverPad === 0.25 && PF.P.headRW === 0.5 && PF.P.shR === 0.25);
+check("locked size (Nov 17 chest-up): coverPad 0.25, headRW 0.5, shR 0.55, chestDown 0.45, chestFromFace 1.4", PF.P.coverPad === 0.25 && PF.P.headRW === 0.5 && PF.P.shR === 0.55 && PF.P.chestDown === 0.45 && PF.P.chestFromFace === 1.4);
 // 2. zero exposure: every intermediate circle of the shrink (check-in -> head) and of the grow (head -> check-in) contains the head
 let worst = Infinity, worstG = Infinity;
 for (let i = 0; i < 3000; i++) { const [bw, bh] = boxes[i % boxes.length], g = { bw, bh, vw: 640, vh: 480, fit: i % 2 ? "contain" : "fill" }, t = { x: Math.random() * bw, y: Math.random() * bh, r: 8 + Math.random() * 0.5 * Math.min(bw, bh) };

@@ -19,7 +19,7 @@ function pluginResult(kps, W, H) {
     const scaled = disp.map((k) => ({ ...k, x: (k.x * W) / 640, y: (k.y * H) / 480 }));
     const kps = PV.toKeypoints(pluginResult(scaled, W, H), W, H, true);
     const c = PF.headCircle(kps, W, H), want = PF.faceCircle(scaled.concat(kps.filter((k) => /ear/.test(k.name))));
-    check(`Vision ${W}x${H}: names kept, mirrored back to display px; logo centred on the displayed face (x ${c.x.toFixed(1)} vs ${(400 * W / 640).toFixed(1)})`, kps.every((k) => typeof k.name === "string") && Math.abs(kps.find((k) => k.name === "nose").x - (400 * W) / 640) < 1e-6 && c && c.src === "face" && Math.abs(c.x - want.x) < 1e-6 && Math.abs(c.y - (want.y - want.w * PF.P.headUp)) < 1e-6);
+    check(`Vision ${W}x${H}: names kept, mirrored back to display px; logo x on the displayed face, y chest-up (x ${c.x.toFixed(1)} vs ${(400 * W / 640).toFixed(1)}, y ${c && c.y.toFixed(1)})`, kps.every((k) => typeof k.name === "string") && Math.abs(kps.find((k) => k.name === "nose").x - (400 * W) / 640) < 1e-6 && c && c.src === "face" && Math.abs(c.x - want.x) < 1e-6 && c.y > want.y - want.w * PF.P.topUp && c.y < want.y + want.w * PF.P.chestFromFace && c.y - c.r <= want.y - want.w * PF.P.topUp && c.y + c.r >= want.y + want.w * PF.P.chinDn);
   }
   const kps = PV.toKeypoints(pluginResult(disp, 640, 480), 640, 480, true), c = PF.headCircle(kps, 640, 480);
   const ear = Math.abs(kps.find((k) => k.name === "left_ear").x - kps.find((k) => k.name === "right_ear").x), eye = 40;

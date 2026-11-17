@@ -22,12 +22,13 @@ check(`circle centred on the ear midpoint, not pulled toward the nose (x ${c && 
 check(`radius covers ear-to-ear and eye spread generously (r ${c && c.r.toFixed(0)} >= 60)`, c && c.r >= 60 && c.r >= (PF.P.eyeK * 40) / 2);
 check("every face keypoint lies inside the circle", c && face.slice(0, 5).every((k) => Math.hypot(k.x - c.x, k.y - c.y) < c.r));
 { const sh = PF.headCircle(K({ left_shoulder: [240, 300], right_shoulder: [400, 300] }), 640, 480);
-  check(`head down / hooded: logo estimated from shoulders (x ${sh && sh.x}, y ${sh && sh.y.toFixed(0)}, r ${sh && sh.r.toFixed(0)})`, sh && sh.src === "shoulders" && sh.x === 320 && Math.abs(sh.y - (300 - 160 * 0.55)) < 1e-9 && Math.abs(sh.r - 160 * PF.P.shR) < 1e-9);
+  const chestY = 300 + 160 * PF.P.chestDown, headY = 300 - 160 * PF.P.shUp, wantY = (headY + chestY) / 2;
+  check(`head down / hooded: logo from the estimated head down to the chest (x ${sh && sh.x}, y ${sh && sh.y.toFixed(0)}, r ${sh && sh.r.toFixed(0)})`, sh && sh.src === "shoulders" && sh.x === 320 && Math.abs(sh.y - wantY) < 1 && sh.y - sh.r <= headY + 1 && sh.y + sh.r >= chestY - 1 && sh.r >= 160 * PF.P.shR - 1e-9);
   const hood = PF.headCircle(K({ nose: [320, 200], left_shoulder: [240, 300], right_shoulder: [400, 300] }), 640, 480);
   check("hood fabric 'nose' is ignored: shoulders decide", hood && hood.src === "shoulders");
   const hf = PF.headCircle(face, 640, 480);
-  const w = 80 /* ear to ear */, idealY = 195 - w * PF.P.headUp;
-  check(`face + shoulders: x dead on the shoulder midpoint, y on the head, whole head covered (x ${hf.x.toFixed(1)}, y ${hf.y.toFixed(1)}, r ${hf.r.toFixed(1)})`, hf.src === "face" && Math.abs(hf.x - 320) < 1e-9 && Math.abs(hf.y - idealY) < 1e-9 && hf.y - hf.r <= 195 - w * PF.P.topUp && hf.y + hf.r >= 195 + w * PF.P.chinDn);
+  const w = 80 /* ear to ear */, topY = 195 - w * PF.P.topUp, midY = (topY + chestY) / 2;
+  check(`face + shoulders: x on the shoulder midpoint, y between the head top and the chest, chest-up covered (x ${hf.x.toFixed(1)}, y ${hf.y.toFixed(1)}, r ${hf.r.toFixed(1)}; diam ${(2*hf.r/480).toFixed(2)} of height, ${(2*hf.r/160).toFixed(2)} x shoulders)`, hf.src === "face" && Math.abs(hf.x - 320) < 1e-9 && Math.abs(hf.y - midY) < 1 && hf.y - hf.r <= topY && hf.y + hf.r >= chestY && hf.y + hf.r < 420 /* elbows stay visible */);
   // Nose-shifted 3/4 face: old centre mixed the nose in (pulled right); new uses ear midpoint + shoulders.
   const turned = K({ nose: [355, 200], left_eye: [300, 185], right_eye: [340, 185], left_ear: [280, 195], right_ear: [360, 195], left_shoulder: [240, 300], right_shoulder: [400, 300] });
   const ht = PF.headCircle(turned, 640, 480), oldTurnedX = (320 + 355) / 2, newTurnedOff = Math.abs(ht.x - 320), oldTurnedOff = Math.abs(oldTurnedX - 320);

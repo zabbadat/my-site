@@ -32,7 +32,7 @@ const w = Math.abs(mir.left_ear[0] - mir.right_ear[0]), earY = 460; // head widt
 const pts = [mir.nose, mir.left_eye, mir.right_eye, mir.left_ear, mir.right_ear, [h.x, earY - w * PF.P.topUp], [h.x, earY + w * PF.P.chinDn]];
 const minMargin = Math.min(...pts.map(([x, y]) => h.r - Math.hypot(x - h.x, y - h.y)));
 check(`covers every face point, head top and chin with margin (min margin ${minMargin.toFixed(1)} px >= ${(PF.P.coverPad * w).toFixed(1)} = ${PF.P.coverPad} x ear width)`, minMargin >= PF.P.coverPad * w - 1e-6);
-const prop = 2 * h.r / 320; check(`looks like a head on the shoulders: logo width ${prop.toFixed(2)} x shoulder width (0.7-1.15; ~1.05 on this pose, ~0.96 on the size-sweep front view)`, prop >= 0.7 && prop <= 1.15);
+const prop = 2 * h.r / 320; check(`chest-up on the shoulders: logo width ${prop.toFixed(2)} x shoulder width (1.3-2.0; covers head down to the upper chest)`, prop >= 1.3 && prop <= 2.0);
 const far = {}; for (const [k, [x, y]] of Object.entries(mir)) far[k] = [360 + (x - 360) * 0.5, 640 + (y - 640) * 0.5];
 const hf = PF.headCircle(K(far), vw, vh); check(`scales with distance (half as far -> half the size: ${(hf.r / h.r).toFixed(3)})`, Math.abs(hf.r / h.r - 0.5) < 0.02);
 
@@ -46,10 +46,10 @@ check(`camera open: big logo at once, centred upper-middle (x ${o0.x}, y ${o0.y}
 check("no detection yet: step keeps the big start", tr.step([], 30, vw, vh, 30).r === o0.r);
 const kp = K(mir); tr.at(100); const c1 = tr.step(kp, 100, vw, vh, 100);
 const a0 = tr.at(100), a1 = tr.at(220), a2 = tr.at(100 + PF.P.lockMs + 1);
-check(`first lock: centre snaps onto the shoulder midpoint at once (dx ${(a0.x - h.x).toFixed(3)} px, dy ${(a0.y - h.y).toFixed(3)} px), size shrinks from the big start (r ${a0.r.toFixed(0)} -> ${a1.r.toFixed(0)} -> ${a2.r.toFixed(0)})`, Math.abs(a0.x - h.x) < 1 && Math.abs(a0.y - h.y) < 1 && Math.abs(a1.x - h.x) < 1 && a0.r > a1.r && a1.r > a2.r && Math.abs(a0.r - o0.r) < 1);
-check(`on the head (shoulder midpoint, head size) within ${PF.P.lockMs} ms (dx ${(a2.x - h.x).toFixed(2)}, dr ${(a2.r - h.r).toFixed(2)})`, Math.abs(a2.x - h.x) < 1 && Math.abs(a2.y - h.y) < 1 && Math.abs(a2.r - h.r) < 1);
+check(`first lock: centre snaps onto the shoulder midpoint at once (dx ${(a0.x - h.x).toFixed(3)} px, dy ${(a0.y - h.y).toFixed(3)} px), size glides from the opening logo to chest-up (r ${a0.r.toFixed(0)} -> ${a1.r.toFixed(0)} -> ${a2.r.toFixed(0)})`, Math.abs(a0.x - h.x) < 1 && Math.abs(a0.y - h.y) < 1 && Math.abs(a1.x - h.x) < 1 && Math.abs(a0.r - o0.r) < 1 && Math.abs(a2.r - h.r) < 1);
+check(`on the chest-up lock (shoulder midpoint, head-to-chest size) within ${PF.P.lockMs} ms (dx ${(a2.x - h.x).toFixed(2)}, dr ${(a2.r - h.r).toFixed(2)})`, Math.abs(a2.x - h.x) < 1 && Math.abs(a2.y - h.y) < 1 && Math.abs(a2.r - h.r) < 1);
 for (let t = 400; t < 6000; t += 66) tr.step([], t, vw, vh, t);
-const lost = tr.at(6000); check(`lost for 5.6 s: holds the last spot, never back to the big start (x ${lost.x.toFixed(0)}, r ${lost.r.toFixed(0)})`, lost && Math.abs(lost.x - h.x) < 2 && lost.r < o0.r * 0.95);
+const lost = tr.at(6000); check(`lost for 5.6 s: holds the last locked chest-up spot (x ${lost.x.toFixed(0)}, r ${lost.r.toFixed(0)})`, lost && Math.abs(lost.x - h.x) < 2 && Math.abs(lost.y - h.y) < 4 && Math.abs(lost.r - h.r) < Math.max(4, 0.05 * h.r));
 tr.reset(); check("camera restart (reset + open): big start again", tr.open(vw, vh, 0).r === o0.r);
 const t2 = PF.createTracker(); t2.step(kp, 0, vw, vh, 0); const s0 = t2.at(0);
 check("no open (camera already running): first detection draws right on the head (snap)", Math.abs(s0.x - h.x) < 1 && Math.abs(s0.r - h.r) < 1);

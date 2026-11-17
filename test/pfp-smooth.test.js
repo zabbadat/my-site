@@ -11,10 +11,11 @@ const F = (x, y, n = () => 0) => K({
 let sd = 11; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
 const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(2 * Math.PI * rnd());
 
-check("params: dead-zone, lost-frame hysteresis, size rate limits; locked / opening sizes unchanged",
+check("params: dead-zone, lost-frame hysteresis, size rate limits; opening size unchanged; locked chest-up (shR 0.55)",
   PF.P.deadPos >= 0.02 && PF.P.deadPos <= 0.08 && PF.P.deadR >= 0.05 && PF.P.deadR <= 0.08 &&
   PF.P.lostFrames >= 3 && PF.P.lockFrames >= 2 && PF.P.rMaxShrink > 0 && PF.P.rMaxGrow > 0 &&
-  PF.P.coverPad === 0.25 && PF.P.headRW === 0.5 && PF.P.shR === 0.25 && PF.P.blankR === 0.16 && PF.P.blankY === 0.3);
+  PF.P.coverPad === 0.25 && PF.P.headRW === 0.5 && PF.P.shR === 0.55 && PF.P.blankR === 0.16 && PF.P.blankY === 0.3 &&
+  PF.P.chestDown === 0.45 && PF.P.chestFromFace === 1.4);
 
 // Jitter: still subject, ±2.5 px keypoint noise at 15 fps, 60 Hz redraw. Mean frame-to-frame logo centre move is small.
 {

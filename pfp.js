@@ -15,7 +15,7 @@
   var P = { plausK: 3, plausBody: 0.75, plausSpread: 2.2, staleMs: 450, lockFrames: 2, lostFrames: 4, shrinkMs: 280, growMs: 160, coverBack: "#0b0d1a", minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: Infinity, holdGrow: 1, clearMs: 1200,
     minCut: 0.35, beta: 4.5, dCut: 2.5, leadMax: 180, leadCap: 0.35, leadV0: 0.55, leadV1: 1.8, vCut: 12, snapMs: 350, rafDraw: true, fitMs: 1000,
     spDead: 1.0, deadPos: 0.02, deadR: 0.06, rGrowCut: 2.2, rShrinkCut: 0.4, rMaxGrow: 0.8, rMaxShrink: 0.35, dispK: 0.35, dispMinMs: 16, dispMaxMs: 32, dispRK: 2, dispSpK: 0, dispLead: true, reacqSnapR: 1, reacqMs: 150,
-    shUp: 0.55, shR: 0.25, sideK: 0.35, sideUp: 0.35, chestFrac: 0.22, sideLift: 0.16, armMargin: 0.1, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
+    shUp: 0.55, shR: 0.55, sideK: 0.35, sideUp: 0.35, chestFrac: 0.22, chestDown: 0.45, chestFromFace: 1.4, sideLift: 0.16, armMargin: 0.1, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
     headUp: 0.1, headRW: 0.5, coverPad: 0.25, topUp: 0.85, chinDn: 0.65, openR: 0.36, openY: 0.36, lockMs: 250, openMs: 8000,
     blankR: 0.16, blankY: 0.3, openMask: 0.62, staleK: 3, staleMaxMs: 1000 };
   // Centre + size (Nov 16, owner): horizontally dead-centre on the shoulder midpoint (the anchor; zero offset), vertically on
@@ -27,6 +27,11 @@
   // / 44 px. Centering stays at 0 px; the plausibility guard and fallback are unchanged.
   // Nov 17 (owner: "too big / overbearing", a little bigger than the head, centred between the shoulders): back to the
   // smallest proven size, coverPad 0.45 -> 0.25, headRW 0.6 -> 0.5, shR 0.30 -> 0.25 (~0.8x shoulder width).
+  // Same night, later (owner: SUPER BIG, chest up — head, neck, shoulders, upper chest — roughly the top third of the
+  // picture on an upright front view, arms and extremities visible below; after lock as well as before). Front locked
+  // cover is recentred between the top of the head and the chest, r large enough to hold both plus the shoulders
+  // (shR 0.55 floor; r also holds the head top, both shoulders and the chest). Side push-up / plank
+  // stay on sideCover: head down to the chest, lifted off the arms under the body.
   // Check-in size (Nov 17, owner on iPhone: "the logo is entirely too big, looks broken"): while the shield has no lock (camera
   // check-in / startup, or tracking lost) the screen is the opaque backing with NO video, so the logo there only has to look
   // right: (Nov 17 9:37) diameter 0.32 x the camera picture height (blankR 0.16), centred, blankY 0.3 down it, instead of a disc past every box corner
@@ -114,18 +119,43 @@
     var maxR = frameW > 0 && frameH > 0 ? P.maxRFrac * Math.min(frameW, frameH) : Infinity;
     return { x: c.x, y: c.y, r: Math.max(P.minR, Math.min(maxR, c.r)), src: src, sw: c.sw };
   }
-  // Cover over face + shoulders: centred horizontally on the midpoint of the face (ears/eyes) and the shoulders;
-  // vertically the circle starts at the top of the face and reaches toward the shoulder line; size from head and shoulder width.
-  function coverCircle(face, ls, rs) {
-    var shx = (ls.x + rs.x) / 2, shy = (ls.y + rs.y) / 2, sw = Math.hypot(ls.x - rs.x, ls.y - rs.y), w = face.w || (face.r * 2 / P.padK);
-    var cx = shx, cy = Math.min(face.y - w * P.headUp, shy - sw * 0.2); // x: shoulder midpoint exactly; y: the head (never below the shoulder line)
-    return { x: cx, y: cy, r: Math.max(sw * P.shR, coverR(cx, cy, face)), sw: sw };
+  // Upper-chest point: a short way down the torso from the shoulder midpoint (hips when they show, else chestDown x shoulder width).
+  function chestOf(ls, rs, by, sw) {
+    var shx = (ls.x + rs.x) / 2, shy = (ls.y + rs.y) / 2, lh = by && by.left_hip, rh = by && by.right_hip, hips, hx, hy;
+    sw = sw || Math.hypot(ls.x - rs.x, ls.y - rs.y);
+    hips = [lh, rh].filter(ok);
+    if (hips.length) {
+      hx = hips.reduce(function (s, k) { return s + k.x; }, 0) / hips.length;
+      hy = hips.reduce(function (s, k) { return s + k.y; }, 0) / hips.length;
+      return { x: shx + (hx - shx) * P.chestFrac, y: shy + (hy - shy) * P.chestFrac };
+    }
+    return { x: shx, y: shy + sw * P.chestDown };
   }
-  // Face only (no shoulder pair): centred on the head, same coverage rule.
-  function faceOnly(face) { var w = face.w || (face.r * 2 / P.padK), cy = face.y - w * P.headUp; return { x: face.x, y: cy, r: coverR(face.x, cy, face) }; }
-  function shoulderCircle(ls, rs) {
-    var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y);
-    return sw > 8 ? { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 - sw * P.shUp, r: sw * P.shR, sw: sw } : null;
+  // Cover chest-up (Nov 17, owner: SUPER BIG): head, neck, shoulders and upper chest, arms visible below.
+  // x stays on the shoulder midpoint; y sits between the top of the head and the chest; r holds all of those plus margin.
+  function coverCircle(face, ls, rs, by) {
+    var shx = (ls.x + rs.x) / 2, shy = (ls.y + rs.y) / 2, sw = Math.hypot(ls.x - rs.x, ls.y - rs.y), w = face.w || (face.r * 2 / P.padK);
+    var top = { x: face.x, y: face.y - w * P.topUp }, chest = chestOf(ls, rs, by, sw);
+    var cx = shx, cy = (top.y + chest.y) / 2, pad = w * P.coverPad;
+    var r = Math.max(sw * P.shR, coverR(cx, cy, face));
+    r = Math.max(r, Math.hypot(chest.x - cx, chest.y - cy) + pad);
+    r = Math.max(r, Math.hypot(ls.x - cx, ls.y - cy) + pad, Math.hypot(rs.x - cx, rs.y - cy) + pad);
+    return { x: cx, y: cy, r: r, sw: sw };
+  }
+  // Face only (no shoulder pair): still chest-up, with the chest estimated a little below the face (neck + upper chest).
+  function faceOnly(face) {
+    var w = face.w || (face.r * 2 / P.padK), topY = face.y - w * P.topUp, chestY = face.y + w * P.chestFromFace;
+    var cy = (topY + chestY) / 2, r = coverR(face.x, cy, face);
+    return { x: face.x, y: cy, r: Math.max(r, Math.abs(chestY - cy) + w * P.coverPad), sw: w };
+  }
+  function shoulderCircle(ls, rs, by) {
+    var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y), shx, shy, chest, headY, cy, r;
+    if (!(sw > 8)) return null;
+    shx = (ls.x + rs.x) / 2; shy = (ls.y + rs.y) / 2; chest = chestOf(ls, rs, by, sw); headY = shy - sw * P.shUp;
+    cy = (headY + chest.y) / 2;
+    r = Math.max(sw * P.shR, Math.abs(headY - cy) + sw * 0.08, Math.hypot(chest.x - shx, chest.y - cy) + sw * 0.08);
+    r = Math.max(r, Math.hypot(ls.x - shx, ls.y - cy), Math.hypot(rs.x - shx, rs.y - cy));
+    return { x: shx, y: cy, r: r, sw: sw };
   }
   function headCircle(kps, frameW, frameH) {
     var face = faceCircle(kps), by = kps && kps.length ? byName(kps) : {}, ls, rs, so, c, sw;
@@ -134,9 +164,9 @@
     so = sideOn(by);
     sw = ok(ls) && ok(rs) ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : 0;
     if (so && (!ok(ls) || !ok(rs) || sw < so.L * P.sideK)) return capCircle(sideCover(face, so, by), "side", frameW, frameH);
-    if (face && ok(ls) && ok(rs) && sw > 8) return capCircle(coverCircle(face, ls, rs), "face", frameW, frameH);
+    if (face && ok(ls) && ok(rs) && sw > 8) return capCircle(coverCircle(face, ls, rs, by), "face", frameW, frameH);
     if (face) return capCircle(faceOnly(face), "face", frameW, frameH);
-    if (ok(ls) && ok(rs)) { c = shoulderCircle(ls, rs); if (c) return capCircle(c, "shoulders", frameW, frameH); }
+    if (ok(ls) && ok(rs)) { c = shoulderCircle(ls, rs, by); if (c) return capCircle(c, "shoulders", frameW, frameH); }
     if (so) return capCircle(sideCover(face, so, by), "side", frameW, frameH);
     return null;
   }
@@ -203,7 +233,7 @@
     var rs = by.right_shoulder || (kps && kps[6] && !kps[6].name ? kps[6] : null);
     var sw = ok(ls) && ok(rs) ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : 0;
     if (so && (!ok(ls) || !ok(rs) || sw < so.L * P.sideK)) return capCircle(sideCover(face, so, by), "plank", frameW, frameH);
-    if (face && sw > 8) return capCircle(coverCircle(face, ls, rs), "face", frameW, frameH);
+    if (face && sw > 8) return capCircle(coverCircle(face, ls, rs, by), "face", frameW, frameH);
     if (face) return capCircle(faceOnly(face), "plank", frameW, frameH);
     if (so) return capCircle(sideCover(face, so, by), "plank", frameW, frameH);
     return headCircle(kps, frameW, frameH);
@@ -356,7 +386,7 @@
     det._zabFlip = 1;
     return det;
   }
-  var api = { honorFlip: honorFlip, photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, sideCover: sideCover, coverCircle: coverCircle, coverTransform: coverTransform, openCircle: openCircle, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
+  var api = { honorFlip: honorFlip, photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, sideCover: sideCover, coverCircle: coverCircle, chestOf: chestOf, coverTransform: coverTransform, openCircle: openCircle, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 
   // ---- browser side ----
