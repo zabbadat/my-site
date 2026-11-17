@@ -85,7 +85,10 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
     if (hip && knWeak && an) {
       var a = angle(hip, knWeak, an);
       var knFloor = nearFloor(knWeak, fy != null ? fy : an.y, sc, floorF) || (an && Math.abs((knWeak.y || 0) - an.y) < floorF * sc);
-      if (a != null && a < (o.kneeAngle || 140) && knFloor) return true;
+      // Nov 17 (owner): front camera, legs running away from the lens put knee and ankle at the same height in 2D. With
+      // hiddenKneeFold a front-view bend counts only with the hips dropped to the floor line (hand height).
+      var fbHipLow = fy != null && sw > 1 && fy - hip.y < (o.foldFloorFrac == null ? 0.5 : o.foldFloorFrac) * sw;
+      if (a != null && a < (o.kneeAngle || 140) && knFloor && (o.hiddenKneeFold !== true || fbHipLow || !isFrontView(sw, sh, hip, o))) return true;
     }
     // Hidden knee, side view (fix Nov 16, owner report: a clean set ended "Knees down" mid-set). Hips above the hands with
     // the feet on the floor is ALSO a normal plank / push-up top, so that alone is not a kneel: the legs must read FOLDED,
