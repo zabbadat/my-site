@@ -560,7 +560,8 @@
   function prepare(vid) {
     try {
       if (!doc || !vid || !vid.parentNode || !OPEN_IDS[vid.id] || !isOn()) return;
-      shieldFor(vid, vid.srcObject || vid.currentSrc || null);
+      var s = shieldFor(vid, vid.srcObject || vid.currentSrc || null);
+      if (s && !s.wasLocked && !lockedOnce[vid.id]) s.opening = 1;
     } catch (e) {}
   }
   api.prepare = prepare;
@@ -568,7 +569,8 @@
     try {
       if (!doc || !vid || !vid.parentNode || !OPEN_IDS[vid.id] || !isOn() || !(vid.videoWidth > 0)) return;
       var id = vid.id, hc = heads[id], src = vid.srcObject || vid.currentSrc || null;
-      shieldFor(vid, src);
+      var sh = shieldFor(vid, src);
+      if (sh && !sh.wasLocked && !lockedOnce[id]) sh.opening = 1;
       if (hc && hc.src === src && hc.tr.locked && hc.tr.locked()) return; // same stream, already on the head (a resume, not a new camera)
       // New camera or a switched track (front <-> rear, new stream): fresh tracker, big start, snap on its first lock.
       hc = heads[id] = { tr: createTracker(), c: null, t: perfNow(), timed: true, src: src };
@@ -616,7 +618,7 @@
       s = shields[vid.id] = { vid: vid, cv: cv, bufs: [doc.createElement("canvas"), doc.createElement("canvas"), doc.createElement("canvas")], bi: 0, pend: null, snap: null, circle: null, good: 0, lockT: 0, lostT: 0, lastPoseT: -1e9, live: false, src: src, vw: 0, vh: 0, frames: 0 };
       shieldLoop(s);
     }
-    if (src !== undefined && s.src !== src) { s.src = src; shieldUnlock(s); s.lostT = 0; s.snap = null; s.wasLocked = 0; delete lockedOnce[vid.id]; } // new camera / track: opening hood until it locks again
+    if (src !== undefined && s.src !== src) { s.src = src; shieldUnlock(s); s.lostT = 0; s.snap = null; s.wasLocked = 0; s.opening = 1; delete lockedOnce[vid.id]; } // new camera / track: opening hood until it locks again
     if (lockedOnce[vid.id]) s.wasLocked = 1; // canvas remount / shieldFor() without src must not forget a prior lock
     return s;
   }
@@ -667,8 +669,11 @@
     s.dbg = raw ? { kps: kps, c: null } : null;
     if (!raw) { s.bad = (s.bad || 0) + 1; s.good = 0; if (s.bad >= P.lostFrames) shieldUnlock(s); return; } // N consecutive bad frames before growing / unlocking (no flap on a one-frame dip)
     s.bad = 0; s.good += 1;
-    s.snap = snap; s.circle = enclose(raw, hc && hc.c && !hc.c.open ? hc.c : null); s.dbg.c = s.circle; s.lastPoseT = perfNow(); s.vw = vw; s.vh = vh;
-    if (!s.lockT && s.good >= P.lockFrames) { s.lockT = perfNow(); s.lostT = 0; s.wasLocked = 1; if (s.vid && s.vid.id) lockedOnce[s.vid.id] = 1; }
+    if (!s.lockSnap) s.lockSnap = doc.createElement("canvas");
+    if (s.lockSnap.width !== snap.width || s.lockSnap.height !== snap.height) { s.lockSnap.width = snap.width; s.lockSnap.height = snap.height; }
+    s.lockSnap.getContext("2d").drawImage(snap, 0, 0); // own copy: the input ring of 3 buffers is reused and must not overwrite the frozen frame
+    s.snap = s.lockSnap; s.circle = enclose(raw, hc && hc.c && !hc.c.open ? hc.c : null); s.dbg.c = s.circle; s.lastPoseT = perfNow(); s.vw = vw; s.vh = vh;
+    if (!s.lockT && s.good >= P.lockFrames) { s.lockT = perfNow(); s.lostT = 0; s.wasLocked = 1; s.opening = 0; if (s.vid && s.vid.id) lockedOnce[s.vid.id] = 1; }
     s.live = !!s.lockT;
   }
   function geom(s) { // box size, object-fit and mirroring of the hidden video (cached per size)
@@ -726,7 +731,7 @@
       x.clearRect(0, 0, g.bw, g.bh); drawSnap(x, g, s.snap, s.vw, s.vh); // the last covered frame, frozen, while the logo grows
     } else {
       m = blanketAround(g, null);
-      var preview = !(s.wasLocked || (s.vid && lockedOnce[s.vid.id])) ? grabPreview(s, v) : null; // opening only: first-frame feed + hood. After a lock (kept in lockedOnce if the canvas remounts), lost / low-conf / no-face stay a full branded blanket.
+      var preview = (s.opening && !s.wasLocked && !(s.vid && lockedOnce[s.vid.id])) ? grabPreview(s, v) : null; // fail closed: hood only while explicitly opening. After a lock, lost / low-conf / no-face stay a full branded blanket.
       x.fillStyle = P.coverBack; x.fillRect(0, 0, g.bw, g.bh); // branded placeholder (site background), never plain black
       if (preview) {
         drawSnap(x, g, preview, preview.width, preview.height);
