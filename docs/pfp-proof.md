@@ -36,7 +36,7 @@ On a FAIL, the exit code is 1 and every failing frame is listed with its frame n
 
   Both checks are strict: **zero** green face pixels are allowed in any frame, so a single green pixel in the checked area counts as an exposed frame.
 
-  A face pixel is the fake face's bright green, the same test on both checks: G > 150 with R and B both under 100.
+  A face pixel is the fake face's bright green only, the same test on both checks: G > 180 with R and B both under 90. The plank guide and other site greens do not match.
 - **Scenarios:**
   - **startup:** open the camera cold, then reload and open again warm. Each surface is run on phone and desktop viewports, with the pose model normal, slow (8 s) or blocked.
   - **tracking:**

@@ -60,7 +60,7 @@ function hooks() {
         return window.__mode === "lost" || !kp ? [] : [{ keypoints: kp, score: 0.9 }]; }; return d; }; w.__w = 1; pd.createDetector = w; }
     return pd; } });
   // readback after every repaint: rAF -> message (runs after the frame is painted, before the next one)
-  const GREEN = (d, i) => d[i + 1] > 150 && d[i] < 100 && d[i + 2] < 100;
+  const GREEN = (d, i) => d[i + 1] > 180 && d[i] < 90 && d[i + 2] < 90; // exact test-face green only (#00ff00 and its edge); plank guide (54,153,99) does not match
   const cnt = (cv, w, h) => { const d = cv.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, w, h).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (GREEN(d, i)) n++; return n; };
   const vc = document.createElement("canvas"), ch = new MessageChannel();
   ch.port1.onmessage = () => { try {
@@ -170,7 +170,7 @@ async function run(base, sc, y4m) {
     const camAreas = await p.evaluate(() => window.__camAreas || []).catch(() => []);
     await cdp.send("Page.stopScreencast").catch(() => {}); await sleep(300);
     // screencast analysis in a blank page (decode each PNG frame). Scan ONLY the on-screen camera/video area (video +
-    // shield/cover canvases), with the same green test as readback (G > 150, R < 100, B < 100) and a strict zero-pixel
+    // shield/cover canvases), with the same green test as readback (G > 180, R < 90, B < 90: the test face's bright green only) and a strict zero-pixel
     // rule. If the camera was not on screen in that frame, the count is 0 (page UI outside the camera is not scanned).
     const boxesFor = (s) => {
       if (!camAreas.length) return [];
@@ -190,7 +190,7 @@ async function run(base, sc, y4m) {
       for (const b of s.boxes) {
         const x0 = Math.max(0, Math.floor(b.x * sx)), y0 = Math.max(0, Math.floor(b.y * sy));
         const x1 = Math.min(bm.width, Math.ceil((b.x + b.w) * sx)), y1 = Math.min(bm.height, Math.ceil((b.y + b.h) * sy));
-        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = (y * bm.width + x) * 4; if (d[i + 1] > 150 && d[i] < 100 && d[i + 2] < 100) n++; }
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = (y * bm.width + x) * 4; if (d[i + 1] > 180 && d[i] < 90 && d[i + 2] < 90) n++; }
       }
       return n;
     })), shots.slice(i, i + 40).map((s) => ({ data: s.data, boxes: boxesFor(s), dw: s.dw, dh: s.dh }))));
