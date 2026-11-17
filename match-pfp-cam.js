@@ -194,9 +194,10 @@
     if (typeof root.ensurePushPose === "function") return root.ensurePushPose();
     if (typeof root.ensurePose === "function") return root.ensurePose();
     if (root.poseDetection) {
-      return root.poseDetection.createDetector(root.poseDetection.SupportedModels.MoveNet, {
+      var d = await root.poseDetection.createDetector(root.poseDetection.SupportedModels.MoveNet, {
         modelType: root.poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, enableSmoothing: false
       });
+      return root.ZabPfp && root.ZabPfp.honorFlip ? root.ZabPfp.honorFlip(d) : d; // MoveNet ignores flipHorizontal (pfp.js)
     }
     throw new Error("Pose engine not available");
   }

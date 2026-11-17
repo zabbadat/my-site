@@ -16,7 +16,8 @@
     minCut: 0.7, beta: 6, dCut: 2.5, leadMax: 180, leadCap: 0.35, leadV0: 0.55, leadV1: 1.8, vCut: 12, snapMs: 350, rafDraw: true, fitMs: 1000,
     spDead: 1.0, rGrowCut: 4, rShrinkCut: 0.8, dispK: 0.35, dispMinMs: 16, dispMaxMs: 32, dispRK: 2, dispSpK: 0, dispLead: true, reacqSnapR: 1, reacqMs: 150,
     shUp: 0.55, shR: 0.30, sideK: 0.35, sideUp: 0.35, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
-    headUp: 0.1, headRW: 0.6, coverPad: 0.45, topUp: 0.85, chinDn: 0.65, openR: 0.36, openY: 0.36, lockMs: 250, openMs: 8000 };
+    headUp: 0.1, headRW: 0.6, coverPad: 0.45, topUp: 0.85, chinDn: 0.65, openR: 0.36, openY: 0.36, lockMs: 250, openMs: 8000,
+    blankR: 0.2, blankY: 0.36, staleK: 3, staleMaxMs: 1000 };
   // Centre + size (Nov 16, owner): horizontally dead-centre on the shoulder midpoint (the anchor; zero offset), vertically on
   // the head (ear line, else eye line, headUp x head width above it). Size covers the whole head with margin: r = max(headRW x
   // head width, shR x shoulder width, and far enough to reach every face point, the estimated top of the head (topUp x head
@@ -24,6 +25,13 @@
   // for a slightly bigger logo: coverPad 0.25 -> 0.45, headRW 0.5 -> 0.6, shR 0.25 -> 0.30, so the whole cover (logo + edge)
   // scales up ~20% from the smallest passing size (about 0.8x shoulder width / 36.6 px on a 390-wide 4:3 view) to about 0.96x
   // / 44 px. Centering stays at 0 px; the plausibility guard and fallback are unchanged.
+  // Check-in size (Nov 17, owner on iPhone: "the logo is entirely too big, looks broken"): while the shield has no lock (camera
+  // check-in / startup, or tracking lost) the screen is the opaque backing with NO video, so the logo there only has to look
+  // right: blankR x the short side, centred at blankY (where a head usually is), instead of a disc past every box corner
+  // (2.27x the short side on a phone). (openR is the overlay path, hidden under the shield; unchanged.) The shrink onto the head starts from the smallest circle
+  // holding both that logo and the head circle (still nested: never uncovers the head). Stale is platform-aware: a pose
+  // engine slower than staleMs/staleK per frame (Apple Vision over the app bridge) gets staleK x its own frame interval,
+  // capped at staleMaxMs, so it no longer flips between lock and the blanket; browsers keep staleMs.
   // Open (Nov 16): when a camera opens the logo shows LARGE at once (openR x the short side, openY down the view, centred)
   // before any detection; the first lock moves + shrinks it onto the head over ~lockMs; a lost head holds its last spot.
   // Sizes: face r = (ear-to-ear or eye spread x2.7)/2 x padK 1.65; when shoulders are also visible the cover is recentred
@@ -258,7 +266,28 @@
     var k = S / side, lx = S - (rawX - sx) * k; // back to display (mirrored) coords inside the mini canvas
     return { sx: sx, sy: sy, side: side, logo: { x: lx, y: (c.y - sy) * k, r: c.r * k } };
   }
-  var api = { photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, coverCircle: coverCircle, coverTransform: coverTransform, openCircle: openCircle, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
+  // MoveNet mirror fix (Nov 17): @tensorflow-models/pose-detection 2.1.3 MoveNet IGNORES estimationConfig.flipHorizontal (only
+  // BlazePose / PoseNet read it), so every MoveNet keypoint came back in raw camera x while the cover is placed in the
+  // mirrored picture the screen shows: the logo sat on the MIRROR side of the head (face visible whenever the person is not
+  // dead centre). Browser, Android, and the iOS app's MoveNet surfaces / Vision rescue. Apple Vision (pose-vision.js) already
+  // mirrors itself and is left alone. honorFlip(det) makes a MoveNet detector do what every caller asks: with
+  // flipHorizontal x -> input width - x (the library is asked for no flip, so a later version that honours it never flips twice).
+  function honorFlip(det) {
+    if (!det || det.engine === "vision" || det._zabFlip || typeof det.estimatePoses !== "function") return det;
+    var est = det.estimatePoses.bind(det);
+    det.estimatePoses = function (img, cfg) {
+      var flip = !!(cfg && cfg.flipHorizontal);
+      return Promise.resolve(est(img, flip ? Object.assign({}, cfg, { flipHorizontal: false }) : cfg)).then(function (poses) {
+        var W = img ? (img.videoWidth || img.width || 0) : 0;
+        if (!flip || !(W > 0) || !poses) return poses;
+        for (var i = 0; i < poses.length; i++) { var k = poses[i] && poses[i].keypoints; if (k) for (var j = 0; j < k.length; j++) if (k[j] && isFinite(k[j].x)) k[j].x = W - k[j].x; }
+        return poses;
+      });
+    };
+    det._zabFlip = 1;
+    return det;
+  }
+  var api = { honorFlip: honorFlip, photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, coverCircle: coverCircle, coverTransform: coverTransform, openCircle: openCircle, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 
   // ---- browser side ----
@@ -477,7 +506,7 @@
   // and a canvas in its place shows only frames that already carry the cover:
   //  * Blanket: before the first steady lock, and whenever tracking is lost, low-confidence (no face points), stale
   //    (no pose frame for staleMs), the tab was hidden, the camera / track / resolution changed, or the model never loads:
-  //    the SAME logo scaled up past the box corners (opaque backing), no video at all.
+  //    the opaque backing over the whole box (no video at all) with the logo at check-in size (blankR, Nov 17).
   //  * Lock-on: the exact frame the pose ran on (snapshot taken right before inference, then the model runs on that
   //    snapshot), with the logo on that frame's head. Entering, the logo shrinks from the blanket to the head over shrinkMs;
   //    each step is a circle between two nested circles, so it always contains the head circle (no mid-shrink exposure).
@@ -550,7 +579,8 @@
   api.plausible = plausible;
   function shieldPose(vid, kps, hc, where) {
     var s = shields[vid.id]; if (!s || s.dead) return;
-    var vw = vid.videoWidth, vh = vid.videoHeight, snap = s.pend; s.pend = null;
+    var vw = vid.videoWidth, vh = vid.videoHeight, snap = s.pend, pn = perfNow(); s.pend = null;
+    if (s.poseT && pn - s.poseT < 3000) s.pi = s.pi ? s.pi + (pn - s.poseT - s.pi) * 0.3 : pn - s.poseT; s.poseT = pn; // pose-frame interval (ms) of this engine
     if (!snap || s.pendSrc !== s.src || snap.width !== vw || snap.height !== vh) { shieldUnlock(s); return; } // no matched frame (or a camera change in between): stay blanket
     var face = faceCircle(kps), raw = face && plausible(kps, face) ? (where || headCircle)(kps, vw, vh) : null;
     s.dbg = raw ? { kps: kps, c: null } : null;
@@ -572,11 +602,14 @@
   }
   function lerpC(a, b, p) { return { x: a.x + (b.x - a.x) * p, y: a.y + (b.y - a.y) * p, r: a.r + (b.r - a.r) * p }; }
   function ease(p) { p = Math.max(0, Math.min(1, p)); return p * p * (3 - 2 * p); }
-  function blanketAround(g, t) { // the logo past every box corner, grown if needed so it also contains circle t
-    var c = { x: g.bw / 2, y: g.bh / 2, r: Math.hypot(g.bw, g.bh) / 2 + 2 };
-    if (t) c.r = Math.max(c.r, Math.hypot(t.x - c.x, t.y - c.y) + t.r + 1);
-    return c;
+  // Check-in logo (no lock: the backing hides the whole picture, no video drawn): blankR x the short side, upper-middle.
+  function blanketLogo(g) { return { x: g.bw / 2, y: g.bh * P.blankY, r: Math.max(P.minR, P.blankR * Math.min(g.bw, g.bh)) }; }
+  function blanketAround(g, t) { // the check-in logo, or the smallest circle holding it and circle t (+1 px): t is always inside
+    var c = blanketLogo(g);
+    return t ? enclose(c, { x: t.x, y: t.y, r: t.r + 1 }) : c;
   }
+  // Stale after staleMs, or staleK x this camera's measured pose-frame interval when the engine is slower (capped).
+  function staleOf(s) { return Math.max(P.staleMs, Math.min(P.staleMaxMs, P.staleK * (s.pi || 0))); }
   function drawSnap(x, g, snap, vw, vh) {
     var sx = g.bw / vw, sy = g.bh / vh, ox = 0, oy = 0;
     if (g.fit === "contain" || g.fit === "cover") { var k = g.fit === "contain" ? Math.min(sx, sy) : Math.max(sx, sy); ox = (g.bw - vw * k) / 2; oy = (g.bh - vh * k) / 2; sx = sy = k; }
@@ -589,7 +622,7 @@
     var dpr = Math.min(root.devicePixelRatio || 1, 2), W = Math.round(g.bw * dpr), H = Math.round(g.bh * dpr);
     if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
     if (s.L !== g.left || s.T !== g.top || s.BW !== g.bw || s.BH !== g.bh) { cv.style.left = g.left + "px"; cv.style.top = g.top + "px"; cv.style.width = g.bw + "px"; cv.style.height = g.bh + "px"; s.L = g.left; s.T = g.top; s.BW = g.bw; s.BH = g.bh; }
-    if (s.lockT && (now - s.lastPoseT > P.staleMs || (doc.visibilityState && doc.visibilityState !== "visible") || !(s.snap && s.snap.width === v.videoWidth && s.snap.height === v.videoHeight))) shieldUnlock(s);
+    if (s.lockT && (now - s.lastPoseT > staleOf(s) || (doc.visibilityState && doc.visibilityState !== "visible") || !(s.snap && s.snap.width === v.videoWidth && s.snap.height === v.videoHeight))) shieldUnlock(s);
     var x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
     var m = null, gk = g.bw + "x" + g.bh + "x" + g.fit + "x" + g.mir + "x" + v.videoWidth + "x" + v.videoHeight;
     if (s.lockT && s.snap && s.circle) { s.lockG = gk;

@@ -30,10 +30,10 @@ for (let i = 0; i < 400; i++) { const bw = 390, bh = 520, t = { x: Math.random()
   const c = { x: bw / 2, y: bh / 2 }, B = { x: c.x, y: c.y, r: Math.max(Math.hypot(bw, bh) / 2 + 2, Math.hypot(t.x - c.x, t.y - c.y) + t.r + 1) };
   for (let p = 0; p <= 1.0001; p += 0.05) { const m = { x: B.x + (t.x - B.x) * p, y: B.y + (t.y - B.y) * p, r: B.r + (t.r - B.r) * p }; worst = Math.min(worst, m.r - (Math.hypot(m.x - t.x, m.y - t.y) + t.r)); } }
 check(`shrink blanket -> head: every intermediate circle contains the head circle (worst slack ${worst.toFixed(6)} px >= 0)`, worst >= -1e-6);
-check("blanket reaches past every box corner (half-diagonal + 2 px)", /r: Math\.hypot\(g\.bw, g\.bh\) \/ 2 \+ 2/.test(pfpSrc));
-check("shield: blanket when not locked / stale / hidden tab / size change; video never drawn raw", /now - s\.lastPoseT > P\.staleMs/.test(pfpSrc) && /visibilityState !== "visible"/.test(pfpSrc) && /x\.fillStyle = P\.coverBack; x\.fillRect\(0, 0, g\.bw, g\.bh\)/.test(pfpSrc) && !/drawImage\(s\.vid|drawImage\(v,/.test(pfpSrc.slice(pfpSrc.indexOf("Fail-safe shield"))));
+check("check-in logo (no lock): opaque backing over the whole box, logo blankR x short side via blanketLogo (Nov 17: no longer past the corners)", /function blanketLogo\(g\) \{ return \{ x: g\.bw \/ 2, y: g\.bh \* P\.blankY, r: Math\.max\(P\.minR, P\.blankR \* Math\.min\(g\.bw, g\.bh\)\) \}; \}/.test(pfpSrc) && /else \{ m = blanketAround\(g, null\); x\.fillStyle = P\.coverBack; x\.fillRect\(0, 0, g\.bw, g\.bh\); \}/.test(pfpSrc));
+check("shield: blanket when not locked / stale / hidden tab / size change; video never drawn raw", /now - s\.lastPoseT > staleOf\(s\)/.test(pfpSrc) && /visibilityState !== "visible"/.test(pfpSrc) && /x\.fillStyle = P\.coverBack; x\.fillRect\(0, 0, g\.bw, g\.bh\)/.test(pfpSrc) && !/drawImage\(s\.vid|drawImage\(v,/.test(pfpSrc.slice(pfpSrc.indexOf("Fail-safe shield"))));
 check("logo has an opaque backing (transparent bits never show the face)", /x\.fillStyle = P\.coverBack; x\.fillRect\(m\.x - m\.r - 1/.test(pfpSrc));
-check("lock needs steady tracking (lockFrames >= 2) and stale is under half a second", PF.P.lockFrames >= 2 && PF.P.staleMs <= 500);
+check("lock needs steady tracking (lockFrames >= 2) and stale is under half a second (browser); slow engines capped at 1 s", PF.P.lockFrames >= 2 && PF.P.staleMs <= 500 && PF.P.staleMaxMs <= 1000 && PF.P.staleK <= 3);
 const rec = fs.readFileSync(path.join(ROOT, "rec.js"), "utf8");
 check("recordings: the covered pose-matched frame, else the logo full frame (no plain face, no pixelation)", /ZabPfp\.recFrame/.test(rec) && /blanket/.test(rec) && !/imageSmoothingEnabled = false/.test(rec));
 console.log(`${pass}/${pass + fail} passed`); if (fail) process.exitCode = 1;

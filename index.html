@@ -2068,6 +2068,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/step-detector.js"></script>
   <script src="/push-session.js"></script>
   <script src="/pfp.js"></script>
+  <script src="/cam-indicator.js"></script>
   <script src="/rec.js"></script>
   <script src="/push-challenge.js"></script>
   <script src="/get-set.js"></script>
@@ -3654,6 +3655,7 @@ async function loadPoseModel() {
   // If they can't load (e.g. an app bundle without them), fall back to the tfhub copy exactly as before.
   try { poseDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, moveNetOpts(MOVENET_URL)); }
   catch (e) { poseDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, moveNetOpts(null)); }
+  if (window.ZabPfp && window.ZabPfp.honorFlip) window.ZabPfp.honorFlip(poseDetector); // MoveNet ignores flipHorizontal: make it mirror like every caller expects (pfp.js)
   if (window.ZabPfp && window.ZabPfp.warmDetector) await window.ZabPfp.warmDetector(poseDetector); // blank-frame warm-up (pfp.js)
   return poseDetector;
 }
@@ -3666,6 +3668,7 @@ async function ensurePushPose() {
   try {
     await loadCamLibs();
     pushVisionDet = await window.ZabbadatVision.createDetector();
+    if (window.ZabPfp && window.ZabPfp.warmDetector) window.ZabPfp.warmDetector(pushVisionDet); // load Vision on the phone before the first camera frame (quicker first lock); not awaited
     return pushVisionDet;
   } catch (e) {
     visionFailed = true; if (typeof console !== "undefined") console.warn("Apple Vision pose unavailable; using MoveNet", e);
