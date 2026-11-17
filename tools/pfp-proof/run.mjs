@@ -70,8 +70,13 @@ function hooks() {
   } catch (e) { window.__probeErr = String(e); } };
   const loop = () => { ch.port2.postMessage(0); requestAnimationFrame(loop); }; requestAnimationFrame(loop);
 }
-function controlHook() { const st = document.createElement("style"); st.textContent = "video{opacity:1!important}canvas.pfp-shield{display:none!important}"; (document.head || document.documentElement).appendChild(st);
-  new MutationObserver(() => { if (!st.isConnected) (document.head || document.documentElement).appendChild(st); }).observe(document.documentElement, { childList: true, subtree: true }); }
+// Negative control: undo the protection the way a regression would - drop the <html> class that hides camera videos, force
+// every video visible above everything, hide the logo canvases. The checker must then report exposed frames.
+function controlHook() {
+  const st = document.createElement("style"); st.textContent = ":root video, html.zab-pfp-shield video[id]{opacity:1!important;visibility:visible!important}canvas.pfp-shield,canvas.pfp-cover{display:none!important}";
+  const put = () => { const h = document.head || document.documentElement; if (h && !st.isConnected) h.appendChild(st); const de = document.documentElement; if (de && de.classList.contains("zab-pfp-shield")) de.classList.remove("zab-pfp-shield"); }; // guard: an unconditional remove() rewrites class and re-fires the observer forever
+  // observe the document itself: an init script runs before the parser creates <html>, so watching documentElement would miss it
+  put(); new MutationObserver(put).observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] }); setInterval(put, 50); }
 
 // ---------- one scenario ----------
 async function run(base, sc, y4m) {
