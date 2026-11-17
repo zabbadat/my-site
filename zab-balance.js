@@ -141,7 +141,19 @@
     steps10k: function (n) { return Number(n).toLocaleString("en-US") + " steps in a day"; } };
   var OF = { pushups: "", squats: "", plank: " of plank", tut: " of TUT", walk: " of walking", hold: "", steps10k: "" };
   // Display lines built from RATES so the page always matches the earn math.
-  function rateLines() { return ["pushups", "plank", "tut", "walk", "squats"].map(function (k) { var r = RATES[k]; var line = UNIT[k](r.per) + OF[k] + " = " + ZC.fmtZab(r.zab || 1) + " ZAB"; return k === "plank" ? line + ", once per set" : line; }).concat(["Daily 10K steps = 4 ZAB", "Won Zabba Washers game = 1 ZAB"]); }
+  // Earn rates: eight lines, one tile each (2 x 4 on phones, 4 x 2 on wide screens), built from RATES so they match the earn math.
+  // Owner wording (Nov 16): "One set of 10 Gyatt Squats = 1 ZAB" (no daily cap, zab-earn.js NO_DAY_CAP), "4 ZAB for 10,000 steps"
+  // (once per Eastern day), "1 ZAB for a 60-second plank" (once per set). Plank push press = the 30-second top hold (RATES.hold).
+  function rateLines() {
+    var one = function (k) { var r = RATES[k]; return UNIT[k](r.per) + OF[k] + " = " + ZC.fmtZab(r.zab || 1) + " ZAB"; };
+    return [one("pushups"),
+      ZC.fmtZab(RATES.plank.zab || 1) + " ZAB for a " + RATES.plank.per + "-second plank",
+      one("tut"), one("walk"),
+      "One set of " + RATES.squats.per + " Gyatt Squats = " + ZC.fmtZab(RATES.squats.zab || 1) + " ZAB",
+      ZC.fmtZab(RATES.steps10k.zab) + " ZAB for " + RATES.steps10k.per.toLocaleString("en-US") + " steps",
+      "Won Zabba Washers game = " + ZC.fmtZab(RATES.washers.zab || 1) + " ZAB",
+      "30-second plank push press = " + ZC.fmtZab(RATES.hold.zab) + " ZAB bonus"];
+  }
   function txLine(t) {
     t = t || {};
     var src = LABEL[t.source] || String(t.source || "?"), q = Number(t.qty) || 0;

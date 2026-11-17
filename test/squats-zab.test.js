@@ -13,7 +13,7 @@ const NOW = Date.parse("2026-11-16T18:00:00Z"), SINCE = NOW - 3600000;
 const st = (p) => p.then((r) => ({ ok: true, r }), (e) => ({ ok: false, status: e.status, msg: e.message }));
 (async () => {
   check("rate: 10 squats = 1 ZAB; 9 = 0; 19 = 1; 20 = 2; 1000 = 100", Z.zabFor("squats", 10) === 1 && Z.zabFor("squats", 9) === 0 && Z.zabFor("squats", 19) === 1 && Z.zabFor("squats", 20) === 2 && Z.zabFor("squats", 1000) === 100);
-  check("rate line '10 squats = 1 ZAB' shown on the page", Z.rateLines().includes("10 squats = 1 ZAB"));
+  check("rate line 'One set of 10 Gyatt Squats = 1 ZAB' shown on the page", Z.rateLines().includes("One set of 10 Gyatt Squats = 1 ZAB"));
   check("squats is a claim source; ledger label Gyatt Squats", Z.txLine({ source: "squats", amount: 2, qty: 25 }).source === "Gyatt Squats" && Z.txLine({ source: "squats", amount: 2, qty: 25 }).qty === "25 squats");
   check("other rates unchanged: push-up 0.1/rep, plank 60 s = 1 once, walk 10 min = 1, TUT 60 s = 1, hold 0.5, 10K = 4",
     Z.zabFor("pushups", 1) === 0.1 && Z.zabFor("plank", 600) === 1 && Z.zabFor("walk", 10) === 1 && Z.zabFor("tut", 60) === 1 && Z.RATES.hold.zab === 0.5 && Z.zabFor("steps10k", 10000) === 4);

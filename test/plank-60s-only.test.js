@@ -64,7 +64,7 @@ const plankDoc = (id, holdSec) => ({ uid: "u1", holdSec, source: "camera", creat
     && /tk && tk\.credited > 0\) speakPlankZabOnce\(\)/.test(html)
     && /plankSaved = false; plankZabSpoken = false/.test(html));
   check("rate copy says once per set, amount still 1 ZAB",
-    Z.rateLines()[1] === "1 minute of plank = 1 ZAB, once per set"
+    Z.rateLines()[1] === "1 ZAB for a 60-second plank"
     && /1 minute of plank = 1[\s\S]*once per set/.test(read("zab.html")));
   // No 30 s regular-plank bonus anywhere (the hold / plank-push-press 30 s line is the existing, unchanged bonus).
   const forbidden = /plankHold['"]\s*,|source:\s*["']plankHold["']|["']30-second plank["'](?! push press)/;

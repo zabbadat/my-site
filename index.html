@@ -860,7 +860,8 @@ nav > .pfp-row[hidden]{display:none}
   nav > div { order: 2; margin-left: auto; }
   nav > .zt-badge { order: 3; }
 }
-#zab .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
+#zab .zt-rates{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}
+@media (min-width:760px){#zab .zt-rates{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .zab{display:inline-flex;align-items:center;gap:.15em;font-weight:700;letter-spacing:.06em;white-space:nowrap}.zab-ring{width:.95em;height:.95em;display:inline-block;flex:none}
 .tuts-l{font-weight:800;color:#7fe3ff;text-shadow:0 0 8px rgba(127,227,255,.55)}
 .zabstick-hl{color:#ffe566;font-weight:800;text-shadow:0 0 6px #fff6a8,0 0 12px #ffe566,0 0 20px rgba(255,45,149,.75)}
@@ -1669,7 +1670,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="note" id="ztSignedOut">Sign in to start earning. <a href="#play" id="ztSignInLink">Go to sign-in</a></p>
     <h3>Earn rates</h3>
     <ul class="zt-rates" id="ztRates"></ul>
-    <p class="fine">Each set or walk counts on its own. Leftovers from plank, TUT and walking don't carry over.</p>
+    <p class="fine">Each set or walk counts on its own. Leftovers from plank, TUT and walking don't carry over. A plank pays once per set, at 60 seconds. The 10K steps bonus pays once per Eastern day. Gyatt Squats have no daily cap.</p>
     <h3>Recent earnings</h3>
     <table><thead><tr><th>Source</th><th><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></th><th>Activity</th><th>When</th></tr></thead><tbody id="ztTxBody"><tr><td colspan="4">Sign in to see your earnings.</td></tr></tbody></table>
   </section>
