@@ -21,7 +21,7 @@ npm run pfp-proof
 For a shorter run, use `npm run pfp-proof:quick` in the last step.
 
 The last line says **`RESULT: PASS - zero exposed face frames in every scenario`**, or **`RESULT: FAIL (...)`**.
-On a FAIL, the exit code is 1 and every failing frame is listed with its frame number, time, scenario and pixel count. The exposed frames are saved as images (the path is printed).
+On a FAIL, the exit code is 1 and every failing frame is listed with its frame number, time, scenario and pixel count. **Every** exposed screencast frame is saved as an image, and each frame's file path is printed.
 
 ## What it does
 
@@ -32,7 +32,7 @@ On a FAIL, the exit code is 1 and every failing frame is listed with its frame n
   - the browser's real screen output (DevTools screencast), every frame;
   - a pixel readback after every repaint of each visible camera video and logo canvas.
 
-  Any green face pixel in any frame counts as an exposed frame.
+  Both checks are strict: **zero** green face pixels are allowed in any frame, so a single green pixel counts as an exposed frame.
 - **Scenarios:**
   - **startup:** open the camera cold, then reload and open again warm. Each surface is run on phone and desktop viewports, with the pose model normal, slow (8 s) or blocked.
   - **tracking:**

@@ -64,7 +64,7 @@ function hooks() {
     for (const v of document.querySelectorAll("video")) { if (!v.srcObject || !(v.videoWidth > 0)) continue; const r = v.getBoundingClientRect(), op = parseFloat(getComputedStyle(v).opacity);
       if (r.width > 0 && op > 0.01 && (!v.checkVisibility || v.checkVisibility())) { vc.width = Math.ceil(v.videoWidth / 4); vc.height = Math.ceil(v.videoHeight / 4); vc.getContext("2d").drawImage(v, 0, 0, vc.width, vc.height); const n = cnt(vc, vc.width, vc.height); if (n) { bad += n; src.push("video#" + v.id + ":" + n); } } }
     for (const c of document.querySelectorAll("canvas.pfp-shield, canvas.pfp-mini")) { if (getComputedStyle(c).display === "none" || !c.width) continue; const n = cnt(c, c.width, c.height); if (n) { bad += n; src.push(c.className + ":" + n); } }
-    if (bad) { window.__ex[seg] = (window.__ex[seg] || 0) + 1; if (window.__exList.length < 20) window.__exList.push({ seg, frame: window.__fi, tMs: +performance.now().toFixed(1), pixels: src.join(",") }); }
+    if (bad) { window.__ex[seg] = (window.__ex[seg] || 0) + 1; window.__exList.push({ seg, frame: window.__fi, tMs: +performance.now().toFixed(1), pixels: src.join(",") }); }
     const S = window.ZabPfp && window.ZabPfp._shields; if (S) for (const k in S) { const s = S[k], now = performance.now(), st = s.lockT ? (now - s.lockT < 280 ? "shrink" : "locked") : (s.lostT && now - s.lostT < 160 ? "grow" : "cover"); window.__stage[st] = (window.__stage[st] || 0) + 1; }
   } catch (e) { window.__probeErr = String(e); } };
   const loop = () => { ch.port2.postMessage(0); requestAnimationFrame(loop); }; requestAnimationFrame(loop);
@@ -146,12 +146,12 @@ async function run(base, sc, y4m) {
     for (let i = 0; i < shots.length; i += 40) scan.push(...await an.evaluate(async (batch) => Promise.all(batch.map(async (s) => {
       const bm = await createImageBitmap(await (await fetch("data:image/jpeg;base64," + s.data)).blob()), cv = new OffscreenCanvas(bm.width, bm.height), x = cv.getContext("2d"); x.drawImage(bm, 0, 0);
       const d = x.getImageData(0, 0, bm.width, bm.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 1] > 150 && d[i] < 100 && d[i + 2] < 100) n++; return n; })), shots.slice(i, i + 40).map((s) => ({ data: s.data }))));
-    const scExposed = []; scan.forEach((n, i) => { if (n > 3) scExposed.push({ index: i, phase: shots[i].phase, pixels: n }); });
-    if (scExposed.length) { const d = path.join(CACHE, "exposed", sc.name); fs.mkdirSync(d, { recursive: true }); for (const e of scExposed.slice(0, 5)) fs.writeFileSync(path.join(d, `screencast-${e.index}.jpg`), Buffer.from(shots[e.index].data, "base64")); res.exposedDir = d; }
+    const scExposed = []; scan.forEach((n, i) => { if (n > 0) scExposed.push({ index: i, phase: shots[i].phase, pixels: n }); });
+    if (scExposed.length) { const d = path.join(CACHE, "exposed", sc.name); fs.mkdirSync(d, { recursive: true }); for (const e of scExposed) { e.file = path.join(d, `screencast-${String(e.index).padStart(5, "0")}-${e.phase}-${e.pixels}px.jpg`); fs.writeFileSync(e.file, Buffer.from(shots[e.index].data, "base64")); } res.exposedDir = d; } // every exposed frame saved
     const sum = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
     res.readbackFrames = parts.reduce((a, q) => a + sum(q.fr), 0); res.readbackExposed = parts.reduce((a, q) => a + sum(q.ex), 0);
-    res.readbackList = parts.flatMap((q) => q.exList || []).slice(0, 5); res.bySegment = Object.assign({}, ...parts.map((q) => q.ex));
-    res.screencastFrames = shots.length; res.screencastExposed = scExposed.length; res.screencastList = scExposed.slice(0, 5);
+    res.readbackList = parts.flatMap((q) => q.exList || []); res.bySegment = Object.assign({}, ...parts.map((q) => q.ex));
+    res.screencastFrames = shots.length; res.screencastExposed = scExposed.length; res.screencastList = scExposed;
     const stage = {}; for (const q of parts) for (const [k, v] of Object.entries(q.stage || {})) stage[k] = (stage[k] || 0) + v; res.stage = stage;
     res.shield = parts.every((q) => q.shield); res.errs = errs.slice(0, 3); res.probeErr = parts.map((q) => q.probeErr).find(Boolean) || null; res.shot = shotPath;
     // proven = the camera ran under test: frames were read back + screencast, the cover canvas existed, and tracking runs locked on at least once
@@ -190,8 +190,8 @@ for (const [i, sc] of list.entries()) {
     (r.error ? `  (${r.error})` : "") + (!r.error && !r.proven ? "  (camera did not run / lock under test)" : ""));
   if (r.readbackExposed || r.screencastExposed) {
     for (const e of r.readbackList || []) console.log(`        readback  frame ${e.frame} at ${e.tMs} ms, segment "${e.seg}": ${e.pixels} green px`);
-    for (const e of r.screencastList || []) console.log(`        screencast frame ${e.index} (${e.phase}): ${e.pixels} green px`);
-    if (r.exposedDir) console.log(`        exposed frames saved: ${r.exposedDir}   screenshot: ${r.shot}`);
+    for (const e of r.screencastList || []) console.log(`        screencast frame ${e.index} (${e.phase}): ${e.pixels} green px -> ${e.file}`);
+    if (r.exposedDir) console.log(`        all exposed screencast frames saved in: ${r.exposedDir}   end screenshot: ${r.shot}`);
   }
 }
 if (srv) await srv.close();
