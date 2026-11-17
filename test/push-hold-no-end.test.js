@@ -5,7 +5,8 @@ const S = require("./lib/push-synth.js"), PC = require("../push-counter.js"), SS
 const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
 let pass = 0, fail = 0; const check = (n, ok) => { ok ? pass++ : fail++; console.log((ok ? "PASS " : "FAIL ") + n); };
 const K = (o, score = 0.9) => Object.entries(o).map(([name, [x, y]]) => ({ name, x, y, score }));
-const kneel = () => K({ left_shoulder: [256, 170], right_shoulder: [384, 170], left_hip: [300, 400], left_knee: [330, 300], left_ankle: [310, 420], right_hip: [340, 400], right_knee: [350, 300], right_ankle: [330, 420] });
+// Nov 17: hands on the floor (wrists) so the front-camera rule can see the hips dropped to hand height.
+const kneel = () => K({ left_shoulder: [256, 170], right_shoulder: [384, 170], left_wrist: [240, 370], right_wrist: [400, 370], left_hip: [300, 400], left_knee: [330, 300], left_ankle: [310, 420], right_hip: [340, 400], right_knee: [350, 300], right_ankle: [330, 420] });
 
 // Real counter + failure watch + hold reward on synthetic front-view frames.
 function sim(segs, cfg, extra) {
