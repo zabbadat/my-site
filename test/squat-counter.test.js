@@ -11,7 +11,7 @@ function reps(depth, n, popts, o, extraFn) { const { c, t } = calibrated(o); let
 
 { const { c, ok } = calibrated(); check("calibration during setup: standing baseline after 0.5 s of upright frames", ok && c.baseline().thigh === 90 && c.baseline().leg === 180); }
 { const r = SC.createCounter().calibrate(pose(0.5), 0); check("calibration refuses a bent-knee frame (stand tall)", r.ok === false); }
-{ const r = reps(1.0, 5); check("5 full reps to parallel at the Down 4 / Hold 4 / Up 4 / Top 2 cadence = 5 reps", r.last.reps === 5 && r.last.halfReps === 0, JSON.stringify([r.last.reps, r.last.halfReps])); }
+{ const r = reps(1.0, 5); check("5 full-depth reps (reach parallel, then stand) = 5 reps", r.last.reps === 5 && r.last.halfReps === 0, JSON.stringify([r.last.reps, r.last.halfReps])); }
 { const r = reps(0.5, 3); check("depth just past threshold (hips 50 % of thigh down) counts", r.last.reps === 3); }
 { const r = reps(0.3, 4); check("half reps (30 % depth) never count; tracked as half reps", r.last.reps === 0 && r.last.halfReps === 4); }
 { // reach depth but never stand fully: stays below the top band, no rep until the full stand
@@ -100,6 +100,39 @@ function reps(depth, n, popts, o, extraFn) { const { c, t } = calibrated(o); let
   const { c, t } = calibrated(); let last; for (let i = 0; i < 300; i++) last = c.update(pose(0.05, { noise: 4 }), t + i * 33);
   check("10 s of ±4 px wobble standing: 0 reps, 0 half reps", last.reps === 0 && last.halfReps === 0);
 }
+{ const r = reps(1.0, 3, { downMs: 2000, holdMs: 500, upMs: 800, topMs: 400 });
+  check("a quicker squat than the voice (2 s down, brief hold, quick rise) still counts from movement", r.last.reps === 3 && r.last.halfReps === 0, JSON.stringify([r.last.reps, r.last.halfReps])); }
+{ const r = reps(1.0, 2, { downMs: 5000, holdMs: 4000, upMs: 2000, topMs: 1000 });
+  check("a slower squat than the voice still counts from movement", r.last.reps === 2 && r.last.halfReps === 0, JSON.stringify([r.last.reps, r.last.halfReps])); }
+{ const r = reps(1.0, 3, { downMs: 2000, holdMs: 400, upMs: 800, topMs: 400 }, { ankOut: 40 });
+  check("wide stance (~2× shoulders, toes out) still calibrates and counts full-depth reps", r.last.reps === 3 && r.last.halfReps === 0 && r.last.stanceNarrow === false, JSON.stringify([r.last.reps, r.last.halfReps, r.last.stance, r.last.stanceNarrow])); }
+{ const { c, t } = calibrated({ ankOut: 40 }); // wide stance (~2× shoulders) for a clean cave contrast
+  const wide = { ankOut: 40 };
+  let last;
+  // descend with knees tracking out (good), stay at depth, stand
+  last = feed(c, t, repProfile(1.0, { downMs: 2000, holdMs: 400, upMs: 800, topMs: 400 }), wide).last;
+  check("wide stance at the top is not flagged as narrow", last.stanceNarrow === false && last.stance >= 1.45, last.stance);
+  const { c: c2, t: t2 } = calibrated({ ankOut: 40 });
+  const fr = []; let tt = 0;
+  for (let i = 0; i <= 60; i++) fr.push({ t: (tt += 33), d: i / 60, o: { ankOut: 40, kneeOut: -30 } }); // knees collapse inward
+  for (let i = 0; i < 20; i++) fr.push({ t: (tt += 33), d: 1, o: { ankOut: 40, kneeOut: -30 } });
+  const cave = feed(c2, t2, fr, { ankOut: 40 });
+  check("knees caving inward relative to the ankles is flagged (hint only, not a fail)", cave.last.kneesCave === true && cave.last.reps === 0 && cave.last.guard === "ok", JSON.stringify({ cave: cave.last.kneesCave, reps: cave.last.reps, guard: cave.last.guard, kneeW: cave.last.kneeW, ankW: cave.last.ankW }));
+  // finish the stand with knees still in: still allowed to count if depth + stand happen
+  const up = []; let u = 0;
+  for (let i = 0; i <= 30; i++) up.push({ t: (u += 33), d: 1 - i / 30, o: { ankOut: 40, kneeOut: -30 } });
+  for (let i = 0; i < 20; i++) up.push({ t: (u += 33), d: 0, o: { ankOut: 40, kneeOut: 0 } });
+  const stood = feed(c2, cave.t + 33, up, { ankOut: 40 });
+  check("knees-cave hint never withholds a full-depth rep", stood.last.reps === 1, stood.last.reps); }
+{ const { c, t } = calibrated();
+  const fr = []; let tt = 0;
+  for (let i = 0; i <= 60; i++) fr.push({ t: (tt += 33), d: i / 60, o: { lean: 0.7 } });
+  for (let i = 0; i < 15; i++) fr.push({ t: (tt += 33), d: 1, o: { lean: 0.7 } });
+  const r = feed(c, t, fr);
+  check("chest folding forward in the squat is flagged as chestDown (hint only)", r.last.chestDown === true && r.last.guard !== "moved", JSON.stringify({ chest: r.last.chestDown, guard: r.last.guard, torso: r.last.torso })); }
+{ const { c, t } = calibrated(); // default synth stance is narrower than 1.5× shoulders
+  let last; for (let i = 0; i < 10; i++) last = c.update(pose(0), t + 33 * (i + 1));
+  check("a narrow stance is a setup hint only: still calibrated, never a fail", last.stanceNarrow === true && last.guard === "ok" && c.baseline(), JSON.stringify({ narrow: last.stanceNarrow, stance: last.stance, guard: last.guard })); }
 check("thresholds: depth 0.45, top 0.12, 3D depth <= 100, top >= 160", SC.T.depth === 0.45 && SC.T.topAt === 0.12 && SC.T.depth3D === 100 && SC.T.top3D === 160);
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

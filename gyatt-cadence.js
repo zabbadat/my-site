@@ -1,23 +1,29 @@
-/* Gyatt Squats voice cadence: a four-count at 1 s per beat in every phase (owner, Nov 17).
+/* Gyatt Squats voice cadence: pacing guidance only (owner, Nov 17).
  *
- * One rep = 16 s, looping until stop() / complete() (or opts.maxReps reps):
+ * Loop (about 12 s of guidance, then it repeats until stop() / complete()):
  *   DOWN     4 s  t=0    "Down, one" · "two" · "three" · "four"
  *   HOLD     4 s  t=4    "Hold, one" · "two" · "three" · "four"
- *   UP       4 s  t=8    "Up, one" · "two" · "three" · "four"
- *   SQUEEZE  4 s  t=12   "Squeeze, one" · "two" · "three" · "four"
- *   rep 2 starts at t=16 ("Down, one"), rep 3 at t=32, ...
- * The phase word and "one" share beat one so each phase is exactly 4 s. Rep numbers are never spoken
- * (reps stay on screen only). This replaces the Nov 16 short-cue / no-per-second-count rule.
- * Squeeze was previously a 2 s top beat; the four-count needs 4 s, so a rep is 16 s (was 14 s).
+ *   UP       1 s  t=8    "Up"          (a single word; no numbers — the rise is quick and self-paced)
+ *   SQUEEZE  3 s  t=9    "Squeeze" on the first beat, then 2 s quiet at the top
+ *   next Down at t=12
+ * The down and hold phase-word shares beat one with "one" so those phases stay at 4 s. Up and Squeeze
+ * have no count. Rep numbers are never spoken (reps stay on screen only). Reps are counted from the
+ * actual front-camera movement in squat-counter.js, not from this clock. Going faster or slower than
+ * the voice does not fail or skip a rep. This replaces the Nov 17 four-count on every phase (Down /
+ * Hold / Up / Squeeze, 16 s a rep), whose resync-to-squeeze jumped the voice when a real squat
+ * finished during Down or Hold and fought the pose counter.
  *
  * Timing: every tick k has a fixed target  t0 + k*1000  on a monotonic clock (performance.now). Each timer is armed
- * for (target - now), so setTimeout lateness never accumulates (no drift). Every beat is spoken (a late timer still
- * enqueues the word; the serial voice catches up). Speech: the site voice (phone default TTS, rate 0.88) through
- * get-set.js enqueueSpeak / speakAndWait (onend + timed fallback) so iOS never drops a count queued while the
- * previous beat is still speaking. Beats are never cancelled by a later count. Pronunciation map (Gyatt -> Gyot) applies.
+ * for (target - now), so setTimeout lateness never accumulates (no drift). Every scheduled word is spoken (a late
+ * timer still enqueues it; the serial voice catches up). Speech: the site voice (phone default TTS, rate 0.88)
+ * through get-set.js enqueueSpeak / speakAndWait (onend + timed fallback) so iOS never drops a count queued
+ * while the previous beat is still speaking. Beats are never cancelled by a later count. Pronunciation map
+ * (Gyatt -> Gyot) applies.
  *
- * Coaching lines never talk over the four-count: while the cadence is running there is no quiet gap, so coach()
- * returns "dropped". When it is not running, coach() returns "idle" and the caller speaks the line itself.
+ * Coaching lines never talk over the four-count on the way down or the four-count hold. They may be spoken
+ * in the quiet gap after Squeeze, before the next Down. While a count is in progress coach() returns
+ * "dropped" or queues the line for that gap (the caller does not speak it itself). When the cadence is
+ * not running, coach() returns "idle" and the caller speaks the line itself.
  *
  * API:
  *   var c = GyattCadence.makeCadence({ onPhase, onRep, onStop, onOffPace, onCoach, maxReps, lateMs,
@@ -26,33 +32,35 @@
  *   c.stop(reason)       halts timers, drops a waiting coaching line and cancels speech; onStop(state, reason)
  *   c.onPhase(fn)        fn(phase, sec, rep, info{ word: the spoken beat, spoken, label, atMs }) every second
  *   c.onRep(fn) / c.onStop(fn)
- *   c.coach(text)        -> "dropped" while running, "idle" when not (caller speaks it itself)
- *   c.resync(rep)        jump NOW to rep `rep`'s squeeze beat, then the next "Down" 4 s later (counted rep finished early / late)
- *   c.complete(cb, rep)  set done: finish this rep's squeeze four-count, say "Set complete.", stop the loop
- *   c.offBoundaryMs()    ms from now to the nearest rep boundary
+ *   c.coach(text)        -> "idle" when not running (caller speaks it); otherwise speaks in a quiet gap or
+ *                          returns "dropped" / queues so it never talks over a count
+ *   c.resync(rep)        jump NOW to this loop's Squeeze (kept for set-complete); squat-page does not call
+ *                          this when a pose rep finishes early or late — the clock is guidance only
+ *   c.complete(cb, rep)  set done: play Squeeze if the loop is still in Down / Hold / Up, say "Set complete.", stop
+ *   c.offBoundaryMs()    ms from now to the nearest loop boundary
  *   c.state()            { running, rep, phase, count, repsDone, elapsedMs, nextAtMs, spoken, skipped, coachSpoken, coachDropped }
- *   c.pose(sample)       pose-sync hook: with opts.poseCheck(sample, state) === false, onOffPace(state, sample) fires
+ *   c.pose(sample)       pose-sync hook (hint only): with opts.poseCheck(sample, state) === false, onOffPace fires
  */
 (function (root) {
   var PHASES = [
     { id: "down", label: "Down", secs: 4 },
     { id: "hold", label: "Hold", secs: 4 },
-    { id: "up", label: "Up", secs: 4 },
-    { id: "top", label: "Squeeze", secs: 4 }  // was 2 s with a single squeeze cue; four-count needs 4 s
+    { id: "up", label: "Up", secs: 1 },        // single "Up"; the rise is quick, no count
+    { id: "top", label: "Squeeze", secs: 3 }  // "Squeeze" on beat one, then 2 s quiet for coaching / the next Down
   ];
-  // Phase word on beat one (then "one"); counts two / three / four follow at 1 s steps. Never a rep number.
+  // Down / Hold: phase word on beat one (then "one"); counts two / three / four follow. Up / Squeeze: a single word, no number.
   var PHASE_WORD = { down: "Down", hold: "Hold", up: "Up", top: "Squeeze" };
   var BEATS = ["one", "two", "three", "four"];
-  var CUES = { down: "Down, one", hold: "Hold, one", up: "Up, one", top: "Squeeze, one" };
-  // Spoken length at the site rate 0.88 for the beat-one line ("Down, one", ...).
-  var CUE_MS = { down: 900, hold: 900, up: 800, top: 1000 };
+  var CUES = { down: "Down, one", hold: "Hold, one", up: "Up", top: "Squeeze" };
+  // Spoken length at the site rate 0.88 for the beat-one line.
+  var CUE_MS = { down: 900, hold: 900, up: 500, top: 700 };
   var SET_DONE_LINE = "Set complete.";
-  var COACH_GAP_MS = 800, COACH_TAIL_MS = 300, COACH_STALE_MS = 5000;
+  var COACH_GAP_MS = 800, COACH_TAIL_MS = 300, COACH_STALE_MS = 15000; // long enough to hold a line from early Down until the quiet gap after Squeeze
   // rough length of a short line at rate 0.88 (phone TTS ~150 words/min at 1.0): 350 ms + 330 ms a word
   function estMs(text) { var n = String(text || "").trim().split(/\s+/).filter(Boolean).length; return 350 + 330 * n; }
   var STEP_MS = 1000;
-  var REP_SECS = PHASES.reduce(function (a, p) { return a + p.secs; }, 0); // 16
-  var TOP_K = REP_SECS - PHASES[PHASES.length - 1].secs;                     // 12: tick where the squeeze beat starts
+  var REP_SECS = PHASES.reduce(function (a, p) { return a + p.secs; }, 0); // 12
+  var TOP_K = REP_SECS - PHASES[PHASES.length - 1].secs;                     // 9: tick where Squeeze starts
   var REP_MS = REP_SECS * STEP_MS;
   var LATE_MS = 250;
   var VOICE = { rate: 0.88 }; // same as get-set.js VOICE (site-wide voice) and the plank prompts
@@ -91,6 +99,8 @@
     return { phase: s.phase, label: s.label, count: s.count, rep: Math.floor(k / REP_SECS) + 1 };
   }
   function wordFor(slot) {
+    if (slot.phase === "up") return slot.count === 1 ? "Up" : null;
+    if (slot.phase === "top") return slot.count === 1 ? "Squeeze" : null;
     var beat = BEATS[slot.count - 1];
     if (!beat) return null;
     if (slot.count === 1) return (PHASE_WORD[slot.phase] || slot.label) + ", " + beat;
@@ -155,8 +165,10 @@
     function coach(text) {
       text = String(text || "").trim(); if (!text) return "dropped";
       if (!running) return "idle";
-      // The four-count fills every second; never talk over it. On-screen coaching in squat-page.js still shows.
-      coachDropped++; emit(L.coach, [text, "dropped", "counting"]);
+      // Never talk over Down / Hold counts, or the short Up / Squeeze words. Speak in the quiet gap after Squeeze.
+      if (fits(text)) { dropPending("replaced"); sayCoach(text); return "now"; }
+      if (pending) { coachDropped++; emit(L.coach, [pending.text, "dropped", "replaced"]); }
+      pending = { text: text, at: now() };
       return "dropped";
     }
     function arm() {
@@ -179,11 +191,12 @@
         }
         var s = slotAt(k), late = t - atMs, word = wordFor(s);
         s.rep += repBase;
-        // Speak every beat (phase word + "one" together at count 1, then two / three / four). A late
-        // timer still enqueues the word so iOS / a slow tick never drops a count; skipped stays for API compat.
+        // Speak Down / Hold counts and the single Up / Squeeze words. Quiet Squeeze beats offer a coaching gap.
+        // A late timer still enqueues the word so iOS / a slow tick never drops a count; skipped stays for API compat.
         var said = !!word;
         cur = s;
-        if (said) { sayIt(word); spoken++; lastCueEnd = t0 + atMs + Math.max(COACH_GAP_MS, (CUE_MS[s.phase] || 600) + 200); afterCue(); } else if (word) skipped++;
+        if (said) { sayIt(word); spoken++; lastCueEnd = t0 + atMs + Math.max(COACH_GAP_MS, (CUE_MS[s.phase] || 600) + 200); afterCue(); }
+        else { afterCue(); tryPending(); }
         emit(L.phase, [s.phase, s.count, s.rep, { k: k, atMs: atMs, firedMs: t, lateMs: late, word: word, spoken: said, label: s.label }]);
       }
       if (running) arm();
@@ -198,8 +211,8 @@
       },
       stop: function (reason) { finish(reason || "stop"); return api; },
       coach: coach,
-      // resync(rep): a counted rep finished away from the cycle (user faster / slower than the voice): jump to rep
-      // `rep`'s squeeze beat NOW ("Squeeze, one"), then the next "Down, one" 4 s later.
+      // resync(rep): jump to this loop's Squeeze NOW, then the next "Down, one" after the quiet top (used by
+      // complete(); squat-page does not call this when a pose rep finishes early or late).
       resync: function (rep) {
         if (!running) return api;
         if (timer != null) { try { clear(timer); } catch (e) {} timer = null; }
@@ -209,12 +222,12 @@
         tick();
         return api;
       },
-      // complete(cb): the set is done (tenth counted rep). Finish this rep's squeeze four-count (jump to it now if the cycle is still
-      // in Down / Hold), then say "Set complete." and stop the loop (onStop reason "complete"). No rep numbers are spoken.
+      // complete(cb): the set is done (tenth counted pose rep). Play Squeeze now if the loop is still in Down / Hold / Up,
+      // then say "Set complete." and stop the loop (onStop reason "complete"). No rep numbers are spoken.
       complete: function (cb, rep) {
         if (!running) { sayIt(SET_DONE_LINE); try { cb && cb(); } catch (e) {} return api; }
         completing = { text: SET_DONE_LINE, cb: cb };
-        if (cur && (cur.phase === "down" || cur.phase === "hold")) api.resync(rep || cur.rep);
+        if (cur && cur.phase !== "top") api.resync(rep || cur.rep);
         return api;
       },
       // ms from now to the nearest cadence rep boundary (0 = exactly on one); null when stopped
@@ -224,8 +237,7 @@
       onStop: function (f) { L.stop.push(f); return api; },
       onOffPace: function (f) { L.offPace.push(f); return api; },
       state: state,
-      // Future pose-sync hook (not built): the tile's pose loop can call pose(sample) every frame. With opts.poseCheck
-      // supplied, a false result means the user's actual movement is out of phase with the cadence -> onOffPace.
+      // Optional pose hook (hint only, never changes reps): the tile may call pose(sample) every frame.
       pose: function (sample) {
         if (!running || typeof opts.poseCheck !== "function") return null;
         var st = state(), ok;

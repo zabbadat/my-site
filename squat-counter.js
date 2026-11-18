@@ -10,9 +10,14 @@
  *            lowers the drop needed for depth from 0.45 to 0.38) and a standing check (>= 155 deg at the top).
  *   knee3D = iOS app only: Apple Vision body-space knee angle (pose-vision.js knee3D). When present it decides:
  *            depth = knee3D <= 100 deg (with drop >= 0.25 as a sanity check), top = knee3D >= 160 deg (with drop <= 0.15).
- * State machine: top -> down (drop > 0.15) -> bottom (depth held >= 100 ms) -> up (drop < 0.40) -> top held >= 150 ms
- * => 1 rep. down -> top without reaching depth = a half rep (counted separately, never a rep). Reps are at least
- * 0.8 s apart (debounce). Hips are smoothed with a One Euro filter (fast when moving, steady when still).
+ * A rep is the actual movement: descend until thighs are at or below parallel (hips reach knee height from the
+ * front, or the knee-angle threshold below), then return to standing. The spoken cadence is pacing only and
+ * never adds or withholds a rep. down -> top without reaching depth = a half rep (counted separately, never a
+ * rep). Hysteresis around the depth and top lines so jitter does not double-count. Reps are at least 0.8 s
+ * apart (debounce). Hips are smoothed with a One Euro filter (fast when moving, steady when still).
+ * Form hints (never a fail, never void a rep): stanceNarrow when ankle width is under about 1.45× shoulder
+ * width (setup wants about 1.5–2×, toes out); kneesCave when, in the squat, the knees track inside the ankles;
+ * chestDown when the torso shortens clearly while the hips are down.
  * Guards (never count, never advance): leaving the frame (hips/knees/ankles/shoulders missing), walking toward or away
  * from the camera (shoulder width off the baseline by > 18 %, or the feet moving more than 12 % of the leg), bending
  * over (shoulders dropping toward the hips: torso shorter than 55 % of standing while the hips stay high). A walk or
@@ -30,14 +35,18 @@
     bent2D: 120,
     riseAt: 0.40,         // hysteresis: bottom -> up once the hips are back above 40 %
     topAt: 0.12,          // back to the standing baseline (within 12 % of the thigh)
-    top2D: 155,           // standing 2D knee
+    top2D: 155,           // standing 2D knee, typical stance
+    top2DWide: 140,       // standing 2D knee allowed when the stance is wide (toes-out shin angle from the front)
     depth3D: 100, top3D: 160, depth3DDrop: 0.25, top3DDrop: 0.15,
     depthHoldMs: 100, topHoldMs: 150, minRepMs: 800,
     scaleTol: 0.18,       // shoulder width vs baseline
     feetTol: 0.12,        // ankle drift as a fraction of the standing hip-to-ankle height
     bendTorso: 0.55,      // torso (shoulder->hip) shorter than this fraction of standing = bending over
     bendMaxDrop: 0.30,    // ... while the hips have not really dropped
-    recalMs: 1200, calibMinMs: 500
+    recalMs: 1200, calibMinMs: 500,
+    stanceMin: 1.45,       // ankle width / shoulder width: setup hint, not a fail (wanted 1.5–2×)
+    caveRatio: 0.85,       // knees caving: knee width under 85 % of ankle width while descending
+    chestTorso: 0.70       // chest-down hint: torso shorter than this fraction of standing while in the squat
   };
   var NEED = ["left_shoulder", "right_shoulder", "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle"];
 
@@ -57,7 +66,9 @@
     var kl = angle(b.left_hip, b.left_knee, b.left_ankle), kr = angle(b.right_hip, b.right_knee, b.right_ankle);
     var k2 = kl != null && kr != null ? (kl + kr) / 2 : kl != null ? kl : kr;
     var wr = [b.left_wrist, b.right_wrist].filter(good);
-    return { shY: sh.y, hipY: hip.y, kneeY: knee.y, ankY: ank.y, ankX: ank.x, shW: Math.abs(b.left_shoulder.x - b.right_shoulder.x),
+    var shW = Math.abs(b.left_shoulder.x - b.right_shoulder.x), ankW = Math.abs(b.left_ankle.x - b.right_ankle.x), kneeW = Math.abs(b.left_knee.x - b.right_knee.x);
+    return { shY: sh.y, hipY: hip.y, kneeY: knee.y, ankY: ank.y, ankX: ank.x, shW: shW, ankW: ankW, kneeW: kneeW,
+      leftKneeX: b.left_knee.x, rightKneeX: b.right_knee.x, leftAnkX: b.left_ankle.x, rightAnkX: b.right_ankle.x,
       knee2D: k2, wristY: wr.length ? Math.max.apply(null, wr.map(function (w) { return w.y; })) : null };
   }
   function knee3DOf(extra) {
@@ -82,22 +93,27 @@
   function createCounter(opts) {
     opts = opts || {};
     var th = Object.assign({}, T, opts.thresholds || {});
+    function standKneeOk(m) {
+      if (m.knee2D == null) return true;
+      var wide = m.shW > 0 && m.ankW / m.shW >= th.stanceMin;
+      return m.knee2D >= (wide ? th.top2DWide : th.top2D);
+    }
     var base = null, calib = [], calibT0 = null;
     var fHip = oneEuro(1.2, 0.02), fSh = oneEuro(1.2, 0.02), fW = oneEuro(0.8, 0.01), fAnk = oneEuro(1.0, 0.01);
     var phase = "top", reps = 0, halfReps = 0, lastRepT = -1e9, enterT = null, topT = null, bottomT = null, voided = false;
     var guard = "ok", stillT = null, stillRef = null, last = null;
 
-    function setBase(m) { base = { hipY: m.hipY, kneeY: m.kneeY, ankY: m.ankY, ankX: m.ankX, shY: m.shY, shW: m.shW,
+    function setBase(m) { base = { hipY: m.hipY, kneeY: m.kneeY, ankY: m.ankY, ankX: m.ankX, shY: m.shY, shW: m.shW, ankW: m.ankW,
       thigh: Math.max(1, m.kneeY - m.hipY), leg: Math.max(1, m.ankY - m.hipY), torso: Math.max(1, m.hipY - m.shY) }; }
     // Standing baseline: median of frames given during the 1-2-3-Go setup (call calibrate() each frame), or the first
     // upright frames of the set if it never got any.
     function calibrate(kps, t) {
       var m = measure(kps); if (!m) return { ok: false, frame: "missing" };
-      if (m.knee2D != null && m.knee2D < th.top2D) return { ok: false, frame: "stand_tall" };
+      if (!standKneeOk(m)) return { ok: false, frame: "stand_tall" };
       if (calibT0 == null) calibT0 = t;
       calib.push(m); if (calib.length > 60) calib.shift();
       var med = function (k) { var a = calib.map(function (c) { return c[k]; }).sort(function (x, y) { return x - y; }); return a[Math.floor(a.length / 2)]; };
-      setBase({ hipY: med("hipY"), kneeY: med("kneeY"), ankY: med("ankY"), ankX: med("ankX"), shY: med("shY"), shW: med("shW") });
+      setBase({ hipY: med("hipY"), kneeY: med("kneeY"), ankY: med("ankY"), ankX: med("ankX"), shY: med("shY"), shW: med("shW"), ankW: med("ankW") });
       return { ok: t - calibT0 >= th.calibMinMs, frame: "ok", baseline: Object.assign({}, base) };
     }
     function snapshot(extra) {
@@ -116,12 +132,17 @@
       var bent = !moved && torso < th.bendTorso && drop < th.bendMaxDrop;
       var event = null;
       guard = moved ? "moved" : bent ? "bent" : "ok";
+      var stance = m.shW > 0 ? m.ankW / m.shW : 0;
+      var inSquat = drop > th.downAt;
+      var kneesCave = inSquat && m.ankW > 0 && m.kneeW < m.ankW * th.caveRatio;
+      var chestDown = inSquat && torso < th.chestTorso;
       last = { frame: "ok", drop: drop, torso: torso, scale: s, knee2D: m.knee2D, knee3D: k3, hipBelowKnee: m.hipY >= m.kneeY,
-        wristBelowKnee: m.wristY != null && m.wristY >= m.kneeY + 0.6 * Math.max(1, m.ankY - m.kneeY), hipY: m.hipY, kneeY: m.kneeY };
+        wristBelowKnee: m.wristY != null && m.wristY >= m.kneeY + 0.6 * Math.max(1, m.ankY - m.kneeY), hipY: m.hipY, kneeY: m.kneeY,
+        stance: stance, stanceNarrow: stance < th.stanceMin, kneesCave: kneesCave, chestDown: chestDown, ankW: m.ankW, kneeW: m.kneeW };
       if (moved) {
         if (phase !== "top") { voided = true; }
         // re-calibrate once standing still and upright at the new spot
-        var up = m.knee2D == null || m.knee2D >= th.top2D;
+        var up = standKneeOk(m);
         if (up && stillRef && Math.abs(m.hipY - stillRef.hipY) < 0.04 * base.leg * s && Math.abs(m.shW - stillRef.shW) < 0.05 * m.shW) {
           if (t - stillT >= th.recalMs) { setBase(m); fHip.reset(); fSh.reset(); fW.reset(); fAnk.reset(); phase = "top"; voided = false; stillRef = null; guard = "ok"; event = "recalibrated"; }
         } else { stillRef = m; stillT = t; }
@@ -130,7 +151,7 @@
       stillRef = null;
       if (bent) { if (phase !== "top") voided = true; return snapshot({ event: null }); }
       var deep = k3 != null ? (k3 <= th.depth3D && drop >= th.depth3DDrop) : (drop >= th.depth || (m.knee2D != null && m.knee2D <= th.bent2D && drop >= th.depthBent2D));
-      var atTop = k3 != null ? (k3 >= th.top3D && drop <= th.top3DDrop) : (drop <= th.topAt && (m.knee2D == null || m.knee2D >= th.top2D));
+      var atTop = k3 != null ? (k3 >= th.top3D && drop <= th.top3DDrop) : (drop <= th.topAt && standKneeOk(m));
       if (phase === "top") {
         if (drop > th.downAt) { phase = "down"; enterT = null; voided = false; event = "down"; }
       } else if (phase === "down") {
