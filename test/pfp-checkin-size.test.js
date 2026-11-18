@@ -1,6 +1,5 @@
-// Check-in logo size (Nov 17, owner on iPhone: "the logo is entirely too big, almost looks broken" at camera start).
-// Before lock the shield shows the first decoded frame with a branded hood over the head area and the 0.32 check-in logo, not a disc past every corner;
-// the shrink onto the head and the grow back on loss stay nested (zero face exposure); stale is platform-aware.
+// Opening logo size (Nov 17, later): before lock the shield shows the first decoded frame with a large opening logo over the
+// face (no dark hood, no full-frame blanket); the shrink onto the head and the grow back on loss stay nested (zero face exposure).
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const src = fs.readFileSync(path.join(__dirname, "..", "pfp.js"), "utf8");
 let pass = 0, fail = 0; const check = (n, c) => { console.log((c ? "PASS  " : "FAIL  ") + n); c ? pass++ : fail++; };
@@ -12,13 +11,13 @@ vm.runInContext(["enclose", "picRect", "blanketLogo", "blanketAround", "staleOf"
 const F = ctx.f;
 const boxes = [[390, 791], [390, 293], [844, 390], [360, 640], [1280, 720], [358, 269]];
 // 1. size
-// picture-aware: g carries the video size + object-fit; the logo is ~1/4-1/3 of the camera picture height, upper-centre
+// picture-aware: g carries the video size + object-fit; the opening logo is large enough to hold a pre-lock face (radius ~0.48 x picture width)
 const views = [["portrait 4:3 full screen", { bw: 390, bh: 791, vw: 640, vh: 480, fit: "contain" }], ["portrait 9:16", { bw: 390, bh: 791, vw: 720, vh: 1280, fit: "contain" }], ["landscape", { bw: 844, bh: 335, vw: 1280, vh: 720, fit: "contain" }], ["inline 4:3 (fill)", { bw: 358, bh: 269, vw: 640, vh: 480, fit: "fill" }], ["desktop", { bw: 1280, bh: 743, vw: 1280, vh: 720, fit: "contain" }]];
-for (const [n, g] of views) { const c = F.blanketLogo(g), R = F.picRect(g), old = Math.hypot(g.bw, g.bh) / 2 + 2, f = 2 * c.r / R.h;
-  check(`${n} (box ${g.bw}x${g.bh}, picture ${R.w.toFixed(0)}x${R.h.toFixed(0)}): opening logo ${(2 * c.r).toFixed(0)} px = ${f.toFixed(2)} of the picture height (was ${(2 * old).toFixed(0)} px = ${(2 * old / R.h).toFixed(2)}), upper-centre, inside the picture`,
-    f >= 0.24 && f <= 0.34 && Math.abs(c.x - (R.x + R.w / 2)) < 1e-6 && c.y < R.y + R.h / 2 && c.y - c.r >= R.y - 1e-6 && c.x - c.r >= R.x - 1e-6 && c.x + c.r <= R.x + R.w + 1e-6); }
+for (const [n, g] of views) { const c = F.blanketLogo(g), R = F.picRect(g), old = Math.hypot(g.bw, g.bh) / 2 + 2, fw = 2 * c.r / R.w, fh = 2 * c.r / R.h;
+  check(`${n} (box ${g.bw}x${g.bh}, picture ${R.w.toFixed(0)}x${R.h.toFixed(0)}): opening logo ${(2 * c.r).toFixed(0)} px = ${fw.toFixed(2)} of the picture width / ${fh.toFixed(2)} of its height (smaller than the old corner-to-corner disc of ${(2 * old).toFixed(0)} px)`,
+    fw >= 0.85 && fw <= 1.05 && Math.abs(c.x - (R.x + R.w / 2)) < 1e-6 && c.y > R.y && c.y < R.y + R.h && c.r < old); }
 check("overlay cover is hidden while the shield draws the camera (the check-in logo is the shield's)", /if \(!m \|\| shields\[o\.vid\.id\]\) \{ o\.cv\.style\.display = "none"; return false; \}/.test(src));
-check("locked size (Nov 17 chest-up): coverPad 0.25, headRW 0.5, shR 0.55, chestDown 0.45, chestFromFace 1.4", PF.P.coverPad === 0.25 && PF.P.headRW === 0.5 && PF.P.shR === 0.55 && PF.P.chestDown === 0.45 && PF.P.chestFromFace === 1.4);
+check("locked size (Nov 17 trimmed): coverPad 0.25, headRW 0.5, shR 0.55, chestDown 0.05, chestFromFace 1.2, chestFrac 0", PF.P.coverPad === 0.25 && PF.P.headRW === 0.5 && PF.P.shR === 0.55 && PF.P.chestDown === 0.05 && PF.P.chestFromFace === 1.2 && PF.P.chestFrac === 0);
 // 2. zero exposure: every intermediate circle of the shrink (check-in -> head) and of the grow (head -> check-in) contains the head
 let worst = Infinity, worstG = Infinity;
 for (let i = 0; i < 3000; i++) { const [bw, bh] = boxes[i % boxes.length], g = { bw, bh, vw: 640, vh: 480, fit: i % 2 ? "contain" : "fill" }, t = { x: Math.random() * bw, y: Math.random() * bh, r: 8 + Math.random() * 0.5 * Math.min(bw, bh) };
@@ -28,10 +27,10 @@ for (let i = 0; i < 3000; i++) { const [bw, bh] = boxes[i % boxes.length], g = {
 check(`shrink check-in -> head: every step contains the head circle (worst slack ${worst.toFixed(6)} px >= 0)`, worst >= -1e-6);
 check(`grow head -> check-in on loss: every step contains the last head circle (worst slack ${worstG.toFixed(6)} px >= 0)`, worstG >= -1e-6);
 const g0 = { bw: 390, bh: 791, vw: 640, vh: 480, fit: "contain" }, near = { x: 195, y: 280, r: 40 }, Bn = F.blanketAround(g0, near);
-check(`lock starts from about the opening size, not a full-screen disc (start r ${Bn.r.toFixed(0)} px vs old ${(Math.hypot(390, 791) / 2 + 2).toFixed(0)})`, Bn.r < 0.3 * 390);
+check(`lock starts from the opening logo, not a corner-to-corner disc (start r ${Bn.r.toFixed(0)} px vs old ${(Math.hypot(390, 791) / 2 + 2).toFixed(0)})`, Bn.r < Math.hypot(390, 791) / 2);
 check("grow on loss starts from a circle holding the frozen frame's own head (s.circle), not only the last drawn logo", /var L0 = enclose\(s\.lostFrom, s\.circle \? mapToBox\(s\.circle, s\.vw, s\.vh, g\.bw, g\.bh, g\.fit\) : null\), B2 = blanketAround\(g, L0\); m = lerpC\(L0, B2,/.test(src));
-// 3. opening: branded placeholder, then the first decoded frame with a hood over the head area (never a plain black fill, never the live <video>)
-check("not locked: branded placeholder / first-frame feed with head hood; the live <video> is never drawn raw", /function grabPreview/.test(src) && /R\.h \* P\.openMask/.test(src) && /x\.fillStyle = P\.coverBack; x\.fillRect\(0, 0, g\.bw, g\.bh\)/.test(src) && !/x\.drawImage\((s\.vid|v),/.test(src.slice(src.indexOf("Fail-safe shield"))));
+// 3. opening: first decoded frame in full, large logo only (no dark hood, no full-frame blanket, never the live <video> raw)
+check("not locked: full first-frame feed + opening logo only; no dark hood or full-frame fill; the live <video> is never drawn raw", /function grabPreview/.test(src) && /if \(frame\) drawSnap/.test(src) && !/P\.openMask/.test(src) && !/x\.fillStyle = P\.coverBack; x\.fillRect\(0, 0, g\.bw, g\.bh\)/.test(src) && !/x\.drawImage\((s\.vid|v),/.test(src.slice(src.indexOf("Fail-safe shield"))));
 // 4. platform-aware stale: browsers (fast MoveNet) keep staleMs; Apple Vision over the bridge (slow frames) gets 3x its interval, capped
 check("stale: MoveNet at 60 ms/frame -> staleMs (450)", F.staleOf({ pi: 60 }) === PF.P.staleMs);
 check("stale: no interval yet -> staleMs", F.staleOf({}) === PF.P.staleMs);

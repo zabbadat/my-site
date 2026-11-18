@@ -15,9 +15,9 @@
   var P = { plausK: 3, plausBody: 0.75, plausSpread: 2.2, staleMs: 450, lockFrames: 2, lostFrames: 4, shrinkMs: 280, growMs: 160, coverBack: "#0b0d1a", minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: Infinity, holdGrow: 1, clearMs: 1200,
     minCut: 0.35, beta: 4.5, dCut: 2.5, leadMax: 180, leadCap: 0.35, leadV0: 0.55, leadV1: 1.8, vCut: 12, snapMs: 350, rafDraw: true, fitMs: 1000,
     spDead: 1.0, deadPos: 0.02, deadR: 0.06, rGrowCut: 2.2, rShrinkCut: 0.4, rMaxGrow: 0.8, rMaxShrink: 0.35, dispK: 0.35, dispMinMs: 16, dispMaxMs: 32, dispRK: 2, dispSpK: 0, dispLead: true, reacqSnapR: 1, reacqMs: 150,
-    shUp: 0.55, shR: 0.55, sideK: 0.35, sideUp: 0.35, chestFrac: 0.22, chestDown: 0.45, chestFromFace: 1.4, sideLift: 0.16, armMargin: 0.1, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
+    shUp: 0.55, shR: 0.55, sideK: 0.35, sideUp: 0.35, chestFrac: 0, chestDown: 0.05, chestFromFace: 1.2, sideLift: 0.16, armMargin: 0.1, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
     headUp: 0.1, headRW: 0.5, coverPad: 0.25, topUp: 0.85, chinDn: 0.65, openR: 0.36, openY: 0.36, lockMs: 250, openMs: 8000,
-    blankR: 0.16, blankY: 0.3, openMask: 0.62, staleK: 3, staleMaxMs: 1000 };
+    blankR: 0.48, blankY: 0.38, staleK: 3, staleMaxMs: 1000 };
   // Centre + size (Nov 16, owner): horizontally dead-centre on the shoulder midpoint (the anchor; zero offset), vertically on
   // the head (ear line, else eye line, headUp x head width above it). Size covers the whole head with margin: r = max(headRW x
   // head width, shR x shoulder width, and far enough to reach every face point, the estimated top of the head (topUp x head
@@ -27,11 +27,10 @@
   // / 44 px. Centering stays at 0 px; the plausibility guard and fallback are unchanged.
   // Nov 17 (owner: "too big / overbearing", a little bigger than the head, centred between the shoulders): back to the
   // smallest proven size, coverPad 0.45 -> 0.25, headRW 0.6 -> 0.5, shR 0.30 -> 0.25 (~0.8x shoulder width).
-  // Same night, later (owner: SUPER BIG, chest up — head, neck, shoulders, upper chest — roughly the top third of the
-  // picture on an upright front view, arms and extremities visible below; after lock as well as before). Front locked
-  // cover is recentred between the top of the head and the chest, r large enough to hold both plus the shoulders
-  // (shR 0.55 floor; r also holds the head top, both shoulders and the chest). Side push-up / plank
-  // stay on sideCover: head down to the chest, lifted off the arms under the body.
+  // Same night, later (owner: SUPER BIG, chest up). Then trimmed modestly (still larger than the head, ~1.3x shoulders
+  // on a typical mid-shot): the locked cover is centred between the top of the head and the shoulder line, r holds the
+  // head (with margin), both shoulders and a hint of upper chest. grow-to-contain-the-head still wins. Side push-up /
+  // plank stay on sideCover: head down to the chest, lifted off the arms under the body.
   // Check-in size (Nov 17, owner on iPhone: "the logo is entirely too big, looks broken"): while the shield has no lock (camera
   // check-in / startup, or tracking lost) the screen is the opaque backing with NO video, so the logo there only has to look
   // right: (Nov 17 9:37) diameter 0.32 x the camera picture height (blankR 0.16), centred, blankY 0.3 down it, instead of a disc past every box corner
@@ -131,15 +130,12 @@
     }
     return { x: shx, y: shy + sw * P.chestDown };
   }
-  // Cover chest-up (Nov 17, owner: SUPER BIG): head, neck, shoulders and upper chest, arms visible below.
-  // x stays on the shoulder midpoint; y sits between the top of the head and the chest; r holds all of those plus margin.
+  // Resting logo (Nov 17, later): a logo HEAD sitting on the shoulders — centred on the head, bottom edge at the
+  // shoulder line, a little bigger than the head. x stays on the shoulder midpoint. grow-to-contain-the-head still wins.
   function coverCircle(face, ls, rs, by) {
     var shx = (ls.x + rs.x) / 2, shy = (ls.y + rs.y) / 2, sw = Math.hypot(ls.x - rs.x, ls.y - rs.y), w = face.w || (face.r * 2 / P.padK);
-    var top = { x: face.x, y: face.y - w * P.topUp }, chest = chestOf(ls, rs, by, sw);
-    var cx = shx, cy = (top.y + chest.y) / 2, pad = w * P.coverPad;
-    var r = Math.max(sw * P.shR, coverR(cx, cy, face));
-    r = Math.max(r, Math.hypot(chest.x - cx, chest.y - cy) + pad);
-    r = Math.max(r, Math.hypot(ls.x - cx, ls.y - cy) + pad, Math.hypot(rs.x - cx, rs.y - cy) + pad);
+    var cx = shx, cy = face.y, r;
+    r = Math.max(sw * P.shR, coverR(cx, cy, face), Math.max(0, shy - cy));
     return { x: cx, y: cy, r: r, sw: sw };
   }
   // Face only (no shoulder pair): still chest-up, with the chest estimated a little below the face (neck + upper chest).
@@ -585,8 +581,8 @@
   // Camera opened (its <video> starts playing): show the logo LARGE at once, before any detection (owner, Nov 16).
   // The first pose frame that finds the head moves + shrinks it onto the head (tracker open/lock). Only the solo camera views.
   var OPEN_IDS = { camVid: 1, plankVid: 1, tbVid: 1, sqVid: 1, zlSelf: 1, zmCamVid: 1 };
-  // Called from a camera-start tap, before getUserMedia returns: stand up the shield so the box shows the branded
-  // placeholder immediately (no plain black wait). Safe with no stream and no videoWidth yet.
+  // Called from a camera-start tap, before the camera request returns: stand up the shield so the logo paints at once
+  // (even before the first decoded frame). Safe with no stream and no videoWidth yet.
   function prepare(vid) {
     try {
       if (!doc || !vid || !vid.parentNode || !OPEN_IDS[vid.id] || !isOn()) return;
@@ -614,22 +610,24 @@
   api.opened = opened;
 
   // ---- Fail-safe shield (Nov 16, owner: zero face exposure) ----
-  // With the PFP switch on, a camera <video> is NEVER shown raw: a stylesheet hides it (opacity 0) from before its first frame,
-  // and a canvas in its place shows only covered frames:
-  //  * Opening (Nov 17, no black screen): from the first decoded frame the picture is drawn with the pre-lock logo and an
-  //    opaque hood over the top of the picture (openMask) so the face cannot show and limbs below the hood can; before that
-  //    frame the box is the branded backing + logo (never a plain black fill). Does not wait for the pose model.
+  // With the PFP switch on, the raw <video> is opacity 0 (so a raw face is never composited). A canvas sits on top and
+  // paints the LIVE picture plus the logo from the first decoded frame — no dark hood or full-frame fill, so the box is
+  // never a dark rectangle. The canvas is what the user sees:
+  //  * Opening (Nov 17, later): from the first decoded frame the FULL live picture is drawn, with only the (bigger) opening
+  //    logo over the face area — no dark hood, no full-frame blanket, no branded placeholder. The logo itself is painted
+  //    from the tap (prepare), even before that first frame. Does not wait for the pose model.
   //  * Lock-on: the exact frame the pose ran on (snapshot taken right before inference, then the model runs on that
-  //    snapshot), with the logo on that frame's head. Entering, the logo shrinks from the blanket to the head over shrinkMs;
+  //    snapshot), with the logo on that frame's head. Entering, the logo shrinks from the opening size to the head over shrinkMs;
   //    each step is a circle between two nested circles, so it always contains the head circle (no mid-shrink exposure).
-  //  * Lost: the last covered frame stays frozen while the logo grows back to the blanket (growMs), then the blanket.
+  //  * Lost: the last covered frame stays frozen while the logo grows back to the opening size (growMs), then stays on that
+  //    frozen (or live) picture with the large logo — never a dark full-frame fill.
   var shields = {}, lockedOnce = {}, hideCss = null, HIDE_SEL = Object.keys(OPEN_IDS).map(function (k) { return "html.zab-pfp-shield video#" + k; }).join(","); // lockedOnce survives a canvas remount so post-lock loss never returns to the opening hood
   function shieldWanted() { return storedOn(); }
   function syncHide() {
     try {
       if (!doc || !doc.documentElement) return;
-      if (!hideCss) hideCss = doc.getElementById("pfpShieldCss"); // index.html <head> ships the rule (hidden from the first paint)
-      if (!hideCss) { hideCss = doc.createElement("style"); hideCss.textContent = HIDE_SEL + "{opacity:0!important}"; (doc.head || doc.documentElement).appendChild(hideCss); }
+      if (!hideCss) hideCss = doc.getElementById("pfpShieldCss"); // index.html <head> ships the rule (raw video hidden; canvas shows the live covered feed)
+      if (!hideCss) { hideCss = doc.createElement("style"); hideCss.textContent = HIDE_SEL + "{opacity:0!important}canvas.pfp-shield{position:absolute;z-index:1;pointer-events:none}"; (doc.head || doc.documentElement).appendChild(hideCss); }
       var on = shieldWanted(); doc.documentElement.classList.toggle("zab-pfp-shield", on);
       if (!on) for (var q in shields) shieldDrop(q);
     } catch (e) {}
@@ -648,7 +646,7 @@
       s = shields[vid.id] = { vid: vid, cv: cv, bufs: [doc.createElement("canvas"), doc.createElement("canvas"), doc.createElement("canvas")], bi: 0, pend: null, snap: null, circle: null, good: 0, lockT: 0, lostT: 0, lastPoseT: -1e9, live: false, src: src, vw: 0, vh: 0, frames: 0 };
       shieldLoop(s);
     }
-    if (src !== undefined && s.src !== src) { s.src = src; shieldUnlock(s); s.lostT = 0; s.snap = null; s.wasLocked = 0; s.opening = 1; s.dispM = null; s.dispT = 0; delete lockedOnce[vid.id]; } // new camera / track: opening hood until it locks again
+    if (src !== undefined && s.src !== src) { s.src = src; shieldUnlock(s); s.lostT = 0; s.snap = null; s.wasLocked = 0; s.opening = 1; s.dispM = null; s.dispT = 0; delete lockedOnce[vid.id]; } // new camera / track: opening logo until it locks again
     if (lockedOnce[vid.id]) s.wasLocked = 1; // canvas remount / shieldFor() without src must not forget a prior lock
     return s;
   }
@@ -739,17 +737,16 @@
     return s.dispM || t;
   }
   api.smoothLogo = smoothLogo;
-  // Opening logo (no lock): diameter 2 x blankR = 0.32 x the camera picture height, centred, blankY down the picture (head area).
-  // Nov 17 later (owner: no black screen before the camera comes on): from the first decoded frame the picture is drawn, with
-  // an opaque branded hood over the top openMask of the picture (where the face is) so limbs can show below and the face
-  // stays hidden until lock; before that first frame the box is the branded backing + the same logo (never plain black).
+  // Opening logo (no lock): a large disc over the face area (radius blankR x the visible picture width, centred, blankY down
+  // the picture) so a moving face stays inside before lock, without any dark hood or full-frame fill. After lock it shrinks
+  // to the resting head cover. The logo is also painted on tap, before the first decoded frame (prepare).
   function picRect(g) {
     var vw = g.vw, vh = g.vh; if (!(vw > 0 && vh > 0) || !(g.fit === "contain" || g.fit === "cover")) return { x: 0, y: 0, w: g.bw, h: g.bh };
     var k = g.fit === "contain" ? Math.min(g.bw / vw, g.bh / vh) : Math.max(g.bw / vw, g.bh / vh), w = vw * k, h = vh * k;
     return { x: (g.bw - w) / 2, y: (g.bh - h) / 2, w: w, h: h };
   }
   function blanketLogo(g) { var R = picRect(g), vis = { x: Math.max(0, R.x), y: Math.max(0, R.y), w: Math.min(g.bw, R.w), h: Math.min(g.bh, R.h) };
-    return { x: vis.x + vis.w / 2, y: vis.y + vis.h * P.blankY, r: Math.max(P.minR, Math.min(P.blankR * vis.h, 0.45 * vis.w)) }; }
+    return { x: vis.x + vis.w / 2, y: vis.y + vis.h * P.blankY, r: Math.max(P.minR, Math.min(P.blankR * vis.w, 0.85 * vis.h)) }; }
   function blanketAround(g, t) { // the check-in logo, or the smallest circle holding it and circle t (+1 px): t is always inside
     var c = blanketLogo(g);
     return t ? enclose(c, { x: t.x, y: t.y, r: t.r + 1 }) : c;
@@ -762,7 +759,7 @@
     x.save(); if (g.mir) { x.translate(g.bw, 0); x.scale(-1, 1); } x.drawImage(snap, ox, oy, vw * sx, vh * sy); x.restore();
   }
   function shieldPaint(s) {
-    var v = s.vid, cv = s.cv, g = geom(s), now = perfNow(), has = !v.hidden && g.bw > 0 && g.bh > 0; // branded placeholder as soon as the box is on screen, even before the stream exists
+    var v = s.vid, cv = s.cv, g = geom(s), now = perfNow(), has = !v.hidden && g.bw > 0 && g.bh > 0; // logo as soon as the box is on screen, even before the stream exists
     if (cv.style.display !== (has ? "block" : "none")) cv.style.display = has ? "block" : "none";
     if (!has) { shieldUnlock(s); return; }
     var dpr = Math.min(root.devicePixelRatio || 1, 2), W = Math.round(g.bw * dpr), H = Math.round(g.bh * dpr);
@@ -781,14 +778,10 @@
       var L0 = enclose(s.lostFrom, s.circle ? mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit) : null), B2 = blanketAround(g, L0); m = lerpC(L0, B2, ease((now - s.lostT) / P.growMs));
       x.clearRect(0, 0, g.bw, g.bh); drawSnap(x, g, s.snap, s.vw, s.vh); // the last covered frame, frozen, while the logo grows
     } else {
-      m = blanketAround(g, null);
-      var preview = (s.opening && !s.wasLocked && !(s.vid && lockedOnce[s.vid.id])) ? grabPreview(s, v) : null; // fail closed: hood only while explicitly opening. After a lock, lost / low-conf / no-face stay a full branded blanket.
-      x.fillStyle = P.coverBack; x.fillRect(0, 0, g.bw, g.bh); // branded placeholder (site background), never plain black
-      if (preview) {
-        drawSnap(x, g, preview, preview.width, preview.height);
-        var R = picRect(g);
-        x.fillStyle = P.coverBack; x.fillRect(R.x, R.y, R.w, Math.max(0, R.h * P.openMask)); // hood over the head area: face hidden, limbs below can show
-      }
+      m = blanketAround(g, s.circle ? mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit) : null);
+      x.clearRect(0, 0, g.bw, g.bh); // no dark fill, no hood, no full-frame blanket — only the live (or frozen) picture + the logo
+      var lockedBefore = s.wasLocked || (s.vid && lockedOnce[s.vid.id]), frame = lockedBefore ? (s.snap || grabPreview(s, v)) : (grabPreview(s, v) || s.snap);
+      if (frame) drawSnap(x, g, frame, frame.width || s.vw || v.videoWidth, frame.height || s.vh || v.videoHeight);
     }
     ensureLogo(); m = glideMark(s, m, now); drawLogo(x, m); s.lastM = s.lockT ? m : null; s.drawM = m; s.drawG = g; s.frames += 1;
     if (!s.lockT && !(s.lostT && now - s.lostT < P.growMs && s.lockG === gk)) { s.lastM = null; s.lostT = 0; }
@@ -814,7 +807,7 @@
     };
     tick();
   }
-  // Recording (rec.js): the same covered, pose-matched frame, or null = blanket (draw the logo full frame, no video).
+  // Recording (rec.js): the same covered, pose-matched frame, or null = live frame with the large opening logo (never a dark full frame).
   function recFrame(id) { var s = shields[id]; return s && s.live && s.snap && s.circle ? { img: s.snap, c: s.circle } : null; }
   // The snapshot input() took for this camera's current inference (null when the shield is off). A second model run on
   // the same tick (iOS: MoveNet rescue after Apple Vision missed the body) must use THIS frame, never the live <video>,
