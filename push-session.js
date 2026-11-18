@@ -538,6 +538,11 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
   //    rep range frozen at the last counted rep: the counter re-bases its top after ~6 s parked at a new level, so a body parked
   //    at the bottom would otherwise read as a top hold forever. Both clocks also need 15 s / 45 s since the last counted rep,
   //    so neither can fire while reps keep counting.
+  //    TUT / TUT Battle (Nov 17): atTopFrom uses a tight lockout line (~15% of the last-rep range). A real plank-push-press
+  //    hold often settles a little below that peak, which used to start the 15 s stall and cancel the set mid-hold
+  //    ("No push-up for a while") even though the body was still in the upper part of that frozen range. For mode "long"
+  //    and "battle", the 15 s clock only runs when the frozen range reads low (lying at the bottom / sitting back). Sets
+  //    keep the tighter atTop rule, and the 45 s idle (Sets only) already covers a true top hold.
   //  - "stalled" (45 s, Sets only): no new rep for setsIdleMs, top hold included, counted from the last rep or the last return to
   //    the top, whichever is later; paused while no body is in view. 45 s leaves the 30 s top-hold bonus reachable.
   // Never fires before the first rep (a 0-rep set keeps going until End set), and never on the start frame.
@@ -559,6 +564,8 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
       if (reps !== lastReps) { lastReps = reps; lastRepT = t; idleFrom = t; offSince = null; if (c && isFinite(c.top) && isFinite(c.bottom) && c.bottom !== c.top) rom = { top: c.top, bottom: c.bottom }; }
       var low = !!(rom && c && isFinite(c.smooth) && (c.smooth - rom.top) / (rom.bottom - rom.top) > o.lowFrac);
       var topNow = !!(seen && s.atTop && !low);
+      // TUT set / TUT Battle: a hold settled slightly below the lockout line is still a top hold, not a 15 s stall.
+      if ((s.mode === "long" || s.mode === "battle") && seen && rom && !low) topNow = true;
       if (topNow && !wasTop) idleFrom = t; // 45 s clock: restarts on every counted rep AND on every return to the top
       wasTop = topNow;
       if (reps < 1) return null;
