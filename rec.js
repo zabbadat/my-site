@@ -53,7 +53,96 @@
       state: function () { return { armed: Object.assign({}, armed), recording: rec ? rec.id : null }; }
     };
   }
-  var api = { wmBox: wmBox, circleHitsRect: circleHitsRect, createWmPlacer: createWmPlacer, createCtl: createCtl, W: W };
+  // System share sheet for a finished recording. Native apps use Capacitor Share + Filesystem
+  // (iOS UIActivityViewController / Android ACTION_SEND). Browsers use navigator.share({ files })
+  // when the Web Share files API is available, then a file download. The Share tap itself must
+  // call the sheet directly (no await first) or iOS throws NotAllowedError.
+  function isMp4(type) { return /mp4/i.test(type || ""); }
+  function fileName(blob, now) {
+    var ext = isMp4(blob && blob.type) ? "mp4" : "webm";
+    var d = now || new Date();
+    return "zabbadat-" + d.toISOString().slice(0, 19).replace(/[:T]/g, "-") + "." + ext;
+  }
+  function isShareCancel(err) {
+    if (!err) return true;
+    var n = err.name || "", m = String(err.message || err);
+    return n === "AbortError" || n === "Abort" || /cancel+ed/i.test(m) || /cancel/i.test(m);
+  }
+  function canWebShareFiles(nav, file) {
+    try { return !!(file && nav && typeof nav.canShare === "function" && nav.canShare({ files: [file] }) && typeof nav.share === "function"); } catch (e) { return false; }
+  }
+  function isNativeApp(cap) {
+    try { return !!(cap && typeof cap.isNativePlatform === "function" && cap.isNativePlatform()); } catch (e) { return false; }
+  }
+  function getPlugin(cap, name) {
+    try {
+      if (cap && cap.Plugins && cap.Plugins[name]) return cap.Plugins[name];
+      if (cap && typeof cap.registerPlugin === "function") return cap.registerPlugin(name);
+    } catch (e) {}
+    return null;
+  }
+  function blobToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onloadend = function () {
+        var s = String(r.result || ""), i = s.indexOf(",");
+        resolve(i >= 0 ? s.slice(i + 1) : s);
+      };
+      r.onerror = function () { reject(r.error || new Error("read")); };
+      r.readAsDataURL(blob);
+    });
+  }
+  function prepareNativeShare(blob, name, Filesystem, toBase64) {
+    var convert = toBase64 || blobToBase64;
+    return convert(blob).then(function (data) {
+      return Promise.resolve(Filesystem.writeFile({ path: "share/" + name, data: data, directory: "CACHE", recursive: true })).then(function () {
+        return Filesystem.getUri({ path: "share/" + name, directory: "CACHE" });
+      }).then(function (r) { return r && r.uri; });
+    });
+  }
+  function shareFromTap(opts) {
+    var title = (opts && opts.title) || "Zabbadat";
+    var text = (opts && opts.text) || "zabbadat.com";
+    function ignoreCancel(err) { if (isShareCancel(err)) return { cancelled: true }; throw err; }
+    try {
+      if (opts && opts.uri && opts.Share && typeof opts.Share.share === "function") {
+        return Promise.resolve(opts.Share.share({ title: title, text: text, files: [opts.uri], dialogTitle: "Share" })).then(function () { return { ok: true, via: "native" }; }).catch(ignoreCancel);
+      }
+      if (opts && canWebShareFiles(opts.nav, opts.file)) {
+        return Promise.resolve(opts.nav.share({ files: [opts.file], title: title, text: text })).then(function () { return { ok: true, via: "web" }; }).catch(ignoreCancel);
+      }
+      if (opts && opts.downloadEl && typeof opts.downloadEl.click === "function") {
+        opts.downloadEl.click();
+        return Promise.resolve({ ok: true, via: "download" });
+      }
+      return Promise.resolve({ ok: false, via: "none" });
+    } catch (err) {
+      return isShareCancel(err) ? Promise.resolve({ cancelled: true }) : Promise.reject(err);
+    }
+  }
+  // Wire Share / Save on the preview card. Share stays visible. On a native app the file is written
+  // to cache before Share is enabled, so the tap can open the system sheet immediately.
+  function wirePreviewButtons(box, file, url, name, root) {
+    var sv = box.querySelector('[data-a="save"]'), sh = box.querySelector('[data-a="share"]');
+    if (sv) { sv.href = url; sv.download = name; }
+    if (!sh) return { ready: Promise.resolve(), state: { uri: null, file: file } };
+    sh.hidden = false;
+    var cap = root && root.Capacitor, Share = getPlugin(cap, "Share"), Filesystem = getPlugin(cap, "Filesystem");
+    var state = { uri: null, file: file };
+    function onTap() { return shareFromTap({ file: state.file, uri: state.uri, nav: root && root.navigator, Share: Share, downloadEl: sv }); }
+    sh.onclick = onTap;
+    var ready = Promise.resolve();
+    if (isNativeApp(cap) && Share && Filesystem && file) {
+      sh.disabled = true;
+      ready = prepareNativeShare(file, name, Filesystem, share.blobToBase64).then(function (uri) {
+        state.uri = uri; sh.disabled = false;
+      }).catch(function () { sh.disabled = false; });
+    }
+    return { ready: ready, onTap: onTap, state: state, shareBtn: sh, saveEl: sv };
+  }
+  var share = { isMp4: isMp4, fileName: fileName, isCancel: isShareCancel, canWebShareFiles: canWebShareFiles, isNativeApp: isNativeApp, getPlugin: getPlugin, blobToBase64: blobToBase64, prepareNativeShare: prepareNativeShare, shareFromTap: shareFromTap, wirePreviewButtons: wirePreviewButtons, TITLE: "Zabbadat", TEXT: "zabbadat.com" };
+  var api = { wmBox: wmBox, circleHitsRect: circleHitsRect, createWmPlacer: createWmPlacer, createCtl: createCtl, W: W, share: share };
+
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 
   // ---- browser side ----
@@ -125,7 +214,7 @@
     var stream = cv.captureStream(30), mo = r.type ? { mimeType: r.type, videoBitsPerSecond: 2500000 } : { videoBitsPerSecond: 2500000 };
     r.mr = new root.MediaRecorder(stream, mo);
     r.mr.ondataavailable = function (e) { if (e.data && e.data.size) r.chunks.push(e.data); };
-    r.mr.onstop = function () { stream.getTracks().forEach(function (t) { t.stop(); }); preview(new Blob(r.chunks, { type: r.type.split(";")[0] || "video/webm" })); };
+    r.mr.onstop = function () { stream.getTracks().forEach(function (t) { t.stop(); }); preview(new Blob(r.chunks, { type: (r.type || "video/webm").split(";")[0] })); };
     var loop = function () { if (cur !== r) return; try { paintFrame(r, performance.now()); } catch (e) {} r.raf = root.requestAnimationFrame(loop); };
     cur = r; paintFrame(r, performance.now()); r.mr.start(1000); r.raf = root.requestAnimationFrame(loop);
     var wrap = doc.getElementById(id), b = doc.createElement("button"); b.type = "button"; b.className = "btn rec-stop"; b.innerHTML = '<span class="rec-dot"></span>Stop recording';
@@ -140,15 +229,12 @@
   }
   function preview(blob) {
     if (!blob || !blob.size) return;
-    var url = URL.createObjectURL(blob), ext = /mp4/.test(blob.type) ? "mp4" : "webm", name = "zabbadat-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + "." + ext;
+    var url = URL.createObjectURL(blob), name = fileName(blob);
     var box = doc.createElement("div"); box.className = "rec-preview"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Your recording");
     box.innerHTML = '<div class="rec-card"><h3>Your recording</h3><video controls playsinline></video><p class="note">Saved on this phone only until you share or save it.</p><div class="row"><button class="btn" type="button" data-a="share">Share</button><a class="btn ghost" data-a="save">Save</a><button class="btn ghost" type="button" data-a="close">Close</button></div></div>';
     box.querySelector("video").src = url;
-    var sv = box.querySelector('[data-a="save"]'); sv.href = url; sv.download = name;
-    var file = null; try { file = new File([blob], name, { type: blob.type }); } catch (e) {}
-    var sh = box.querySelector('[data-a="share"]');
-    if (!(file && root.navigator.canShare && root.navigator.canShare({ files: [file] }))) sh.hidden = true;
-    sh.onclick = function () { root.navigator.share({ files: [file], title: "Zabbadat", text: "zabbadat.com" }).catch(function () {}); };
+    var file = null; try { file = new File([blob], name, { type: blob.type || (isMp4(name) ? "video/mp4" : "video/webm") }); } catch (e) { file = blob; }
+    share.wirePreviewButtons(box, file, url, name, root);
     box.querySelector('[data-a="close"]').onclick = function () { box.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 1000); };
     doc.body.appendChild(box);
   }
