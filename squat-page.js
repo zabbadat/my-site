@@ -1,19 +1,17 @@
-/* Gyatt Squats page glue (#squats): front camera -> pose -> squat-session.js; spoken cadence (gyatt-cadence.js) as the
- * voice guide; face logo (ZabPfp.frame, public API only) on every pose frame from camera open; Start set is the only
- * start button, End set (on the camera, same muted 52 px fallback as push-ups / plank) the manual stop.
+/* Gyatt Squats page glue (#squats): front camera -> pose -> squat-session.js; spoken cadence (gyatt-cadence.js) as
+ * pacing guidance only; face logo (ZabPfp.frame, public API only) on every pose frame from camera open; Start set is
+ * the only start button, End set (on the camera, same muted 52 px fallback as push-ups / plank) the manual stop.
  * The shared camera / pose / sign-in / save / ZAB helpers come from the page module through window.ZabSquatHost.
- * Flow: tap Start set -> camera opens (setup line spoken in the tap) -> pose + logo run -> "step back, face the camera,
- * come in the frame, focus on firing your glutes" -> "Gyatt squat on three." One, two, three, Go (standing baseline
- * calibrated during this countdown) -> set clock starts at Go, the cadence starts 1 s after Go (so "Go" is not cut off) -> reps counted from pose.
- * Voice in the set: a four-count at 1 s per beat (gyatt-cadence.js): "Down, one, two, three, four" / "Hold, ..." /
- * "Up, ..." / "Squeeze, ...", then the next rep's "Down, one". No rep number is ever spoken. Coaching lines go
- * through cadence.coach() so they never talk over the count (dropped while the cadence is running; shown on screen).
- * Cadence pose-sync: a counted rep normally finishes during Up / Squeeze. If it finishes during Down or Hold instead (the
- * user is ahead of, or behind, the voice), the cadence jumps to that rep's squeeze beat now ("Squeeze, one")
- * and the next "Down, one" follows 4 s later, so the voice follows the real movement.
- * A set is ten reps: the tenth counted rep ends the set (reason set_done). Its top cue still plays (now, or at its slot
- * if the voice is in Up), then "Set complete." and the loop stops; the camera closes, the panel shows "Set done" and the
- * button reads "Start next set" (no setup talk on a restart). A completed set saves once and pays 1 ZAB (10 squats).
+ * Flow: tap Start set -> camera opens (setup line spoken in the tap) -> pose + logo run -> placement and stance
+ * (wide, toes out, glutes the whole way) -> "Gyatt squat on three." One, two, three, Go (standing baseline
+ * calibrated during this countdown) -> set clock starts at Go, the cadence starts 1 s after Go (so "Go" is not cut off)
+ * -> reps counted from pose only (reach parallel, then stand back up). Faster or slower than the voice never fails a rep.
+ * Voice in the set (gyatt-cadence.js): "Down, one, two, three, four" / "Hold, one, two, three, four" / a single "Up" /
+ * a short "Squeeze", then the next "Down, one". No rep number is ever spoken. Coaching lines go through cadence.coach()
+ * so they never talk over a count (spoken in the quiet gap after Squeeze, or by the caller when the cadence is idle).
+ * A set is ten reps: the tenth counted pose rep ends the set (reason set_done). Squeeze still plays, then "Set complete."
+ * and the loop stops; the camera closes, the panel shows "Set done" and the button reads "Start next set"
+ * (no setup talk on a restart). A completed set saves once and pays 1 ZAB (10 squats).
  */
 (function () {
   "use strict";
@@ -24,7 +22,8 @@
   // Every spoken squat line outside the cadence cues (short, plain, no numbers):
   var SAY = {
     start: "Gyatt squat on three.", // then One · two · three · Go (shared get-set timing); standing baseline calibrates meanwhile
-    missing: "Step back into view.", moved: "Stay on your spot.", bent: "Squat, don't bend over.", half: "Go lower.",
+    missing: "Step back into view.", moved: "Stay on your spot.", bent: "Squat, don't bend over.",
+    half: "Lower to parallel", chest: "Chest up", knees: "Knees out", stance: "Stand wider, toes out.",
     end: { stall_bottom: "Set over. You stayed down too long.", no_rep: "Set over. No squats for a while.", sat: "Set over. You sat down.",
       hands_down: "Set over. Hands on the floor.", left_frame: "Set over. You left the frame.", max_reps: "Set over." }
   };
@@ -41,8 +40,7 @@
       if ($("sqCount")) $("sqCount").textContent = String(count);
       if ($("sqPhase")) $("sqPhase").textContent = info.label;
     },
-    // pose-sync hook: the counter's phase vs the cadence's phase (hint only; never ends a set, never changes reps)
-    poseCheck: function (sample, c) { var p = sample && sample.phase; if (!p || !c.phase) return true; return !(c.phase === "hold" && p === "top") && !(c.phase === "down" && p === "up"); }
+    // pose hook is unused for counting: the voice is guidance only and never fails or resyncs a pose rep
   }) : null;
 
   function paintDay() {
@@ -61,11 +59,14 @@
     if (r.frame === "missing") return "Step back into view";
     if (r.guard === "moved") return "Stay on your spot";
     if (r.guard === "bent") return "Squat, don't bend over";
-    if (st.halfUntil && now() < st.halfUntil) return "Go lower";
-    if (r.phase === "bottom") return "Good depth. Squeeze, then stand up";
-    if (r.phase === "up") return "Stand all the way up";
-    if (r.phase === "down") return "Hips down to knee height";
-    return "Squat";
+    if (st.halfUntil && now() < st.halfUntil) return "Lower to parallel";
+    if (r.kneesCave) return "Knees out";
+    if (r.chestDown) return "Chest up";
+    if (r.stanceNarrow && r.phase === "top") return "Stand wider, toes out";
+    if (r.phase === "bottom") return "Hold. Glutes working";
+    if (r.phase === "up") return "Stand all the way up. Squeeze at the top";
+    if (r.phase === "down") return "Sit back, lower to parallel";
+    return "Gyatt squat";
   }
   // in-set coaching voice: one line per kind at most every 8 s, routed through the cadence so it never overlaps a cue
   function coach(kind) {
@@ -80,7 +81,10 @@
     st.missSince = 0;
     if (r.guard === "moved") return coach("moved");
     if (r.guard === "bent") return coach("bent");
-    if (r.event === "half") { st.halfUntil = now() + 2000; coach("half"); }
+    if (r.event === "half") { st.halfUntil = now() + 2000; coach("half"); return; }
+    if (r.kneesCave) return coach("knees");
+    if (r.chestDown) return coach("chest");
+    if (r.stanceNarrow && r.phase === "top") return coach("stance");
   }
   async function tick(id) {
     if (id !== st.loopId) return;
@@ -98,13 +102,10 @@
         var r = st.set.update(kps, t, extra);
         if (r.ended) { endSet(r); return; }
         paintReps(r.reps);
-        if (r.event === "rep") {
-          var cs = cadence && cadence.state();
-          if (cs && cs.running && (cs.phase === "down" || cs.phase === "hold")) cadence.resync(r.reps);
-        }
+        // Reps come from pose only. Do not resync the voice when a squat finishes early or late — that jump
+        // used to yank the cadence to Squeeze and fight the next descent.
         coachFor(r);
-        var off = cadence && cadence.state().running ? cadence.pose({ phase: r.phase }) : true;
-        msg(frameMsg(r) + (off === false && r.frame === "ok" && r.guard === "ok" ? " · follow the voice" : ""));
+        msg(frameMsg(r));
       }
     } catch (e) { status("Pose paused."); }
     if (id === st.loopId) nextFrame(vid, function () { tick(id); });
@@ -132,7 +133,7 @@
     st.running = false; st.calibrating = false;
     var done = r.reason === "set_done";
     if (st.cadenceTimer) { clearTimeout(st.cadenceTimer); st.cadenceTimer = null; }
-    // Set complete: this rep's squeeze four-count finishes, then "Set complete." and the loop stops. Any other end: cut the cadence,
+    // Set complete: Squeeze plays, then "Set complete." and the loop stops. Any other end: cut the cadence,
     // then one short "Set over." line (End set is silent).
     if (done && cadence) cadence.complete(null, r.reps); else { stopCadence(); if (done) speak(GS && GS.SET_DONE_LINE ? GS.SET_DONE_LINE : "Set complete."); else if (SAY.end[r.reason]) speak(SAY.end[r.reason]); }
     closeCam();
@@ -185,7 +186,7 @@
       if (!live()) return;
       st.counter = SQ.createCounter(); paintReps(0);
       tick(++st.loopId); // pose + face logo from camera open (before Go)
-      if (!restart && C && GS.sayAndWait) { status(C.criteria); msg("Whole body in view"); if (!(await GS.sayAndWait(GS.withCameraOn ? GS.withCameraOn(C.criteria) : C.criteria, { minMs: 2000, maxMs: 13000, cancelled: function () { return !live(); }, now: now }))) return; }
+      if (!restart && C && GS.sayAndWait) { status(C.criteria); msg("Whole body in view"); if (!(await GS.sayAndWait(GS.withCameraOn ? GS.withCameraOn(C.criteria) : C.criteria, { minMs: 2000, maxMs: 22000, cancelled: function () { return !live(); }, now: now }))) return; }
       if (!live()) return;
       st.calibrating = true; // standing baseline from the "Gyatt squat on three. One, two, three, Go" frames
       st.countdown = GS && GS.makeNextSetCountdown ? GS.makeNextSetCountdown({ line: SAY.start }) : null;
@@ -197,7 +198,7 @@
       st.set = SS.createSquatSet({ counter: st.counter }); st.set.start(now());
       st.startedAt = Date.now(); st.running = true;
       st.coachAt = {}; st.missSince = 0; st.halfUntil = 0; setStartLabel(false);
-      status("Squat to parallel, stand all the way up. Follow the voice: Down, Hold, Up, squeeze at the top. A set is ten reps.");
+      status("Sit back to parallel, stand all the way up. Keep your glutes working the whole rep: down, hold, up and squeeze. A set is ten reps.");
       if (cadence) st.cadenceTimer = setTimeout(function () { st.cadenceTimer = null; if (st.running && live()) cadence.start(); }, CADENCE_LEAD_MS);
     } catch (e) { if (live()) cancelStart(H.camErrorText ? H.camErrorText(e) : "Camera or pose blocked."); }
   }

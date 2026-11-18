@@ -9,7 +9,7 @@ function run(s, t0, frames, o) { let r, t = t0; for (const f of frames) { t = t0
 const hold = (d, ms, o) => { const a = []; for (let t = 0; t < ms; t += 33) a.push({ t, d, o }); return a; };
 
 { const s = newSet(); let t = 1000, r; for (let i = 0; i < 9; i++) { ({ r, t } = run(s, t + 33, repProfile(1.0))); }
-  check("9 cadence reps (Down 4 s, Hold 4 s still at the bottom, Up 4 s, Top 2 s): no end, 9 reps", !r.ended && r.reps === 9, JSON.stringify([r.ended, r.reps, r.reason]));
+  check("9 full-depth reps: no end, 9 reps", !r.ended && r.reps === 9, JSON.stringify([r.ended, r.reps, r.reason]));
   ({ r, t } = run(s, t + 33, repProfile(1.0)));
   check("a set is ten reps: the tenth counted rep ends the set 'set_done' with exactly 10 reps", r.ended && r.reason === "set_done" && r.reps === 10 && r.repTimes.length === 10, JSON.stringify([r.ended, r.reps, r.reason]));
   const again = s.update([], t + 5000);

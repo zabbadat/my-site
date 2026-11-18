@@ -25,7 +25,7 @@ if (fs.existsSync(draft)) {
   check("tile logo equals the final v9 logo", svg.includes(inner));
 }
 const sect = (html.match(/<section id="squats"[\s\S]*?<\/section>/) || [""])[0];
-check("#squats section: title Gyatt Squats, front-camera copy, 10 squats = 1 ZAB", /<h2 id="squatsTitle">Gyatt Squats<\/h2>/.test(sect) && /Front-camera squats/.test(sect) && /10 squats = 1 ZAB/.test(sect) && !/Coming soon/.test(sect));
+check("#squats section: title Gyatt Squats, front-camera copy, 10 squats = 1 ZAB", /<h2 id="squatsTitle">Gyatt Squats<\/h2>/.test(sect) && /Front-camera Gyatt squats/.test(sect) && /10 squats = 1 ZAB/.test(sect) && !/Coming soon/.test(sect));
 check("#squats buttons: only Start set in the panel; End set (cam-end-btn) on the camera; no Pause / Finish set / Reset total", /id="sqStartBtn"[^>]*>Start set</.test(sect) && /class="btn cam-end-btn" id="sqEndBtn"/.test(sect) && (sect.match(/<button/g) || []).length === 2 && !/Pause|Finish set|Reset total/i.test(sect));
 check("#squats camera: mirrored front video in a positioned stage (face logo overlay), arcade HUD with reps + cadence", /<video id="sqVid" autoplay playsinline muted/.test(sect) && /id="sqStage" style="position:relative"/.test(sect) && /id="sqHudReps"/.test(sect) && /id="sqHudCount"/.test(sect));
 check("#squats today: squats + sets today", /id="sqRepsToday"/.test(sect) && /id="sqSetsToday"/.test(sect));

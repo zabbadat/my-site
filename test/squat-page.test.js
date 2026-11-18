@@ -1,5 +1,5 @@
 // Gyatt Squats page wiring: scripts loaded, host bridge, face logo on every pose frame + cleared on stop, cadence
-// starts after Go and re-syncs at counted reps, End set, camera closes on every end, Eastern-day totals.
+// starts after Go as pacing guidance (no resync when a pose rep finishes early or late), End set, camera closes on every end, Eastern-day totals.
 const fs = require("fs"), path = require("path");
 const read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 const html = read("index.html"), pg = read("squat-page.js"), gs = require("../get-set.js"), SS = require("../squat-session.js"), ETD = require("../et-day.js");
@@ -18,22 +18,25 @@ check("auto end from the set logic ends the set (r.ended -> endSet)", /if \(r\.e
 check("End set button: during start cancels, during the set stops with reason 'stopped'", /\$\("sqEndBtn"\)\.addEventListener\("click", endNow\)/.test(pg) && /st\.set\.stop\(now\(\), "stopped"\)/.test(pg));
 check("standing baseline calibrated during the 'Gyatt squat on three. One, two, three, Go' countdown", /st\.calibrating = true;[\s\S]*?makeNextSetCountdown\(\{ line: SAY\.start \}\)/.test(pg) && /start: "Gyatt squat on three\."/.test(pg) && /if \(st\.calibrating && st\.counter\) st\.counter\.calibrate\(kps, t\)/.test(pg));
 check("cadence starts 1 s after Go; set clock at Go; stops with the set", /CADENCE_LEAD_MS = 1000/.test(pg) && /st\.set\.start\(now\(\)\);[\s\S]*?setTimeout\(function \(\) \{ st\.cadenceTimer = null; if \(st\.running && live\(\)\) cadence\.start\(\); \}, CADENCE_LEAD_MS\)/.test(pg) && /function stopCadence\(\)[^\n]*cadence\.stop\("set"\)/.test(pg));
-check("cadence pose-sync: a rep counted during Down / Hold jumps to that rep's squeeze beat (then Down 4 s later); pose hook fed each frame", /if \(cs && cs\.running && \(cs\.phase === "down" \|\| cs\.phase === "hold"\)\) cadence\.resync\(r\.reps\)/.test(pg) && /cadence\.pose\(\{ phase: r\.phase \}\)/.test(pg));
+check("voice is guidance only: a pose rep never calls cadence.resync (early or late squats still count)", (pg.match(/cadence\.resync\(/) || []).length === 0 && /Do not resync the voice/.test(pg) && /paintReps\(r\.reps\)/.test(pg));
 check("reps come from pose only (the cadence never sets reps)", !/onRep[\s\S]{0,80}paintReps/.test(pg) && /paintReps\(r\.reps\)/.test(pg));
-check("intro lines: phone in front, camera facing you; step back and come in the frame, stand tall, focus on firing your glutes", gs.COACH.squats.place === "Prop your phone up in front of you, camera facing you." && gs.COACH.squats.criteria === "Step back and come in the frame, head to feet. Stand tall. Focus on firing your glutes.");
+check("intro lines: phone in front, camera facing you; stance wide, toes out, glutes the whole way", gs.COACH.squats.place === "Prop your phone up in front of you, camera facing you." && gs.COACH.squats.criteria === "Step back and come in the frame, head to feet. Stand about one and a half to two times shoulder width, toes out around forty-five degrees. Glutes the whole way.");
 check("countdown: shared get-set runner (One, two, three, Go timing) with the squat start line", /GS\.makeNextSetCountdown\(\{ line: SAY\.start \}\)/.test(pg) && gs.NEXT_STEPS.map((x) => x[1]).join() === "One,two,three,Go");
 // ten-rep set end
-check("set done: the tenth rep ends via set_done -> cadence.complete (squeeze four-count, then 'Set complete.', loop stops)", /var done = r\.reason === "set_done";/.test(pg) && /if \(done && cadence\) cadence\.complete\(null, r\.reps\);/.test(pg));
+check("set done: the tenth pose rep ends via set_done -> cadence.complete (Squeeze, then 'Set complete.', loop stops)", /var done = r\.reason === "set_done";/.test(pg) && /if \(done && cadence\) cadence\.complete\(null, r\.reps\);/.test(pg));
 check("set done on screen: 'Set done', check mark, button reads 'Start next set'; the closing top beat does not repaint", /textContent = done \? "Set done"/.test(pg) && /setStartLabel\(true\)/.test(pg) && /"Start next set"/.test(pg) && /if \(!st\.running\) return; \/\/ the closing top beat/.test(pg));
 check("Start next set reuses start() (no setup talk on a restart) and resets the label at Go", /\$\("sqStartBtn"\)\.addEventListener\("click", start\)/.test(pg) && /setStartLabel\(false\)/.test(pg) && /sessionPlan\("squats"\) === "restart"/.test(pg));
 check("End set stays on the camera during the set", /<div id="sqWrap"[\s\S]*?<button class="btn cam-end-btn" id="sqEndBtn"[\s\S]*?<\/div>\s*<p class="note" id="sqStatus"/.test(html));
 check("ZAB: one save per set, one award keyed to that saved set (10 reps = 1 ZAB; no double pay)", (pg.match(/H\.save\(/g) || []).length === 1 && (pg.match(/H\.award\(/g) || []).length === 1 && /function endSet\(r\) \{\s*if \(!st\.running\) return;\s*st\.running = false;/.test(pg));
-check("description: come in the frame + glutes + 'A set is ten reps.' + 10 squats = 1 ZAB", /come in the frame/.test(html) && /Concentrate on firing your glutes\./.test(html) && /A set is ten reps\. 10 squats = 1 ZAB\./.test(html));
+check("description: owner's form, glutes the whole way, reps from movement, ten reps, 10 squats = 1 ZAB", /come in the frame/.test(html) && /Keep your glutes working the whole rep: down, hold, up and squeeze\./.test(html) && /A rep counts when you reach parallel and stand back up/.test(html) && /A set is ten reps\. 10 squats = 1 ZAB\./.test(html) && /one and a half to two times shoulder width/.test(html) && /forty-five degrees/.test(html));
 // nothing spoken in squats carries a number
 const NUM = /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b|\d/i;
 const sayBlock = pg.slice(pg.indexOf("var SAY = {"), pg.indexOf("};", pg.indexOf("var SAY = {")));
 const spokenStrings = (sayBlock.match(/"[^"]*"/g) || []).map((x) => x.slice(1, -1)).filter((x) => /[A-Z]/.test(x[0]) && x !== "Gyatt squat on three.");
-check("no rep numbers: every spoken squat line (setup, coaching, set-end) has no number word (the One/two/three start count is the only count)", spokenStrings.length >= 10 && spokenStrings.concat(gs.COACH.squats.place, gs.COACH.squats.criteria).every((x) => !NUM.test(x)), spokenStrings.filter((x) => NUM.test(x)).join("|"));
+const formCues = ["Chest up", "Knees out", "Lower to parallel"].every((s) => spokenStrings.includes(s));
+check("form cues: Chest up, Knees out, Lower to parallel (and Squeeze at the top is on screen during the rise)", formCues && /Squeeze at the top/.test(pg));
+check("no spoken rep numbers: coaching and set-end lines have no number word (setup may describe stance; the start count is One/two/three/Go; cadence counts are not in SAY)", spokenStrings.length >= 12 && spokenStrings.concat(gs.COACH.squats.place).every((x) => !NUM.test(x)), spokenStrings.filter((x) => NUM.test(x)).join("|"));
+check("setup stance numbers live only in the spoken criteria, never as a rep announcement", /one and a half to two times shoulder width/.test(gs.COACH.squats.criteria) && /forty-five degrees/.test(gs.COACH.squats.criteria) && /Glutes the whole way/.test(gs.COACH.squats.criteria));
 check("coaching goes through cadence.coach (never over a cue), at most once per 8 s per kind", /cadence\.coach\(line\) === "idle"/.test(pg) && /COACH_EVERY_MS = 8000/.test(pg));
 check("only Start set starts; no Pause / Finish / Reset in the glue", !/Pause|Finish set|Reset total/.test(pg));
 // Eastern-day totals

@@ -1,6 +1,7 @@
 // Synthetic FRONT-view squat poses (640x480 picture, y down). d = hip drop as a fraction of the standing thigh (90 px).
 // opts: scale (distance; 1 = baseline, about the feet), dx (sideways shift), kneeOut (px the knees track outward per unit d),
-// lean (torso shortening per unit d, forward lean seen from the front), bend (0..1 shoulders drop toward hips = bending over),
+// ankOut (px each ankle moves outward from the default narrow stance), lean (torso shortening per unit d, forward lean
+// seen from the front), bend (0..1 shoulders drop toward hips = bending over),
 // wrists ("hips" | "floor"), noise (px), drop (array of names to omit), score.
 function pose(d, o) {
   o = o || {};
@@ -16,14 +17,15 @@ function pose(d, o) {
     left_shoulder: P(290, shY), right_shoulder: P(350, shY), left_elbow: P(285, shY + 55), right_elbow: P(355, shY + 55),
     left_wrist: P(288, wristY), right_wrist: P(352, wristY),
     left_hip: P(300, hipY), right_hip: P(340, hipY), left_knee: P(300 - ko, 330), right_knee: P(340 + ko, 330),
-    left_ankle: P(298, 420), right_ankle: P(342, 420)
+    left_ankle: P(298 - (o.ankOut || 0), 420), right_ankle: P(342 + (o.ankOut || 0), 420)
   };
   return Object.keys(pts).filter((k) => !(o.drop || []).includes(k)).map((k) => ({ name: k, x: pts[k].x + n(), y: pts[k].y + n(), score: o.score == null ? 0.9 : o.score }));
 }
-// cadence-style rep profile: 4 s down, holdMs (4 s) at the bottom, 4 s up, then topMs (2 s) standing. Returns [{t, d}] at fps.
+// Full-depth squat profile. Defaults are a comfortable self-paced loop (4 s down, 4 s hold, quick rise, short top).
+// Returns [{t, d}] at fps. Timing does not have to match the voice: a rep still counts from depth + stand.
 function repProfile(depth, o) {
   o = o || {};
-  const down = o.downMs == null ? 4000 : o.downMs, hold = o.holdMs == null ? 4000 : o.holdMs, up = o.upMs == null ? 4000 : o.upMs, top = o.topMs == null ? 2000 : o.topMs; // the cadence: Down 4, Hold 4, Up 4, Top 2
+  const down = o.downMs == null ? 4000 : o.downMs, hold = o.holdMs == null ? 4000 : o.holdMs, up = o.upMs == null ? 1000 : o.upMs, top = o.topMs == null ? 1000 : o.topMs;
   const total = down + hold + up + top, step = 1000 / (o.fps || 30), out = [];
   for (let t = 0; t < total; t += step) {
     let d;
