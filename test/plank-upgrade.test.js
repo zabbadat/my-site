@@ -125,10 +125,16 @@ check("filter: opts.filter=false is a pass-through", (() => { const f = P.create
   r = run(frames, {}, D);
   check("hold with the filter on: still live person is NOT ended as frozen (liveness reads raw)", r.phase === "holding" && r.reason == null);
   r = run(seq(0, 20000, () => body(400, 0, { x0: 90 })), {}, D);
-  check("a real frozen image (identical raw frames) is still flagged", r.ended && r.reason === "frozen");
+  check("a real frozen image (identical raw frames) does not end the hold", r.phase === "holding" && !r.ended);
   const loopF = seq(0, 1000, (t) => body(400, 0, { x0: 90, j: Math.sin(t / 37) * 1.5 + Math.cos(t / 91) })).map((x) => x[1]);
   r = run(seq(0, 20000, (t) => loopF[Math.floor(t / 33) % loopF.length]), {}, D);
-  check("an exactly repeating raw loop is still flagged", r.ended && r.reason === "repeat");
+  check("an exactly repeating raw loop does not end the hold", r.phase === "holding" && !r.ended);
+  const lvF = P.createLiveness(); let hitF = null;
+  for (const [t, k] of seq(0, 20000, () => body(400, 0, { x0: 90 }))) { const v = lvF.update(k, t, 400); if (v && !hitF) hitF = v; }
+  check("createLiveness still flags identical raw frames as frozen (detector only)", hitF === "frozen");
+  const lvR = P.createLiveness(); let hitR = null;
+  for (const [t, k] of seq(0, 20000, (t) => loopF[Math.floor(t / 33) % loopF.length])) { const v = lvR.update(k, t, 400); if (v && !hitR) hitR = v; }
+  check("createLiveness still flags an exact raw loop as repeat (detector only)", hitR === "repeat");
   const src = fs.readFileSync(path.join(__dirname, "../plank-session.js"), "utf8");
   check("source: live.update is handed the raw keypoints", /live\.update\(raw, t, bodyLen\(raw\)\)/.test(src) && /pf\.filter\(raw, t\)/.test(src)); }
 

@@ -47,10 +47,16 @@ check("left frame >1s ends hold", r.ended && r.reason === "left_frame");
 r = run(seq(0, 5000, jitter).concat(seq(5000, 6500, () => stand)));
 check("stood up ends hold", r.ended && r.reason === "standing");
 r = run(seq(0, 20000, () => good));
-check("frozen input (photo) flagged", r.ended && r.reason === "frozen");
+check("frozen input (photo) does not end a hold (a still live plank looks the same)", r.phase === "holding" && !r.ended);
 const loop = seq(0, 1000, jitter).map((x) => x[1]);
 r = run(seq(0, 20000, (t) => loop[Math.floor(t / 33) % loop.length]));
-check("exactly repeating loop flagged", r.ended && r.reason === "repeat");
+check("exactly repeating loop does not end a hold", r.phase === "holding" && !r.ended);
+const lvF = P.createLiveness(); let hitF = null;
+for (const [t, k] of seq(0, 20000, () => good)) { const v = lvF.update(k, t, 400); if (v && !hitF) hitF = v; }
+check("createLiveness still flags a photo as frozen (detector only)", hitF === "frozen");
+const lvR = P.createLiveness(); let hitR = null;
+for (const [t, k] of seq(0, 20000, (t) => loop[Math.floor(t / 33) % loop.length])) { const v = lvR.update(k, t, 400); if (v && !hitR) hitR = v; }
+check("createLiveness still flags an exact loop as repeat (detector only)", hitR === "repeat");
 // a very still real person: sub-pixel noise
 let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) - 0.5;
 r = run(seq(0, 30000, () => pose(0, 0, rnd() * 1.2)));

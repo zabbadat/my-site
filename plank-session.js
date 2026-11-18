@@ -9,7 +9,10 @@
  * - createPlankFilter: One Euro filter (the one in push-counter.js) on the keypoints, scaled by body length.
  *     MoveNet's own smoothing is off for plank; form classification and framing read the FILTERED points.
  * - createLiveness: flags frozen (photo-like) or exactly repeating keypoints. Always reads the RAW points.
- * - createPlankHold: ready check -> holding -> ended (with reason)
+ *     Kept as a detector only: a running hold is not ended for frozen/repeat (a still live plank, and Apple
+ *     Vision / stable MoveNet integer or sub-pixel-still keypoints, look the same as a photo after ~8 s).
+ * - createPlankHold: ready check -> holding -> ended (with reason). A hold runs until a form break, leaving
+ *     the frame for missMs, or Stop. There is no time cap (60 s is the ZAB payout mark only).
  * - rankPlanks / bestOf: board ranking and personal best */
 (function (root) {
   "use strict";
@@ -322,8 +325,9 @@
           h.badType = f;
           if (t - h.badSince >= o.badMs) { end(t, f, h.badSince); return out(f); }
         }
-        var lv = live.update(raw, t, bodyLen(raw)); // RAW points: smoothing must not make a live person look frozen
-        if (lv) { end(t, lv); return out(f); }
+        // Liveness still runs on RAW points (for the detector / tests) but never ends the hold: a real still
+        // plank is nearly motionless, so after liveWindowMs (~8 s) it was ending as "frozen" or "repeat".
+        live.update(raw, t, bodyLen(raw));
       }
       h.ms = Math.round(t - h.startT);
       return out(f);

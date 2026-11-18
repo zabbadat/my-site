@@ -37,7 +37,7 @@ const cases = [
   ["knees down", seq(0, 5000, jitter).concat(seq(5000, 6500, () => knees)), "knees"],
   ["stood up", seq(0, 5000, jitter).concat(seq(5000, 6500, () => stand)), "standing"],
   ["body left the frame", seq(0, 5000, jitter).concat(seq(5000, 6500, () => [])), "left_frame"],
-  ["frozen (photo)", seq(0, 20000, () => pose()), "frozen"],
+  ["collapsed to the floor", seq(0, 5000, jitter).concat(seq(5000, 6500, () => K({ left_shoulder: [205, 348], left_elbow: [250, 341], left_wrist: [200, 340], left_hip: [345, 335], left_knee: [440, 330], left_ankle: [535, 330] }))), "collapse"],
 ];
 for (const [name, frames, reason] of cases) {
   const { r } = hold(frames); const c = env();
@@ -50,7 +50,9 @@ for (const [name, frames, reason] of cases) {
   check(`${name}: the 15 s voice is ended before the line (failure interrupts, no count after)`, c.log.indexOf("voiceEnd") < c.log.indexOf("say:Set complete"));
 }
 { const c = env(); c.plankEnded({ reason: "repeat", ms: 5000 });
-  check('repeating motion (video) failure: says "Set complete" once', JSON.stringify(says(c)) === JSON.stringify(["say:Set complete"])); }
+  check('if a hold is ended with reason repeat, says "Set complete" once (detector no longer ends a hold this way)', JSON.stringify(says(c)) === JSON.stringify(["say:Set complete"])); }
+{ const c = env(); c.plankEnded({ reason: "frozen", ms: 5000 });
+  check('if a hold is ended with reason frozen, says "Set complete" once (detector no longer ends a hold this way)', JSON.stringify(says(c)) === JSON.stringify(["say:Set complete"])); }
 // Not on success or Stop
 { const { h } = hold(seq(0, 20000, jitter)); const c = env(); c.plankEnded(h.stop(20000));
   check("Stop button (reason stopped): silent, time still saved", says(c).length === 0 && c.log.includes("save:b")); }
