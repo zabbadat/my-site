@@ -67,6 +67,12 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
   function nearFloor(p, fy, scale, frac) {
     return !!(p && fy != null && scale > 0 && p.y >= fy - (frac == null ? 0.12 : frac) * scale);
   }
+  // Knees (or another joint) close to the planted-hand floor line, above or slightly below. One-sided
+  // nearFloor is also true once the hands leave the floor and rise (a stand-up): wrists come up, every
+  // joint below them would look "on the floor". This two-sided check is the drop-to-knees cue.
+  function atFloor(p, fy, scale, frac) {
+    return !!(p && fy != null && scale > 0 && Math.abs(p.y - fy) <= (frac == null ? 0.12 : frac) * scale);
+  }
   function isFrontView(sw, sh, hip, o) {
     if (!(sw > 40 && sh && hip)) return false;
     var torso = Math.hypot(hip.x - sh.x, hip.y - sh.y);
@@ -74,21 +80,27 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
   }
   // Knees-down when the knee landmark is missing or below kneeMin. A weak knee is only trusted with a
   // confident hip and the knee or ankle on the floor line (wrist height). Hidden-leg guesses at very
-  // low scores (hip and knee both ~0.2) never qualify. Front-facing: hips dropped to the hands.
-  function kneesFallback(hip, knRaw, an, sh, fy, sw, o) {
+  // low scores (hip and knee both ~0.2) never qualify. Front-facing: hips dropped to the hands, or the
+  // knees themselves on the floor line (a drop-to-knees can leave the hips high).
+  function kneesFallback(hip, knRaw, anRaw, sh, fy, sw, o) {
     o = o || GUARD;
     var weakMin = o.weakKneeMin == null ? 0.28 : o.weakKneeMin;
     var legMin = Math.max(o.minScore || 0, o.kneeMin == null ? 0 : o.kneeMin);
     var kn = scored(knRaw, legMin), knWeak = scored(knRaw, weakMin);
+    // Apple Vision often reports a real ankle / knee in the 0.3-0.49 band (below kneeMin 0.5). Trust those at weakMin;
+    // a caller may pass either a raw joint or an already-thresholded one.
+    var an = scored(anRaw, weakMin) || scored(anRaw, o.minScore == null ? 0.3 : o.minScore);
     var sc = bodyScale(sh, hip, an || knWeak, sw);
     var floorF = o.floorFrac == null ? 0.12 : o.floorFrac;
     if (hip && knWeak && an) {
       var a = angle(hip, knWeak, an);
-      var knFloor = nearFloor(knWeak, fy != null ? fy : an.y, sc, floorF) || (an && Math.abs((knWeak.y || 0) - an.y) < floorF * sc);
-      // Nov 17 (owner): front camera, legs running away from the lens put knee and ankle at the same height in 2D. With
-      // hiddenKneeFold a front-view bend counts only with the hips dropped to the floor line (hand height).
+      // Knee on the planted-hand floor line = a real kneel (drop-to-knees can leave the hips high). Knee at the
+      // same height as the ankle is only a floor cue in a side view, or with the hips already dropped: from the
+      // front, that same-height pair is the foreshortened plank (legs running away from the lens).
+      var knAtHands = atFloor(knWeak, fy, sc, floorF);
+      var knAtAnkle = an && Math.abs((knWeak.y || 0) - an.y) < floorF * sc;
       var fbHipLow = fy != null && sw > 1 && fy - hip.y < (o.foldFloorFrac == null ? 0.5 : o.foldFloorFrac) * sw;
-      if (a != null && a < (o.kneeAngle || 140) && knFloor && (o.hiddenKneeFold !== true || fbHipLow || !isFrontView(sw, sh, hip, o))) return true;
+      if (a != null && a < (o.kneeAngle || 140) && (knAtHands || (knAtAnkle && (o.hiddenKneeFold !== true || fbHipLow || !isFrontView(sw, sh, hip, o))))) return true;
     }
     // Hidden knee, side view (fix Nov 16, owner report: a clean set ended "Knees down" mid-set). Hips above the hands with
     // the feet on the floor is ALSO a normal plank / push-up top, so that alone is not a kneel: the legs must read FOLDED,
@@ -128,24 +140,39 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
       var s = sides[i], sh = pt(kps, s + "_shoulder", o.minScore), hip = pt(kps, s + "_hip", legMin),
           kn = pt(kps, s + "_knee", legMin), an = pt(kps, s + "_ankle", legMin), knRaw = rawPt(kps, s + "_knee");
       var hipLow = !!(hip && fy != null && foldScale > 1 && fy - hip.y < (o.foldFloorFrac == null ? 0.5 : o.foldFloorFrac) * foldScale);
+      var knWeak = scored(knRaw, o.weakKneeMin == null ? 0.28 : o.weakKneeMin);
+      var knOnFloor = atFloor(kn || knWeak, fy, bodyScale(sh, hip, an || knWeak, foldScale), o.floorFrac);
       if (hip && kn && an) {
         known = true;
         var a = angle(hip, kn, an);
-        // Nov 17 (owner): from the front camera straight legs running away from the lens read bent in 2D. With hiddenKneeFold,
-        // a front-view knee angle counts only when the hips have also dropped to the floor line (hand height): a real kneel.
-        if (a != null && a < o.kneeAngle && (o.hiddenKneeFold !== true || hipLow || !isFrontView(w, sh, hip, o))) knees = true;
+        // Nov 17 (owner): from the front camera, straight legs running away from the lens read bent in 2D while the
+        // knees stay well above the hands. With hiddenKneeFold, a front-view knee angle counts only when this is a
+        // real kneel: the hips have dropped to the floor line (hand height), OR the knees themselves are on that
+        // floor line (drop-to-knees with the thighs still up). A foreshortened plank has neither.
+        if (a != null && a < o.kneeAngle && (o.hiddenKneeFold !== true || hipLow || knOnFloor || !isFrontView(w, sh, hip, o))) knees = true;
         if (sh) { var dy = Math.abs(an.y - sh.y), dx = Math.abs(an.x - sh.x); if (dy > o.upright * dx && a != null && a >= o.kneeAngle) upright = true; }
       } else if (hip && kn) {
-        // Front camera: ankles are often missing. A kneel still shows the hips dropped to about knee height.
+        // Front camera: ankles are often missing or below kneeMin. A kneel still shows the hips dropped to about
+        // knee height, or the knees on the floor line with a bent leg (when a weak ankle is seen).
         known = true;
         // Nov 17 (owner, real iPhone): a front / three-quarter camera sees straight plank legs running AWAY from the lens, so
         // the knee projects at about hip height ("folded") while the hips stay high above the planted hands. With no ankle,
-        // that is only a kneel when the hips have also dropped to the floor line (hand height). Missing wrists = no floor
-        // line = never a fail from this cue. Opt-in with hiddenKneeFold (push-up sets / TUT); plank keeps its rule.
-        if (foldedLegs(hip, kn, null, o, foldScale) && (o.hiddenKneeFold !== true || hipLow)) knees = true;
+        // that is only a kneel when the hips have dropped to the floor line or the knees are on it. A visible ankle on a
+        // straight leg (even a weak one) is not a kneel. Missing wrists = no floor line = never a fail from knOnFloor.
+        // Opt-in with hiddenKneeFold (push-up sets / TUT); plank keeps its own classifyPlank rule.
+        var anWeak = scored(rawPt(kps, s + "_ankle"), o.weakKneeMin == null ? 0.28 : o.weakKneeMin);
+        var floorBent = knOnFloor && (!anWeak || (function (a) { return a != null && a < o.kneeAngle; })(angle(hip, kn, anWeak)));
+        if (floorBent || (foldedLegs(hip, kn, null, o, foldScale) && (o.hiddenKneeFold !== true || hipLow))) knees = true;
+      } else if (hip && knWeak && knOnFloor) {
+        // iOS Vision: the knee is often 0.3-0.49 (below kneeMin) on a real drop-to-knees. Knees on the floor
+        // line count; if an ankle is also seen, the leg must actually be bent (a straight front/top-down
+        // plank can place the knees near the hands in 2D).
+        var anW = scored(rawPt(kps, s + "_ankle"), o.weakKneeMin == null ? 0.28 : o.weakKneeMin);
+        if (!anW || (function (a) { return a != null && a < o.kneeAngle; })(angle(hip, knWeak, anW))) { known = true; knees = true; }
       }
       // Occluded or low-visibility knees: hip-to-ankle / floor line / front hip-drop, never a low-score full-leg guess.
-      if (!knees && hip && kneesFallback(hip, knRaw, an, sh, fy, foldScale, o)) { known = true; knees = true; }
+      // Pass the raw ankle so Vision scores in the weak band still reach kneesFallback (kneeMin would drop them).
+      if (!knees && hip && kneesFallback(hip, knRaw, rawPt(kps, s + "_ankle") || an, sh, fy, foldScale, o)) { known = true; knees = true; }
     }
     // A camera looking along the plank sees the legs running straight down the frame, so an upright-looking
     // line only counts when the shoulders have also moved away from the camera.
@@ -289,7 +316,8 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
   // Failure watch (One long set, 3:00 challenge, Sets). Owner rule (Nov 16): a push-up set ends ONLY on a definitive break:
   //  - "knees": hip-knee-ankle bent like kneeling, or, when the knee is occluded or below kneeMin, a confident hip plus folded legs
   //    (body line bent at the hip, short hip-to-ankle span) with the ankle on the floor line, or a front-view hip drop to the hands
-  //    with the shoulders still up. A weak / missing knee on a straight body never counts.
+  //    with the shoulders still up, or a front-view drop-to-knees with the knees on the floor line even if the hips stay up.
+  //    A weak / missing knee on a straight body never counts.
   //  - "collapse": hard hip sag (hips below the shoulder-ankle line, line >= sagDeg 35 deg worse than the first-rep baseline, held
   //    sagMs 1.5 s), or the chest staying at floor level with no upward progress for 4 s (createViewWatch chestMs).
   //  - "standing": stood all the way up (straight legs running down the frame, off the top), or shoulders rose / hands came up.
@@ -510,6 +538,11 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
   //    rep range frozen at the last counted rep: the counter re-bases its top after ~6 s parked at a new level, so a body parked
   //    at the bottom would otherwise read as a top hold forever. Both clocks also need 15 s / 45 s since the last counted rep,
   //    so neither can fire while reps keep counting.
+  //    TUT / TUT Battle (Nov 17): atTopFrom uses a tight lockout line (~15% of the last-rep range). A real plank-push-press
+  //    hold often settles a little below that peak, which used to start the 15 s stall and cancel the set mid-hold
+  //    ("No push-up for a while") even though the body was still in the upper part of that frozen range. For mode "long"
+  //    and "battle", the 15 s clock only runs when the frozen range reads low (lying at the bottom / sitting back). Sets
+  //    keep the tighter atTop rule, and the 45 s idle (Sets only) already covers a true top hold.
   //  - "stalled" (45 s, Sets only): no new rep for setsIdleMs, top hold included, counted from the last rep or the last return to
   //    the top, whichever is later; paused while no body is in view. 45 s leaves the 30 s top-hold bonus reachable.
   // Never fires before the first rep (a 0-rep set keeps going until End set), and never on the start frame.
@@ -531,6 +564,8 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
       if (reps !== lastReps) { lastReps = reps; lastRepT = t; idleFrom = t; offSince = null; if (c && isFinite(c.top) && isFinite(c.bottom) && c.bottom !== c.top) rom = { top: c.top, bottom: c.bottom }; }
       var low = !!(rom && c && isFinite(c.smooth) && (c.smooth - rom.top) / (rom.bottom - rom.top) > o.lowFrac);
       var topNow = !!(seen && s.atTop && !low);
+      // TUT set / TUT Battle: a hold settled slightly below the lockout line is still a top hold, not a 15 s stall.
+      if ((s.mode === "long" || s.mode === "battle") && seen && rom && !low) topNow = true;
       if (topNow && !wasTop) idleFrom = t; // 45 s clock: restarts on every counted rep AND on every return to the top
       wasTop = topNow;
       if (reps < 1) return null;
