@@ -66,6 +66,10 @@ function scenarios(sd) {
   S.push({ name: "break: front-facing kneel", label: "break", onset: B, kinds: ["push"], topWidth: 128, frame: (t) => frontKps(t >= B) });
   S.push({ name: "break: front-facing kneel, knees occluded", label: "break", onset: B, kinds: ["push"], topWidth: 128, frame: (t) => frontKps(t >= B, { noKnee: true }) });
   S.push({ name: "break: front-facing kneel, low-confidence knees (0.32)", label: "break", onset: B, kinds: ["push"], topWidth: 128, frame: (t) => frontKps(t >= B, { lowKnee: 0.32 }) });
+  // Nov 17 (owner, iPhone): a real drop-to-knees plants the knees on the floor while the hips stay well above the hands
+  // (thighs more vertical). This must end the set; hips-at-hand-height is no longer required.
+  S.push({ name: "break: front-facing drop-to-knees (hips still high)", label: "break", onset: B, kinds: ["push"], topWidth: 128, frame: (t) => frontKps(t >= B, { hipsHigh: true }) });
+  S.push({ name: "break: front-facing drop-to-knees, Vision-like scores (knee 0.45, ankle 0.38)", label: "break", onset: B, kinds: ["push"], topWidth: 128, frame: (t) => frontKps(t >= B, { hipsHigh: true, lowKnee: 0.45, lowAnkle: 0.38 }) });
   S.push({ name: "break: knees down, portrait frame (phone upright, body still side-on)", label: "break", onset: B, kinds: ["push", "plank"], dims: { w: 480, h: 640 }, frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.knees, B, 400)(t)) });
   S.push({ name: "break: knees down, slow sink (2.5 s)", label: "break", onset: B, window: 3500, kinds: ["push", "plank"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.knees, B, 2500)(t)) });
   S.push({ name: "break: knees down, fast drop (120 ms)", label: "break", onset: B, kinds: ["push", "plank"], frame: (t) => kpsOf(t < B ? POSE.top : moveTo(POSE.top, POSE.knees, B, 120)(t)) });
@@ -79,10 +83,13 @@ function frontKps(kneel, opt) {
   opt = opt || {};
   const plank = { left_shoulder: [256, 170], right_shoulder: [384, 170], left_elbow: [248, 270], right_elbow: [392, 270], left_wrist: [240, 370], right_wrist: [400, 370], nose: [320, 140], left_hip: [230, 330], left_knee: [235, 400], left_ankle: [238, 470], right_hip: [400, 330], right_knee: [405, 400], right_ankle: [408, 470] };
   const down = { left_shoulder: [256, 210], right_shoulder: [384, 210], left_elbow: [248, 300], right_elbow: [392, 300], left_wrist: [240, 370], right_wrist: [400, 370], nose: [320, 180], left_hip: [300, 360], left_knee: [310, 370], left_ankle: [300, 430], right_hip: [340, 360], right_knee: [350, 370], right_ankle: [348, 430] };
-  const src = kneel ? down : plank, out = [];
+  // Drop to knees with thighs nearly vertical: knees on the hand line, hips still ~1 thigh above the hands.
+  const downHigh = { left_shoulder: [256, 160], right_shoulder: [384, 160], left_elbow: [248, 260], right_elbow: [392, 260], left_wrist: [240, 370], right_wrist: [400, 370], nose: [320, 130], left_hip: [290, 250], left_knee: [300, 365], left_ankle: [330, 378], right_hip: [350, 250], right_knee: [340, 365], right_ankle: [310, 378] };
+  const src = !kneel ? plank : opt.hipsHigh ? downHigh : down, out = [];
   for (const n of Object.keys(src)) out.push({ name: n, x: src[n][0], y: src[n][1], score: 0.85 });
   if (opt.noKnee) return out.filter((k) => !/_knee$/.test(k.name));
-  if (opt.lowKnee) return out.map((k) => /_knee$/.test(k.name) ? Object.assign({}, k, { score: opt.lowKnee }) : k);
+  if (opt.lowKnee) out.forEach((k) => { if (/_knee$/.test(k.name)) k.score = opt.lowKnee; });
+  if (opt.lowAnkle) out.forEach((k) => { if (/_ankle$/.test(k.name)) k.score = opt.lowAnkle; });
   return out;
 }
 function oneSideKnees(t, side) {
