@@ -26,8 +26,8 @@ const KPS = JSON.parse(fs.readFileSync(path.join(HERE, "push-top-kps.json"), "ut
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const CACHE = process.env.PFP_PROOF_DIR || path.join(os.tmpdir(), "zab-pfp-proof"); // fake camera clips (reused)
 const OUT = path.join(CACHE, "run-" + new Date().toISOString().replace(/[:.]/g, "-")); // this run's report, screenshots and exposed frames
-const SURFACES = ["push", "plank", "squats", "tut", "zlSelf", "match"];
-const VID = { push: "camVid", plank: "plankVid", squats: "sqVid", tut: "tbVid", zlSelf: "zlSelf", match: "zmCamVid" };
+const SURFACES = ["push", "plank", "squats", "tut", "zlSelf", "match", "mirror21"];
+const VID = { push: "camVid", plank: "plankVid", squats: "sqVid", tut: "tbVid", zlSelf: "zlSelf", match: "zmCamVid", mirror21: "m21Vid" };
 const only = ARG.only ? String(ARG.only).split(",") : null, want = (s) => !only || only.includes(s);
 
 // ---------- in-page hooks (run before any page script) ----------
@@ -85,7 +85,7 @@ function hooks() {
 // id-level selectors (and inline !important styles) and wins even while the class stays on. The checker must then FAIL
 // on both readback and the camera-area screencast.
 function controlHook() {
-  const IDS = ["camVid", "plankVid", "tbVid", "sqVid", "zlSelf", "zmCamVid"];
+  const IDS = ["camVid", "plankVid", "tbVid", "sqVid", "zlSelf", "zmCamVid", "m21Vid"];
   const vis = IDS.flatMap((id) => [`html.zab-pfp-shield video#${id}`, `html video#${id}`]).join(",");
   const st = document.createElement("style"); st.setAttribute("data-pfp-proof-control", "1");
   st.textContent = vis + "{opacity:1!important;visibility:visible!important;display:block!important;z-index:2147483647!important}" +
@@ -137,6 +137,7 @@ async function run(base, sc, y4m) {
       await p.evaluate(() => { window.ZabPfp.setUser({ uid: "proof", displayName: "Proof" }); window.ZabPfp.setOn(true); });
       if (sc.surface === "tut" || sc.surface === "zlSelf" || sc.surface === "match") await keepVisible(vidId);
       if (sc.surface === "push") await p.click("#pushStartBtn"); else if (sc.surface === "plank") await p.click("#plankCamBtn"); else if (sc.surface === "squats") await p.click("#sqStartBtn");
+      else if (sc.surface === "mirror21") await p.click("#m21StartBtn");
       else if (sc.surface === "tut") { if (!hooked.tb) throw new Error("TUT test entry point not found in index.html"); p.evaluate(() => window.__tbTest.on()).catch(() => {}); }
       else if (sc.surface === "zlSelf") { if (!hooked.zl) throw new Error("Go-live test entry point not found in index.html"); p.evaluate(() => window.__zlTest.start()).catch(() => {}); }
       else if (sc.surface === "match") p.evaluate(() => window.ZabbaMatchPfpCam.start()).catch(() => {});
@@ -146,7 +147,7 @@ async function run(base, sc, y4m) {
     const grab = () => p.evaluate((id) => ({ ex: window.__ex, fr: window.__fr, stage: window.__stage, exList: window.__exList, probeErr: window.__probeErr || null, shield: !!(window.__seen && window.__seen[id]) }), vidId);
     const seg = (n, m) => p.evaluate(([n, m]) => { window.__seg = n; window.__mode = m; }, [n, m]);
     const parts = [];
-    await p.goto(base + ({ push: "/#push", plank: "/#plank", squats: "/#squats" }[sc.surface] || "/"), { waitUntil: "domcontentloaded" }); await sleep(1200);
+    await p.goto(base + ({ push: "/#push", plank: "/#plank", squats: "/#squats", mirror21: "/mirror21-test.html" }[sc.surface] || "/"), { waitUntil: "domcontentloaded" }); await sleep(1200);
     await open();
     if (sc.kind === "startup") {
       await sleep(QUICK ? 5000 : 6000); parts.push(await grab());
@@ -217,7 +218,8 @@ function matrix() {
   const L = [], add = (o) => { o.name = `${o.kind}-${o.surface}-${o.view}-${o.res}${o.kind === "startup" ? "-model_" + o.model : ""}`; if (want(o.surface)) L.push(o); };
   if (QUICK) {
     for (const surface of ["push", "match"]) for (const view of ["phone", "desktop"]) for (const model of ["normal", "blocked"]) add({ kind: "startup", surface, view, model, res: "640x480" });
-    for (const surface of ["push", "zlSelf", "match"]) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480" });
+    add({ kind: "startup", surface: "mirror21", view: "phone", model: "normal", res: "640x480" });
+    for (const surface of ["push", "zlSelf", "match", "mirror21"]) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480" });
   } else {
     for (const surface of SURFACES) for (const view of ["phone", "desktop"]) for (const model of ["normal", "slow", "blocked"]) add({ kind: "startup", surface, view, model, res: "640x480" });
     for (const surface of SURFACES) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480" });

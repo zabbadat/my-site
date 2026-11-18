@@ -2,8 +2,10 @@
 // and any #fragment matches an id on the target page. Also: every page is in sitemap.xml with a matching canonical.
 const fs = require("fs"), path = require("path");
 const root = path.join(__dirname, "..");
-const pages = fs.readdirSync(root).filter((f) => /\.html$/.test(f) && !/^google/.test(f));
-const html = {}; pages.forEach((f) => { html[f] = fs.readFileSync(path.join(root, f), "utf8"); });
+const allPages = fs.readdirSync(root).filter((f) => /\.html$/.test(f) && !/^google/.test(f));
+const html = {}; allPages.forEach((f) => { html[f] = fs.readFileSync(path.join(root, f), "utf8"); });
+const pages = allPages; // every top-level html, including noindex test pages (link + id checks)
+const publicPages = allPages.filter((f) => !/name="robots" content="noindex/.test(html[f])); // listed in the sitemap
 const R = []; const check = (n, ok, why) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok || !why ? "" : " :: " + why}`); R.push(!!ok); };
 const target = (p) => (p === "/" || p === "" ? "index.html" : p.replace(/^\//, "").replace(/\.html$/, "") + ".html");
 const ids = (h) => new Set([...h.replace(/<script[\s\S]*?<\/script>/g, "").matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
@@ -21,10 +23,10 @@ check("internal links resolve on " + pages.length + " pages (" + n + " links che
 const dup = []; pages.forEach((f) => { const seen = {}; [...html[f].replace(/<script[\s\S]*?<\/script>/g, "").matchAll(/\sid="([^"]+)"/g)].forEach((m) => { seen[m[1]] = (seen[m[1]] || 0) + 1; }); Object.keys(seen).filter((k) => seen[k] > 1).forEach((k) => dup.push(f + "#" + k)); });
 check("no duplicate element ids (index.html steps / tbBoardBody fixed)", dup.length === 0, dup.join(", "));
 const sm = fs.readFileSync(path.join(root, "sitemap.xml"), "utf8"), locs = [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-const want = pages.map((f) => "https://www.zabbadat.com/" + (f === "index.html" ? "" : f.replace(/\.html$/, "")));
+const want = publicPages.map((f) => "https://www.zabbadat.com/" + (f === "index.html" ? "" : f.replace(/\.html$/, "")));
 check("sitemap lists every page: " + want.length, want.every((u) => locs.includes(u)) && locs.length === want.length, "sitemap: " + locs.join(", "));
-check("every page's canonical equals its sitemap URL", pages.every((f, i) => (html[f].match(/rel="canonical" href="([^"]+)"/) || [])[1] === want[i]));
-const pages2 = pages.filter((f) => !["index.html", "rules.html"].includes(f));
+check("every public page's canonical equals its sitemap URL", publicPages.every((f, i) => (html[f].match(/rel="canonical" href="([^"]+)"/) || [])[1] === want[i]));
+const pages2 = publicPages.filter((f) => !["index.html", "rules.html"].includes(f));
 check("new pages: title <= 60, description 120-158, one H1, og/twitter image, canonical", pages2.every((f) => { const h = html[f], t = (h.match(/<title>([^<]*)<\/title>/) || [])[1] || "", d = (h.match(/name="description" content="([^"]*)"/) || [])[1] || "";
   return t.length <= 60 && d.length >= 120 && d.length <= 158 && (h.match(/<h1>/g) || []).length === 1 && /og:image" content="https:\/\/www\.zabbadat\.com\/og-zd-v2\.png"/.test(h) && /twitter:image" content="https:\/\/www\.zabbadat\.com\/og-zd-v2\.png"/.test(h); }));
 const titles = pages.map((f) => (html[f].match(/<title>([^<]*)<\/title>/) || [])[1]); check("titles are unique", new Set(titles).size === titles.length);

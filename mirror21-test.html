@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mirror-21 test — Zabbadat</title>
+  <meta name="description" content="Test-only Mirror-21 camera: face-detection overlay and a count-up timer to 21. Not the live site.">
+  <!-- Same fail-safe as the live cameras: hide the raw video from the first paint; pfp.js registerCam adds this id to the shared shield list. -->
+  <style id="pfpShieldCss">html.zab-pfp-shield video#m21Vid{opacity:0!important}html.zab-pfp-shield canvas.pfp-shield{position:absolute;z-index:1;pointer-events:none}</style>
+  <script>try { if (localStorage.getItem("zabPfpOn") !== "0") document.documentElement.classList.add("zab-pfp-shield"); } catch (e) { try { document.documentElement.classList.add("zab-pfp-shield"); } catch (e2) {} }</script>
+  <meta name="theme-color" content="#0e1412">
+  <link rel="icon" href="/zd-square.png">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Outfit:wght@400;500;600;700&family=Press+Start+2P&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Outfit:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet"></noscript>
+  <style>
+    :root { --bg:#0e1412; --bg-2:#15201c; --card:#1b2723; --accent:#8fbfa8; --text:#eef4f1; --muted:#9aada4; --warn:#e2b36a; --lime:#c6ff00; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: var(--bg); color: var(--text); font-family: Outfit, system-ui, sans-serif; line-height: 1.5; }
+    body { max-width: 42rem; margin: 0 auto; padding: 1rem 1rem 3rem; }
+    .banner { background: #3a2010; color: var(--warn); font-size: .8rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: .45rem .7rem; border-radius: 8px; margin-bottom: 1rem; }
+    h1 { font-family: "Cormorant Garamond", Georgia, serif; font-weight: 500; font-size: 2rem; margin: .2rem 0 .35rem; }
+    .lead { color: var(--muted); font-size: .95rem; margin-bottom: 1rem; }
+    .lead a { color: var(--accent); }
+    .modes { display: flex; gap: .4rem; margin: .8rem 0; }
+    .modes button, .btn, .add button {
+      font-family: inherit; border: 1px solid #2c3d37; background: var(--bg-2); color: var(--text);
+      padding: .65rem 1rem; border-radius: 999px; cursor: pointer; font-weight: 600;
+    }
+    .modes button[aria-pressed="true"] { background: var(--accent); color: #0e1412; border-color: var(--accent); }
+    .modes button:disabled { opacity: .55; cursor: default; }
+    .score { display: flex; gap: 1.2rem; align-items: baseline; margin: .8rem 0; font-variant-numeric: tabular-nums; }
+    .score .t { font-family: "Press Start 2P", ui-monospace, monospace; font-size: 1.35rem; color: var(--lime); }
+    .score .c { font-family: "Press Start 2P", ui-monospace, monospace; font-size: 1.1rem; }
+    .score span { color: var(--muted); font-size: .75rem; display: block; margin-bottom: .25rem; letter-spacing: .06em; text-transform: uppercase; }
+    #m21Wrap { position: relative; width: 100%; border-radius: 14px; overflow: hidden; background: #101816; margin: .8rem 0; }
+    #m21Vid { width: 100%; display: block; transform: scaleX(-1); background: #101816; border-radius: 0; }
+    canvas.m21-overlay { position: absolute; z-index: 3; pointer-events: none; left: 0; top: 0; width: 100%; height: 100%; }
+    .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .6rem 0; }
+    .btn.primary { background: var(--accent); color: #0e1412; border-color: var(--accent); }
+    .btn.danger { background: #2a1818; border-color: #5a3030; color: #f0c4c4; }
+    .add button { min-width: 4.5rem; }
+    .note { color: var(--muted); font-size: .9rem; min-height: 1.4em; }
+    .final { margin: .4rem 0 0; font-weight: 600; color: var(--lime); }
+    .hud { background: var(--card); border-radius: 12px; padding: .7rem .85rem; font-size: .82rem; margin-top: .7rem; }
+    .m21-hud-row { display: flex; justify-content: space-between; gap: .8rem; padding: .18rem 0; border-bottom: 1px solid #24332e; }
+    .m21-hud-row:last-child { border-bottom: 0; }
+    .m21-hud-row span { color: var(--muted); }
+    .m21-hud-row b { font-weight: 600; text-align: right; }
+    .m21-hud-row b.on { color: var(--lime); }
+    .m21-hud-row b.off { color: var(--warn); }
+    .pfp-row { display: flex; align-items: center; gap: .55rem; font-size: .9rem; margin: .5rem 0 0; color: var(--muted); }
+    .pfp-row input { width: 1.1rem; height: 1.1rem; accent-color: var(--accent); }
+    .hint { color: var(--muted); font-size: .8rem; margin-top: .8rem; }
+  </style>
+</head>
+<body>
+  <div class="banner">Test build — not live on zabbadat.com</div>
+  <h1>Mirror-21</h1>
+  <p class="lead">Opens the front camera with the same logo cover as the other cameras, runs face and pose recognition, and counts up until you reach 21. The box on the picture shows where a face was found, and how confident the detector is — useful when the phone sits next to or behind a Zabba Washers box. <a href="/">Back to Zabbadat</a></p>
+
+  <div class="modes" role="group" aria-label="Count source">
+    <button type="button" data-m21-mode="push" aria-pressed="true">Push-ups</button>
+    <button type="button" data-m21-mode="washers" aria-pressed="false">Zabba Washers</button>
+  </div>
+
+  <div class="score">
+    <div><span>Time</span><div class="t" id="m21Time">0:00.0</div></div>
+    <div><span>Score</span><div class="c"><span id="m21Count">0</span> / 21</div></div>
+  </div>
+
+  <div id="m21Wrap" hidden>
+    <video id="m21Vid" autoplay playsinline muted style="width:100%;background:#101816;transform:scaleX(-1);display:block"></video>
+    <canvas id="m21Overlay" class="m21-overlay" aria-hidden="true"></canvas>
+  </div>
+
+  <div class="row">
+    <button type="button" class="btn primary" id="m21StartBtn">Start</button>
+    <button type="button" class="btn danger" id="m21EndBtn" hidden>End</button>
+    <span id="m21Washers" class="add" hidden>
+      <button type="button" data-m21-add="1">+1</button>
+      <button type="button" data-m21-add="3">+3 pack</button>
+    </span>
+  </div>
+  <p class="note" id="m21Note">Test build. Front camera, same logo cover as the other cameras. Timer runs until 21.</p>
+  <p class="final" id="m21Final" hidden></p>
+  <div class="hud" id="m21Hud" aria-live="polite"></div>
+  <label class="pfp-row"><input type="checkbox" id="m21PfpToggle" checked> Profile logo (PFP) on — leave this on so the face stays covered</label>
+  <p class="hint">Yaw is an approximate left/right turn from the eyes and ears, not a full 3D head pose. In the iOS or Android app this page is not on the live site; open this test URL in the phone browser. Apple Vision runs only inside the app WebView.</p>
+
+  <script src="/pfp.js"></script>
+  <script src="/push-counter.js"></script>
+  <script src="/pose-vision.js"></script>
+  <script src="/mirror21.js"></script>
+  <script src="/mirror21-page.js"></script>
+</body>
+</html>

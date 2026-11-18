@@ -632,6 +632,23 @@
       if (!on) for (var q in shields) shieldDrop(q);
     } catch (e) {}
   }
+  // Extra local cameras (test pages only): add an id so prepare / input / frame / the shield
+  // use the exact same cover as #camVid and #sqVid. Never removes or changes the six production ids.
+  function registerCam(id) {
+    try {
+      if (!id || typeof id !== "string" || OPEN_IDS[id]) return;
+      OPEN_IDS[id] = 1;
+      HIDE_SEL = Object.keys(OPEN_IDS).map(function (k) { return "html.zab-pfp-shield video#" + k; }).join(",");
+      if (doc) {
+        var css = HIDE_SEL + "{opacity:0!important}html.zab-pfp-shield canvas.pfp-shield{position:absolute;z-index:1;pointer-events:none}";
+        if (!hideCss) hideCss = doc.getElementById("pfpShieldCss");
+        if (!hideCss) { hideCss = doc.createElement("style"); hideCss.id = "pfpShieldCss"; (doc.head || doc.documentElement).appendChild(hideCss); }
+        hideCss.textContent = css;
+      }
+      try { syncHide(); } catch (e) {}
+    } catch (e) {}
+  }
+  api.registerCam = registerCam;
   function shieldUnlock(s) { if (s.lockT) { s.lostT = perfNow(); s.lostFrom = s.lastM; s.wasLocked = 1; } s.lockT = 0; s.good = 0; s.bad = 0; s.live = false; }
   function shieldDrop(id) { var s = shields[id]; if (!s) return; s.dead = true; try { if (s.cv.parentNode) s.cv.parentNode.removeChild(s.cv); } catch (e) {} delete shields[id]; }
   function shieldFor(vid, src) {
