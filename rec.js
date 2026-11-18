@@ -86,8 +86,8 @@
     if (rf) head0 = rf.c; // the pose-matched frame and its own head circle (same as the screen shows)
     x.save(); x.translate(fw, 0); x.scale(-1, 1);
     try {
-      if (blanket) { x.restore(); x.save(); root.ZabPfp.drawLogo(x, { x: fw / 2, y: fh / 2, r: Math.hypot(fw, fh) / 2 + 2 }); head0 = null; } // PFP on, no locked frame: the logo full frame, never the face
-      else x.drawImage(rf ? rf.img : v, 0, 0, fw, fh);
+      x.drawImage(rf ? rf.img : v, 0, 0, fw, fh); // always the live (or pose-matched) picture — never a dark full-frame fill
+      if (blanket) head0 = null; // no locked head: the large opening logo is drawn after restore, not a corner-to-corner disc
     } catch (e) {}
     x.restore();
     var cells = hudText(r.id), hh = Math.round(fh * W.hudFrac);
@@ -101,7 +101,10 @@
     }
     var vw = v.videoWidth || fw, sc = fw / vw;
     var hd = head0 ? { x: head0.x * sc, y: head0.y * sc, r: head0.r * sc } : null;
-    if (hd && pfpOn) root.ZabPfp.drawLogo(x, hd);
+    if (blanket && pfpOn) {
+      var PP = root.ZabPfp.P || {}, br = Math.max(10, Math.min((PP.blankR || 0.48) * fw, 0.85 * fh));
+      root.ZabPfp.drawLogo(x, { x: fw / 2, y: fh * (PP.blankY || 0.38), r: br }); // large opening logo over the face area; the rest of the frame stays the live picture
+    } else if (hd && pfpOn) root.ZabPfp.drawLogo(x, hd);
     var pl = r.placer.step(hd, fw, fh, now); drawWatermark(x, pl.box);
   }
   function drawWatermark(x, b) {

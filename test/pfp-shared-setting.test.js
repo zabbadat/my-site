@@ -49,7 +49,7 @@ check("OFF: plank head not tracked", P.lastHead("camVid", 130) === null && timer
 // ON again mid-recording
 P.setOn(true);
 f = recFrame(140);
-check("ON mid-recording before the head is found: the logo full frame (fail-safe blanket), never a plain face; watermark kept", f.logo && !f.pix && f.wm);
+check("ON mid-recording before the head is found: live frame + large opening logo (never a plain face, never a dark full frame); watermark kept", f.logo && !f.pix && f.wm);
 P.frame(vid, face, 150);
 f = recFrame(160);
 check("ON mid-recording once tracked: avatar back in the recording", f.logo && f.wm && !f.pix);

@@ -27,8 +27,8 @@ check("every face keypoint lies inside the circle", c && face.slice(0, 5).every(
   const hood = PF.headCircle(K({ nose: [320, 200], left_shoulder: [240, 300], right_shoulder: [400, 300] }), 640, 480);
   check("hood fabric 'nose' is ignored: shoulders decide", hood && hood.src === "shoulders");
   const hf = PF.headCircle(face, 640, 480);
-  const w = 80 /* ear to ear */, topY = 195 - w * PF.P.topUp, midY = (topY + chestY) / 2;
-  check(`face + shoulders: x on the shoulder midpoint, y between the head top and the chest, chest-up covered (x ${hf.x.toFixed(1)}, y ${hf.y.toFixed(1)}, r ${hf.r.toFixed(1)}; diam ${(2*hf.r/480).toFixed(2)} of height, ${(2*hf.r/160).toFixed(2)} x shoulders)`, hf.src === "face" && Math.abs(hf.x - 320) < 1e-9 && Math.abs(hf.y - midY) < 1 && hf.y - hf.r <= topY && hf.y + hf.r >= chestY && hf.y + hf.r < 420 /* elbows stay visible */);
+  const w = 80 /* ear to ear */, topY = 195 - w * PF.P.topUp;
+  check(`face + shoulders: logo head on the shoulders (x ${hf.x.toFixed(1)}, y ${hf.y.toFixed(1)}, r ${hf.r.toFixed(1)}; diam ${(2*hf.r/480).toFixed(2)} of height, ${(2*hf.r/160).toFixed(2)} x shoulders)`, hf.src === "face" && Math.abs(hf.x - 320) < 1e-9 && Math.abs(hf.y - 195) < 1 && hf.y - hf.r <= topY && hf.y + hf.r >= 300 - 1 && hf.y + hf.r < 420 /* bottom at the shoulder line; elbows stay visible */);
   // Nose-shifted 3/4 face: old centre mixed the nose in (pulled right); new uses ear midpoint + shoulders.
   const turned = K({ nose: [355, 200], left_eye: [300, 185], right_eye: [340, 185], left_ear: [280, 195], right_ear: [360, 195], left_shoulder: [240, 300], right_shoulder: [400, 300] });
   const ht = PF.headCircle(turned, 640, 480), oldTurnedX = (320 + 355) / 2, newTurnedOff = Math.abs(ht.x - 320), oldTurnedOff = Math.abs(oldTurnedX - 320);

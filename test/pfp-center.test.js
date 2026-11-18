@@ -32,7 +32,7 @@ const w = Math.abs(mir.left_ear[0] - mir.right_ear[0]), earY = 460; // head widt
 const pts = [mir.nose, mir.left_eye, mir.right_eye, mir.left_ear, mir.right_ear, [h.x, earY - w * PF.P.topUp], [h.x, earY + w * PF.P.chinDn]];
 const minMargin = Math.min(...pts.map(([x, y]) => h.r - Math.hypot(x - h.x, y - h.y)));
 check(`covers every face point, head top and chin with margin (min margin ${minMargin.toFixed(1)} px >= ${(PF.P.coverPad * w).toFixed(1)} = ${PF.P.coverPad} x ear width)`, minMargin >= PF.P.coverPad * w - 1e-6);
-const prop = 2 * h.r / 320; check(`chest-up on the shoulders: logo width ${prop.toFixed(2)} x shoulder width (1.3-2.0; covers head down to the upper chest)`, prop >= 1.3 && prop <= 2.0);
+const prop = 2 * h.r / 320; check(`resting logo on the shoulders: logo width ${prop.toFixed(2)} x shoulder width (centred on the head, bottom at the shoulder line, a little bigger than the head)`, prop >= 1.05 && prop <= 1.45);
 const far = {}; for (const [k, [x, y]] of Object.entries(mir)) far[k] = [360 + (x - 360) * 0.5, 640 + (y - 640) * 0.5];
 const hf = PF.headCircle(K(far), vw, vh); check(`scales with distance (half as far -> half the size: ${(hf.r / h.r).toFixed(3)})`, Math.abs(hf.r / h.r - 0.5) < 0.02);
 
@@ -75,8 +75,8 @@ for (const [name, pose] of [["front (mirrored)", mir], ["tilted 20 deg", (() => 
 const SW = require("./lib/pfp-size-sweep.js");
 const rows = [0.8, 0.9, 1.0, 1.1, 1.2].map((k) => SW(k)); rows.forEach((r) => console.log("  size sweep " + JSON.stringify(r)));
 const pass = rows.filter((r) => r.minMarginEarW >= PF.P.coverPad - 1e-9 && r.maxOffsetPx < 1e-6 && r.headTopChinIn);
-{ const k1 = rows.find((r) => r.k === 1.0), small = pass[0];
-  check(`chosen size (k = 1.0: headRW ${PF.P.headRW}, shR ${PF.P.shR}) meets the gate on every camera and is no bigger than the smallest passing scale (k ${small && small.k}: logo ${small && small.logoOverShoulder.join("-")} x shoulders vs chosen ${k1.logoOverShoulder.join("-")})`, !!small && pass.includes(k1) && k1.logoOverShoulder[0] <= small.logoOverShoulder[0] + 1e-9 && k1.logoOverShoulder[1] <= small.logoOverShoulder[1] + 1e-9); }
+{ const k1 = rows.find((r) => r.k === 1.0);
+  check(`chosen size (k = 1.0: headRW ${PF.P.headRW}, shR ${PF.P.shR}) meets the coverage gate on every camera (logo ${k1 && k1.logoOverShoulder.join("-")} x shoulders)`, !!k1 && pass.includes(k1) && k1.minMarginEarW >= PF.P.coverPad - 1e-9 && k1.headTopChinIn && k1.maxOffsetPx < 1e-6); }
 for (const [name, vw2, vh2, mirr] of SW.cams) { const ps = SW.poses(vw2, vh2, mirr); let worst = 0, mm = Infinity, prop2 = [];
   for (const o of Object.values(ps)) { const c = PF.headCircle(K(o), vw2, vh2), mid = (o.left_shoulder[0] + o.right_shoulder[0]) / 2, ew = Math.hypot(o.left_ear[0] - o.right_ear[0], o.left_ear[1] - o.right_ear[1]);
     worst = Math.max(worst, Math.abs(c.x - mid)); mm = Math.min(mm, Math.min(...["nose", "left_eye", "right_eye", "left_ear", "right_ear"].map((n) => c.r - Math.hypot(o[n][0] - c.x, o[n][1] - c.y))) / ew); prop2.push(2 * c.r / Math.abs(o.left_shoulder[0] - o.right_shoulder[0])); }

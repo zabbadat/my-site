@@ -1,6 +1,6 @@
 // Time-to-first-visible camera frame (Nov 17, owner: no black screen before the camera comes on).
 // Source order: getUserMedia starts on the tap, the box is shown (showCamBox / prepare) before the pose model,
-// and the shield paints a branded placeholder then the first decoded frame. Run: node test/cam-first-frame.test.js
+// and the shield paints the logo at once, then the first decoded frame in full under it. Run: node test/cam-first-frame.test.js
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const ROOT = path.join(__dirname, "..");
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
@@ -16,7 +16,7 @@ const tbAll = sliceFn("async function tbCamOn(", "function tbCamOff()");
 
 check("showCamBox helper: unhides the wrap and calls ZabPfp.prepare", /function showCamBox\(wrapId, vid\)/.test(html) && /ZabPfp\.prepare/.test(html.slice(html.indexOf("function showCamBox"), html.indexOf("function showCamBox") + 400)));
 check("pfp.js: prepare() stands the shield up before a stream exists", /function prepare\(vid\)/.test(pfp) && /api\.prepare = prepare/.test(pfp));
-check("pfp.js: opening paint uses a snapshot + branded hood, never a bare #000 fill", /function grabPreview/.test(pfp) && /P\.openMask/.test(pfp) && !/#000|#000000/.test(pfp) && /coverBack/.test(pfp));
+check("pfp.js: opening paint uses a snapshot of the live frame + the logo only; no hood, no full-frame dark fill, no #000 fill", /function grabPreview/.test(pfp) && !/P\.openMask/.test(pfp) && !/x\.fillStyle = P\.coverBack; x\.fillRect\(0, 0, g\.bw, g\.bh\)/.test(pfp) && !/#000|#000000/.test(pfp));
 
 for (const [name, src] of [["openCam", openAll], ["startPlankCam", plankAll], ["tbCamOn", tbAll]]) {
   check(`${name}: getUserMedia starts before await loadCamLibs / await ensurePose`, first(src, "getUserMedia", "await loadCamLibs") && first(src, "getUserMedia", "await ensurePose"));
