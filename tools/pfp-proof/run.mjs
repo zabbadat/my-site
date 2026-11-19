@@ -159,6 +159,10 @@ async function run(base, sc, y4m) {
           } else if (surface === "match") {
             show("zmCamBox"); show("zmCamWrap"); show("zmCamVid");
             W.enter(W.IDS.match);
+          } else if (surface === "tut") {
+            show("tbLobby"); show("tbCamWrap"); show("tbVid");
+            if (typeof camFs === "function") camFs("tbCamWrap", true);
+            else { const L = document.getElementById("tbLobby"); if (L) L.classList.add("cam-fs"); }
           } else {
             show("zmLiveSlot"); show("zlSelf");
             W.enterCast();
@@ -296,11 +300,11 @@ function matrix() {
     for (const surface of ["push", "match"]) for (const view of ["phone", "desktop"]) for (const model of ["normal", "blocked"]) add({ kind: "startup", surface, view, model, res: "640x480" });
     add({ kind: "startup", surface: "mirror21", view: "phone", model: "normal", res: "640x480" });
     for (const surface of ["push", "zlSelf", "match", "mirror21"]) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480" });
-    for (const surface of ["zlSelf", "match", "watch"]) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480", fs: true });
+    for (const surface of ["zlSelf", "match", "watch", "tut"]) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480", fs: true });
   } else {
     for (const surface of SURFACES) for (const view of ["phone", "desktop"]) for (const model of ["normal", "slow", "blocked"]) add({ kind: "startup", surface, view, model, res: "640x480" });
     for (const surface of SURFACES) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480" });
-    for (const surface of ["zlSelf", "match", "watch"]) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480", fs: true });
+    for (const surface of ["zlSelf", "match", "watch", "tut"]) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480", fs: true });
     for (const surface of ["push", "zlSelf", "match"]) { add({ kind: "tracking", surface, view: "phone", model: "normal", res: "1280x720" }); add({ kind: "tracking", surface, view: "phone", model: "normal", res: "720x1280" }); add({ kind: "tracking", surface, view: "landscape", model: "normal", res: "1280x720" }); }
   }
   return L;

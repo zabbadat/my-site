@@ -9,7 +9,7 @@ const fnSrc = (n) => { const i = html.indexOf("function " + n + "("); return htm
 // 1. camFs (real source) with fake elements
 { const cls = (el) => ({ set: new Set(), toggle(c, on) { on ? this.set.add(c) : this.set.delete(c); }, add(c) { this.set.add(c); }, remove(c) { this.set.delete(c); }, contains(c) { return this.set.has(c); } });
   const mk = (id) => { const e = { id, children: [], appendChild(c) { this.children.push(c); }, querySelector(q) { return this.children.find((c) => q === "." + c.className.split(" ").pop()) || null; } }; e.classList = cls(e); return e; };
-  const els = { camWrap: mk("camWrap"), tbCamWrap: mk("tbCamWrap"), plankWrap: mk("plankWrap"), camFsBtn: { textContent: "" } };
+  const els = { camWrap: mk("camWrap"), tbCamWrap: mk("tbCamWrap"), tbLobby: mk("tbLobby"), plankWrap: mk("plankWrap"), camFsBtn: { textContent: "" } };
   const recLog = [];
   const ctx = { $: (id) => els[id], document: { createElement: () => ({ className: "", type: "", textContent: "" }) }, window: { ZabRec: { onFs: (id, on) => recLog.push(id + ":" + on) } } };
   vm.createContext(ctx); vm.runInContext([fnSrc("camIsFs"), fnSrc("camExitFs"), fnSrc("camFsLabel"), fnSrc("camFs")].join("\n"), ctx);
@@ -18,7 +18,8 @@ const fnSrc = (n) => { const i = html.indexOf("function " + n + "("); return htm
   ctx.camFs("plankWrap", true); const ex = els.plankWrap.children.find((c) => /cam-fs-exit/.test(c.className));
   check("plank: full screen + its own Exit button", els.plankWrap.classList.contains("cam-fs") && ex && ex.textContent === "Exit full screen");
   ex.onclick(); check("plank: Exit button leaves full screen", !els.plankWrap.classList.contains("cam-fs"));
-  ctx.camFs("tbCamWrap", true); ctx.camFs("tbCamWrap", false); check("TUT Battle: on/off", !els.tbCamWrap.classList.contains("cam-fs") && els.tbCamWrap.children.length === 1);
+  ctx.camFs("tbCamWrap", true); check("TUT Battle: full screen is the lobby so the arcade board and buttons stay visible", els.tbLobby.classList.contains("cam-fs") && !els.tbCamWrap.classList.contains("cam-fs"));
+  ctx.camFs("tbCamWrap", false); check("TUT Battle: on/off", !els.tbLobby.classList.contains("cam-fs") && !els.tbCamWrap.classList.contains("cam-fs"));
   check("camFs tells Record & Share about every enter/exit", recLog.join(",") === "camWrap:true,camWrap:false,plankWrap:true,plankWrap:false,tbCamWrap:true,tbCamWrap:false");
   let threw = false; try { ctx.$ = () => null; ctx.camFs("camWrap", true); } catch (e) { threw = true; } check("camFs never throws (missing element)", !threw); }
 // call sites: start and end of every camera exercise

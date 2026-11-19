@@ -287,7 +287,7 @@
   }
   var ctl = createCtl({ start: start, stop: stop, paint: paint, isFs: function (id) {
     if (isLiveId(id)) { var v = pickLiveVideo(id); return !!(v && (v.srcObject || v.videoWidth > 0)); }
-    var w = doc.getElementById(id); return !!(w && w.classList.contains("cam-fs") && !w.hidden);
+    var w = doc.getElementById(id); while (w) { if (w.classList && w.classList.contains("cam-fs") && !w.hidden) return true; w = w.parentElement; } return false;
   } });
   api.ctl = ctl; api.onFs = function (id, on) { try { return ctl.onFs(id, on); } catch (e) { return ""; } }; api.supported = supported; api.paintFrame = paintFrame; api.hudText = hudText; api.isLiveId = isLiveId;
   root.ZabRec = api;

@@ -687,6 +687,19 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 #camWrap:fullscreen .arcade-strip,#camWrap:-webkit-full-screen .arcade-strip,#camWrap.cam-fs .arcade-strip{flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px))}
 #camWrap:fullscreen video,#camWrap:-webkit-full-screen video,#camWrap.cam-fs video{flex:1 1 auto;width:100%;height:auto;min-height:0;object-fit:contain;border-radius:0}
 #tbCamWrap.cam-fs,#plankWrap.cam-fs{position:fixed!important;inset:0;z-index:9999;max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start}
+/* TUT Battles head-to-head: full-screen the lobby so the arcade live board, camera, End, and all .btn controls stay on screen. */
+#tbLobby.cam-fs{position:fixed!important;inset:0;z-index:9999;max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
+#tbLobby.cam-fs #tbBoard{flex:0 0 auto;max-height:36%;overflow:auto;margin:.35rem .5rem 0;display:block}
+#tbLobby.cam-fs #tbCamWrap{flex:1 1 auto;min-height:0;max-width:none!important;width:100%;margin:0;position:relative}
+#tbLobby.cam-fs #tbVid{width:100%;height:100%;object-fit:contain;border-radius:0!important;display:block}
+#tbLobby.cam-fs .row{flex:0 0 auto;display:flex!important;flex-wrap:wrap;gap:.55rem;align-items:center;z-index:5;padding:.5rem .7rem calc(.5rem + env(safe-area-inset-bottom,0px));background:#080612;pointer-events:auto}
+#tbLobby.cam-fs #tbCamNote{display:none!important}
+#tbLobby.cam-fs .stats.duo{flex:0 0 auto;margin:.35rem .5rem 0}
+#tbLobby.cam-fs .battle-code{flex:0 0 auto;margin:.2rem .5rem 0}
+#tbLobby.cam-fs #tbCount{flex:0 0 auto}
+#tbLobby.cam-fs > .note{display:none!important}
+#tbLobby.cam-fs #tbCamWrap.cam-fs{position:relative!important;inset:auto;z-index:auto;height:auto}
+
 #tbCamWrap.cam-fs video,#plankWrap.cam-fs video{flex:1 1 auto;width:100%;height:100%;min-height:0;object-fit:contain;border-radius:0!important}
 #plankWrap.cam-fs .arcade-strip{flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px))}
 #plankWrap.cam-fs #plankStage{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
@@ -3981,7 +3994,7 @@ function camExitFs() {
 // so it behaves the same in iOS Safari and the app. Layout only: never touches the session, the countdown or the counter.
 function camFs(id, on) {
   try {
-    const w = $(id); if (!w || !w.classList) return;
+    const w = (id === "tbCamWrap" && $("tbLobby")) ? $("tbLobby") : $(id); if (!w || !w.classList) return;
     if (!on && id === "camWrap") camExitFs(); else w.classList.toggle("cam-fs", !!on);
     if (on && id !== "camWrap" && w.querySelector && !w.querySelector(".cam-fs-exit")) { const b = document.createElement("button"); b.type = "button"; b.className = "btn ghost cam-fs-exit"; b.textContent = "Exit full screen"; b.onclick = () => camFs(id, false); w.appendChild(b); }
     if (id === "camWrap") camFsLabel();
@@ -5272,7 +5285,7 @@ function tbTickFn() {
 function tbGoLive(r) {
   if (tbLiveT0 != null || !currentUser || !(currentUser.uid in r.players)) return;
   tbLiveT0 = performance.now() - Math.max(0, BR.serverNow(Date.now(), tb.offset) - r.startAt);
-  if (typeof camFs === "function") camFs("tbCamWrap", true); // battle live: full screen at once (lobby buttons stay reachable before Go)
+  if (typeof camFs === "function") camFs("tbCamWrap", true); // battle live: full screen the lobby so the arcade board and all controls stay visible
   tbMine = { reps: 0, tutMs: 0 }; tbLostSent = false; tbEnded = false; tbDraw = null; clearTimeout(tbSettleTimer); if (tbRepVoice) tbRepVoice.reset(); if (tbTimeVoice) tbTimeVoice.reset();
   tbChal = TBC.createChallenge({ durationMs: TBm.RULES.durationMs, topCapMs: TBm.RULES.topCapMs }); tbChal.start(tbLiveT0);
   tbJudge = TBm.createJudge(window.ZabbadatSession.createPostureGuard({ holdMs: TBm.RULES.postureHoldMs })); tbJudge.reset(performance.now());
