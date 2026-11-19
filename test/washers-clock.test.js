@@ -1,0 +1,12 @@
+const C = require("../washers-clock.js");
+const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
+check("format: m:ss under an hour, h:mm:ss at 3600000+", C.format(0) === "0:00" && C.format(1000) === "0:01" && C.format(125000) === "2:05" && C.format(3600000) === "1:00:00" && C.format(3661000) === "1:01:01");
+check("since: start to now, zero when missing, freeze when finished", C.since(1000, 61000) === "1:00" && C.since(null, 1000) === "0:00" && C.since(0, 99999, 45000) === "0:45");
+const clk = C.create(() => 10_000);
+clk.start(1000);
+check("create: running text", clk.running() && clk.text(61000) === "1:00");
+clk.freeze(121000);
+check("create: freeze holds", !clk.running() && clk.text(999999) === "2:00");
+clk.reset();
+check("create: reset", clk.text() === "0:00" && !clk.running());
+const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); process.exit(ok === R.length ? 0 : 1);

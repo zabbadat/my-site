@@ -1,7 +1,7 @@
 /* Zabba Washers Live Match, public Live tab (video): each player can "Go live" from the match panel and their phone camera
  * streams to anyone watching the match by its 5-character code (?live=CODE or #live=CODE, signed-out allowed).
- * Transport: WebRTC, one peer connection per viewer per broadcaster (mesh, video only, no audio). The phone sends one copy of
- * its video per viewer, so viewers are capped at MAX_VIEWERS per broadcaster (upload ~ viewers x MAX_KBPS).
+ * Transport: WebRTC, one peer connection per viewer per broadcaster (mesh, video plus optional microphone audio).
+ * The phone sends one copy of its media per viewer, so viewers are capped at MAX_VIEWERS per broadcaster (upload ~ viewers x MAX_KBPS).
  * Signaling: Firestore, under the match doc (all fields validated by firestore.rules, see "Live tab signaling"):
  *   matches/{code}/casters/{seat}   seat "0"|"1", written only by that seat's player:
  *     { uid, live: bool, sid (random session id, new each Go live), facing: "environment"|"user", updatedAt }
@@ -152,7 +152,10 @@
       out.banner = "Round " + out.round + " · " + (t ? t.name + " is pitching" : "Live"); }
     return out;
   }
-  const hooks = { sourceTrack: (stream) => (stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null) || null };
+  const hooks = {
+    sourceTrack: (stream) => (stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null) || null,
+    sourceAudio: (stream) => (stream && stream.getAudioTracks ? stream.getAudioTracks()[0] : null) || null
+  };
   /* serial async queue: Firestore writes for one peer go out in order */
   function queue() { let p = Promise.resolve(); return (fn) => (p = p.then(fn).catch(() => {})); }
 
@@ -161,7 +164,7 @@
    *        deletePeer(code, pid), ts(), append(x) (arrayUnion), toMs } ; opts: { RTC, now, rand, onViewers(n), onError(msg) } */
   function caster(sig, opts = {}) {
     const RTC = opts.RTC || (root && root.RTCPeerConnection), now = opts.now || (() => Date.now());
-    let code = null, seat = null, sid = null, uid = null, track = null, facing = "environment", off = null, beat = null;
+    let code = null, seat = null, sid = null, uid = null, track = null, audioTrack = null, facing = "environment", off = null, beat = null, muted = false;
     const peers = new Map(); // pid -> { pc, q, nIce, sender, done }
     const count = () => [...peers.values()].filter((p) => !p.full && !p.closed).length;
     const viewers = () => { try { opts.onViewers && opts.onViewers(count()); } catch (e) {} };
@@ -183,8 +186,16 @@
           else if (s === "disconnected") p.dt = setTimeout(() => { if (pc.connectionState === "disconnected") drop(id); }, 10000); }; // viewer left: free the slot
         p.q(async () => {
           await pc.setRemoteDescription({ type: "offer", sdp: d.offer });
-          const tr = (pc.getTransceivers ? pc.getTransceivers() : []).find((t) => t.receiver && t.receiver.track && t.receiver.track.kind === "video") || null;
-          if (tr) { tr.direction = "sendonly"; await tr.sender.replaceTrack(track); p.sender = tr.sender; } else { p.sender = pc.addTrack(track); }
+          const trs = (pc.getTransceivers ? pc.getTransceivers() : []) || [];
+          const kindOf = (tr) => (tr.receiver && tr.receiver.track && tr.receiver.track.kind) || (tr.sender && tr.sender.track && tr.sender.track.kind) || "";
+          const vtr = trs.find((t) => kindOf(t) === "video") || null;
+          const atr = trs.find((t) => kindOf(t) === "audio") || null;
+          if (vtr) { vtr.direction = "sendonly"; await vtr.sender.replaceTrack(track); p.sender = vtr.sender; } else { p.sender = pc.addTrack(track); }
+          if (audioTrack) {
+            const sendA = muted ? null : audioTrack;
+            if (atr) { atr.direction = "sendonly"; await atr.sender.replaceTrack(sendA); p.audioSender = atr.sender; }
+            else if (sendA) p.audioSender = pc.addTrack(sendA);
+          }
           limitBitrate(p.sender);
           const ans = await pc.createAnswer(); await pc.setLocalDescription(ans);
           p.ready = true; await sig.updatePeer(code, id, { answer: pc.localDescription ? pc.localDescription.sdp : ans.sdp, updatedAt: sig.ts() });
@@ -201,6 +212,7 @@
       if (code) await stop();
       code = o.code; seat = o.seat; uid = o.uid; facing = o.facing || "environment"; sid = randId(SID_LEN, opts.rand);
       track = hooks.sourceTrack(o.stream); if (!track) throw new Error("No camera video to send.");
+      audioTrack = hooks.sourceAudio(o.stream) || null; muted = !!o.muted;
       loadTurn(opts.turn); // warm the TURN credentials before the first viewer arrives
       await sig.setCaster(code, String(seat), { uid, live: true, sid, facing, updatedAt: sig.ts() });
       off = sig.watchPeers(code, seat, sid, (list) => { list.forEach((x) => onPeer(x.id, x.data)); });
@@ -212,6 +224,11 @@
     async function setTrack(t, newFacing) { track = t; if (newFacing) facing = newFacing;
       await Promise.all([...peers.values()].filter((p) => p.sender && !p.closed).map((p) => p.sender.replaceTrack(t).catch(() => {})));
       if (code && newFacing) await sig.setCaster(code, String(seat), { uid, live: true, sid, facing, updatedAt: sig.ts() }).catch(() => {}); }
+    async function setAudioTrack(t) { audioTrack = t || null;
+      await Promise.all([...peers.values()].filter((p) => p.audioSender && !p.closed).map((p) => p.audioSender.replaceTrack(muted ? null : audioTrack).catch(() => {}))); }
+    async function setMuted(on) { muted = !!on;
+      await Promise.all([...peers.values()].filter((p) => p.audioSender && !p.closed).map((p) => p.audioSender.replaceTrack(muted ? null : audioTrack).catch(() => {})));
+      return muted; }
     async function stop() {
       const c = code, s = seat, ids = [...peers.keys()];
       if (off) off(); off = null; clearInterval(beat); beat = null;
@@ -220,7 +237,7 @@
       await sig.setCaster(c, String(s), { uid, live: false, sid, facing, updatedAt: sig.ts() }).catch(() => {});
       await Promise.all(ids.map((id) => (sig.deletePeer ? sig.deletePeer(c, id).catch(() => {}) : null)));
     }
-    return { start, stop, setTrack, get live() { return !!code; }, get sid() { return sid; }, get viewers() { return count(); }, _peers: peers };
+    return { start, stop, setTrack, setAudioTrack, setMuted, get muted() { return muted; }, get live() { return !!code; }, get sid() { return sid; }, get viewers() { return count(); }, _peers: peers };
   }
 
   /* ---- viewer (anyone with the code; one connection per live seat) ----
@@ -240,6 +257,7 @@
       const pid = randId(PID_LEN, opts.rand), q = queue(), pc = new RTC({ iceServers: iceServers() });
       const s = { pid, sid, pc, q, nIce: 0, created: false, pending: [], dead: false, tries: tries | 0, state: "connecting" }; seats[i] = s; state(i, "connecting");
       pc.addTransceiver("video", { direction: "recvonly" });
+      pc.addTransceiver("audio", { direction: "recvonly" });
       pc.ontrack = (e) => { if (s.dead) return; const st = (e.streams && e.streams[0]) || (root && root.MediaStream ? new root.MediaStream([e.track]) : { track: e.track }); try { opts.onStream && opts.onStream(i, st); } catch (x) {} };
       let sentIce = 0;
       pc.onicecandidate = (e) => { if (!e.candidate || !e.candidate.candidate || s.dead || sentIce >= ICE_COUNT) return; const str = iceStr(e.candidate); if (!iceOk(str)) return; sentIce++;

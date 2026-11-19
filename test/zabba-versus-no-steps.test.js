@@ -1,0 +1,23 @@
+const fs = require("fs");
+const path = require("path");
+const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
+const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const match = fs.readFileSync(path.join(__dirname, "..", "zabba-match.js"), "utf8");
+const rec = fs.readFileSync(path.join(__dirname, "..", "rec.js"), "utf8");
+const rules = fs.readFileSync(path.join(__dirname, "..", "firestore.rules"), "utf8");
+const start = html.indexOf('id="zabbaMatch"');
+const liveEnd = html.indexOf('id="zabbaLive"');
+const liveHtml = start >= 0 && liveEnd > start ? html.slice(start, liveEnd) : "";
+const jsStart = html.indexOf("Zabba Washers Live Match");
+const jsEnd = html.indexOf("Live tab (zabba-live.js)");
+const matchJs = jsStart >= 0 ? html.slice(jsStart, jsEnd > jsStart ? jsEnd : jsStart + 80000) : "";
+check("Live Match screen exists and is separate from Watch Live", liveHtml.includes("zmSeats") && liveHtml.includes("zlGoLive") && !/id="zabbaLive"/.test(liveHtml));
+check("Live Match markup has no steps readout", !/\bsteps\b/i.test(liveHtml));
+check("Live Match controller JS does not read or write step data", !/\bsteps\b/i.test(matchJs) && !/HealthKit|Health Connect|pedometer|stepCount/i.test(matchJs));
+check("zabba-match.js has no steps fields", !/\bsteps\b/i.test(match) && !/stepCount|dailySteps|liveWalk/.test(match));
+check("matches/{code} rules shape has no steps key", (function () {
+  const blk = rules.slice(rules.indexOf("match /matches/{code}"), rules.indexOf("match /casters/{seat}"));
+  return /function shapeOk/.test(blk) && !/\bsteps\b/.test(blk);
+})());
+check("record HUD for live ids is score/turn/time only", /Live Match \/ Go Live recordings: score, turn, elapsed time only — never steps/.test(rec));
+const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); process.exit(ok === R.length ? 0 : 1);

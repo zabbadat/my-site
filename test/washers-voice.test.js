@@ -1,0 +1,10 @@
+const V = require("../washers-voice.js");
+const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
+const hit = (s) => V.parse(s);
+check("bank / shoot / box / out points", hit("bank").points === 5 && hit("shoot").points === 3 && hit("box").points === 2 && hit("out").points === 0);
+check("synonyms", hit("five").points === 5 && hit("in the cup").points === 5 && hit("banker").points === 5 && hit("three").points === 3 && hit("box-bound").points === 2 && hit("boxbound").points === 2 && hit("nothing").points === 0 && hit("miss").points === 0);
+check("last word wins", hit("that was out no bank").points === 5 && hit("bank then out").points === 0);
+check("no score ignored", hit("hello there") == null && hit("") == null);
+check("labels + pts alias", hit("bank").label === "Bank" && hit("bank").pts === 5);
+check("prefers ZabbaListen over Web Speech when both exist", V.engine({ ZabbaListen: { start() {} }, SpeechRecognition: function () {} }) === "native");
+const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); process.exit(ok === R.length ? 0 : 1);

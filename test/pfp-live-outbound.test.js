@@ -1,0 +1,17 @@
+const fs = require("fs");
+const path = require("path");
+const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
+const pfp = fs.readFileSync(path.join(__dirname, "..", "pfp.js"), "utf8");
+const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const rec = fs.readFileSync(path.join(__dirname, "..", "rec.js"), "utf8");
+const live = fs.readFileSync(path.join(__dirname, "..", "zabba-live.js"), "utf8");
+const ctl = fs.readFileSync(path.join(__dirname, "..", "washers-live-controls.js"), "utf8");
+check("pfp.js exports shieldCanvas + sourceStream", /function shieldCanvas\(id\)/.test(pfp) && /function sourceStream\(id, rawStream, fps\)/.test(pfp) && /api\.shieldCanvas = shieldCanvas/.test(pfp) && /api\.sourceStream = sourceStream/.test(pfp));
+check("sourceStream: PFP on returns only captureStream or null, never raw", /if \(isOn\(\)\) \{[\s\S]*?return cv\.captureStream[\s\S]*?return null;[\s\S]*?return rawStream/.test(pfp));
+check("index: Go live waits for the in-DOM shield and refuses raw while PFP is on", /async function zlWaitShield/.test(html) && /function zlOutbound\(\)/.test(html) && /if \(pfpOn && !vt\) return null/.test(html) && /Profile cover isn't ready/.test(html));
+check("index: caster.start and flip use the covered outbound stream, not raw zlStream", /zlCaster\.start\(\{[\s\S]*?stream: outbound \|\| zlStream/.test(html) && /zlCaster\.setTrack\(\(out && out\.getVideoTracks\(\)\[0\]\)/.test(html));
+check("index: self viewer tiles use zlCovered, never raw while PFP is on", /function zlPaintSelf\(\) \{[\s\S]*?zlCovered\(\)/.test(html));
+check("rec.js live ids + no-steps HUD + iOS in-DOM capture", /zmLiveSlot/.test(rec) && /hudText/.test(rec) && /in-DOM/.test(rec) && /never steps/.test(rec));
+check("zabba-live hooks.sourceAudio + setMuted", /sourceAudio:/.test(live) && /async function setMuted/.test(live) && /async function setAudioTrack/.test(live));
+check("prepareAudio before getUserMedia (iOS AVAudioSession / voiceChat)", /prepareAudio/.test(ctl) && /WashersLive\.getCamera/.test(html));
+const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); process.exit(ok === R.length ? 0 : 1);

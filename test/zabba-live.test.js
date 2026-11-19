@@ -67,16 +67,19 @@ function memSig(S, who) {
 let pcN = 0; const offers = {};
 class FakePC {
   constructor(cfg) { this.cfg = cfg; this.id = ++pcN; this.connectionState = "new"; this.tr = []; this.gotIce = 0; this.closed = false; FakePC.all.push(this); }
-  addTransceiver(kind, o) { this.tr.push({ direction: o.direction, receiver: { track: { kind } }, sender: { track: null, replaceTrack: async (t) => { this.tr[0].sender.track = t; }, getParameters: () => ({ encodings: [{}] }), setParameters: async (p) => { this.maxBitrate = p.encodings[0].maxBitrate; } } }); }
+  addTransceiver(kind, o) { const rec = { direction: o.direction, kind, receiver: { track: { kind } }, sender: { track: null, replaceTrack: async (t) => { rec.sender.track = t; }, getParameters: () => ({ encodings: [{}] }), setParameters: async (p) => { this.maxBitrate = p.encodings[0].maxBitrate; } } }; this.tr.push(rec); }
   getTransceivers() { return this.tr; }
   async createOffer() { return { type: "offer", sdp: "v=0\r\no=fake " + this.id + "\r\nm=video recvonly\r\n" }; }
   async createAnswer() { return { type: "answer", sdp: "v=0\r\no=fake " + this.id + "\r\nm=video sendonly\r\n" }; }
   async setLocalDescription(d) { this.localDescription = d; if (d.type === "offer") offers[d.sdp] = this; setTimeout(() => { if (this.closed) return; [1, 2].forEach((k) => this.onicecandidate && this.onicecandidate({ candidate: { candidate: `candidate:${k} 1 udp 1 10.0.0.${this.id} 5000${k} typ host`, sdpMid: "0", sdpMLineIndex: 0 } })); this.onicecandidate && this.onicecandidate({ candidate: null }); }); }
   async setRemoteDescription(d) { this.remoteDescription = d; if (d.type === "offer") { this.peer = offers[d.sdp]; this.addTransceiver("video", { direction: "recvonly" }); } else this.peer = FakePC.all.find((p) => p.localDescription && p.localDescription.sdp === d.sdp); this.maybe(); }
   async addIceCandidate(c) { if (!this.remoteDescription) throw new Error("no remote"); this.gotIce++; this.maybe(); }
+  addTrack(track) { const rec = { direction: "sendonly", kind: track && track.kind, receiver: { track: { kind: (track && track.kind) || "video" } }, sender: { track, replaceTrack: async (t) => { rec.sender.track = t; }, getParameters: () => ({ encodings: [{}] }), setParameters: async (p) => { this.maxBitrate = p.encodings[0].maxBitrate; } } }; this.tr.push(rec); return rec.sender; }
   maybe() { const a = this, b = this.peer; if (!b || a.connectionState === "connected" || !a.remoteDescription || !b.remoteDescription || a.gotIce < 1 || b.gotIce < 1) return;
     [a, b].forEach((p) => { p.connectionState = "connected"; p.onconnectionstatechange && p.onconnectionstatechange(); });
-    const viewer = a.tr[0].direction === "recvonly" ? a : b, caster = viewer === a ? b : a; viewer.ontrack && viewer.ontrack({ track: caster.tr[0].sender.track, streams: [{ id: "s" + caster.id, track: caster.tr[0].sender.track }] }); }
+    const viewer = (a.tr[0] && a.tr[0].direction === "recvonly") ? a : b, caster = viewer === a ? b : a;
+    const vt = (caster.tr || []).find((tr) => (tr.kind === "video") || (tr.sender && tr.sender.track && tr.sender.track.kind === "video")) || caster.tr[0];
+    const track = vt && vt.sender && vt.sender.track; if (track) viewer.ontrack && viewer.ontrack({ track, streams: [{ id: "s" + caster.id, track }] }); }
   close() { if (this.closed) return; this.closed = true; this.connectionState = "closed"; const b = this.peer || FakePC.all.find((p) => p.peer === this); // remote side sees DTLS close -> failed
     if (b && !b.closed && b.connectionState === "connected") setTimeout(() => { b.connectionState = "failed"; b.onconnectionstatechange && b.onconnectionstatechange(); }); }
 }
@@ -85,7 +88,7 @@ FakePC.all = [];
 (async () => {
   const S = { T: 100000, docs: {}, subs: {}, qsubs: {}, viol: [], writes: 0 };
   S.docs["matches/K7QX2"] = { code: "K7QX2", status: "active", uids: ["a", "b"], players: [{ uid: "a", name: "Ann", photo: "" }, { uid: "b", name: "Bo", photo: "" }], scores: [0, 0] };
-  const camA = { getVideoTracks: () => [{ id: "camA", kind: "video" }] }, camB = { getVideoTracks: () => [{ id: "camB", kind: "video" }] };
+  const camA = { getVideoTracks: () => [{ id: "camA", kind: "video" }], getAudioTracks: () => [{ id: "micA", kind: "audio" }] }, camB = { getVideoTracks: () => [{ id: "camB", kind: "video" }], getAudioTracks: () => [] };
   let nA = 0; const ca = ZL.caster(memSig(S, "a"), { RTC: FakePC, now: () => S.T, onViewers: (n) => (nA = n) }), cb = ZL.caster(memSig(S, "b"), { RTC: FakePC, now: () => S.T });
   const streams = {}, states = {};
   const mkViewer = (by, key) => ZL.viewer(memSig(S, by), { RTC: FakePC, by, now: () => S.T, onStream: (i, s) => (streams[key + i] = s), onState: (i, s) => (states[key + i] = s) });
@@ -132,7 +135,9 @@ FakePC.all = [];
   const html = fsMod.readFileSync(path.join(__dirname, "..", "index.html"), "utf8"), rules = fsMod.readFileSync(path.join(__dirname, "..", "firestore.rules"), "utf8");
   check("page: zabba-live.js loaded after zabba-match.js; Watch Live card + hub card; player controls in #zmLiveSlot", html.indexOf('<script src="/zabba-live.js">') > html.indexOf('<script src="/zabba-match.js">') && html.includes('id="zabbaLive"') && /href="#zabbaLive" data-battle="live"/.test(html)
     && ["zlGoLive", "zlStop", "zlFlip", "zlWatchBoth", "zlSelf", "zlCode", "zlWatch", "zlVid0", "zlVid1", "zlScore0", "zlScore1", "zlShare"].every((id) => html.includes('id="' + id + '"')) && html.indexOf('id="zlGoLive"') > html.indexOf('id="zmLiveSlot"'));
-  check("page: viewer videos muted + playsinline (iOS autoplay), live link handler, separate camera stream", /<video id="zlVid0" playsinline muted autoplay>/.test(html) && /ZL.liveCodeFromUrl\(location.search, location.hash\)/.test(html) && /zlCam = \(facing\) => navigator.mediaDevices.getUserMedia\(\{ audio: false/.test(html));
+  check("page: viewer videos muted + playsinline (iOS autoplay), live link handler, WashersLive camera + PFP-covered outbound", /<video id="zlVid0" playsinline muted autoplay>/.test(html) && /ZL.liveCodeFromUrl\(location.search, location.hash\)/.test(html) && /WashersLive \? window.WashersLive.getCamera/.test(html) && /function zlOutbound\(\)/.test(html) && /echoCancellation: true/.test(html));
+  check("page: live controls, clocks, voice confirm, go live solo, mute, record", ["zmRecBtn", "zlMute", "zmElapsed", "zmVoiceConfirm", "zmSolo", "washersSoloBtn", "zlClock0"].every((id) => html.includes('id="' + id + '"')));
+  check("page: washers-clock / voice / live-controls scripts after zabba-live.js", html.indexOf('src="/washers-clock.js"') > html.indexOf('src="/zabba-live.js"') && html.includes('src="/washers-voice.js"') && html.includes('src="/washers-live-controls.js"'));
   check("page: signaling paths are matches/{code}/casters + /peers", /doc\(db, "matches", code, "casters", seat\)/.test(html) && /collection\(db, "matches", code, "peers"\)/.test(html));
   const blk = rules.slice(rules.indexOf("match /casters/{seat}"), rules.indexOf("match /{document=**}"));
   check("rules: casters + peers nested under matches/{code}, before default deny; size/field limits; broadcaster-only answer", blk.length > 500 && rules.indexOf("match /peers/{pid}") > rules.indexOf("match /matches/{code}") && /x.size\(\) <= 20000/.test(blk) && /n.size\(\) <= 30/.test(blk) && /size\(\) <= 600/.test(blk)

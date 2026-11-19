@@ -46,7 +46,7 @@
     const round = m.round || (an.valid ? an.rounds.length + 1 : 1);
     return { mode: m, round, me: uid, rows: rows.map((x, i) => ({ uid: x.uid, tag: "P" + (i + 1), name: safeName((x.name || "").replace(/ \(you\)$/, "")), you: x.uid === uid, repText: x.repText, tier: tiers[x.uid] || "",
       total: x.total, pct: Math.min(100, Math.round((x.total / TARGET) * 100)), roundText: x.roundText, turnText: x.turnText, status: x.status, tallyText: x.tallyText, stepsText: x.stepsText,
-      turn: m.key === "live" && /^Pitching/.test(x.turnText), win: m.key === "finished" && dec.winner === x.uid, disputed: m.key === "disputed" && x.status === "Disputed", out: x.state === "forfeit" || x.state === "left" })) };
+      turn: m.key === "live" && /^Pitching/.test(x.turnText), win: m.key === "finished" && dec.winner === x.uid, disputed: m.key === "disputed" && x.status === "Disputed", out: x.state === "forfeit" || x.state === "left", elapsed: elapsedText(r, ctx) })) };
   }
   // ---- Zabba Washer Arena (2v2 teams, washers-arena.js): same skin, two TEAM panels with big team totals and each player's contribution beneath.
   // The rows carry the team key as uid ('a' / 'b') and model.me is MY team key, so fx() (flash on score, banner, sound) works unchanged.
@@ -87,13 +87,23 @@
       const tally = an ? an.rounds.map((x) => "R" + x.n + " " + x.scores[t]) : [];
       return { uid: t, team: true, tag: t.toUpperCase(), name: teamLabel(X, a || {}, t), you: mine === t, total, pct: Math.min(100, Math.round((total / TARGET) * 100)), players: ids.map((u) => player(u)),
         roundText: m.key === "live" ? "ROUND " + round : "", turnText: "", status: tout ? "FORFEIT" : "", tallyText: tally.length ? tally.join(" · ") : "—",
-        turn: m.key === "live" && an && an.current && an.current.first === t && an.current.stage === "pitch", win: m.key === "finished" && dec.winner === t, disputed: false, out: tout };
+        turn: m.key === "live" && an && an.current && an.current.first === t && an.current.stage === "pitch", win: m.key === "finished" && dec.winner === t, disputed: false, out: tout, elapsed: elapsedText(a, ctx) };
     });
     return { kind: "team", mode: m, round, me: mine || "", rows };
   }
   // ---- Plank Battles / TUT Battles: same skin, game-specific rows. Rows carry big (static score text), unit, pct, extraLabel/extraText.
   const PB = () => req("./plank-battle.js", "ZabbaPlankBattle"), TB = () => req("./tut-battle.js", "ZabbaTutBattle");
   const clock = (ms) => { const t = Math.max(0, Math.floor((ms || 0) / 1000)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
+  function elapsedText(room, ctx) {
+    if (!room || room.startAt == null) return "00:00";
+    const WC = req("./washers-clock.js", "WashersClock");
+    const start = ctx && ctx.toMs ? ctx.toMs(room.startAt) : room.startAt;
+    if (start == null || !isFinite(start)) return "00:00";
+    const now = (ctx && ctx.nowMs) || Date.now();
+    const done = /^(finished|abandoned|cancelled|done)$/.test(room.status || "");
+    const frozen = done ? Math.max(0, now - start) : null;
+    return WC && WC.since ? WC.since(start, now, frozen) : clock(Math.max(0, now - start));
+  }
   // room -> { key, title, sub, winner? }; dec = { done, winner, reason } from the game module (null = undecided)
   function battleMode(game, r, ctx, dec, names) {
     ctx = ctx || {};
@@ -173,7 +183,7 @@
       const cls = ["arc-panel", "arc-team", i ? "arc-p2" : "arc-p1", x.turn ? "arc-turn" : "", x.win ? "arc-win" : "", x.out ? "arc-out" : "", f.flash && f.flash[x.uid] ? "arc-flash" : ""].filter(Boolean).join(" ");
       return '<section class="' + cls + '" aria-label="' + esc(x.name) + " team score " + x.total + " of " + TARGET + '">'
         + '<header><span class="arc-tag">' + esc(x.tag) + '</span><span class="arc-name">' + esc(x.name) + (x.you ? ' <em>YOUR TEAM</em>' : "") + "</span></header>"
-        + '<div class="arc-score"><span class="n">' + x.total + '</span><span class="c" aria-hidden="true" style="--from:' + from + ";--to:" + x.total + '"></span><small>/' + TARGET + "</small></div>"
+        + '<div class="arc-score"><span class="n">' + x.total + '</span><span class="c" aria-hidden="true" style="--from:' + from + ";--to:" + x.total + '"></span><small>/' + TARGET + "</small></div>" + (x.elapsed ? '<b class="arc-clock">' + esc(x.elapsed) + "</b>" : "")
         + '<div class="arc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + TARGET + '" aria-valuenow="' + Math.min(TARGET, x.total) + '"><i style="width:' + x.pct + '%"></i></div>'
         + '<div class="arc-meta"><span>' + esc((x.roundText || "").toUpperCase()) + '</span><span class="arc-turnline">' + (x.turn ? "&#9654; " : "") + esc((x.status || "").toUpperCase()) + "</span></div>"
         + '<ul class="arc-members">' + x.players.map((p) => '<li class="' + (p.out ? "arc-mem-out" : "") + '"><span class="arc-mname">' + esc(p.name) + (p.you ? " <em>YOU</em>" : "") + '</span><b>' + p.contrib + "</b><small>" + esc(p.status) + "</small></li>").join("") + "</ul>"
@@ -191,9 +201,9 @@
       return '<section class="' + cls + '" aria-label="' + esc(x.name) + (x.big != null ? " " + esc(x.unit) + " " + esc(x.big) : " score " + x.total + " of " + TARGET) + '">'
         + '<header><span class="arc-tag">' + x.tag + '</span><span class="arc-name">' + esc(x.name) + (x.you ? ' <em>YOU</em>' : "") + '</span>'
         + (x.repText ? '<span class="arc-badge arc-rep-' + esc(x.tier) + '" title="Reputation">' + esc(x.repText) + "</span>" : "") + "</header>"
-        + (x.big != null ? '<div class="arc-score arc-static"><span class="n">' + esc(x.big) + "</span><small>" + esc(x.unit) + "</small></div>"
+        + (x.big != null ? '<div class="arc-score arc-static"><span class="n">' + esc(x.big) + "</span><small>" + esc(x.unit) + "</small></div>" + (x.elapsed ? '<b class="arc-clock">' + esc(x.elapsed) + "</b>" : "")
           + '<div class="arc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + x.pct + '"><i style="width:' + x.pct + '%"></i></div>'
-          : '<div class="arc-score"><span class="n">' + x.total + '</span><span class="c" aria-hidden="true" style="--from:' + from + ";--to:" + x.total + '"></span><small>/' + TARGET + "</small></div>"
+          : '<div class="arc-score"><span class="n">' + x.total + '</span><span class="c" aria-hidden="true" style="--from:' + from + ";--to:" + x.total + '"></span><small>/' + TARGET + "</small></div>" + (x.elapsed ? '<b class="arc-clock">' + esc(x.elapsed) + "</b>" : "")
           + '<div class="arc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + TARGET + '" aria-valuenow="' + Math.min(TARGET, x.total) + '"><i style="width:' + x.pct + '%"></i></div>')
         + '<div class="arc-meta"><span>' + esc((x.roundText || "").toUpperCase()) + '</span><span class="arc-turnline">' + (x.turn ? "&#9654; " : "") + esc((x.status || "").toUpperCase()) + "</span></div>"
         + '<div class="arc-tally">' + esc(x.tallyText) + "</div>"

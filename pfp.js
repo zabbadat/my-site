@@ -809,11 +809,24 @@
   }
   // Recording (rec.js): the same covered, pose-matched frame, or null = live frame with the large opening logo (never a dark full frame).
   function recFrame(id) { var s = shields[id]; return s && s.live && s.snap && s.circle ? { img: s.snap, c: s.circle } : null; }
+  function shieldCanvas(id) { var s = shields[id]; return (s && s.cv && !s.dead) ? s.cv : null; }
+  // Outbound live / record source. When PFP is on: ONLY the shield canvas stream — never the raw camera.
+  // Missing shield while PFP is on returns null (callers must not fall back to raw). When PFP is off, rawStream is used.
+  function sourceStream(id, rawStream, fps) {
+    try {
+      if (isOn()) {
+        var cv = shieldCanvas(id);
+        if (cv && typeof cv.captureStream === "function") return cv.captureStream(fps == null ? 24 : fps);
+        return null;
+      }
+    } catch (e) { if (isOn()) return null; }
+    return rawStream || null;
+  }
   // The snapshot input() took for this camera's current inference (null when the shield is off). A second model run on
   // the same tick (iOS: MoveNet rescue after Apple Vision missed the body) must use THIS frame, never the live <video>,
   // or its keypoints come from a later frame than the one the shield shows and the logo lands where the head moved to.
   function pending(id) { var s = shields[id]; return s && !s.dead && s.pend ? s.pend : null; }
-  api.input = input; api.recFrame = recFrame; api.pending = pending; api.shielded = function (id) { return !!shields[id] || shieldWanted(); };
+  api.input = input; api.recFrame = recFrame; api.shieldCanvas = shieldCanvas; api.sourceStream = sourceStream; api.pending = pending; api.shielded = function (id) { return !!shields[id] || shieldWanted(); };
   api._shields = shields;
   api.plankFrame = plankFrame;
   // First-lock speed (Nov 16): one inference on a blank 192 px frame right after the pose model loads, so the GPU shaders are

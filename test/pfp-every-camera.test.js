@@ -24,7 +24,7 @@ const pt = seg("async function poseTick(", "const CAM_CONSTRAINTS");
   check("push camera: model load starts right after the camera request, before it resolves", order(seg("async function openCam()", "async function poseTick(")));
   check("plank camera: same", order(seg("async function startPlankCam(", "async function plankTick(")) || order(html.slice(html.indexOf("if (plankStream) plankStream.getTracks()") - 10, html.indexOf("if (plankStream) plankStream.getTracks()") + 600)));
   check("TUT Battle camera: same", order(seg("async function tbCamOn(", "tbCounter =")));
-  check("Go live: PFP model load starts with the camera request", /const gum = zlCam\(zlFacing\);\s*if \(window\.ZabPfp && window\.ZabPfp\.isOn && window\.ZabPfp\.isOn\(\)\) zlPfpWarm\(\);[^\n]*\n\s*zlStream = await gum;/.test(html));
+  check("Go live: PFP model load starts with the camera request", /async function zlWarmCam\([\s\S]*?if \(window\.ZabPfp && window\.ZabPfp\.isOn && window\.ZabPfp\.isOn\(\)\) zlPfpWarm\(\);[\s\S]*?zlCam\(/.test(html) && /zlStream = await zlCam|const next = await zlCam/.test(html));
   // ---- pfp.js: warm-up never throws; logo preloads at page load; first detection draws at once
   const pfpSrc = fs.readFileSync(path.join(ROOT, "pfp.js"), "utf8");
   check("pfp.js preloads the logo at page load", /var wire = function \(\) \{[\s\S]{0,700}?try \{ ensureLogo\(\); \} catch \(e\) \{\}/.test(pfpSrc));
