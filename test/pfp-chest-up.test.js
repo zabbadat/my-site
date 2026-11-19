@@ -18,13 +18,13 @@ const chest = PF.chestOf(by.left_shoulder, by.right_shoulder, by);
 const face = PF.faceCircle(K(front)), w = face.w, top = [face.x, face.y - w * PF.P.topUp];
 check("front mid-shot uses the face+shoulders chest-up cover (not the side path)", c && c.src === "face");
 check(`front: x on the shoulder midpoint (${c.x}), y centred on the head (${c.y.toFixed(1)}), bottom at the shoulder line (${(c.y+c.r).toFixed(1)} vs 300)`,
-  Math.abs(c.x - 320) < 1e-9 && Math.abs(c.y - face.y) < 1 && Math.abs(c.y + c.r - 300) <= 2);
+  Math.abs(c.x - 320) < 1e-9 && Math.abs(c.y - face.y) < 1 && c.y + c.r >= 300 - 2 && c.y + c.r <= 300 + 0.1 * 160); // Nov 19: just over the shoulder tops (<= 0.1 x shoulder width below the line)
 check("front: head top and face sit inside the logo; bottom edge rests on the shoulder line",
   inside(c, top) && inside(c, [face.x, face.y], w * PF.P.coverPad) && c.y + c.r >= 300 - 2);
 check(`front: arms stay visible below the logo (elbows / wrists outside; bottom at y ${(c.y + c.r).toFixed(0)})`,
   !inside(c, front.left_elbow, 4) && !inside(c, front.right_elbow, 4) && !inside(c, front.left_wrist) && !inside(c, front.right_wrist) && c.y + c.r < front.left_elbow[1]);
-check(`front: resting logo diameter ${(2 * c.r / 480).toFixed(2)} of picture height, ${(2 * c.r / 160).toFixed(2)} x shoulder width (trimmed ~1.2-1.35 x shoulders, still larger than the head)`,
-  2 * c.r / 480 >= 0.38 && 2 * c.r / 480 <= 0.50 && 2 * c.r / 160 >= 1.2 && 2 * c.r / 160 <= 1.40);
+check(`front: resting logo diameter ${(2 * c.r / 480).toFixed(2)} of picture height, ${(2 * c.r / 160).toFixed(2)} x shoulder width (Nov 19: a little bigger, ~1.4-1.5 x shoulders, over the shoulder tops)`,
+  2 * c.r / 480 >= 0.42 && 2 * c.r / 480 <= 0.52 && 2 * c.r / 160 >= 1.40 && 2 * c.r / 160 <= 1.50);
 
 const noHip = { nose: [320, 200], left_eye: [300, 185], right_eye: [340, 185], left_ear: [280, 195], right_ear: [360, 195], left_shoulder: [240, 300], right_shoulder: [400, 300] };
 const c2 = PF.headCircle(K(noHip), 640, 480);

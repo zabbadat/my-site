@@ -15,7 +15,7 @@
   var P = { plausK: 3, plausBody: 0.75, plausSpread: 2.2, staleMs: 450, lockFrames: 2, lostFrames: 4, shrinkMs: 280, growMs: 160, coverBack: "#0b0d1a", minScore: 0.35, headK: 1.0, eyeK: 2.7, shK: 0.62, padK: 1.65, holdMs: Infinity, holdGrow: 1, clearMs: 1200,
     minCut: 0.35, beta: 4.5, dCut: 2.5, leadMax: 180, leadCap: 0.35, leadV0: 0.55, leadV1: 1.8, vCut: 12, snapMs: 350, rafDraw: true, fitMs: 1000,
     spDead: 1.0, deadPos: 0.02, deadR: 0.06, rGrowCut: 2.2, rShrinkCut: 0.4, rMaxGrow: 0.8, rMaxShrink: 0.35, dispK: 0.35, dispMinMs: 16, dispMaxMs: 32, dispRK: 2, dispSpK: 0, dispLead: true, reacqSnapR: 1, reacqMs: 150,
-    shUp: 0.55, shR: 0.55, sideK: 0.35, sideUp: 0.35, chestFrac: 0, chestDown: 0.05, chestFromFace: 1.2, sideLift: 0.16, armMargin: 0.1, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
+    shUp: 0.55, shR: 0.55, shTop: 0.72, sideK: 0.35, sideUp: 0.35, chestFrac: 0, chestDown: 0.05, chestFromFace: 1.2, sideLift: 0.16, armMargin: 0.1, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
     headUp: 0.1, headRW: 0.5, coverPad: 0.25, topUp: 0.85, chinDn: 0.65, openR: 0.36, openY: 0.36, lockMs: 250, openMs: 8000,
     blankR: 0.48, blankY: 0.38, staleK: 3, staleMaxMs: 1000 };
   // Centre + size (Nov 16, owner): horizontally dead-centre on the shoulder midpoint (the anchor; zero offset), vertically on
@@ -135,7 +135,7 @@
   function coverCircle(face, ls, rs, by) {
     var shx = (ls.x + rs.x) / 2, shy = (ls.y + rs.y) / 2, sw = Math.hypot(ls.x - rs.x, ls.y - rs.y), w = face.w || (face.r * 2 / P.padK);
     var cx = shx, cy = face.y, r;
-    r = Math.max(sw * P.shR, coverR(cx, cy, face), Math.max(0, shy - cy));
+    r = Math.max(sw * P.shR, coverR(cx, cy, face), Math.max(0, shy - cy), sw * P.shTop); // Nov 19 (owner): a little bigger, over the tops of the shoulders (~1.44x shoulder width, was ~1.31x)
     return { x: cx, y: cy, r: r, sw: sw };
   }
   // Face only (no shoulder pair): still chest-up, with the chest estimated a little below the face (neck + upper chest).
