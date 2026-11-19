@@ -6186,7 +6186,7 @@ const zlMySeat = () => (zmDoc && currentUser && Array.isArray(zmDoc.uids) ? zmDo
 // following the Enable profile - PFP switch (off = plain preview). Outbound WebRTC, viewer self-tiles, and Record
 // use the in-DOM PFP shield canvas.captureStream (iOS WKWebView needs the canvas in the document) — never the raw
 // camera while Profile is on.
-let zlPfpId = 0, zlCoveredCache = { canvas: null, stream: null }, zlMuted = false, zlAutoTried = false, zlSolo = false, zlVoiceSess = null, zmHeard = null, zlYtPc = null;
+let zlPfpId = 0, zlCoveredCache = { canvas: null, stream: null }, zlMuted = false, zlAutoTried = false, zlSolo = false, zlVoiceSess = null, zmHeard = null, zlYtPc = null, zlYtReady = false, zlYtProbed = false;
 async function zlPfpLoop(id) {
   const v = $("zlSelf");
   if (id !== zlPfpId || !zlStream || !v || v.hidden) return;
@@ -6273,7 +6273,18 @@ function zlCastPaint() {
   $("zlGoLive").hidden = on || !open; $("zlGoLive").disabled = zlBusy || !zlCaster;
   $("zlStop").hidden = !on; $("zlFlip").hidden = !on;
   if (rec) rec.hidden = !on; if (mute) { mute.hidden = !on; mute.textContent = zlMuted ? "Unmute" : "Mute"; mute.setAttribute("aria-pressed", zlMuted ? "true" : "false"); }
-  if (yt) yt.hidden = !on;
+  if (yt) {
+    if (!on) { yt.hidden = true; zlYtReady = false; zlYtProbed = false; }
+    else {
+      yt.hidden = !zlYtReady;
+      if (!zlYtProbed) {
+        zlYtProbed = true;
+        const probe = window.WashersLive && window.WashersLive.youtubeConfigured;
+        if (!probe) zlYtReady = false;
+        else probe().then((cfg) => { zlYtReady = !!(cfg && cfg.configured); if (yt) yt.hidden = !zlYtReady; }).catch(() => { zlYtReady = false; if (yt) yt.hidden = true; });
+      }
+    }
+  }
   if (on) zlCastNote("Live · " + zlViewers + " watching (up to " + ZL.MAX_VIEWERS + ")" + (zlFacing === "user" ? " · front camera" : "") + (zlMuted ? " · muted" : ""));
   else if (!zlCaster && open) zlCastNote("This browser can't stream video (no WebRTC).");
 }
@@ -6294,7 +6305,7 @@ if (ZL) {
     if (!zlCastCode || !window.WashersLive) return;
     try {
       const cfg = await window.WashersLive.youtubeConfigured();
-      if (!cfg || !cfg.configured) { zlCastNote("YouTube isn't set up yet. The stream key stays on your relay — see docs/youtube-live-setup.md."); return; }
+      if (!cfg || !cfg.configured) { zlCastNote("YouTube coming soon"); return; }
       const out = zlOutbound(); if (!out) { zlCastNote("Wait for the live camera cover, then try YouTube again."); return; }
       if (zlYtPc && zlYtPc.close) try { zlYtPc.close(); } catch (e) {}
       zlYtPc = await window.WashersLive.startWhip(out, cfg.whipUrl);
