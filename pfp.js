@@ -111,8 +111,9 @@
     for (var i = 0; i < pts.length; i++) r = Math.max(r, Math.hypot(pts[i].x - x, pts[i].y - y) + pad);
     return r;
   }
-  // Head circle for the logo: the face cluster when it is there, else estimated from the shoulders (head down / hooded:
-  // the logo still sits on the head). frameW/frameH (video px) only cap the size.
+  // Head circle for the logo: the face cluster when it is there, else estimated from the shoulders (head down / hooded /
+  // back turned: the logo still sits on the head — including a tripod facing out, back of the head in view). A room-mirror
+  // reflection is not used. frameW/frameH (video px) only cap the size.
   function capCircle(c, src, frameW, frameH) {
     if (!c) return null;
     var maxR = frameW > 0 && frameH > 0 ? P.maxRFrac * Math.min(frameW, frameH) : Infinity;
@@ -144,12 +145,53 @@
     var cy = (topY + chestY) / 2, r = coverR(face.x, cy, face);
     return { x: face.x, y: cy, r: Math.max(r, Math.abs(chestY - cy) + w * P.coverPad), sw: w };
   }
+  // Folded-over body in the picture (Washers pickup from a tripod facing out, etc.): the shoulders have dropped
+  // to near or past the hip line, so the apparent torso is short. A real head near the hips is not "head on the chest".
+  function bentOver(kpsOrBy) {
+    var by = kpsOrBy && kpsOrBy.length ? byName(kpsOrBy) : (kpsOrBy || {});
+    var ls = by.left_shoulder, rs = by.right_shoulder, lh = by.left_hip, rh = by.right_hip;
+    var sh = [ls, rs].filter(ok), hp = [lh, rh].filter(ok);
+    if (!sh.length || !hp.length) return false;
+    var shy = sh.reduce(function (s, k) { return s + k.y; }, 0) / sh.length;
+    var hpy = hp.reduce(function (s, k) { return s + k.y; }, 0) / hp.length;
+    var shx = sh.reduce(function (s, k) { return s + k.x; }, 0) / sh.length;
+    var hpx = hp.reduce(function (s, k) { return s + k.x; }, 0) / hp.length;
+    var sw = sh.length === 2 && ok(ls) && ok(rs) ? Math.hypot(ls.x - rs.x, ls.y - rs.y) : Math.max(20, Math.hypot(shx - hpx, shy - hpy));
+    return (hpy - shy) < sw * 0.45; // standing hips sit well below the shoulders (~1x shoulder width)
+  }
+  function hipsVisible(kps) {
+    var by = kps && kps.length ? byName(kps) : (kps || {});
+    return ok(by.left_hip) || ok(by.right_hip);
+  }
   function shoulderCircle(ls, rs, by) {
-    var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y), shx, shy, chest, headY, cy, r;
+    var sw = Math.hypot(ls.x - rs.x, ls.y - rs.y), shx, shy, chest, headX, headY, cy, r, hx, hy, dx, dy, L, hp;
     if (!(sw > 8)) return null;
-    shx = (ls.x + rs.x) / 2; shy = (ls.y + rs.y) / 2; chest = chestOf(ls, rs, by, sw); headY = shy - sw * P.shUp;
+    shx = (ls.x + rs.x) / 2; shy = (ls.y + rs.y) / 2; chest = chestOf(ls, rs, by, sw);
+    // Standing / back view: head is above the shoulders. Folded over: the head is past the shoulders, away from the hips
+    // (it drops below the shoulder line as the player bends to pick up a washer).
+    if (bentOver(by)) {
+      hp = [by && by.left_hip, by && by.right_hip].filter(ok);
+      if (hp.length) {
+        hx = hp.reduce(function (s, k) { return s + k.x; }, 0) / hp.length;
+        hy = hp.reduce(function (s, k) { return s + k.y; }, 0) / hp.length;
+        dx = shx - hx; dy = shy - hy; L = Math.hypot(dx, dy);
+        if (L > 8) { headX = shx + (dx / L) * sw * P.shUp; headY = shy + (dy / L) * sw * P.shUp; }
+        else { headX = shx; headY = shy + sw * P.shUp; }
+      } else { headX = shx; headY = shy + sw * P.shUp; }
+    } else { headX = shx; headY = shy - sw * P.shUp; }
     cy = (headY + chest.y) / 2;
-    r = Math.max(sw * P.shR, Math.abs(headY - cy) + sw * 0.08, Math.hypot(chest.x - shx, chest.y - cy) + sw * 0.08);
+    // Size follows the body, not only the apparent shoulder width: during a turn to profile the shoulders
+    // stack in the picture and sw shrinks, but the head does not. Floor with the hip-to-shoulder span so
+    // the locked logo (r >= shTop x that scale) still covers the head. Standing mid-shot is unchanged
+    // (shoulder width is already the larger scale).
+    hp = [by && by.left_hip, by && by.right_hip].filter(ok);
+    if (hp.length) {
+      hx = hp.reduce(function (s, k) { return s + k.x; }, 0) / hp.length;
+      hy = hp.reduce(function (s, k) { return s + k.y; }, 0) / hp.length;
+      L = Math.hypot(shx - hx, shy - hy);
+    } else { L = 0; }
+    var span = Math.max(sw, L * 0.7);
+    r = Math.max(sw * P.shR, span * P.shTop, Math.hypot(headX - shx, headY - cy) + sw * 0.08, Math.hypot(chest.x - shx, chest.y - cy) + sw * 0.08);
     r = Math.max(r, Math.hypot(ls.x - shx, ls.y - cy), Math.hypot(rs.x - shx, rs.y - cy));
     return { x: shx, y: cy, r: r, sw: sw };
   }
@@ -382,7 +424,7 @@
     det._zabFlip = 1;
     return det;
   }
-  var api = { honorFlip: honorFlip, photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, sideCover: sideCover, coverCircle: coverCircle, chestOf: chestOf, coverTransform: coverTransform, openCircle: openCircle, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
+  var api = { honorFlip: honorFlip, photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, sideCover: sideCover, coverCircle: coverCircle, chestOf: chestOf, bentOver: bentOver, hipsVisible: hipsVisible, shoulderCircle: shoulderCircle, coverTransform: coverTransform, openCircle: openCircle, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 
   // ---- browser side ----
@@ -704,13 +746,31 @@
     if (torso > 10 && Math.hypot(fx - hmx, fy - hmy) < torso * P.plausBody) return false; // head not beyond the shoulders: on the body / between the hands
     return true;
   }
-  api.plausible = plausible;
+  // Shield / tracker cover for one pose frame. A plausible face cluster keeps the existing face placement. With no face
+  // (back turned, hood, head down) the body tracker still locks: logo on the shoulders / upper back over the back of the
+  // head. A folded-over washer pickup (head near the hips) is accepted even if the standing "head on the chest" guard
+  // would refuse it. Null means no lock this frame. The opening logo and the locked size rule (r >= shTop x shoulder
+  // width) are unchanged.
+  function coverFromPose(kps, frameW, frameH, where) {
+    var find = where || headCircle, face = faceCircle(kps), c;
+    if (face && plausible(kps, face)) return find(kps, frameW, frameH);
+    c = find(kps, frameW, frameH);
+    if (!c) return null;
+    if (c.src === "shoulders" || c.src === "side" || c.src === "plank") return c;
+    if (face && bentOver(kps)) return c;
+    return null;
+  }
+  api.plausible = plausible; api.coverFromPose = coverFromPose;
+
   function shieldPose(vid, kps, hc, where) {
     var s = shields[vid.id]; if (!s || s.dead) return;
     var vw = vid.videoWidth, vh = vid.videoHeight, snap = s.pend, pn = perfNow(); s.pend = null;
     if (s.poseT && pn - s.poseT < 3000) s.pi = s.pi ? s.pi + (pn - s.poseT - s.pi) * 0.3 : pn - s.poseT; s.poseT = pn; // pose-frame interval (ms) of this engine
     if (!snap || s.pendSrc !== s.src || snap.width !== vw || snap.height !== vh) { s.bad = (s.bad || 0) + 1; s.good = 0; if (s.bad >= P.lostFrames) shieldUnlock(s); return; } // brief mismatches do not drop the lock
-    var face = faceCircle(kps), raw = face && plausible(kps, face) ? (where || headCircle)(kps, vw, vh) : null;
+    var raw = coverFromPose(kps, vw, vh, where);
+    // Deep bend: head/shoulders may leave the lower frame while the hips stay in view. Hold the last lock
+    // so the shield does not flicker back to the opening logo; the logo size is unchanged.
+    if (!raw && s.lockT && hipsVisible(kps) && s.circle) raw = { x: s.circle.x, y: s.circle.y, r: s.circle.r, src: s.circle.src || "hold" };
     s.dbg = raw ? { kps: kps, c: null } : null;
     if (!raw) { s.bad = (s.bad || 0) + 1; s.good = 0; if (s.bad >= P.lostFrames) shieldUnlock(s); return; } // N consecutive bad frames before growing / unlocking (no flap on a one-frame dip)
     s.bad = 0; s.good += 1;

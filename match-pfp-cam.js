@@ -4,6 +4,9 @@
  * same way). Pose uses the site's existing engine (ensurePushPose / ensurePose: Apple Vision on iOS, otherwise
  * MoveNet Lightning). Overlay math is pure and reuses pfp.js faceCircle / shoulder scoring; the avatar sits just
  * ABOVE the head (or the shoulder midpoint when the back is turned), follows with the pfp.js head tracker, and hides ~1 s after detection drops.
+ * Live Washers cover is the pfp.js shield on #zmCamVid (this floater is hidden while that shield is up). The intended
+ * setup is a tripod facing out, back of the head in view; a room-mirror reflection is not used. Rear camera is the
+ * default and is not mirrored (only the front camera is flipped, as a selfie).
  * Single-person only: the most confident pose is used. Does not touch scoring, turns, or the push-up / TUT / plank
  * cameras (own stream, own <video>, own rAF loop). Browser: window.ZabbaMatchPfpCam. Node: require("./match-pfp-cam.js").
  */
