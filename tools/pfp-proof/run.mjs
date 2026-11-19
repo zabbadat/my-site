@@ -26,8 +26,8 @@ const KPS = JSON.parse(fs.readFileSync(path.join(HERE, "push-top-kps.json"), "ut
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const CACHE = process.env.PFP_PROOF_DIR || path.join(os.tmpdir(), "zab-pfp-proof"); // fake camera clips (reused)
 const OUT = path.join(CACHE, "run-" + new Date().toISOString().replace(/[:.]/g, "-")); // this run's report, screenshots and exposed frames
-const SURFACES = ["push", "plank", "squats", "tut", "zlSelf", "match", "mirror21"];
-const VID = { push: "camVid", plank: "plankVid", squats: "sqVid", tut: "tbVid", zlSelf: "zlSelf", match: "zmCamVid", mirror21: "m21Vid" };
+const SURFACES = ["push", "plank", "squats", "tut", "zlSelf", "match", "mirror21", "watch"];
+const VID = { push: "camVid", plank: "plankVid", squats: "sqVid", tut: "tbVid", zlSelf: "zlSelf", match: "zmCamVid", mirror21: "m21Vid", watch: "zlSelf" };
 const only = ARG.only ? String(ARG.only).split(",") : null, want = (s) => !only || only.includes(s);
 
 // ---------- in-page hooks (run before any page script) ----------
@@ -135,14 +135,37 @@ async function run(base, sc, y4m) {
       show(); setInterval(() => { show(); const v = document.getElementById(id); if (v && v.srcObject) v.scrollIntoView({ block: "center" }); }, 150); }, id);
     const open = async () => {
       await p.evaluate(() => { window.ZabPfp.setUser({ uid: "proof", displayName: "Proof" }); window.ZabPfp.setOn(true); });
-      if (sc.surface === "tut" || sc.surface === "zlSelf" || sc.surface === "match") await keepVisible(vidId);
+      if (sc.surface === "tut" || sc.surface === "zlSelf" || sc.surface === "match" || sc.surface === "watch") await keepVisible(vidId);
       if (sc.surface === "push") await p.click("#pushStartBtn"); else if (sc.surface === "plank") await p.click("#plankCamBtn"); else if (sc.surface === "squats") await p.click("#sqStartBtn");
       else if (sc.surface === "mirror21") await p.click("#m21StartBtn");
       else if (sc.surface === "tut") { if (!hooked.tb) throw new Error("TUT test entry point not found in index.html"); p.evaluate(() => window.__tbTest.on()).catch(() => {}); }
-      else if (sc.surface === "zlSelf") { if (!hooked.zl) throw new Error("Go-live test entry point not found in index.html"); p.evaluate(() => window.__zlTest.start()).catch(() => {}); }
+      else if (sc.surface === "zlSelf" || sc.surface === "watch") { if (!hooked.zl) throw new Error("Go-live test entry point not found in index.html"); p.evaluate(() => window.__zlTest.start()).catch(() => {}); }
       else if (sc.surface === "match") p.evaluate(() => window.ZabbaMatchPfpCam.start()).catch(() => {});
       await sleep(150); await p.evaluate(() => { const g = document.getElementById("signGate"), b = document.getElementById("signGatePractice"); if (g && b && !g.hidden && getComputedStyle(g).display !== "none") b.click(); });
-      if (!["tut", "zlSelf", "match"].includes(sc.surface)) await keepVisible(vidId);
+      if (!["tut", "zlSelf", "match", "watch"].includes(sc.surface)) await keepVisible(vidId);
+      if (sc.fs || sc.surface === "watch") {
+        await p.evaluate((surface) => {
+          const W = window.WashersFs;
+          if (!W) throw new Error("WashersFs missing");
+          const show = (id) => { let e = document.getElementById(id); while (e && e !== document.body) { if (e.hidden) e.hidden = false; if (getComputedStyle(e).display === "none") e.style.display = (id === "zlStage" || e.id === id) ? "flex" : "block"; e = e.parentElement; } };
+          if (surface === "watch") {
+            const self = document.getElementById("zlSelf");
+            const cov = (window.WashersLive && self) ? window.WashersLive.coveredStream("zlSelf", self.srcObject, {}) : (self && self.srcObject);
+            const v0 = document.getElementById("zlVid0"), v1 = document.getElementById("zlVid1");
+            if (cov && v0) v0.srcObject = cov;
+            if (cov && v1) v1.srcObject = cov;
+            show("zlStage");
+            W.enter(W.IDS.watch);
+          } else if (surface === "match") {
+            show("zmCamBox"); show("zmCamWrap"); show("zmCamVid");
+            W.enter(W.IDS.match);
+          } else {
+            show("zmLiveSlot"); show("zlSelf");
+            W.enterCast();
+          }
+        }, sc.surface === "watch" ? "watch" : sc.surface);
+        await sleep(400);
+      }
     };
     const grab = () => p.evaluate((id) => ({ ex: window.__ex, fr: window.__fr, stage: window.__stage, exList: window.__exList, probeErr: window.__probeErr || null, shield: !!(window.__seen && window.__seen[id]) }), vidId);
     const seg = (n, m) => p.evaluate(([n, m]) => { window.__seg = n; window.__mode = m; }, [n, m]);
@@ -170,7 +193,7 @@ async function run(base, sc, y4m) {
       parts.push(await grab());
     }
     // Outbound live track and recorded frames: same green-pixel rule, never the raw camera while PFP is on.
-    if (["zlSelf", "match", "push", "plank", "tut", "squats"].includes(sc.surface)) {
+    if (["zlSelf", "match", "watch", "push", "plank", "tut", "squats"].includes(sc.surface)) {
       const extra = await p.evaluate(async (id) => {
         const GREEN = (d, i) => d[i + 1] > 180 && d[i] < 90 && d[i + 2] < 90;
         const countCanvas = (c) => { if (!c || !c.width) return 0; const d = c.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (GREEN(d, i)) n++; return n; };
@@ -259,7 +282,7 @@ async function run(base, sc, y4m) {
     const outBad = !!(res.outbound && (res.outbound.exposed > 0 || res.outbound.leakedRaw));
     const recBad = !!(res.recProof && res.recProof.exposed > 0);
     // A live/recording surface with PFP on must actually produce a covered outbound stream (not missing, not raw).
-    const outMissing = !!(res.outbound && res.outbound.pfpOn && (res.outbound.missing || !res.outbound.hadStream) && ["zlSelf", "match"].includes(sc.surface));
+    const outMissing = !!(res.outbound && res.outbound.pfpOn && (res.outbound.missing || !res.outbound.hadStream) && ["zlSelf", "match", "watch"].includes(sc.surface));
     res.ok = res.readbackExposed === 0 && res.screencastExposed === 0 && res.proven && !outBad && !recBad && !outMissing && !res.outboundError;
   } catch (e) { res.error = String(e && e.message || e).slice(0, 200); }
   finally { await b.close().catch(() => {}); }
@@ -268,14 +291,16 @@ async function run(base, sc, y4m) {
 
 // ---------- matrix ----------
 function matrix() {
-  const L = [], add = (o) => { o.name = `${o.kind}-${o.surface}-${o.view}-${o.res}${o.kind === "startup" ? "-model_" + o.model : ""}`; if (want(o.surface)) L.push(o); };
+  const L = [], add = (o) => { o.name = `${o.kind}-${o.surface}${o.fs ? "-fs" : ""}-${o.view}-${o.res}${o.kind === "startup" ? "-model_" + o.model : ""}`; if (want(o.surface)) L.push(o); };
   if (QUICK) {
     for (const surface of ["push", "match"]) for (const view of ["phone", "desktop"]) for (const model of ["normal", "blocked"]) add({ kind: "startup", surface, view, model, res: "640x480" });
     add({ kind: "startup", surface: "mirror21", view: "phone", model: "normal", res: "640x480" });
     for (const surface of ["push", "zlSelf", "match", "mirror21"]) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480" });
+    for (const surface of ["zlSelf", "match", "watch"]) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480", fs: true });
   } else {
     for (const surface of SURFACES) for (const view of ["phone", "desktop"]) for (const model of ["normal", "slow", "blocked"]) add({ kind: "startup", surface, view, model, res: "640x480" });
     for (const surface of SURFACES) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480" });
+    for (const surface of ["zlSelf", "match", "watch"]) add({ kind: "tracking", surface, view: "phone", model: "normal", res: "640x480", fs: true });
     for (const surface of ["push", "zlSelf", "match"]) { add({ kind: "tracking", surface, view: "phone", model: "normal", res: "1280x720" }); add({ kind: "tracking", surface, view: "phone", model: "normal", res: "720x1280" }); add({ kind: "tracking", surface, view: "landscape", model: "normal", res: "1280x720" }); }
   }
   return L;

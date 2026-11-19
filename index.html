@@ -719,6 +719,22 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 .cam-end-btn[hidden]{display:none!important}
 #tbCamWrap,#plankWrap{position:relative}
 .cam-fs > .cam-end-btn{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+
+/* Washers live camera full screen (single + split): same CSS-fixed .cam-fs as plank/squats (iOS-safe).
+   Score + clock reuse the arcade-strip scoreboard. Controls stay the existing .btn / .btn.ghost look. */
+#zmGame.cam-fs,#zmLiveSlot.cam-fs,#zmCamBox.cam-fs,#zlStage.cam-fs{position:fixed!important;inset:0;z-index:9999;max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden;box-sizing:border-box}
+#zmGame.cam-fs .washers-fs-strip,#zmLiveSlot.cam-fs .washers-fs-strip,#zmCamBox.cam-fs .washers-fs-strip,#zlStage.cam-fs .washers-fs-strip{display:flex;flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px));pointer-events:none}
+.washers-fs-strip[hidden]{display:none!important}
+#zmGame.cam-fs .zl-self-wrap,#zmLiveSlot.cam-fs .zl-self-wrap,#zmCamBox.cam-fs #zmCamWrap{flex:1 1 auto;min-height:0;width:100%;max-width:none;position:relative;margin:0}
+#zmGame.cam-fs #zlSelf,#zmLiveSlot.cam-fs #zlSelf,#zmGame.cam-fs .zl-self,#zmCamBox.cam-fs #zmCamVid{width:100%;height:100%;max-width:none;aspect-ratio:auto;object-fit:contain;border-radius:0;margin:0;display:block}
+#zmGame.cam-fs #zlLiveControls,#zmLiveSlot.cam-fs #zlLiveControls,#zlStage.cam-fs .zm-code-row,#zmGame.cam-fs #zmPad,#zmCamBox.cam-fs .row{flex:0 0 auto;display:flex!important;flex-wrap:wrap;gap:.55rem;align-items:center;z-index:5;padding:.5rem .7rem calc(.5rem + env(safe-area-inset-bottom,0px));background:#080612;pointer-events:auto}
+#zlStage.cam-fs .zl-tiles{flex:1 1 auto;min-height:0;grid-template-columns:1fr 1fr;margin:0;gap:.35rem}
+#zlStage.cam-fs .zl-tile{aspect-ratio:auto;height:100%;min-height:0;border-radius:0}
+#zlStage.cam-fs .zl-tile video{width:100%;height:100%;object-fit:contain;border-radius:0}
+#zmGame.cam-fs #zlCastHelp,#zmGame.cam-fs #zlCastNote,#zmGame.cam-fs #zmCamNote,#zmGame.cam-fs #zmLog,#zmGame.cam-fs #zmBanner,#zmLiveSlot.cam-fs #zlCastHelp,#zlStage.cam-fs .zm-banner{display:none!important}
+#zmGame.cam-fs #zmCamBox{display:none!important}
+#zmGame.cam-fs #zmLiveSlot{display:block!important;flex:1 1 auto;min-height:0;margin:0;padding:0;border:0;overflow:hidden;display:flex;flex-direction:column}
+
 #pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page,#score.arcade-page,#stepsStat.arcade-page,#clock.arcade-page{
   font-family:ui-monospace,"Courier New",monospace;
   color:#7dff7d;
@@ -1630,6 +1646,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="row"><input id="zmCode" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="K7QX2" aria-label="Match code" style="max-width:9.5rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn ghost" id="zmJoin" type="button">Join match</button></div>
       </div>
       <div id="zmGame" hidden>
+      <div class="arcade-strip washers-fs-strip" id="zmFsStrip" hidden><div class="arcade-cell" data-fs-cell="0"><span class="arcade-num" data-fs-score="0">0</span><span class="arcade-lbl" data-fs-lbl="0">Score</span></div><div class="arcade-cell"><span class="arcade-num" data-fs-clock>0:00</span><span class="arcade-lbl">Time</span></div><div class="arcade-cell" data-fs-cell="1" hidden><span class="arcade-num" data-fs-score="1">0</span><span class="arcade-lbl" data-fs-lbl="1">Score</span></div></div>
+
         <div class="zm-code-row"><div class="battle-code" id="zmCodeShow">-----</div><button class="btn ghost" id="zmShare" type="button">Share link</button></div>
         <div class="zm-banner" id="zmBanner" aria-live="polite"><span class="zm-ph" id="zmBannerPh"></span><span class="zm-banner-text" id="zmBannerText">…</span><b class="zm-timer" id="zmTimer"></b><b class="zm-clock" id="zmElapsed" title="Elapsed time">00:00</b></div>
         <div class="zm-seats" id="zmSeats"></div>
@@ -1651,7 +1669,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="row"><button class="btn danger" id="zmForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="zmCancel" type="button" hidden>Cancel match</button><button class="btn ghost" id="zmLeave" type="button" hidden>Close</button></div>
         <div id="zmLiveSlot" class="zl-cast" hidden><!-- Live tab: this player's camera to viewers (zabba-live.js) -->
           <p class="note" id="zlCastHelp">Go live so your opponent and anyone with the code can watch your throws. Prop the phone behind you, tilted at the board. Your face stays covered when Profile is on. Record saves a clip on this phone only until you share it. Video is not uploaded to us.</p>
-          <div class="row" id="zlLiveControls"><button class="btn" id="zlGoLive" type="button">Go live</button><button class="btn ghost rec-btn" id="zmRecBtn" type="button" data-rec="zmLiveSlot" hidden aria-pressed="false"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button><button class="btn ghost" id="zlMute" type="button" hidden aria-pressed="false">Mute</button><button class="btn ghost" id="zlFlip" type="button" hidden>Switch camera</button><button class="btn ghost" id="zlStop" type="button" hidden>Stop live</button><button class="btn ghost" id="zlWatchBoth" type="button">Watch both cameras</button><button class="btn ghost" id="zlYtBtn" type="button" hidden>YouTube</button></div>
+          <div class="row" id="zlLiveControls"><button class="btn" id="zlGoLive" type="button">Go live</button><button class="btn ghost rec-btn" id="zmRecBtn" type="button" data-rec="zmLiveSlot" hidden aria-pressed="false"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button><button class="btn ghost" id="zlMute" type="button" hidden aria-pressed="false">Mute</button><button class="btn ghost" id="zlFlip" type="button" hidden>Switch camera</button><button class="btn ghost" id="zlStop" type="button" hidden>Stop live</button><button class="btn ghost" id="zlWatchBoth" type="button">Watch both cameras</button><button class="btn ghost" id="zlYtBtn" type="button" hidden>YouTube</button><button class="btn ghost" id="zlFsBtn" type="button">Full screen</button><button class="btn" id="zlEndBtn" type="button" hidden>End</button></div>
           <div class="zl-self-wrap" style="position:relative"><video class="zl-self" id="zlSelf" playsinline muted autoplay hidden></video></div>
           <p class="note" id="zlCastNote" aria-live="polite"></p>
         </div>
@@ -1663,7 +1681,9 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <p class="note">Enter a Live Match code to watch both players' cameras with the score, round and turn updating live. No sign-in needed. Video goes straight from each player's phone to you and is never recorded.</p>
       <div class="row" id="zlPick"><input id="zlCode" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="K7QX2" aria-label="Match code to watch" style="max-width:9.5rem;text-transform:uppercase;letter-spacing:.2em"><button class="btn" id="zlWatch" type="button">Watch</button></div>
       <div id="zlStage" hidden>
-        <div class="zm-code-row"><div class="battle-code" id="zlCodeShow">-----</div><button class="btn ghost" id="zlShare" type="button">Share watch link</button><button class="btn ghost" id="zlStopWatch" type="button">Stop watching</button></div>
+        <div class="arcade-strip washers-fs-strip" id="zlWatchFsStrip" hidden><div class="arcade-cell" data-fs-cell="0"><span class="arcade-num" data-fs-score="0">0</span><span class="arcade-lbl" data-fs-lbl="0">Score</span></div><div class="arcade-cell"><span class="arcade-num" data-fs-clock>0:00</span><span class="arcade-lbl">Time</span></div><div class="arcade-cell" data-fs-cell="1" hidden><span class="arcade-num" data-fs-score="1">0</span><span class="arcade-lbl" data-fs-lbl="1">Score</span></div></div>
+
+        <div class="zm-code-row"><div class="battle-code" id="zlCodeShow">-----</div><button class="btn ghost" id="zlShare" type="button">Share watch link</button><button class="btn ghost" id="zlStopWatch" type="button">Stop watching</button><button class="btn ghost" id="zlWatchFsBtn" type="button">Full screen</button><button class="btn" id="zlWatchEndBtn" type="button">End</button></div>
         <div class="zm-banner" aria-live="polite"><span class="zm-banner-text" id="zlBannerText">…</span><b class="zm-timer" id="zlTimer"></b></div>
         <div class="zl-tiles"><div class="zl-tile" id="zlTile0"><video id="zlVid0" playsinline muted autoplay></video><span class="zl-state" id="zlState0">Offline</span><div class="zl-over"><span class="zm-ph" id="zlPh0"></span><span class="zl-name" id="zlName0">Player 1</span><b class="zl-score" id="zlScore0">0</b><b class="zl-clock" id="zlClock0">00:00</b></div></div><div class="zl-tile" id="zlTile1"><video id="zlVid1" playsinline muted autoplay></video><span class="zl-state" id="zlState1">Offline</span><div class="zl-over"><span class="zm-ph" id="zlPh1"></span><span class="zl-name" id="zlName1">Player 2</span><b class="zl-score" id="zlScore1">0</b><b class="zl-clock" id="zlClock1">00:00</b></div></div></div>
       </div>
@@ -2113,6 +2133,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/washers-clock.js"></script>
   <script src="/washers-voice.js"></script>
   <script src="/washers-live-controls.js"></script>
+  <script src="/washers-fs.js"></script>
   <script src="/plank-battle.js"></script>
   <script src="/zaba-wager.js"></script>
   <script src="/reputation.js"></script>
@@ -6066,6 +6087,7 @@ function zmPaint() {
   $("zmTimer").textContent = m && m.status === "active" && v.secsLeft != null ? "0:" + String(v.secsLeft).padStart(2, "0") : "";
   const elapsedTxt = window.WashersLive ? window.WashersLive.matchClockText(m, zmCode, Date.now(), zmToMs) : "00:00";
   if ($("zmElapsed")) $("zmElapsed").textContent = elapsedTxt;
+  if (window.WashersFs) window.WashersFs.paint({ clock: elapsedTxt, seats: (v.seats || []).map((s) => ({ name: s.name || "Score", score: s.score || 0 })) });
   const seats = $("zmSeats"); seats.textContent = "";
   (v.seats.length ? v.seats : []).concat(v.seats.length === 1 ? [{ name: "Waiting…", score: 0 }] : []).forEach((s) => {
     const d = document.createElement("div"); d.className = "zm-seat" + (s.turn ? " turn" : "");
@@ -6101,7 +6123,7 @@ function zmEnter(code) {
   if (zmOff) zmOff(); zmOff = zmc.watch(code, (m) => { zmDoc = m; zmPaint(); });
   clearInterval(zmTick); zmTick = setInterval(zmPaint, 500); zmPaint();
 }
-function zmExit() { if (typeof zmVoiceStop === "function") zmVoiceStop(); if (typeof zlCastStop === "function" && zlCastCode) zlCastStop(); if (zmOff) zmOff(); zmOff = null; clearInterval(zmTick); zmTick = null; zmCode = null; zmDoc = null; zmPack = []; zlAutoTried = false; zlSolo = false; try { localStorage.removeItem(ZM_KEY); } catch (e) {} if (window.ZabbaMatchPfpCam) window.ZabbaMatchPfpCam.stop(); zmPaint(); }
+function zmExit() { if (typeof zmVoiceStop === "function") zmVoiceStop(); if (typeof zlCastStop === "function" && zlCastCode) zlCastStop(); if (zmOff) zmOff(); zmOff = null; clearInterval(zmTick); zmTick = null; zmCode = null; zmDoc = null; zmPack = []; zlAutoTried = false; zlSolo = false; try { localStorage.removeItem(ZM_KEY); } catch (e) {} if (window.ZabbaMatchPfpCam) window.ZabbaMatchPfpCam.stop(); if (window.WashersFs) window.WashersFs.exitAll(); zmPaint(); }
 async function zmJoinCode(code) { const u = zmUser(); if (!u) { requireSignIn("live match"); return void zmStat("Sign in to join a match."); }
   zmStat("Joining…"); try { zmEnter(await zmc.join(code, u)); zmStat(""); } catch (e) { try { if (localStorage.getItem(ZM_KEY) === ZM.normCode(code)) localStorage.removeItem(ZM_KEY); } catch (x) {} zmStat(e.code === "permission-denied" ? "Couldn't join that match." : e.message); } }
 function zmVoiceStop() { if (zlVoiceSess && zlVoiceSess.stop) try { zlVoiceSess.stop(); } catch (e) {} zlVoiceSess = null; zmHeard = null; const box = $("zmVoiceConfirm"); if (box) box.hidden = true; }
@@ -6207,7 +6229,7 @@ function zlStopTracks() { zlPfpStop(); if (zlStream) { zlStream.getTracks().forE
 async function zlCastStop(note) {
   const was = !!zlCastCode; zlCastCode = null;
   if (zlCaster) await zlCaster.stop().catch(() => {});
-  zlStopTracks(); if (zlWake) zlWake.stop(); if (was && zlv) zlv.refresh(); if (note) zlCastNote(note); zlCastPaint();
+  zlStopTracks(); if (zlWake) zlWake.stop(); if (was && zlv) zlv.refresh(); if (note) zlCastNote(note); if (window.WashersFs) window.WashersFs.exitCast(); zlCastPaint();
 }
 const zlCam = (facing, deviceId) => window.WashersLive ? window.WashersLive.getCamera(facing, deviceId) : navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: deviceId ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } } : { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } } });
 function zlCovered() { return window.WashersLive ? window.WashersLive.coveredStream("zlSelf", zlStream, zlCoveredCache) : zlStream; }
@@ -6252,7 +6274,7 @@ async function zlGoLive() {
     const outbound = zlOutbound();
     if (window.ZabPfp && window.ZabPfp.isOn && window.ZabPfp.isOn() && (!ready || !outbound || !outbound.getVideoTracks().length)) throw new Error("Profile cover isn't ready. Keep your face in frame and tap Go live again.");
     await zlCaster.start({ code: zmCode, seat, uid: currentUser.uid, stream: outbound || zlStream, facing: zlFacing, muted: zlMuted });
-    zlCastCode = zmCode; if (zlv) zlv.refresh(); zlPaintSelf();
+    zlCastCode = zmCode; if (zlv) zlv.refresh(); zlPaintSelf(); if (window.WashersFs) window.WashersFs.enterCast();
   } catch (e) { if (!zlCastCode) { zlStopTracks(); if (zlWake) zlWake.stop(); } zlCastNote(e && e.name === "NotAllowedError" ? "Camera or mic blocked. Allow camera and microphone for this app and try again." : (e && e.code === "permission-denied" ? "Couldn't go live on this match." : (e && e.message) || "Couldn't start the camera.")); }
   finally { zlBusy = false; zlCastPaint(); }
 }
@@ -6285,6 +6307,9 @@ function zlCastPaint() {
       }
     }
   }
+  const endBtn = $("zlEndBtn"), fsBtn = $("zlFsBtn");
+  if (endBtn) endBtn.hidden = !on;
+  if (fsBtn) fsBtn.textContent = (window.WashersFs && (window.WashersFs.isOn("zmGame") || window.WashersFs.isOn("zmLiveSlot"))) ? "Exit full screen" : "Full screen";
   if (on) zlCastNote("Live · " + zlViewers + " watching (up to " + ZL.MAX_VIEWERS + ")" + (zlFacing === "user" ? " · front camera" : "") + (zlMuted ? " · muted" : ""));
   else if (!zlCaster && open) zlCastNote("This browser can't stream video (no WebRTC).");
 }
@@ -6312,7 +6337,10 @@ if (ZL) {
       zlCastNote("YouTube relay connected.");
     } catch (e) { zlCastNote((e && e.message) || "Couldn't start the YouTube relay."); }
   };
-  $("zlWatchBoth").onclick = () => { if (!zmCode) return; zlStart(zmCode); const el = $("zabbaLive"); if (el) el.scrollIntoView({ block: "start" }); };
+  $("zlWatchBoth").onclick = () => { if (!zmCode) return; zlStart(zmCode); const el = $("zabbaLive"); if (el) el.scrollIntoView({ block: "start" }); if (window.WashersFs) window.WashersFs.enterWatch(); };
+  if ($("zlEndBtn")) $("zlEndBtn").onclick = () => { if (window.WashersFs) window.WashersFs.exitCast(); if (zlCastCode) zlCastStop("You're off the air."); };
+  if ($("zlFsBtn")) $("zlFsBtn").onclick = () => { if (!window.WashersFs) return; if (window.WashersFs.isOn("zmGame") || window.WashersFs.isOn("zmLiveSlot")) window.WashersFs.exitCast(); else window.WashersFs.enterCast(); zlCastPaint(); };
+
   addEventListener("pagehide", () => { if (zlCastCode) zlCastStop(); });
 }
 /* viewer */
@@ -6339,8 +6367,10 @@ function zlPaint() {
   v.seats.forEach((s, i) => { $("zlName" + i).textContent = s.name; $("zlScore" + i).textContent = String(s.score); $("zlTile" + i).classList.toggle("turn", s.turn);
     const ph = $("zlPh" + i); const key = s.name + "|" + s.photo; if (ph.dataset.k !== key) { ph.dataset.k = key; zmPhoto(ph, s.empty ? null : s); if (s.empty) ph.textContent = "?"; }
     const st = $("zlState" + i); const k = zlState[i]; st.textContent = s.empty ? "Waiting for player" : ZL_STATE[k] || "Offline"; st.classList.toggle("on", k === "live" || k === "self"); });
+  if (window.WashersFs) window.WashersFs.paint({ clock: clockTxt, seats: v.seats.map((s) => ({ name: s.name || "Score", score: s.score || 0 })) });
+  const wfs = $("zlWatchFsBtn"); if (wfs) wfs.textContent = (window.WashersFs && window.WashersFs.isOn("zlStage")) ? "Exit full screen" : "Full screen";
 }
-function zlStop() { if (zlMatchOff) zlMatchOff(); zlMatchOff = null; if (zlv) zlv.stop(); clearInterval(zlTick); zlTick = null; zlCode = null; zlMatch = null; zlState = ["offline", "offline"]; [0, 1].forEach((i) => { const v = $("zlVid" + i); if (v) v.srcObject = null; }); zlPaint(); }
+function zlStop() { if (zlMatchOff) zlMatchOff(); zlMatchOff = null; if (zlv) zlv.stop(); clearInterval(zlTick); zlTick = null; zlCode = null; zlMatch = null; zlState = ["offline", "offline"]; [0, 1].forEach((i) => { const v = $("zlVid" + i); if (v) v.srcObject = null; }); if (window.WashersFs) window.WashersFs.exitWatch(); zlPaint(); }
 function zlStart(raw) {
   const code = ZL.normCode(raw); if (!ZL.isValidCode(code)) return void zlStat("Enter the 5-character match code.");
   zlStop(); zlCode = code; zlStat(""); $("zlCode").value = code;
@@ -6353,6 +6383,9 @@ if (ZL) {
   $("zlWatch").onclick = () => { zlStart($("zlCode").value); [0, 1].forEach((i) => { const v = $("zlVid" + i); if (v) { v.muted = false; v.play && v.play().catch(() => { v.muted = true; }); } }); };
   $("zlCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("zlWatch").click(); });
   $("zlStopWatch").onclick = () => zlStop();
+  if ($("zlWatchEndBtn")) $("zlWatchEndBtn").onclick = () => { if (window.WashersFs) window.WashersFs.exitWatch(); zlStop(); };
+  if ($("zlWatchFsBtn")) $("zlWatchFsBtn").onclick = () => { if (!window.WashersFs || !zlCode) return; window.WashersFs.toggle("zlStage"); zlPaint(); };
+
   $("zlShare").onclick = async () => { if (!zlCode) return; const url = ZL.liveLinkFor(zlCode, location.origin);
     try { if (navigator.share) { await navigator.share({ title: "Watch Zabba Washers live", text: "Watch live: code " + zlCode, url }); return; } } catch (e) { return; }
     try { await navigator.clipboard.writeText(url); zlStat("Link copied: " + url); } catch (e) { zlStat("Code " + zlCode + " · " + url); } };
