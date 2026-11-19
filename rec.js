@@ -208,9 +208,13 @@
     var head0 = root.ZabPfp && root.ZabPfp.lastHead ? root.ZabPfp.lastHead(VID[r.id], typeof performance !== "undefined" ? performance.now() : null) : null;
     var rf = pfpOn && root.ZabPfp.recFrame ? root.ZabPfp.recFrame(VID[r.id]) : null, blanket = pfpOn && !rf;
     if (rf) head0 = rf.c; // the pose-matched frame and its own head circle (same as the screen shows)
-    x.save(); x.translate(fw, 0); x.scale(-1, 1);
+    var Zb = root.ZabPfp, blurOk = pfpOn && Zb && Zb.blurInto && !(Zb.P && Zb.P.blurOn === false), blurred = false;
+    if (blurOk && (blanket || (rf && rf.focus))) blurred = Zb.blurInto(x, rf ? rf.img : v, fw, fh, true); // same blur-until-lock as the screen and the live stream
+    x.save();
     try {
-      x.drawImage(rf ? rf.img : v, 0, 0, fw, fh); // always the live (or pose-matched) picture — never a dark full-frame fill
+      if (blurred && rf && rf.focus) { var ks = fw / ((rf.img && rf.img.width) || v.videoWidth || fw), f = rf.focus; x.beginPath(); x.rect(f.x0 * ks, f.y0 * ks, (f.x1 - f.x0) * ks, (f.y1 - f.y0) * ks); x.clip(); } // locked: sharp only on the locked person
+      x.translate(fw, 0); x.scale(-1, 1);
+      if (!(blurred && blanket)) x.drawImage(rf ? rf.img : v, 0, 0, fw, fh); // the live (or pose-matched) picture — never a dark full-frame fill
       if (blanket) head0 = null; // no locked head: the large opening logo is drawn after restore, not a corner-to-corner disc
     } catch (e) {}
     x.restore();

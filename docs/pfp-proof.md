@@ -67,3 +67,12 @@ On a FAIL, the exit code is 1 and every failing frame is listed with its frame n
 - **Internet:** needed while it runs, because the page loads its pose library (TensorFlow.js) from a CDN, as on the live site.
 
 `npm test` (the unit tests) is unchanged and does not need Playwright.
+
+## Far-distance / mirror proof (blur-until-lock, Nov 19)
+
+`node tools/pfp-proof/far-mirror.mjs --clips=/tmp/pfp-far/clips` runs the REAL MoveNet Lightning model and the real
+shield on SIMULATED clips made by `tools/pfp-proof/far-mirror-clips.py` from real-person footage, scaled to 20 / 25 / 30 ft
+equivalents (estimate: 0.15 m face, 70 deg FOV) at 640x480 and 1280x720, a 35 -> 15 ft walk-in, and a backlit mirror
+layout (person + smaller mirrored reflection). Each shield paint is scored on every ground-truth face (ear to ear,
+brow to chin): EXPOSED when the shown face keeps the source face's fine detail (high-pass correlation > 0.5).
+`--control` turns the blur off (the old behaviour) and must FAIL on the mirror clips (proves the checker works).

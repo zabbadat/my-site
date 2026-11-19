@@ -17,7 +17,15 @@
     spDead: 1.0, deadPos: 0.02, deadR: 0.06, rGrowCut: 2.2, rShrinkCut: 0.4, rMaxGrow: 0.8, rMaxShrink: 0.35, dispK: 0.35, dispMinMs: 16, dispMaxMs: 32, dispRK: 2, dispSpK: 0, dispLead: true, reacqSnapR: 1, reacqMs: 150,
     shUp: 0.55, shR: 0.55, sideK: 0.35, sideUp: 0.35, chestFrac: 0, chestDown: 0.05, chestFromFace: 1.2, sideLift: 0.16, armMargin: 0.1, minR: 10, maxRFrac: 0.5, plankR: 0.38, miniFps: 15, miniSize: 44, coverS: 128, logo: "/zd-square.png",
     headUp: 0.1, headRW: 0.5, coverPad: 0.25, topUp: 0.85, chinDn: 0.65, openR: 0.36, openY: 0.36, lockMs: 250, openMs: 8000,
-    blankR: 0.48, blankY: 0.38, staleK: 3, staleMaxMs: 1000 };
+    blankR: 0.48, blankY: 0.38, staleK: 3, staleMaxMs: 1000,
+    blurOn: true, blurCells: 20, focusBlur: true, focusPad: 0.35, focusReach: 5 };
+  // Blur-until-lock (Nov 19, owner: zero face exposure at 20-25+ ft, mirror reflections, bystanders): with no lock the live
+  // picture is shown BLURRED (area-downscaled to blurCells across its long side, then smoothly upscaled: a face, even a
+  // close-up, is a few soft colour cells), the opening logo on top. Not a dark cover: the picture stays live and visible.
+  // Locked (focusBlur): only the locked person's own box (their confident keypoints + the head cover, padded focusPad)
+  // is sharp; everything else stays blurred, so a mirror reflection or a second face elsewhere is never shown sharp.
+  // Pixelation by canvas resampling, not ctx.filter (canvas filter is off by default in Safari / WKWebView).
+
   // Centre + size (Nov 16, owner): horizontally dead-centre on the shoulder midpoint (the anchor; zero offset), vertically on
   // the head (ear line, else eye line, headUp x head width above it). Size covers the whole head with margin: r = max(headRW x
   // head width, shR x shoulder width, and far enough to reach every face point, the estimated top of the head (topUp x head
@@ -717,7 +725,7 @@
     if (!s.lockSnap) s.lockSnap = doc.createElement("canvas");
     if (s.lockSnap.width !== snap.width || s.lockSnap.height !== snap.height) { s.lockSnap.width = snap.width; s.lockSnap.height = snap.height; }
     s.lockSnap.getContext("2d").drawImage(snap, 0, 0); // own copy: the input ring of 3 buffers is reused and must not overwrite the frozen frame
-    s.snap = s.lockSnap; s.circle = enclose(raw, hc && hc.c && !hc.c.open ? hc.c : null); s.dbg.c = s.circle; s.lastPoseT = perfNow(); s.vw = vw; s.vh = vh;
+    s.snap = s.lockSnap; s.circle = enclose(raw, hc && hc.c && !hc.c.open ? hc.c : null); s.dbg.c = s.circle; s.focus = focusBox(kps, s.circle, vw, vh); s.lastPoseT = perfNow(); s.vw = vw; s.vh = vh;
     if (!s.lockT && s.good >= P.lockFrames) { s.lockT = perfNow(); s.lostT = 0; s.wasLocked = 1; s.opening = 0; if (s.vid && s.vid.id) lockedOnce[s.vid.id] = 1; }
     s.live = !!s.lockT;
   }
@@ -768,6 +776,54 @@
     var c = blanketLogo(g);
     return t ? enclose(c, { x: t.x, y: t.y, r: t.r + 1 }) : c;
   }
+  // Area downscale (halving steps, then to blurCells across the long side) into s-owned buffers; returns the small canvas.
+  function blurSmall(o, img, fw, fh) {
+    if (!(fw > 0 && fh > 0) || !img) return null;
+    var k = P.blurCells / Math.max(fw, fh), tw = Math.max(2, Math.round(fw * k)), th = Math.max(2, Math.round(fh * k));
+    var bufs = o.blurBufs || (o.blurBufs = [doc.createElement("canvas"), doc.createElement("canvas")]), src = img, sw = fw, sh = fh, i = 0;
+    while (sw / 2 >= tw * 1.5 || sh / 2 >= th * 1.5 || src === img) {
+      var nw = Math.max(tw, Math.round(sw / 2)), nh = Math.max(th, Math.round(sh / 2)), b = bufs[i % 2];
+      if (b.width !== nw || b.height !== nh) { b.width = nw; b.height = nh; }
+      var bx = b.getContext("2d"); bx.imageSmoothingEnabled = true; try { bx.imageSmoothingQuality = "high"; } catch (e) {}
+      bx.clearRect(0, 0, nw, nh); bx.drawImage(src, 0, 0, sw, sh, 0, 0, nw, nh); src = b; sw = nw; sh = nh; i++;
+      if (i > 12) break;
+    }
+    var out = o.blurOut || (o.blurOut = doc.createElement("canvas"));
+    if (out.width !== tw || out.height !== th) { out.width = tw; out.height = th; }
+    var ox = out.getContext("2d"); ox.imageSmoothingEnabled = true; try { ox.imageSmoothingQuality = "high"; } catch (e) {}
+    ox.clearRect(0, 0, tw, th); ox.drawImage(src, 0, 0, sw, sh, 0, 0, tw, th);
+    return out;
+  }
+  // The blurred picture, drawn exactly where drawSnap would draw the sharp one (same fit + mirror).
+  function drawBlur(x, g, o, img, vw, vh) {
+    var sm = blurSmall(o, img, vw, vh); if (!sm) return;
+    x.save(); x.imageSmoothingEnabled = true; try { x.imageSmoothingQuality = "high"; } catch (e) {}
+    drawSnap(x, g, sm, vw, vh); x.restore();
+  }
+  // Locked frame: blurred everywhere, sharp only inside the locked person's focus box (display coords of the keypoints).
+  function drawLocked(x, g, s, img, vw, vh) {
+    if (!(P.blurOn && P.focusBlur) || !s.focus) { drawSnap(x, g, img, vw, vh); return; }
+    drawBlur(x, g, s, img, vw, vh);
+    var a = mapToBox({ x: s.focus.x0, y: s.focus.y0, r: 0 }, vw, vh, g.bw, g.bh, g.fit), b = mapToBox({ x: s.focus.x1, y: s.focus.y1, r: 0 }, vw, vh, g.bw, g.bh, g.fit);
+    if (!a || !b) return;
+    x.save(); x.beginPath(); x.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y)); x.clip(); drawSnap(x, g, img, vw, vh); x.restore();
+  }
+  // Focus box of the locked person: confident keypoints + the head cover circle, padded focusPad x its larger side.
+  function focusBox(kps, circle, vw, vh) {
+    var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, add = function (x, y) { if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y; };
+    var near = function (k) { return !circle || Math.hypot(k.x - circle.x, k.y - circle.y) <= P.focusReach * circle.r; }; // a stray joint on a reflection / second person never widens the box
+    for (var i = 0; i < (kps || []).length; i++) if (ok(kps[i]) && near(kps[i])) add(kps[i].x, kps[i].y);
+    if (circle) { add(circle.x - circle.r, circle.y - circle.r); add(circle.x + circle.r, circle.y + circle.r); }
+    if (!(x1 > x0)) return null;
+    var pad = Math.max(x1 - x0, y1 - y0) * P.focusPad;
+    x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+    if (circle) { var cr = circle.r * P.focusReach; x0 = Math.max(x0, circle.x - cr); x1 = Math.min(x1, circle.x + cr); y0 = Math.max(y0, circle.y - cr); y1 = Math.min(y1, circle.y + cr); } // hard cap around the locked head
+    return { x0: Math.max(0, x0), y0: Math.max(0, y0), x1: Math.min(vw, x1), y1: Math.min(vh, y1) };
+  }
+  api.focusBox = focusBox;
+  // For rec.js: the same blur on its own canvas (img drawn to fw x fh, mirrored like the recording).
+  api.blurInto = function (x, img, fw, fh, mir) { try { var sw = img.videoWidth || img.width, sh = img.videoHeight || img.height, sm = blurSmall(recBlur, img, sw, sh); if (!sm) return false; x.save(); if (mir) { x.translate(fw, 0); x.scale(-1, 1); } x.imageSmoothingEnabled = true; x.drawImage(sm, 0, 0, fw, fh); x.restore(); return true; } catch (e) { return false; } };
+  var recBlur = {};
   // Stale after staleMs, or staleK x this camera's measured pose-frame interval when the engine is slower (capped).
   function staleOf(s) { return Math.max(P.staleMs, Math.min(P.staleMaxMs, P.staleK * (s.pi || 0))); }
   function drawSnap(x, g, snap, vw, vh) {
@@ -788,19 +844,21 @@
     if (s.lockT && s.snap && s.circle) { s.lockG = gk;
       var t = mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit), B = blanketAround(g, t);
       m = lerpC(B, t, ease((now - s.lockT) / P.shrinkMs));
-      x.clearRect(0, 0, g.bw, g.bh); drawSnap(x, g, s.snap, s.vw, s.vh);
+      x.clearRect(0, 0, g.bw, g.bh); drawLocked(x, g, s, s.snap, s.vw, s.vh); s.drawnSrc = s.snap;
     } else if (s.lostT && s.lostFrom && s.snap && now - s.lostT < P.growMs && s.lockG === gk && s.snap.width === s.vw && s.snap.height === s.vh) { // same box, fit, mirror and video size as the last locked frame only
       // Start from a circle that holds both the last drawn logo AND the head of the frame actually frozen on screen (s.circle
       // always belongs to s.snap): if a pose landed between the last paint and the loss, lostFrom was for the previous frame.
       var L0 = enclose(s.lostFrom, s.circle ? mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit) : null), B2 = blanketAround(g, L0); m = lerpC(L0, B2, ease((now - s.lostT) / P.growMs));
-      x.clearRect(0, 0, g.bw, g.bh); drawSnap(x, g, s.snap, s.vw, s.vh); // the last covered frame, frozen, while the logo grows
+      x.clearRect(0, 0, g.bw, g.bh); drawLocked(x, g, s, s.snap, s.vw, s.vh); s.drawnSrc = s.snap; // the last covered frame, frozen, while the logo grows
     } else {
       m = blanketAround(g, s.circle ? mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit) : null);
       x.clearRect(0, 0, g.bw, g.bh); // no dark fill, no hood, no full-frame blanket — only the live (or frozen) picture + the logo
-      var lockedBefore = s.wasLocked || (s.vid && lockedOnce[s.vid.id]), frame = lockedBefore ? (s.snap || grabPreview(s, v)) : (grabPreview(s, v) || s.snap);
-      if (frame) drawSnap(x, g, frame, frame.width || s.vw || v.videoWidth, frame.height || s.vh || v.videoHeight);
+      var lockedBefore = s.wasLocked || (s.vid && lockedOnce[s.vid.id]), frame = (lockedBefore && !P.blurOn) ? (s.snap || grabPreview(s, v)) : (grabPreview(s, v) || s.snap); // blurred: the live picture again after a loss (unrecognisable, not frozen)
+      if (frame) { var fw0 = frame.width || s.vw || v.videoWidth, fh0 = frame.height || s.vh || v.videoHeight; if (P.blurOn) drawBlur(x, g, s, frame, fw0, fh0); else drawSnap(x, g, frame, fw0, fh0); }
+      s.drawnSrc = frame || null;
     }
     ensureLogo(); m = glideMark(s, m, now); drawLogo(x, m); s.lastM = s.lockT ? m : null; s.drawM = m; s.drawG = g; s.frames += 1;
+    if (api._paintHook) { try { api._paintHook(s); } catch (e) {} } // proof harness only (unset in the site)
     if (!s.lockT && !(s.lostT && now - s.lostT < P.growMs && s.lockG === gk)) { s.lastM = null; s.lostT = 0; }
   }
   // Snapshot the current decoded frame for the opening feed (never read the live <video> in the same paint as a later pose).
@@ -825,7 +883,7 @@
     tick();
   }
   // Recording (rec.js): the same covered, pose-matched frame, or null = live frame with the large opening logo (never a dark full frame).
-  function recFrame(id) { var s = shields[id]; return s && s.live && s.snap && s.circle ? { img: s.snap, c: s.circle } : null; }
+  function recFrame(id) { var s = shields[id]; return s && s.live && s.snap && s.circle ? { img: s.snap, c: s.circle, focus: P.blurOn && P.focusBlur ? s.focus || null : null } : null; }
   function shieldCanvas(id) { var s = shields[id]; return (s && s.cv && !s.dead) ? s.cv : null; }
   // Outbound live / record source. When PFP is on: ONLY the shield canvas stream — never the raw camera.
   // Missing shield while PFP is on returns null (callers must not fall back to raw). When PFP is off, rawStream is used.
@@ -856,6 +914,7 @@
     } catch (e) { return Promise.resolve(); }
   }
   api.warmDetector = warmDetector;
+  api.P = P; // read-only use by rec.js (opening logo size) and the far/mirror proof control (blurOn)
   api.setUser = setUser; api.frame = frame; api.isOn = isOn; api.setOn = setOn; api.onChange = onChange; api.paintBadge = paintBadge;
   if (root) root.ZabPfp = api;
   if (doc) {
