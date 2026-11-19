@@ -25,8 +25,11 @@ The existing **Cloudflare Realtime TURN** service stays what it is: a Live-tab N
 
 1. A YouTube live event (or Stream Now) in YouTube Studio. Copy the **stream key** into the relay only — never into the website repo, Netlify UI, chat, or the iOS app.
 2. Run MediaMTX or ffmpeg/GStreamer on the chosen host so it accepts WHIP and forwards RTMP to YouTube.
-3. On Netlify, set **`LIVE_WHIP_URL`** to that WHIP endpoint (a secret in the path is fine). Do not set a `YOUTUBE_STREAM_KEY` on Netlify; `youtube-whip.js` will not return one even if present. Do not reuse the TURN env vars for this.
-4. After the env var is set, the Live Match “YouTube” button can start WHIP from the **PFP-covered** stream. Until then, the button reports that YouTube isn’t set up.
+3. On Netlify (not in this branch — do not set these until you are ready), add:
+   - **`LIVE_WHIP_URL`** — the relay WHIP endpoint, e.g. `https://live.zabbadat.com/washers/whip` (path `washers`, as in the DigitalOcean MediaMTX package). A `http://user:pass@host:8889/washers/whip` form is also accepted; userinfo is stripped and kept only in memory on the server.
+   - **`LIVE_WHIP_USER`** / **`LIVE_WHIP_PASSWORD`** (aliases: `LIVE_WHIP_PUBLISH_USER` / `LIVE_WHIP_PUBLISH_PASSWORD`) — the relay publish credentials from `show-ingest.sh`. If you already put userinfo in `LIVE_WHIP_URL`, these can be omitted.
+   Do not set a YouTube stream key on Netlify. `youtube-whip.js` never reads one, and it never returns the publish user or password to the browser or the app. The site posts SDP to `/.netlify/functions/youtube-whip`, which forwards it to the relay with those credentials.
+4. After those env vars are set, the Live Match “YouTube” button can start WHIP from the **PFP-covered** stream. Until then, the button reports that YouTube isn’t set up. This branch only stages the function; no Netlify env was changed.
 
 ## Cost (check current prices before paying)
 

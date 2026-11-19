@@ -108,7 +108,7 @@ async function run(base, sc, y4m) {
   const res = { sc, ok: false };
   try {
     const desk = sc.view === "desktop", land = sc.view === "landscape";
-    const c = await b.newContext({ viewport: desk ? { width: 1280, height: 800 } : land ? { width: 844, height: 390 } : { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: !desk, hasTouch: !desk, permissions: ["camera"],
+    const c = await b.newContext({ viewport: desk ? { width: 1280, height: 800 } : land ? { width: 844, height: 390 } : { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: !desk, hasTouch: !desk, permissions: ["camera", "microphone"],
       userAgent: desk ? undefined : "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1" });
     await c.addInitScript((u) => { if (u) window.__pfpUnsetKey = true; }, UNSET_KEY);
     await c.addInitScript(hooks); if (CONTROL) await c.addInitScript(controlHook);
@@ -123,7 +123,7 @@ async function run(base, sc, y4m) {
     let hooked = { zl: false, tb: false };
     await p.route(/\/(index\.html)?(\?.*)?$/, async (r) => { if (r.request().resourceType() !== "document") return r.continue(); const rs = await r.fetch(); let body = await rs.text();
       hooked.zl = body.includes("function zlPfpStart() {"); hooked.tb = body.includes("async function tbCamOn(placed) {");
-      body = body.replace("function zlPfpStart() {", 'window.__zlTest = { start: async () => { const gum = zlCam("user"); zlPfpWarm(); zlStream = await gum; const v = $("zlSelf"); v.srcObject = zlStream; v.hidden = false; v.play && v.play().catch(() => {}); zlPfpStart(); } };\nfunction zlPfpStart() {');
+      body = body.replace("function zlPfpStart() {", 'window.__zlTest = { start: async () => { if (typeof zlWarmCam === "function") { const prev = zlFacing; zlFacing = "user"; try { await zlWarmCam(); } finally { zlFacing = prev; } return; } const gum = zlCam("user"); zlPfpWarm(); zlStream = await gum; const v = $("zlSelf"); v.srcObject = zlStream; v.hidden = false; v.play && v.play().catch(() => {}); zlPfpStart(); } };\nfunction zlPfpStart() {');
       body = body.replace("async function tbCamOn(placed) {", "window.__tbTest = { on: () => tbCamOn() };\nasync function tbCamOn(placed) {");
       r.fulfill({ response: rs, body }); });
     // screencast: every composited frame
@@ -168,6 +168,55 @@ async function run(base, sc, y4m) {
       await seg("stall", "stall"); await sleep(1200); await seg("afterStall", "normal"); await sleep(1500);
       parts.push(await grab());
     }
+    // Outbound live track and recorded frames: same green-pixel rule, never the raw camera while PFP is on.
+    if (["zlSelf", "match", "push", "plank", "tut", "squats"].includes(sc.surface)) {
+      const extra = await p.evaluate(async (id) => {
+        const GREEN = (d, i) => d[i + 1] > 180 && d[i] < 90 && d[i + 2] < 90;
+        const countCanvas = (c) => { if (!c || !c.width) return 0; const d = c.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (GREEN(d, i)) n++; return n; };
+        const countStream = async (stream, frames, ms) => {
+          if (!stream || !stream.getVideoTracks || !stream.getVideoTracks().length) return { frames: 0, exposed: 0, missing: true };
+          const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.srcObject = stream; await v.play().catch(() => {});
+          const cv = document.createElement("canvas"); let framesN = 0, exposed = 0, pixels = 0;
+          const until = performance.now() + (ms || 1400);
+          while (performance.now() < until && framesN < (frames || 20)) {
+            if (v.videoWidth > 0) {
+              cv.width = Math.max(1, Math.ceil(v.videoWidth / 4)); cv.height = Math.max(1, Math.ceil(v.videoHeight / 4));
+              cv.getContext("2d").drawImage(v, 0, 0, cv.width, cv.height);
+              const n = countCanvas(cv); framesN++; if (n) { exposed++; pixels += n; }
+            }
+            await new Promise((r) => setTimeout(r, 50));
+          }
+          try { v.srcObject = null; } catch (e) {}
+          return { frames: framesN, exposed, pixels, missing: framesN === 0 };
+        };
+        const Z = window.ZabPfp, v = document.getElementById(id), raw = v && v.srcObject;
+        const pfpOn = !!(Z && Z.isOn && Z.isOn());
+        let covered = null;
+        try { covered = (typeof zlOutbound === "function") ? zlOutbound() : (Z && Z.sourceStream ? Z.sourceStream(id, raw, 24) : null); } catch (e) {}
+        const leakedRaw = !!(pfpOn && covered && raw && (covered === raw || (covered.getVideoTracks()[0] && raw.getVideoTracks && covered.getVideoTracks()[0] === raw.getVideoTracks()[0])));
+        const outbound = await countStream(covered, 20, 1400);
+        outbound.leakedRaw = leakedRaw;
+        outbound.pfpOn = pfpOn;
+        outbound.hadStream = !!(covered && covered.getVideoTracks && covered.getVideoTracks().length);
+        const rec = { frames: 0, exposed: 0, pixels: 0 };
+        if (Z && Z.recFrame && v) {
+          const c = document.createElement("canvas");
+          const until = performance.now() + 1200;
+          while (performance.now() < until && rec.frames < 16) {
+            if (v.videoWidth > 0) {
+              c.width = v.videoWidth; c.height = v.videoHeight;
+              try { Z.recFrame(c, id, v); } catch (e) {}
+              const n = countCanvas(c); rec.frames++; if (n) { rec.exposed++; rec.pixels += n; }
+            }
+            await new Promise((r) => setTimeout(r, 60));
+          }
+        }
+        return { outbound, rec };
+      }, vidId).catch((e) => ({ error: String(e && e.message || e) }));
+      res.outbound = extra && extra.outbound || null;
+      res.recProof = extra && extra.rec || null;
+      res.outboundError = extra && extra.error || null;
+    }
     const shotPath = path.join(OUT, "shots", `${sc.name}.png`); fs.mkdirSync(path.dirname(shotPath), { recursive: true }); await p.screenshot({ path: shotPath }).catch(() => {});
     const camAreas = await p.evaluate(() => window.__camAreas || []).catch(() => []);
     await cdp.send("Page.stopScreencast").catch(() => {}); await sleep(300);
@@ -206,7 +255,11 @@ async function run(base, sc, y4m) {
     res.shield = parts.every((q) => q.shield); res.errs = errs.slice(0, 3); res.probeErr = parts.map((q) => q.probeErr).find(Boolean) || null; res.shot = shotPath;
     // proven = the camera ran under test: frames were read back + screencast, the cover canvas existed, and tracking runs locked on at least once
     res.proven = CONTROL || (res.readbackFrames > 20 && res.screencastFrames > 10 && res.shield && (sc.kind !== "tracking" || (stage.locked || 0) > 0) && !res.probeErr);
-    res.ok = res.readbackExposed === 0 && res.screencastExposed === 0 && res.proven;
+    const outBad = !!(res.outbound && (res.outbound.exposed > 0 || res.outbound.leakedRaw));
+    const recBad = !!(res.recProof && res.recProof.exposed > 0);
+    // A live/recording surface with PFP on must actually produce a covered outbound stream (not missing, not raw).
+    const outMissing = !!(res.outbound && res.outbound.pfpOn && (res.outbound.missing || !res.outbound.hadStream) && ["zlSelf", "match"].includes(sc.surface));
+    res.ok = res.readbackExposed === 0 && res.screencastExposed === 0 && res.proven && !outBad && !recBad && !outMissing && !res.outboundError;
   } catch (e) { res.error = String(e && e.message || e).slice(0, 200); }
   finally { await b.close().catch(() => {}); }
   return res;
@@ -236,8 +289,10 @@ const results = [];
 for (const [i, sc] of list.entries()) {
   const r = await run(base, sc, path.join(CACHE, `face-${sc.res}.y4m`)); results.push(r);
   const tag = r.error ? "ERROR" : r.ok ? "PASS " : r.proven ? "FAIL " : "UNPROVEN";
-  console.log(`[${String(i + 1).padStart(2)}/${list.length}] ${tag} ${sc.name.padEnd(46)} exposed: screencast ${r.screencastExposed ?? "-"}/${r.screencastFrames ?? "-"}, readback ${r.readbackExposed ?? "-"}/${r.readbackFrames ?? "-"}` +
-    (r.error ? `  (${r.error})` : "") + (!r.error && !r.proven ? "  (camera did not run / lock under test)" : ""));
+  const ox = r.outbound ? `${r.outbound.exposed}/${r.outbound.frames}${r.outbound.leakedRaw ? " leaked-raw" : ""}` : "-";
+  const rx = r.recProof ? `${r.recProof.exposed}/${r.recProof.frames}` : "-";
+  console.log(`[${String(i + 1).padStart(2)}/${list.length}] ${tag} ${sc.name.padEnd(46)} exposed: screencast ${r.screencastExposed ?? "-"}/${r.screencastFrames ?? "-"}, readback ${r.readbackExposed ?? "-"}/${r.readbackFrames ?? "-"}, outbound ${ox}, rec ${rx}` +
+    (r.error ? `  (${r.error})` : "") + (r.outboundError ? `  (outbound ${r.outboundError})` : "") + (!r.error && !r.proven ? "  (camera did not run / lock under test)" : ""));
   if (r.readbackExposed || r.screencastExposed) {
     for (const e of r.readbackList || []) console.log(`        readback  frame ${e.frame} at ${e.tMs} ms, segment "${e.seg}": ${e.pixels} green px`);
     for (const e of r.screencastList || []) console.log(`        screencast frame ${e.index} (${e.phase}): ${e.pixels} green px -> ${e.file}`);
@@ -247,7 +302,10 @@ for (const [i, sc] of list.entries()) {
 if (srv) await srv.close();
 const bad = results.filter((r) => !r.ok), totalSc = results.reduce((a, r) => a + (r.screencastFrames || 0), 0), totalRb = results.reduce((a, r) => a + (r.readbackFrames || 0), 0);
 const exSc = results.reduce((a, r) => a + (r.screencastExposed || 0), 0), exRb = results.reduce((a, r) => a + (r.readbackExposed || 0), 0);
-fs.writeFileSync(path.join(OUT, "report.json"), JSON.stringify({ when: new Date().toISOString(), quick: QUICK, control: CONTROL, base, results: results.map(({ readbackList, screencastList, ...r }) => r) }, null, 1));
-console.log(`\nTotal: ${exSc} exposed of ${totalSc} screencast frames, ${exRb} exposed of ${totalRb} readback frames; ${results.length - bad.length}/${results.length} scenarios passed. ${((Date.now() - t0) / 60000).toFixed(1)} min. Report: ${path.join(OUT, "report.json")}`);
+const totalOut = results.reduce((a, r) => a + ((r.outbound && r.outbound.frames) || 0), 0), exOut = results.reduce((a, r) => a + ((r.outbound && r.outbound.exposed) || 0), 0);
+const totalRec = results.reduce((a, r) => a + ((r.recProof && r.recProof.frames) || 0), 0), exRec = results.reduce((a, r) => a + ((r.recProof && r.recProof.exposed) || 0), 0);
+const rawLeak = results.filter((r) => r.outbound && r.outbound.leakedRaw).length;
+fs.writeFileSync(path.join(OUT, "report.json"), JSON.stringify({ when: new Date().toISOString(), quick: QUICK, control: CONTROL, unsetKey: UNSET_KEY, base, results: results.map(({ readbackList, screencastList, ...r }) => r) }, null, 1));
+console.log(`\nTotal: ${exSc} exposed of ${totalSc} screencast frames, ${exRb} exposed of ${totalRb} readback frames, ${exOut} exposed of ${totalOut} outbound frames, ${exRec} exposed of ${totalRec} recorded frames${rawLeak ? ", " + rawLeak + " raw outbound leak(s)" : ""}; ${results.length - bad.length}/${results.length} scenarios passed. ${((Date.now() - t0) / 60000).toFixed(1)} min. Report: ${path.join(OUT, "report.json")}`);
 console.log(bad.length ? `\nRESULT: FAIL (${bad.length} scenario(s): ${bad.map((r) => r.sc.name).join(", ")})` : "\nRESULT: PASS - zero exposed face frames in every scenario");
 process.exit(bad.length ? 1 : 0);
