@@ -736,24 +736,14 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 .cam-fs > .cam-end-btn{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
 
 /* Washers live camera full screen (single + split): same CSS-fixed .cam-fs as plank/squats (iOS-safe).
-   Score + clock reuse the arcade-strip scoreboard. Solo/cast: camera fills the screen; score, scoring keys, End and More overlay it. Watch-both split view is unchanged. */
+   Solo/cast: only the live camera fills the phone (PFP cover unchanged). Score, time, names, scoring keys, End, More and other chrome stay in the DOM but are hidden. Watch-both split view is unchanged. Exit is browser Back / the phone back gesture, or Escape. */
 #zmGame.cam-fs,#zmLiveSlot.cam-fs,#zmCamBox.cam-fs,#zlStage.cam-fs{position:fixed!important;inset:0;z-index:9999;max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden;box-sizing:border-box}
-#zmGame.cam-fs .washers-fs-strip,#zmLiveSlot.cam-fs .washers-fs-strip,#zmCamBox.cam-fs .washers-fs-strip,#zlStage.cam-fs .washers-fs-strip{display:flex;flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px));pointer-events:none}
+#zmGame.cam-fs .washers-fs-strip,#zmLiveSlot.cam-fs .washers-fs-strip{display:none!important}
+#zmCamBox.cam-fs .washers-fs-strip,#zlStage.cam-fs .washers-fs-strip{display:flex;flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px));pointer-events:none}
 .washers-fs-strip[hidden]{display:none!important}
-#zmGame.cam-fs .zl-self-wrap,#zmLiveSlot.cam-fs .zl-self-wrap,#zmCamBox.cam-fs #zmCamWrap{position:absolute;inset:0;z-index:0;flex:none;min-height:0;width:100%;height:100%;max-width:none;margin:0}
+#zmGame.cam-fs .zl-self-wrap,#zmLiveSlot.cam-fs .zl-self-wrap,#zmCamBox.cam-fs #zmCamWrap{position:absolute!important;inset:0;z-index:0;flex:none;min-height:0;width:100%;height:100%;max-width:none;margin:0}
 #zmGame.cam-fs #zlSelf,#zmLiveSlot.cam-fs #zlSelf,#zmGame.cam-fs .zl-self,#zmCamBox.cam-fs #zmCamVid{width:100%;height:100%;max-width:none;aspect-ratio:auto;object-fit:contain;border-radius:0;margin:0;display:block;background:#000}
-#zmGame.cam-fs .washers-fs-strip,#zmLiveSlot.cam-fs .washers-fs-strip{position:absolute;top:0;left:0;right:0;z-index:3;padding:.4rem .6rem;padding-top:calc(.4rem + env(safe-area-inset-top,0px));background:linear-gradient(to bottom,rgba(0,0,0,.72),rgba(0,0,0,.12) 90%,transparent);border-bottom:0;box-shadow:none;pointer-events:none}
-#zmGame.cam-fs .zm-code-row,#zmGame.cam-fs .zm-seats,#zmGame.cam-fs #zmTheirPack,#zmGame.cam-fs .row:has(#zmClaim),#zmGame.cam-fs .row:has(#zmForfeit){display:none!important}
-#zmGame.cam-fs.cam-fs-more .zm-code-row,#zmGame.cam-fs.cam-fs-more .row:has(#zmForfeit){display:flex!important;position:absolute;left:0;right:0;z-index:5;flex-wrap:wrap;gap:.45rem;align-items:center;padding:.5rem .7rem;background:rgba(8,6,18,.92);pointer-events:auto}
-#zmGame.cam-fs.cam-fs-more .zm-code-row{top:calc(4.2rem + env(safe-area-inset-top,0px))}
-#zmGame.cam-fs.cam-fs-more .row:has(#zmForfeit){top:calc(7.2rem + env(safe-area-inset-top,0px))}
-#zmGame.cam-fs #zmPad:not([hidden]){position:absolute;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom,0px));z-index:4;display:flex;flex-direction:column;gap:.4rem;padding:.45rem .6rem;background:linear-gradient(to top,rgba(8,6,18,.88),rgba(8,6,18,.4));pointer-events:auto}
-#zmGame.cam-fs #zmPad[hidden]{display:none!important}
-#zmGame.cam-fs #zmPad .zm-keys{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin:0}#zmGame.cam-fs #zmPad .zm-keys .btn{width:100%;padding:.55rem .6rem}#zmGame.cam-fs #zmPad .row{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin:0}
-#zmGame.cam-fs #zlLiveControls,#zmLiveSlot.cam-fs #zlLiveControls{position:absolute;left:0;right:0;bottom:0;z-index:5;display:flex!important;flex-wrap:wrap;gap:.45rem;align-items:center;justify-content:space-between;padding:.45rem .7rem calc(.45rem + env(safe-area-inset-bottom,0px));background:rgba(8,6,18,.92);pointer-events:auto}
-#zmGame.cam-fs #zlLiveControls > .btn,#zmLiveSlot.cam-fs #zlLiveControls > .btn{display:none!important}
-#zmGame.cam-fs #zlLiveControls > #zlEndBtn:not([hidden]),#zmGame.cam-fs #zlLiveControls > #zlMoreBtn,#zmLiveSlot.cam-fs #zlLiveControls > #zlEndBtn:not([hidden]),#zmLiveSlot.cam-fs #zlLiveControls > #zlMoreBtn{display:inline-flex!important}
-#zmGame.cam-fs.cam-fs-more #zlLiveControls > .btn:not([hidden]),#zmLiveSlot.cam-fs.cam-fs-more #zlLiveControls > .btn:not([hidden]){display:inline-flex!important}
+#zmGame.cam-fs .zm-code-row,#zmGame.cam-fs .zm-seats,#zmGame.cam-fs #zmTheirPack,#zmGame.cam-fs #zmPad,#zmGame.cam-fs #zmPad:not([hidden]),#zmGame.cam-fs .row:has(#zmClaim),#zmGame.cam-fs .row:has(#zmForfeit),#zmGame.cam-fs #zlLiveControls,#zmLiveSlot.cam-fs #zlLiveControls,#zmGame.cam-fs.cam-fs-more .zm-code-row,#zmGame.cam-fs.cam-fs-more .row:has(#zmForfeit),#zmGame.cam-fs.cam-fs-more #zlLiveControls,#zmGame.cam-fs.cam-fs-more #zmPad,#zmGame.cam-fs.cam-fs-more #zmPad:not([hidden]){display:none!important}
 #zlStage.cam-fs .zm-code-row,#zmCamBox.cam-fs .row{flex:0 0 auto;display:flex!important;flex-wrap:wrap;gap:.55rem;align-items:center;z-index:5;padding:.5rem .7rem calc(.5rem + env(safe-area-inset-bottom,0px));background:#080612;pointer-events:auto}
 #zlStage.cam-fs .zl-tiles{flex:1 1 auto;min-height:0;grid-template-columns:1fr 1fr;margin:0;gap:.35rem}
 #zlStage.cam-fs .zl-tile{aspect-ratio:auto;height:100%;min-height:0;border-radius:0}
@@ -6400,6 +6390,39 @@ if (ZL) {
     $("zlMoreBtn").textContent = on ? "Close" : "More";
     $("zlMoreBtn").setAttribute("aria-expanded", on ? "true" : "false");
   };
+  /* Solo camera chrome is hidden (camera-only check). Back / the phone back gesture / Escape leave full screen the same way End does, so the player is not trapped. */
+  (function () {
+    const F = window.WashersFs; if (!F) return;
+    const enterCast = F.enterCast, exitCast = F.exitCast;
+    let pushed = false, fromPop = false;
+    function soloFsOn() { return !!(F.isOn("zmGame") || F.isOn("zmLiveSlot")); }
+    function leaveSolo(note) {
+      if (typeof zlCastStop === "function" && zlCastCode) zlCastStop(note || "You're off the air.");
+      else exitCast();
+    }
+    F.enterCast = function () {
+      const r = enterCast.apply(this, arguments);
+      try { if (soloFsOn() && !pushed && history.pushState) { history.pushState({ zabWashersCamFs: 1 }, "", location.href); pushed = true; } } catch (e) {}
+      return r;
+    };
+    F.exitCast = function () {
+      const r = exitCast.apply(this, arguments);
+      if (!fromPop && pushed) { pushed = false; try { history.back(); } catch (e) {} }
+      pushed = false;
+      return r;
+    };
+    window.addEventListener("popstate", () => {
+      if (!soloFsOn()) { pushed = false; return; }
+      pushed = false; fromPop = true;
+      try { leaveSolo(); } finally { fromPop = false; }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" && e.key !== "Esc") return;
+      if (!soloFsOn()) return;
+      e.preventDefault();
+      leaveSolo();
+    });
+  })();
 
   addEventListener("pagehide", () => { if (zlCastCode) zlCastStop(); });
 }
