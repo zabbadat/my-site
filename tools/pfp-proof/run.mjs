@@ -226,6 +226,19 @@ async function run(base, sc, y4m) {
         outbound.leakedRaw = leakedRaw;
         outbound.pfpOn = pfpOn;
         outbound.hadStream = !!(covered && covered.getVideoTracks && covered.getVideoTracks().length);
+        // YouTube WHIP stream: the "Zabbadat" lower-third compositor drawn over the covered shield (same zero-pixel rule).
+        // Same source rule as index.html zlYtLowerSource(): PFP on = the shield canvas only (null = no frame), never raw.
+        const LT = window.ZabLowerThird;
+        if (covered && LT && v && Z && Z.shieldCanvas) {
+          let yt = null, comp = null;
+          try {
+            comp = LT.compositor({ doc: document, host: v.parentNode, source: () => (pfpOn ? Z.shieldCanvas(id) : (v.readyState >= 2 ? v : null)), fps: 24 });
+            yt = await countStream(new MediaStream(comp.stream.getVideoTracks()), 20, 1400);
+          } catch (e) { yt = { frames: 0, exposed: 0, pixels: 0, missing: true, error: String(e && e.message || e) }; }
+          try { if (comp) comp.stop(); } catch (e) {}
+          outbound.yt = yt; outbound.frames += yt.frames; outbound.exposed += yt.exposed; outbound.pixels += yt.pixels;
+          if (pfpOn && (yt.missing || !yt.frames)) outbound.missing = true;
+        }
         const rec = { frames: 0, exposed: 0, pixels: 0 };
         if (Z && Z.recFrame && v) {
           const c = document.createElement("canvas");
@@ -320,7 +333,7 @@ const results = [];
 for (const [i, sc] of list.entries()) {
   const r = await run(base, sc, path.join(CACHE, `face-${sc.res}.y4m`)); results.push(r);
   const tag = r.error ? "ERROR" : r.ok ? "PASS " : r.proven ? "FAIL " : "UNPROVEN";
-  const ox = r.outbound ? `${r.outbound.exposed}/${r.outbound.frames}${r.outbound.leakedRaw ? " leaked-raw" : ""}` : "-";
+  const ox = r.outbound ? `${r.outbound.exposed}/${r.outbound.frames}${r.outbound.yt ? " (youtube " + r.outbound.yt.exposed + "/" + r.outbound.yt.frames + ")" : ""}${r.outbound.leakedRaw ? " leaked-raw" : ""}` : "-";
   const rx = r.recProof ? `${r.recProof.exposed}/${r.recProof.frames}` : "-";
   console.log(`[${String(i + 1).padStart(2)}/${list.length}] ${tag} ${sc.name.padEnd(46)} exposed: screencast ${r.screencastExposed ?? "-"}/${r.screencastFrames ?? "-"}, readback ${r.readbackExposed ?? "-"}/${r.readbackFrames ?? "-"}, outbound ${ox}, rec ${rx}` +
     (r.error ? `  (${r.error})` : "") + (r.outboundError ? `  (outbound ${r.outboundError})` : "") + (!r.error && !r.proven ? "  (camera did not run / lock under test)" : ""));

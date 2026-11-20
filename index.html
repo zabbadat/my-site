@@ -2146,6 +2146,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/washers-clock.js"></script>
   <script src="/washers-voice.js"></script>
   <script src="/washers-live-controls.js"></script>
+  <script src="/lower-third.js"></script>
   <script src="/washers-fs.js"></script>
   <script src="/plank-battle.js"></script>
   <script src="/zaba-wager.js"></script>
@@ -6238,13 +6239,33 @@ async function zlPfpLoop(id) {
 function zlPfpWarm() { (typeof ensurePushPose === "function" ? ensurePushPose() : ensurePose()).catch(() => {}); }
 function zlPfpStart() { zlPfpLoop(++zlPfpId); }
 function zlPfpStop() { zlPfpId += 1; try { if (window.ZabPfp && window.ZabPfp.clear) window.ZabPfp.clear("zlSelf"); } catch (e) {} }
-function zlStopTracks() { zlPfpStop(); if (zlStream) { zlStream.getTracks().forEach((t) => { try { t.stop(); } catch (e) {} }); } zlStream = null; try { if (zlCoveredCache && zlCoveredCache.stream) zlCoveredCache.stream.getTracks().forEach((t) => { try { t.stop(); } catch (e) {} }); } catch (e) {} zlCoveredCache = { canvas: null, stream: null }; if (zlYtPc && zlYtPc.close) try { zlYtPc.close(); } catch (e) {} zlYtPc = null; const v = $("zlSelf"); if (v) { v.srcObject = null; v.hidden = true; } }
+function zlStopTracks() { zlPfpStop(); if (zlStream) { zlStream.getTracks().forEach((t) => { try { t.stop(); } catch (e) {} }); } zlStream = null; try { if (zlCoveredCache && zlCoveredCache.stream) zlCoveredCache.stream.getTracks().forEach((t) => { try { t.stop(); } catch (e) {} }); } catch (e) {} zlCoveredCache = { canvas: null, stream: null }; if (zlYtPc && zlYtPc.close) try { zlYtPc.close(); } catch (e) {} zlYtPc = null; zlYtLowerStop(); const v = $("zlSelf"); if (v) { v.srcObject = null; v.hidden = true; } }
 async function zlCastStop(note) {
   const was = !!zlCastCode; zlCastCode = null;
   if (zlCaster) await zlCaster.stop().catch(() => {});
   zlStopTracks(); if (zlWake) zlWake.stop(); if (was && zlv) zlv.refresh(); if (note) zlCastNote(note); if (window.WashersFs) window.WashersFs.exitCast(); zlCastPaint();
 }
 const zlCam = (facing, deviceId) => window.WashersLive ? window.WashersLive.getCamera(facing, deviceId) : navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: deviceId ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } } : { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } } });
+// YouTube only (owner Nov 20): burn the "Zabbadat" lower-third card into the WHIP stream on the device, drawn over the
+// already-covered PFP shield (the cover is painted first and never skipped); the relay stays -c copy, no ffmpeg overlay.
+// The local preview, match viewers and Record keep the plain covered stream. PFP on + no shield = no new frame, never raw.
+let zlYtLower = null;
+function zlYtLowerStop() { if (zlYtLower) { try { zlYtLower.stop(); } catch (e) {} } zlYtLower = null; }
+function zlYtLowerSource() {
+  const pfpOn = !!(window.ZabPfp && window.ZabPfp.isOn && window.ZabPfp.isOn());
+  if (pfpOn) return (window.ZabPfp.shieldCanvas && window.ZabPfp.shieldCanvas("zlSelf")) || null;
+  const v = $("zlSelf"); return v && v.readyState >= 2 ? v : null;
+}
+function zlYtOutbound(out) {
+  const LT = window.ZabLowerThird, v = $("zlSelf");
+  if (!LT || !out || !v) return out;
+  try {
+    zlYtLower = LT.compositor({ doc: document, host: v.parentNode, source: zlYtLowerSource, fps: 24 });
+    const vt = zlYtLower.stream && zlYtLower.stream.getVideoTracks()[0];
+    if (!vt) { zlYtLowerStop(); return out; }
+    return new MediaStream([vt].concat(out.getAudioTracks()));
+  } catch (e) { zlYtLowerStop(); return out; }
+}
 function zlCovered() { return window.WashersLive ? window.WashersLive.coveredStream("zlSelf", zlStream, zlCoveredCache) : zlStream; }
 function zlOutbound() {
   const cov = zlCovered(), pfpOn = !!(window.ZabPfp && window.ZabPfp.isOn && window.ZabPfp.isOn());
@@ -6346,9 +6367,10 @@ if (ZL) {
       if (!cfg || !cfg.configured) { zlCastNote("YouTube coming soon"); return; }
       const out = zlOutbound(); if (!out) { zlCastNote("Wait for the live camera cover, then try YouTube again."); return; }
       if (zlYtPc && zlYtPc.close) try { zlYtPc.close(); } catch (e) {}
-      zlYtPc = await window.WashersLive.startWhip(out, cfg.whipUrl);
+      zlYtLowerStop();
+      zlYtPc = await window.WashersLive.startWhip(zlYtOutbound(out), cfg.whipUrl);
       zlCastNote("YouTube relay connected.");
-    } catch (e) { zlCastNote((e && e.message) || "Couldn't start the YouTube relay."); }
+    } catch (e) { zlYtPc = null; zlYtLowerStop(); zlCastNote((e && e.message) || "Couldn't start the YouTube relay."); }
   };
   $("zlWatchBoth").onclick = () => { if (!zmCode) return; zlStart(zmCode); const el = $("zabbaLive"); if (el) el.scrollIntoView({ block: "start" }); if (window.WashersFs) window.WashersFs.enterWatch(); };
   if ($("zlEndBtn")) $("zlEndBtn").onclick = () => { if (window.WashersFs) window.WashersFs.exitCast(); if (zlCastCode) zlCastStop("You're off the air."); };
