@@ -21,7 +21,10 @@
   function exit(id) {
     var w = el(id); if (!w || !w.classList) return false;
     w.classList.remove(FS);
+    w.classList.remove("cam-fs-more");
     w.querySelectorAll(".washers-fs-strip").forEach(function (s) { s.hidden = true; });
+    var more = el("zlMoreBtn");
+    if (more) { more.textContent = "More"; more.setAttribute("aria-expanded", "false"); }
     return true;
   }
   function exitAll() {

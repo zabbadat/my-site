@@ -685,7 +685,9 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 .twomin-card h3{margin:0 0 .5rem}
 .twomin-card p{margin:.35rem 0;white-space:pre-line}
 #camWrap:fullscreen .arcade-strip,#camWrap:-webkit-full-screen .arcade-strip,#camWrap.cam-fs .arcade-strip{flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px))}
-#camWrap:fullscreen video,#camWrap:-webkit-full-screen video,#camWrap.cam-fs video{flex:1 1 auto;width:100%;height:auto;min-height:0;object-fit:contain;border-radius:0}
+#camWrap:fullscreen video,#camWrap:-webkit-full-screen video,#camWrap.cam-fs video{position:absolute;inset:0;z-index:0;flex:none;width:100%;height:100%;min-height:0;object-fit:contain;border-radius:0;background:#000}
+#camWrap:fullscreen .arcade-strip,#camWrap:-webkit-full-screen .arcade-strip,#camWrap.cam-fs .arcade-strip{position:absolute;top:0;left:0;right:0;z-index:2;flex:none;border-radius:0;padding:.4rem .6rem;padding-top:calc(.4rem + env(safe-area-inset-top,0px));background:linear-gradient(to bottom,rgba(0,0,0,.72),rgba(0,0,0,.12) 90%,transparent);border-bottom:0;box-shadow:none}
+#camWrap:fullscreen #camFsBtn,#camWrap:-webkit-full-screen #camFsBtn,#camWrap.cam-fs #camFsBtn{display:none!important}
 #tbCamWrap.cam-fs,#plankWrap.cam-fs{position:fixed!important;inset:0;z-index:9999;max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start}
 /* TUT Battles head-to-head: full-screen the lobby so the arcade live board, camera, End, and all .btn controls stay on screen. */
 #tbLobby.cam-fs{position:fixed!important;inset:0;z-index:9999;max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
@@ -734,19 +736,32 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 .cam-fs > .cam-end-btn{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
 
 /* Washers live camera full screen (single + split): same CSS-fixed .cam-fs as plank/squats (iOS-safe).
-   Score + clock reuse the arcade-strip scoreboard. Controls stay the existing .btn / .btn.ghost look. */
+   Score + clock reuse the arcade-strip scoreboard. Solo/cast: camera fills the screen; score, scoring keys, End and More overlay it. Watch-both split view is unchanged. */
 #zmGame.cam-fs,#zmLiveSlot.cam-fs,#zmCamBox.cam-fs,#zlStage.cam-fs{position:fixed!important;inset:0;z-index:9999;max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden;box-sizing:border-box}
 #zmGame.cam-fs .washers-fs-strip,#zmLiveSlot.cam-fs .washers-fs-strip,#zmCamBox.cam-fs .washers-fs-strip,#zlStage.cam-fs .washers-fs-strip{display:flex;flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px));pointer-events:none}
 .washers-fs-strip[hidden]{display:none!important}
-#zmGame.cam-fs .zl-self-wrap,#zmLiveSlot.cam-fs .zl-self-wrap,#zmCamBox.cam-fs #zmCamWrap{flex:1 1 auto;min-height:0;width:100%;max-width:none;position:relative;margin:0}
-#zmGame.cam-fs #zlSelf,#zmLiveSlot.cam-fs #zlSelf,#zmGame.cam-fs .zl-self,#zmCamBox.cam-fs #zmCamVid{width:100%;height:100%;max-width:none;aspect-ratio:auto;object-fit:contain;border-radius:0;margin:0;display:block}
-#zmGame.cam-fs #zlLiveControls,#zmLiveSlot.cam-fs #zlLiveControls,#zlStage.cam-fs .zm-code-row,#zmGame.cam-fs #zmPad,#zmCamBox.cam-fs .row{flex:0 0 auto;display:flex!important;flex-wrap:wrap;gap:.55rem;align-items:center;z-index:5;padding:.5rem .7rem calc(.5rem + env(safe-area-inset-bottom,0px));background:#080612;pointer-events:auto}
+#zmGame.cam-fs .zl-self-wrap,#zmLiveSlot.cam-fs .zl-self-wrap,#zmCamBox.cam-fs #zmCamWrap{position:absolute;inset:0;z-index:0;flex:none;min-height:0;width:100%;height:100%;max-width:none;margin:0}
+#zmGame.cam-fs #zlSelf,#zmLiveSlot.cam-fs #zlSelf,#zmGame.cam-fs .zl-self,#zmCamBox.cam-fs #zmCamVid{width:100%;height:100%;max-width:none;aspect-ratio:auto;object-fit:contain;border-radius:0;margin:0;display:block;background:#000}
+#zmGame.cam-fs .washers-fs-strip,#zmLiveSlot.cam-fs .washers-fs-strip{position:absolute;top:0;left:0;right:0;z-index:3;padding:.4rem .6rem;padding-top:calc(.4rem + env(safe-area-inset-top,0px));background:linear-gradient(to bottom,rgba(0,0,0,.72),rgba(0,0,0,.12) 90%,transparent);border-bottom:0;box-shadow:none;pointer-events:none}
+#zmGame.cam-fs .zm-code-row,#zmGame.cam-fs .zm-seats,#zmGame.cam-fs #zmTheirPack,#zmGame.cam-fs .row:has(#zmClaim),#zmGame.cam-fs .row:has(#zmForfeit){display:none!important}
+#zmGame.cam-fs.cam-fs-more .zm-code-row,#zmGame.cam-fs.cam-fs-more .row:has(#zmForfeit){display:flex!important;position:absolute;left:0;right:0;z-index:5;flex-wrap:wrap;gap:.45rem;align-items:center;padding:.5rem .7rem;background:rgba(8,6,18,.92);pointer-events:auto}
+#zmGame.cam-fs.cam-fs-more .zm-code-row{top:calc(4.2rem + env(safe-area-inset-top,0px))}
+#zmGame.cam-fs.cam-fs-more .row:has(#zmForfeit){top:calc(7.2rem + env(safe-area-inset-top,0px))}
+#zmGame.cam-fs #zmPad:not([hidden]){position:absolute;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom,0px));z-index:4;display:flex;flex-direction:column;gap:.4rem;padding:.45rem .6rem;background:linear-gradient(to top,rgba(8,6,18,.88),rgba(8,6,18,.4));pointer-events:auto}
+#zmGame.cam-fs #zmPad[hidden]{display:none!important}
+#zmGame.cam-fs #zmPad .zm-keys{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin:0}#zmGame.cam-fs #zmPad .zm-keys .btn{width:100%;padding:.55rem .6rem}#zmGame.cam-fs #zmPad .row{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin:0}
+#zmGame.cam-fs #zlLiveControls,#zmLiveSlot.cam-fs #zlLiveControls{position:absolute;left:0;right:0;bottom:0;z-index:5;display:flex!important;flex-wrap:wrap;gap:.45rem;align-items:center;justify-content:space-between;padding:.45rem .7rem calc(.45rem + env(safe-area-inset-bottom,0px));background:rgba(8,6,18,.92);pointer-events:auto}
+#zmGame.cam-fs #zlLiveControls > .btn,#zmLiveSlot.cam-fs #zlLiveControls > .btn{display:none!important}
+#zmGame.cam-fs #zlLiveControls > #zlEndBtn:not([hidden]),#zmGame.cam-fs #zlLiveControls > #zlMoreBtn,#zmLiveSlot.cam-fs #zlLiveControls > #zlEndBtn:not([hidden]),#zmLiveSlot.cam-fs #zlLiveControls > #zlMoreBtn{display:inline-flex!important}
+#zmGame.cam-fs.cam-fs-more #zlLiveControls > .btn:not([hidden]),#zmLiveSlot.cam-fs.cam-fs-more #zlLiveControls > .btn:not([hidden]){display:inline-flex!important}
+#zlStage.cam-fs .zm-code-row,#zmCamBox.cam-fs .row{flex:0 0 auto;display:flex!important;flex-wrap:wrap;gap:.55rem;align-items:center;z-index:5;padding:.5rem .7rem calc(.5rem + env(safe-area-inset-bottom,0px));background:#080612;pointer-events:auto}
 #zlStage.cam-fs .zl-tiles{flex:1 1 auto;min-height:0;grid-template-columns:1fr 1fr;margin:0;gap:.35rem}
 #zlStage.cam-fs .zl-tile{aspect-ratio:auto;height:100%;min-height:0;border-radius:0}
 #zlStage.cam-fs .zl-tile video{width:100%;height:100%;object-fit:contain;border-radius:0}
 #zmGame.cam-fs #zlCastHelp,#zmGame.cam-fs #zlCastNote,#zmGame.cam-fs #zmCamNote,#zmGame.cam-fs #zmLog,#zmGame.cam-fs #zmBanner,#zmLiveSlot.cam-fs #zlCastHelp,#zlStage.cam-fs .zm-banner{display:none!important}
 #zmGame.cam-fs #zmCamBox{display:none!important}
-#zmGame.cam-fs #zmLiveSlot{display:block!important;flex:1 1 auto;min-height:0;margin:0;padding:0;border:0;overflow:hidden;display:flex;flex-direction:column}
+#zmGame.cam-fs #zmLiveSlot{display:block!important;position:absolute;inset:0;flex:none;min-height:0;margin:0;padding:0;border:0;overflow:hidden}
+body:has(#zmGame.cam-fs) #sessionStrip,body:has(#zmLiveSlot.cam-fs) #sessionStrip,body:has(#camWrap.cam-fs) #sessionStrip,body:has(#camWrap:fullscreen) #sessionStrip{display:none!important}
 
 #pushRepsBig.arcade-page,#pushClock.arcade-page,#plankClock.arcade-page,#score.arcade-page,#stepsStat.arcade-page,#clock.arcade-page{
   font-family:ui-monospace,"Courier New",monospace;
@@ -1682,7 +1697,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="row"><button class="btn danger" id="zmForfeit" type="button" hidden>Forfeit</button><button class="btn ghost" id="zmCancel" type="button" hidden>Cancel match</button><button class="btn ghost" id="zmLeave" type="button" hidden>Close</button></div>
         <div id="zmLiveSlot" class="zl-cast" hidden><!-- Live tab: this player's camera to viewers (zabba-live.js) -->
           <p class="note" id="zlCastHelp">Go live so your opponent and anyone with the code can watch your throws. Prop the phone behind you, tilted at the board. Your face stays covered when Profile is on. Record saves a clip on this phone only until you share it. Video is not uploaded to us.</p>
-          <div class="row" id="zlLiveControls"><button class="btn" id="zlGoLive" type="button">Go live</button><button class="btn ghost rec-btn" id="zmRecBtn" type="button" data-rec="zmLiveSlot" hidden aria-pressed="false"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button><button class="btn ghost" id="zlMute" type="button" hidden aria-pressed="false">Mute</button><button class="btn ghost" id="zlFlip" type="button" hidden>Switch camera</button><button class="btn ghost" id="zlStop" type="button" hidden>Stop live</button><button class="btn ghost" id="zlWatchBoth" type="button">Watch both cameras</button><button class="btn ghost" id="zlYtBtn" type="button" hidden>YouTube</button><button class="btn ghost" id="zlFsBtn" type="button">Full screen</button><button class="btn" id="zlEndBtn" type="button" hidden>End</button></div>
+          <div class="row" id="zlLiveControls"><button class="btn" id="zlGoLive" type="button">Go live</button><button class="btn ghost rec-btn" id="zmRecBtn" type="button" data-rec="zmLiveSlot" hidden aria-pressed="false"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button><button class="btn ghost" id="zlMute" type="button" hidden aria-pressed="false">Mute</button><button class="btn ghost" id="zlFlip" type="button" hidden>Switch camera</button><button class="btn ghost" id="zlStop" type="button" hidden>Stop live</button><button class="btn ghost" id="zlWatchBoth" type="button">Watch both cameras</button><button class="btn ghost" id="zlYtBtn" type="button" hidden>YouTube</button><button class="btn ghost" id="zlFsBtn" type="button">Full screen</button><button class="btn" id="zlEndBtn" type="button" hidden>End</button><button class="btn ghost" id="zlMoreBtn" type="button" hidden aria-expanded="false" aria-controls="zlLiveControls">More</button></div>
           <div class="zl-self-wrap" style="position:relative"><video class="zl-self" id="zlSelf" playsinline muted autoplay hidden></video></div>
           <p class="note" id="zlCastNote" aria-live="polite"></p>
         </div>
@@ -6343,6 +6358,8 @@ function zlCastPaint() {
   }
   const endBtn = $("zlEndBtn"), fsBtn = $("zlFsBtn");
   if (endBtn) endBtn.hidden = !on;
+  const moreBtn = $("zlMoreBtn");
+  if (moreBtn) moreBtn.hidden = !on;
   if (fsBtn) fsBtn.textContent = (window.WashersFs && (window.WashersFs.isOn("zmGame") || window.WashersFs.isOn("zmLiveSlot"))) ? "Exit full screen" : "Full screen";
   if (on) zlCastNote("Live · " + zlViewers + " watching (up to " + ZL.MAX_VIEWERS + ")" + (zlFacing === "user" ? " · front camera" : "") + (zlMuted ? " · muted" : ""));
   else if (!zlCaster && open) zlCastNote("This browser can't stream video (no WebRTC).");
@@ -6375,6 +6392,14 @@ if (ZL) {
   $("zlWatchBoth").onclick = () => { if (!zmCode) return; zlStart(zmCode); const el = $("zabbaLive"); if (el) el.scrollIntoView({ block: "start" }); if (window.WashersFs) window.WashersFs.enterWatch(); };
   if ($("zlEndBtn")) $("zlEndBtn").onclick = () => { if (window.WashersFs) window.WashersFs.exitCast(); if (zlCastCode) zlCastStop("You're off the air."); };
   if ($("zlFsBtn")) $("zlFsBtn").onclick = () => { if (!window.WashersFs) return; if (window.WashersFs.isOn("zmGame") || window.WashersFs.isOn("zmLiveSlot")) window.WashersFs.exitCast(); else window.WashersFs.enterCast(); zlCastPaint(); };
+  if ($("zlMoreBtn")) $("zlMoreBtn").onclick = () => {
+    const g = $("zmGame") && $("zmGame").classList.contains("cam-fs") ? $("zmGame") : ($("zmLiveSlot") && $("zmLiveSlot").classList.contains("cam-fs") ? $("zmLiveSlot") : $("zmGame"));
+    if (!g) return;
+    const on = !g.classList.contains("cam-fs-more");
+    g.classList.toggle("cam-fs-more", on);
+    $("zlMoreBtn").textContent = on ? "Close" : "More";
+    $("zlMoreBtn").setAttribute("aria-expanded", on ? "true" : "false");
+  };
 
   addEventListener("pagehide", () => { if (zlCastCode) zlCastStop(); });
 }
