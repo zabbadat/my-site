@@ -14,7 +14,7 @@
     gtag('js', new Date());
     gtag('config', 'G-273E209E9K');
   </script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Zabbadat™ — Push-Up TUT Board, Washers League &amp; Wellness Games</title>
   <meta name="description" content="Count push-ups and time under tension with your camera, rank on the TUTS board, and play the Game of Washers. Join league night or book a team wellness pilot.">
   <link rel="canonical" href="https://www.zabbadat.com/">
@@ -737,7 +737,10 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 
 /* Washers live camera full screen (single + split): same CSS-fixed .cam-fs as plank/squats (iOS-safe).
    Solo/cast: only the live camera fills the phone (PFP cover unchanged). Score, time, names, scoring keys, End, More and other chrome stay in the DOM but are hidden. Watch-both split view is unchanged. Exit is browser Back / the phone back gesture, or Escape. */
-#zmGame.cam-fs,#zmLiveSlot.cam-fs,#zmCamBox.cam-fs,#zlStage.cam-fs{position:fixed!important;inset:0;z-index:9999;max-width:none!important;width:100%;height:100%;margin:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden;box-sizing:border-box}
+#zmGame.cam-fs,#zmLiveSlot.cam-fs,#zmCamBox.cam-fs,#zlStage.cam-fs{position:fixed!important;inset:0;top:0;right:0;bottom:0;left:0;z-index:2147483000;max-width:none!important;width:100%;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;min-height:-webkit-fill-available;margin:0!important;padding:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden;box-sizing:border-box}
+#zmGame:fullscreen,#zmLiveSlot:fullscreen,#zmGame:-webkit-full-screen,#zmLiveSlot:-webkit-full-screen{position:fixed!important;inset:0;z-index:2147483000;width:100%;height:100%;margin:0;padding:0;background:#000}
+html.zab-solo-cam-fs,html.zab-solo-cam-fs body{overflow:hidden!important;height:100vh;height:100dvh;background:#000!important;overscroll-behavior:none}
+html.zab-solo-cam-fs nav,html.zab-solo-cam-fs #sessionStrip,html.zab-solo-cam-fs .promo-banner,html.zab-solo-cam-fs #playEarn10k,html.zab-solo-cam-fs .pe-10k,html.zab-solo-cam-fs .home-art,html.zab-solo-cam-fs .pe-chrome{display:none!important;visibility:hidden!important}
 #zmGame.cam-fs .washers-fs-strip,#zmLiveSlot.cam-fs .washers-fs-strip{display:none!important}
 #zmCamBox.cam-fs .washers-fs-strip,#zlStage.cam-fs .washers-fs-strip{display:flex;flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px));pointer-events:none}
 .washers-fs-strip[hidden]{display:none!important}
@@ -6174,11 +6177,11 @@ if (ZM && zmc) {
     if ($("zmSolo")) $("zmSolo").disabled = true;
     zmStat("Opening a solo live…");
     try { zmEnter(await zmc.create(u)); zmStat("You're set for a solo live. Share the code if a friend wants to join or watch."); if (typeof zlWarmCam === "function") await zlWarmCam(); if (typeof zlGoLive === "function") zlGoLive(); }
-    catch (e) { zlSolo = false; zmStat(e.message || "Couldn't start solo live."); }
+    catch (e) { zlSolo = false; zmStat(e.message || "Couldn't start solo live."); if (window.WashersFs) window.WashersFs.exitCast(); }
     finally { if ($("zmSolo")) $("zmSolo").disabled = false; }
   }
-  if ($("zmSolo")) $("zmSolo").onclick = () => zmStartSolo();
-  if ($("washersSoloBtn")) $("washersSoloBtn").addEventListener("click", (e) => { if (!currentUser) return; e.preventDefault(); const el = $("zabbaMatch"); if (el) el.scrollIntoView({ block: "start" }); if (zmCode) { if (typeof zlGoLive === "function") zlGoLive(); return; } zmStartSolo(); });
+  if ($("zmSolo")) $("zmSolo").onclick = () => { if (window.WashersFs && window.WashersFs.requestNativeFs) window.WashersFs.requestNativeFs(); zmStartSolo(); };
+  if ($("washersSoloBtn")) $("washersSoloBtn").addEventListener("click", (e) => { if (!currentUser) return; e.preventDefault(); const el = $("zabbaMatch"); if (el) el.scrollIntoView({ block: "start" }); if (window.WashersFs && window.WashersFs.requestNativeFs) window.WashersFs.requestNativeFs(); if (zmCode) { if (typeof zlGoLive === "function") zlGoLive(); return; } zmStartSolo(); });
   $("zmJoin").onclick = () => zmJoinCode($("zmCode").value);
   $("zmCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("zmJoin").click(); });
   $("zmShare").onclick = async () => { if (!zmCode) return; const url = ZM.linkFor(zmCode, location.origin);
@@ -6307,6 +6310,8 @@ async function zlWarmCam(deviceId) {
 async function zlGoLive() {
   const seat = zlMySeat(); if (!zlCaster || zlBusy || seat < 0 || !zmCode || zlCastCode) return;
   zlBusy = true; zlCastPaint(); zlCastNote("Starting camera…");
+  // Request true Fullscreen API in this tap (gesture expires after the camera awaits). CSS .cam-fs is the iOS fallback.
+  if (window.WashersFs) { window.WashersFs.enterCast(); if (window.WashersFs.requestNativeFs) window.WashersFs.requestNativeFs(); }
   if (zlWake) zlWake.start();
   try {
     await zlWarmCam();
@@ -6315,7 +6320,7 @@ async function zlGoLive() {
     if (window.ZabPfp && window.ZabPfp.isOn && window.ZabPfp.isOn() && (!ready || !outbound || !outbound.getVideoTracks().length)) throw new Error("Profile cover isn't ready. Keep your face in frame and tap Go live again.");
     await zlCaster.start({ code: zmCode, seat, uid: currentUser.uid, stream: outbound || zlStream, facing: zlFacing, muted: zlMuted });
     zlCastCode = zmCode; if (zlv) zlv.refresh(); zlPaintSelf(); if (window.WashersFs) window.WashersFs.enterCast();
-  } catch (e) { if (!zlCastCode) { zlStopTracks(); if (zlWake) zlWake.stop(); } zlCastNote(e && e.name === "NotAllowedError" ? "Camera or mic blocked. Allow camera and microphone for this app and try again." : (e && e.code === "permission-denied" ? "Couldn't go live on this match." : (e && e.message) || "Couldn't start the camera.")); }
+  } catch (e) { if (!zlCastCode) { zlStopTracks(); if (zlWake) zlWake.stop(); if (window.WashersFs) window.WashersFs.exitCast(); } zlCastNote(e && e.name === "NotAllowedError" ? "Camera or mic blocked. Allow camera and microphone for this app and try again." : (e && e.code === "permission-denied" ? "Couldn't go live on this match." : (e && e.message) || "Couldn't start the camera.")); }
   finally { zlBusy = false; zlCastPaint(); }
 }
 function zlMaybeAutoLive() {
@@ -6391,29 +6396,74 @@ if (ZL) {
     $("zlMoreBtn").textContent = on ? "Close" : "More";
     $("zlMoreBtn").setAttribute("aria-expanded", on ? "true" : "false");
   };
-  /* Solo camera chrome is hidden (camera-only check). Back / the phone back gesture / Escape leave full screen the same way End does, so the player is not trapped. */
+  /* Solo camera chrome is hidden (camera-only check). True Fullscreen API is requested from the opening tap; CSS .cam-fs (100dvh, z-index above nav) is the fallback where the API is missing (iPhone Safari often refuses element fullscreen on a non-video wrap — we do not fullscreen #zlSelf alone, because that would leave the PFP shield behind). Back / the phone back gesture / Escape / leaving native fullscreen all run leaveSolo (zlCastStop then exitCast) once. */
   (function () {
     const F = window.WashersFs; if (!F) return;
     const enterCast = F.enterCast, exitCast = F.exitCast;
-    let pushed = false, fromPop = false;
+    const PAGE_CLS = "zab-solo-cam-fs";
+    let pushed = false, fromPop = false, leaving = false, statusHidden = false;
     function soloFsOn() { return !!(F.isOn("zmGame") || F.isOn("zmLiveSlot")); }
-    function leaveSolo(note) {
-      if (typeof zlCastStop === "function" && zlCastCode) zlCastStop(note || "You're off the air.");
-      else exitCast();
+    function fsEl() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+    function castRoot() { const g = $("zmGame"); return (g && !g.hidden) ? g : $("zmLiveSlot"); }
+    function lockPage() {
+      if (document.documentElement) document.documentElement.classList.add(PAGE_CLS);
+      if (document.body) { document.body.classList.add(PAGE_CLS); document.body.style.overflow = "hidden"; }
+      const tm = document.querySelector('meta[name="theme-color"]');
+      if (tm && tm.dataset.zabPrev == null) { tm.dataset.zabPrev = tm.getAttribute("content") || ""; tm.setAttribute("content", "#000000"); }
+      try { const SB = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar; if (SB && SB.hide) { SB.hide(); statusHidden = true; } } catch (e) {}
     }
+    function unlockPage() {
+      if (document.documentElement) document.documentElement.classList.remove(PAGE_CLS);
+      if (document.body) { document.body.classList.remove(PAGE_CLS); document.body.style.overflow = ""; }
+      const tm = document.querySelector('meta[name="theme-color"]');
+      if (tm && tm.dataset.zabPrev != null) { tm.setAttribute("content", tm.dataset.zabPrev); delete tm.dataset.zabPrev; }
+      try { const SB = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar; if (statusHidden && SB && SB.show) SB.show(); } catch (e) {}
+      statusHidden = false;
+    }
+    function requestNativeFs(node) {
+      if (fsEl()) return Promise.resolve(true);
+      node = node || castRoot() || document.documentElement;
+      if (!node) return Promise.resolve(false);
+      const req = node.requestFullscreen || node.webkitRequestFullscreen || node.webkitRequestFullScreen;
+      if (!req) return Promise.resolve(false);
+      try { return Promise.resolve(req.call(node, { navigationUI: "hide" })).then(() => true).catch(() => false); }
+      catch (e) { return Promise.resolve(false); }
+    }
+    function exitNativeFs() {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (fsEl() && exit) { try { Promise.resolve(exit.call(document)).catch(() => {}); } catch (e) {} }
+    }
+    function leaveSolo(note) {
+      if (leaving) return;
+      leaving = true;
+      try {
+        exitNativeFs();
+        if (typeof zlCastStop === "function" && zlCastCode) zlCastStop(note || "You're off the air.");
+        else exitCast();
+      } finally { setTimeout(() => { leaving = false; }, 80); }
+    }
+    F.requestNativeFs = requestNativeFs;
     F.enterCast = function () {
       const r = enterCast.apply(this, arguments);
+      lockPage();
       try { if (soloFsOn() && !pushed && history.pushState) { history.pushState({ zabWashersCamFs: 1 }, "", location.href); pushed = true; } } catch (e) {}
+      requestNativeFs();
       return r;
     };
     F.exitCast = function () {
+      exitNativeFs();
+      unlockPage();
       const r = exitCast.apply(this, arguments);
       if (!fromPop && pushed) { pushed = false; try { history.back(); } catch (e) {} }
       pushed = false;
       return r;
     };
+    function onNativeFsChange() { if (!leaving && !fsEl() && soloFsOn()) leaveSolo(); }
+    document.addEventListener("fullscreenchange", onNativeFsChange);
+    document.addEventListener("webkitfullscreenchange", onNativeFsChange);
     window.addEventListener("popstate", () => {
       if (!soloFsOn()) { pushed = false; return; }
+      if (leaving) { pushed = false; return; }
       pushed = false; fromPop = true;
       try { leaveSolo(); } finally { fromPop = false; }
     });

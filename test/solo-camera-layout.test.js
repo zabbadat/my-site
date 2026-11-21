@@ -17,5 +17,10 @@ check("push/TUT camera video also fills cam-fs; Exit full screen is hidden while
 check("End set stays on the push/TUT camera", /id="camEndBtn"/.test(html) && /class="btn cam-end-btn"/.test(html));
 check("production OPEN_IDS is unchanged", /var OPEN_IDS = \{ camVid: 1, plankVid: 1, tbVid: 1, sqVid: 1, zlSelf: 1, zmCamVid: 1 \};/.test(pfp));
 check("never reintroduce openMask, coverBack, or a rec.js dark cover", !/\bopenMask\b/.test(html + pfp + rec) && !/coverBack blanket/.test(pfp) && !/full-frame dark/.test(rec));
+check("viewport-fit=cover so the camera can extend into the notch / status-bar inset", /name="viewport"[^>]*viewport-fit=cover/.test(html));
+check("solo cam-fs is 100dvh, 100vh fallback, z-index above headers, no padding-top gap", /#zmGame\.cam-fs,#zmLiveSlot\.cam-fs,#zmCamBox\.cam-fs,#zlStage\.cam-fs\{[^}]*z-index:2147483000[^}]*height:100vh;height:100dvh[^}]*padding:0!important/.test(html));
+check("body scroll and site chrome are hidden while solo cam-fs is open, and restored on exit", /zab-solo-cam-fs/.test(html) && /html\.zab-solo-cam-fs,html\.zab-solo-cam-fs body\{overflow:hidden/.test(html) && /html\.zab-solo-cam-fs nav/.test(html) && /unlockPage/.test(html) && /lockPage/.test(html));
+check("opening gesture requests Fullscreen API on the cast container (webkit fallback; not on #zlSelf alone)", /requestNativeFs/.test(html) && /requestFullscreen \|\| node\.webkitRequestFullscreen/.test(html) && /navigationUI: "hide"/.test(html) && /WashersFs\.enterCast\(\); if \(window\.WashersFs\.requestNativeFs\)/.test(html) && !/zlSelf\)[^;]{0,80}webkitEnterFullscreen/.test(html));
+check("leaving native fullscreen, Back, or Escape all run leaveSolo once (no double-fire)", /fullscreenchange/.test(html) && /webkitfullscreenchange/.test(html) && /if \(leaving\) return/.test(html) && /exitNativeFs/.test(html) && /addEventListener\("popstate"/.test(html) && /e\.key !== "Escape"/.test(html));
 
 const ok = R.filter(Boolean).length; console.log(`\n${ok}/${R.length} passed`); process.exit(ok === R.length ? 0 : 1);
