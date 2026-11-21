@@ -31,6 +31,9 @@
 <meta name="twitter:description" content="Count push-ups and time under tension with your camera, rank on the TUTS board, and play the Game of Washers. Join league night or book a team wellness pilot.">
     <meta name="twitter:image" content="https://www.zabbadat.com/og-zd-v2.png">
   <meta name="theme-color" content="#0e1412">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script type="application/ld+json">
 [
   {
@@ -737,18 +740,28 @@ body.arcade-live{padding-top:calc(env(safe-area-inset-top,0px) + 5.6rem)}
 #tbCamWrap,#plankWrap{position:relative}
 .cam-fs > .cam-end-btn{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
 
-/* Washers live camera full screen (single + split): same CSS-fixed .cam-fs as plank/squats (iOS-safe).
-   Solo/cast: only the live camera fills the phone (PFP cover unchanged). Score, time, names, scoring keys, End, More and other chrome stay in the DOM but are hidden. Watch-both split view is unchanged. Exit is browser Back / the phone back gesture, or Escape. */
-#zmGame.cam-fs,#zmLiveSlot.cam-fs,#zmCamBox.cam-fs,#zlStage.cam-fs{position:fixed!important;inset:0;top:0;right:0;bottom:0;left:0;z-index:2147483000;max-width:none!important;width:100%;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;min-height:-webkit-fill-available;margin:0!important;padding:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden;box-sizing:border-box}
+/* Washers live camera full screen (single + split): CSS-fixed .cam-fs (iOS-safe).
+   Solo/cast: the live camera fills the phone to the top edge (PFP cover unchanged, object-fit contain, object-position default/center so the shield stays aligned). Score, time, names, scoring keys, Undo and Submit stay hidden. End and More are small bottom pills; More opens the extra controls sheet. Watch-both split view is unchanged. Exit is End, browser Back / the phone back gesture, or Escape. */
+#zmGame.cam-fs,#zmLiveSlot.cam-fs,#zmCamBox.cam-fs,#zlStage.cam-fs{position:fixed!important;inset:0;top:0;top:var(--zab-fs-top,0px);right:0;bottom:0;left:0;z-index:2147483000;max-width:none!important;width:100%;width:100vw;height:100vh;height:100dvh;height:100lvh;height:var(--zab-fs-h,100lvh);min-height:100vh;min-height:100dvh;min-height:100lvh;min-height:-webkit-fill-available;margin:0!important;padding:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden;overscroll-behavior:none;box-sizing:border-box}
+#zmGame.cam-fs::before,#zmLiveSlot.cam-fs::before{content:"";position:absolute;left:0;right:0;top:calc(-1 * env(safe-area-inset-top,0px) - 120px);height:calc(100% + env(safe-area-inset-top,0px) + 240px);background:#000;z-index:0;pointer-events:none}
 #zmGame:fullscreen,#zmLiveSlot:fullscreen,#zmGame:-webkit-full-screen,#zmLiveSlot:-webkit-full-screen{position:fixed!important;inset:0;z-index:2147483000;width:100%;height:100%;margin:0;padding:0;background:#000}
-html.zab-solo-cam-fs,html.zab-solo-cam-fs body{overflow:hidden!important;height:100vh;height:100dvh;background:#000!important;overscroll-behavior:none}
-html.zab-solo-cam-fs nav,html.zab-solo-cam-fs #sessionStrip,html.zab-solo-cam-fs .promo-banner,html.zab-solo-cam-fs #playEarn10k,html.zab-solo-cam-fs .pe-10k,html.zab-solo-cam-fs .home-art,html.zab-solo-cam-fs .pe-chrome{display:none!important;visibility:hidden!important}
+html.zab-solo-cam-fs,html.zab-solo-cam-fs body{position:fixed!important;inset:0;overflow:hidden!important;overscroll-behavior:none!important;touch-action:none;-webkit-overflow-scrolling:auto;height:100vh;height:100dvh;height:100lvh;width:100%;max-width:100%;margin:0!important;padding:0!important;background:#000!important}
+html.zab-solo-cam-fs nav,html.zab-solo-cam-fs #sessionStrip,html.zab-solo-cam-fs .promo-banner,html.zab-solo-cam-fs #playEarn10k,html.zab-solo-cam-fs .pe-10k,html.zab-solo-cam-fs .home-art,html.zab-solo-cam-fs .pe-chrome{display:none!important;visibility:hidden!important;pointer-events:none!important}
 #zmGame.cam-fs .washers-fs-strip,#zmLiveSlot.cam-fs .washers-fs-strip{display:none!important}
 #zmCamBox.cam-fs .washers-fs-strip,#zlStage.cam-fs .washers-fs-strip{display:flex;flex:0 0 auto;border-radius:0;padding-top:calc(.45rem + env(safe-area-inset-top,0px));pointer-events:none}
 .washers-fs-strip[hidden]{display:none!important}
-#zmGame.cam-fs .zl-self-wrap,#zmLiveSlot.cam-fs .zl-self-wrap,#zmCamBox.cam-fs #zmCamWrap{position:absolute!important;inset:0;z-index:0;flex:none;min-height:0;width:100%;height:100%;max-width:none;margin:0}
-#zmGame.cam-fs #zlSelf,#zmLiveSlot.cam-fs #zlSelf,#zmGame.cam-fs .zl-self,#zmCamBox.cam-fs #zmCamVid{width:100%;height:100%;max-width:none;aspect-ratio:auto;object-fit:contain;border-radius:0;margin:0;display:block;background:#000}
-#zmGame.cam-fs .zm-code-row,#zmGame.cam-fs .zm-seats,#zmGame.cam-fs #zmTheirPack,#zmGame.cam-fs #zmPad,#zmGame.cam-fs #zmPad:not([hidden]),#zmGame.cam-fs .row:has(#zmClaim),#zmGame.cam-fs .row:has(#zmForfeit),#zmGame.cam-fs #zlLiveControls,#zmLiveSlot.cam-fs #zlLiveControls,#zmGame.cam-fs.cam-fs-more .zm-code-row,#zmGame.cam-fs.cam-fs-more .row:has(#zmForfeit),#zmGame.cam-fs.cam-fs-more #zlLiveControls,#zmGame.cam-fs.cam-fs-more #zmPad,#zmGame.cam-fs.cam-fs-more #zmPad:not([hidden]){display:none!important}
+#zmGame.cam-fs .zl-self-wrap,#zmLiveSlot.cam-fs .zl-self-wrap,#zmCamBox.cam-fs #zmCamWrap{position:absolute!important;inset:0;top:0;right:0;bottom:0;left:0;z-index:1;flex:none;min-height:0;width:100%;height:100%;max-width:none;margin:0!important;padding:0!important;background:#000}
+#zmGame.cam-fs #zlSelf,#zmLiveSlot.cam-fs #zlSelf,#zmGame.cam-fs .zl-self,#zmCamBox.cam-fs #zmCamVid{width:100%;height:100%;max-width:none;aspect-ratio:auto;object-fit:contain;border-radius:0;margin:0;padding:0;display:block;background:#000}
+#zmGame.cam-fs canvas.pfp-shield,#zmLiveSlot.cam-fs canvas.pfp-shield{z-index:2}
+#zmGame.cam-fs .zm-code-row,#zmGame.cam-fs .zm-seats,#zmGame.cam-fs #zmTheirPack,#zmGame.cam-fs #zmPad,#zmGame.cam-fs #zmPad:not([hidden]),#zmGame.cam-fs .row:has(#zmClaim),#zmGame.cam-fs .row:has(#zmForfeit),#zmGame.cam-fs.cam-fs-more #zmPad,#zmGame.cam-fs.cam-fs-more #zmPad:not([hidden]),#zmGame.cam-fs.cam-fs-more .zm-seats,#zmGame.cam-fs.cam-fs-more #zmTheirPack{display:none!important}
+#zmGame.cam-fs #zlLiveControls,#zmLiveSlot.cam-fs #zlLiveControls{position:absolute;left:0;right:0;bottom:0;z-index:6;display:flex!important;flex-wrap:wrap;gap:.4rem;align-items:center;justify-content:space-between;padding:.35rem .7rem calc(.55rem + env(safe-area-inset-bottom,0px));background:transparent;pointer-events:none;box-sizing:border-box}
+#zmGame.cam-fs #zlLiveControls > .btn,#zmLiveSlot.cam-fs #zlLiveControls > .btn{display:none!important;pointer-events:auto;touch-action:manipulation}
+#zmGame.cam-fs #zlLiveControls > #zlEndBtn:not([hidden]),#zmGame.cam-fs #zlLiveControls > #zlMoreBtn,#zmLiveSlot.cam-fs #zlLiveControls > #zlEndBtn:not([hidden]),#zmLiveSlot.cam-fs #zlLiveControls > #zlMoreBtn{display:inline-flex!important;align-items:center;justify-content:center;min-height:40px;padding:.4rem .95rem;border-radius:999px;font-size:.9rem;font-weight:650;background:rgba(8,12,10,.48)!important;color:#f2f5f3!important;border:1px solid rgba(255,255,255,.75)!important;box-shadow:0 2px 8px rgba(0,0,0,.35);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#zmGame.cam-fs.cam-fs-more #zlLiveControls,#zmLiveSlot.cam-fs.cam-fs-more #zlLiveControls{background:rgba(8,6,18,.9);pointer-events:auto;padding:.45rem .7rem calc(.45rem + env(safe-area-inset-bottom,0px))}
+#zmGame.cam-fs.cam-fs-more #zlLiveControls > .btn:not([hidden]),#zmLiveSlot.cam-fs.cam-fs-more #zlLiveControls > .btn:not([hidden]){display:inline-flex!important}
+#zmGame.cam-fs.cam-fs-more .zm-code-row,#zmGame.cam-fs.cam-fs-more .row:has(#zmForfeit){display:flex!important;position:absolute;left:0;right:0;z-index:5;flex-wrap:wrap;gap:.45rem;align-items:center;padding:.5rem .7rem;background:rgba(8,6,18,.92);pointer-events:auto}
+#zmGame.cam-fs.cam-fs-more .zm-code-row{bottom:calc(6.4rem + env(safe-area-inset-bottom,0px));top:auto}
+#zmGame.cam-fs.cam-fs-more .row:has(#zmForfeit){bottom:calc(3.4rem + env(safe-area-inset-bottom,0px));top:auto}
 #zlStage.cam-fs .zm-code-row,#zmCamBox.cam-fs .row{flex:0 0 auto;display:flex!important;flex-wrap:wrap;gap:.55rem;align-items:center;z-index:5;padding:.5rem .7rem calc(.5rem + env(safe-area-inset-bottom,0px));background:#080612;pointer-events:auto}
 #zlStage.cam-fs .zl-tiles{flex:1 1 auto;min-height:0;grid-template-columns:1fr 1fr;margin:0;gap:.35rem}
 #zlStage.cam-fs .zl-tile{aspect-ratio:auto;height:100%;min-height:0;border-radius:0}
@@ -6421,7 +6434,7 @@ if (ZL) {
     } catch (e) { zlYtPc = null; zlYtLowerStop(); zlCastNote((e && e.message) || "Couldn't start the YouTube relay."); }
   };
   $("zlWatchBoth").onclick = () => { if (!zmCode) return; zlStart(zmCode); const el = $("zabbaLive"); if (el) el.scrollIntoView({ block: "start" }); if (window.WashersFs) window.WashersFs.enterWatch(); };
-  if ($("zlEndBtn")) $("zlEndBtn").onclick = () => { if (window.WashersFs) window.WashersFs.exitCast(); if (zlCastCode) zlCastStop("You're off the air."); };
+  if ($("zlEndBtn")) $("zlEndBtn").onclick = () => { if (window.WashersFs && window.WashersFs.leaveSolo) window.WashersFs.leaveSolo(); else if (typeof zlCastStop === "function" && zlCastCode) zlCastStop("You're off the air."); else if (window.WashersFs) window.WashersFs.exitCast(); };
   if ($("zlFsBtn")) $("zlFsBtn").onclick = () => { if (!window.WashersFs) return; if (window.WashersFs.isOn("zmGame") || window.WashersFs.isOn("zmLiveSlot")) window.WashersFs.exitCast(); else window.WashersFs.enterCast(); zlCastPaint(); };
   if ($("zlMoreBtn")) $("zlMoreBtn").onclick = () => {
     const g = $("zmGame") && $("zmGame").classList.contains("cam-fs") ? $("zmGame") : ($("zmLiveSlot") && $("zmLiveSlot").classList.contains("cam-fs") ? $("zmLiveSlot") : $("zmGame"));
@@ -6436,20 +6449,50 @@ if (ZL) {
     const F = window.WashersFs; if (!F) return;
     const enterCast = F.enterCast, exitCast = F.exitCast;
     const PAGE_CLS = "zab-solo-cam-fs";
-    let pushed = false, fromPop = false, leaving = false, statusHidden = false;
+    let pushed = false, fromPop = false, leaving = false, statusHidden = false, lockedScroll = false, savedX = 0, savedY = 0;
     function soloFsOn() { return !!(F.isOn("zmGame") || F.isOn("zmLiveSlot")); }
     function fsEl() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
     function castRoot() { const g = $("zmGame"); return (g && !g.hidden) ? g : $("zmLiveSlot"); }
+    function applyFsSize() {
+      const root = document.documentElement, vv = window.visualViewport;
+      const h = Math.ceil(Math.max(window.innerHeight || 0, root && root.clientHeight || 0, vv ? (vv.height + Math.abs(vv.offsetTop || 0)) : 0));
+      if (root && h > 0) root.style.setProperty("--zab-fs-h", h + "px");
+      if (root) root.style.setProperty("--zab-fs-top", "0px");
+    }
+    function onSoloTouchMove(e) {
+      if (!document.documentElement.classList.contains(PAGE_CLS)) return;
+      if (e.target && e.target.closest && e.target.closest("#zlLiveControls, .btn, button, a, input, textarea, select")) return;
+      e.preventDefault();
+    }
     function lockPage() {
-      if (document.documentElement) document.documentElement.classList.add(PAGE_CLS);
-      if (document.body) { document.body.classList.add(PAGE_CLS); document.body.style.overflow = "hidden"; }
+      const root = document.documentElement, body = document.body;
+      if (!lockedScroll) { savedX = window.scrollX || 0; savedY = window.scrollY || window.pageYOffset || 0; lockedScroll = true; }
+      if (root) root.classList.add(PAGE_CLS);
+      if (body) {
+        body.classList.add(PAGE_CLS);
+        body.style.overflow = "hidden";
+        body.style.position = "fixed";
+        body.style.left = "0";
+        body.style.right = "0";
+        body.style.width = "100%";
+        body.style.top = (-savedY) + "px";
+      }
+      applyFsSize();
+      window.addEventListener("resize", applyFsSize);
+      if (window.visualViewport) { window.visualViewport.addEventListener("resize", applyFsSize); window.visualViewport.addEventListener("scroll", applyFsSize); }
+      document.addEventListener("touchmove", onSoloTouchMove, { passive: false });
       const tm = document.querySelector('meta[name="theme-color"]');
       if (tm && tm.dataset.zabPrev == null) { tm.dataset.zabPrev = tm.getAttribute("content") || ""; tm.setAttribute("content", "#000000"); }
       try { const SB = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar; if (SB && SB.hide) { SB.hide(); statusHidden = true; } } catch (e) {}
     }
     function unlockPage() {
-      if (document.documentElement) document.documentElement.classList.remove(PAGE_CLS);
-      if (document.body) { document.body.classList.remove(PAGE_CLS); document.body.style.overflow = ""; }
+      const root = document.documentElement, body = document.body;
+      window.removeEventListener("resize", applyFsSize);
+      if (window.visualViewport) { window.visualViewport.removeEventListener("resize", applyFsSize); window.visualViewport.removeEventListener("scroll", applyFsSize); }
+      document.removeEventListener("touchmove", onSoloTouchMove);
+      if (root) { root.classList.remove(PAGE_CLS); root.style.removeProperty("--zab-fs-h"); root.style.removeProperty("--zab-fs-top"); }
+      if (body) { body.classList.remove(PAGE_CLS); body.style.overflow = ""; body.style.position = ""; body.style.left = ""; body.style.right = ""; body.style.width = ""; body.style.top = ""; }
+      if (lockedScroll) { lockedScroll = false; try { window.scrollTo(savedX, savedY); } catch (e) {} }
       const tm = document.querySelector('meta[name="theme-color"]');
       if (tm && tm.dataset.zabPrev != null) { tm.setAttribute("content", tm.dataset.zabPrev); delete tm.dataset.zabPrev; }
       try { const SB = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar; if (statusHidden && SB && SB.show) SB.show(); } catch (e) {}
@@ -6478,6 +6521,7 @@ if (ZL) {
       } finally { setTimeout(() => { leaving = false; }, 80); }
     }
     F.requestNativeFs = requestNativeFs;
+    F.leaveSolo = leaveSolo;
     F.enterCast = function () {
       const r = enterCast.apply(this, arguments);
       lockPage();
