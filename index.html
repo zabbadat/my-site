@@ -3024,6 +3024,7 @@ function renderPush() {
   if (pushMode === "long" && pushState.running && !pushState.finished && typeof pushTutQualified !== "undefined" && !pushTutQualified && window.ZabbadatSession && window.ZabbadatSession.tutCompleted && window.ZabbadatSession.tutCompleted("long", now, pushState.reps)) {
     pushTutQualified = true; // 1:20 + 10 push-ups reached: the set now counts as a completed TUT set. It keeps going; nothing is capped.
     if ($("pushStatus")) $("pushStatus").textContent = "TUT set complete at 1:20 with " + pushState.reps + " push-ups. Keep going: every second and rep still counts.";
+    { const GS = window.ZabbadatGetSet; if (GS && GS.speakTutExecuted) GS.speakTutExecuted(); } // announcement only; the set keeps running (tied to TUT_DONE via tutCompleted)
   }
   if ($("pushTut")) $("pushTut").textContent = formatTut(savedPushTut() + (pushState.finished ? 0 : liveTut));
   if ($("pushRepsBig")) $("pushRepsBig").textContent = pushState.reps;

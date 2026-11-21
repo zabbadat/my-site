@@ -485,7 +485,22 @@
     try { var n = w && w.navigator; if (n && typeof n.vibrate === "function") { n.vibrate([120, 80, 120]); buzzed = true; } } catch (e) {}
     return { line: POCKET_LINE, spoke: spoke, buzzed: buzzed };
   }
-  var api = { say: say, PRONOUNCE: PRONOUNCE, speakAndWait: speakAndWait, enqueueSpeak: enqueueSpeak, waitSpeechIdle: waitSpeechIdle, protectSpeech: protectSpeech, CAMERA_ON: CAMERA_ON, FACE_COVERED: FACE_COVERED, CAMERA_GUIDE: CAMERA_GUIDE, cameraOnLine: cameraOnLine, withCameraOn: withCameraOn, watchCameraVoice: watchCameraVoice, POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_SET_LINE: PLANK_SET_LINE, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
+  // Spoken once when a One long set first reaches the TUT target (ZabbadatSession.TUT_DONE,
+  // currently 1:20 / 80 s and 10 push-ups). Announcement only: the clock and set keep running.
+  // "TUT" is left as written; existing cues never say the word, and PRONOUNCE has no TUT entry,
+  // so the phone TTS pronounces it the same way it would any other unmapped word.
+  var TUT_EXECUTED_LINE = "TUT set, TUT set executed.";
+  function speakTutExecuted() {
+    try {
+      var unprotect = protectSpeech();
+      function done() { try { unprotect(); } catch (e) {} }
+      if (isSpeaking() || speechQueued > 0) {
+        return waitSpeechIdle(2000).then(function () { return enqueueSpeak(TUT_EXECUTED_LINE); }).then(done, done);
+      }
+      return enqueueSpeak(TUT_EXECUTED_LINE).then(done, done);
+    } catch (e) { /* on-screen only */ }
+  }
+  var api = { say: say, PRONOUNCE: PRONOUNCE, speakAndWait: speakAndWait, enqueueSpeak: enqueueSpeak, waitSpeechIdle: waitSpeechIdle, protectSpeech: protectSpeech, CAMERA_ON: CAMERA_ON, FACE_COVERED: FACE_COVERED, CAMERA_GUIDE: CAMERA_GUIDE, cameraOnLine: cameraOnLine, withCameraOn: withCameraOn, watchCameraVoice: watchCameraVoice, POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_EXECUTED_LINE: TUT_EXECUTED_LINE, speakTutExecuted: speakTutExecuted, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_SET_LINE: PLANK_SET_LINE, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else {
     root.ZabbadatGetSet = api;
