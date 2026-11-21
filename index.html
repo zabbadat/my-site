@@ -346,6 +346,8 @@
     .plank-outline span { font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: #f0b429; background: rgba(16,24,22,.7); padding: .05rem .4rem; border-radius: 0 0 8px 8px; }
     .plank-outline.ok { border-color: #4ad98a; } .plank-outline.ok span { color: #4ad98a; }
     .plank-outline.run { opacity: .3; }
+    .plank-side-prompt { position: absolute; left: 4%; right: 4%; top: .4rem; z-index: 2; margin: 0; text-align: center; font-weight: 700; color: #fff; background: rgba(16,24,22,.78); padding: .35rem .5rem; border-radius: 8px; }
+    .plank-side-prompt[hidden] { display: none; }
     .ok { color: var(--accent); }
     .bad { color: var(--warn); }
     .washers {
@@ -1416,7 +1418,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </section>
   <section class="washers" id="washers">
     <h2>The Game of Zabba Washers</h2>
-    <p class="lead">Reach 21 with the fewest steps and the quickest time. The public board uses your name so repeat games & stack under one identity.</p>
+    <p class="lead">Reach 21 with the fewest steps and the quickest time. The public board uses your name so repeat games stack under one identity.</p>
     <div class="grid">
       <div class="card"><h3>21</h3><p>Add points as washers score. The game ends at 21.</p></div>
       <div class="card"><h3>Steps</h3><p>Your phone banks steps as you walk between pitches.</p></div>
@@ -1424,7 +1426,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="card"><h3>Summon Zabba</h3><p>The difference maker. Summon the Zabba and it rises up to block, turning a sure point into a stuffed shot. One of the game's biggest highlights.</p></div>
     </div>
     <div class="row" id="washersGoLiveSolo"><a class="btn" href="#zabbaMatch" id="washersSoloBtn">Go live solo</a></div>
-    <p class="note">Go live solo opens the Live Match screen with one seat: same camera cover, record, voice scoring, and clock. Invite a friend later with the match code if you want head-to-head.</p>
+    <p class="note">Go live solo opens the Live Match screen with one seat: same camera cover, record, voice scoring, and clock. Invite a friend later with the match code for head-to-head.</p>
   </section>
 
   <section id="play">
@@ -1473,7 +1475,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button class="btn ghost" id="pauseBtn" type="button">Pause</button>
       <button class="btn danger" id="resetBtn" type="button">Reset</button>
     </div>
-    <p class="note" id="gameLockNote">Pocket play: after Start game, slip the phone in your pocket and walk; steps count from the pocket and the screen stays awake. The screen locks when the game starts. Hold 1 second to unlock and score a pack; it locks again after you score. While unlocked, hold 1 second to end the game.</p>
+    <p class="note" id="gameLockNote">Pocket play: after Start game, put the phone in your pocket and walk. Steps count from the pocket and the screen stays awake. The screen locks when the game starts. Hold 1 second to unlock and score a pack; it locks again after you score. While unlocked, hold 1 second to end the game.</p>
        <div class="row">
       <button class="btn ghost" type="button" data-points="2">+2 box-bound</button>
       <button class="btn ghost" type="button" data-points="3">+3 shoot</button>
@@ -1531,7 +1533,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 <section id="push">
     <h2>TUTS &amp; PUSH up sets</h2>
     <ul class="lead push-rules">
-      <li data-app-copy='[["holding yourself up in a push-press plank", "holding yourself up in a plank push press"]]'>As many push-ups you can do without quitting, or holding yourself up while holding a plank push press, with good form and a controlled tempo — not too fast — within a minute and twenty seconds. Even holding yourself up in a push-press plank is a big deal — you can't fail just by holding.</li>
+      <li data-app-copy='[["holding yourself up in a push-press plank", "holding yourself up in a plank push press"]]'>As many good-form push-ups as you can in a minute and twenty seconds, or hold a plank push press. Use a controlled tempo, not too fast. Even holding yourself up in a push-press plank never fails the set.</li>
       <li>Lean your phone up in front of you, camera facing you. It counts each full set.</li>
       <li data-app-copy='[["Holding the top of a push-up press \u2014 a push-press plank \u2014 never ends it.", "Holding a plank push press never ends it."]]'>A set ends only when your knees touch down. Holding the top of a push-up press — a push-press plank — never ends it.</li>
       <li data-app-copy='[["Hold the top 30 seconds straight for the hold bonus", "Hold a plank push press 30 seconds straight for the bonus"]]'>Hold the top 30 seconds straight for the hold bonus, once per set.</li>
@@ -1543,9 +1545,9 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <button type="button" id="modeChallengeBtn" aria-pressed="false">Two-minute challenge</button>
     </div>
     <div class="olt-banner" id="oltBanner"><span>TIME UNDER TENSION SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
-    <p class="note" id="longNote" hidden>Time under tension set; the clock runs non-stop from start. As many push-ups you can do without quitting, or holding yourself up while holding a plank push press. A TUT set counts regardless of how many push-ups you can do — even holding yourself up the whole time with zero push-ups counts as one set, as long as form isn't broken.<br>Ends only on knees down, or any type of failure motion. Time reps and tut sets will post.</p>
+    <p class="note" id="longNote" hidden>Time under tension set. The clock runs non-stop. Do as many push-ups as you can, or hold a plank push press. A TUT set counts even with zero push-ups, as long as form isn't broken. Ends only on knees down or a failure motion. Time, reps and TUT sets will post.</p>
     <span class="vcount" id="pushViol" hidden>0</span>
-    <p class="note" id="challengeNote" hidden>Two-minute challenge: the clock runs from 2:00 down to 0:00. Hold a push-up plank, arms straight, the whole two minutes.<br>Knees down, sagging, piking up, collapsing or standing up ends it, and you see how long you held. End set on the camera screen stops it.<br><span id="twoMinToday">Today: no tries yet.</span></p>
+    <p class="note" id="challengeNote" hidden>Two-minute challenge: hold a push-up plank, arms straight, while the clock runs from 2:00 to 0:00. The start cue is "Set up, hold on three. One, two, three, Hold." The clock starts at Hold. Knees down, sagging, piking, collapsing or standing up ends it, and you see how long you held. End set on the camera screen stops it.<br><span id="twoMinToday">Today: no tries yet.</span></p>
     <div class="twomin-intro" id="twoMinIntro" hidden role="dialog" aria-live="assertive" aria-label="Two-minute challenge"><div class="twomin-card"><h3 id="twoMinIntroTitle">Two-minute challenge</h3><p id="twoMinIntroBody"></p><p class="fine">Tap to skip</p></div></div>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Reps today</span></div>
@@ -1576,7 +1578,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
     <div class="note" id="challengeResult" hidden></div>
    <p class="note" id="camNote">Lean your phone up in front of you, camera facing you, shoulders and hands in frame. The camera counts each full rep. Video stays on this phone.</p>
-    <p class="note" id="pushGetSetNote">Get set first: tapping Start turns on your camera and talks you through setup, then "Set up, go on three. One, two, three, go." Counting starts at Go; your first full push-up counts.</p>
+    <p class="note" id="pushGetSetNote">Tap Start to turn on the camera and hear setup, then "Set up, go on three. One, two, three, Go." Counting starts at Go. Your first full push-up counts. The Two-minute challenge uses Hold instead of Go.</p>
     <p class="note" id="camStatus" aria-live="polite"></p>
     <p class="note" id="pushStatus">Ready. Get set, then tap Start.</p>
     <p class="fine">Signed-in finishes post to the push board. Unsigned stays on this phone. Video never uploads.</p>
@@ -1586,7 +1588,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
     <p class="lead" id="tutBoardSub">Drop Your Tuts scoreboard</p>
     <p class="tuts-stat-lbl">Today · Best day · All-time</p>
-    <p class="lead">A TUT set is complete once the clock reaches 1:20 with at least 10 push-ups. Keep going: the full time and every push-up after 1:20 count too. You can't fail just by holding.</p>
+    <p class="lead">A TUT set is complete at 1:20 with at least 10 push-ups. Keep going: time and reps after 1:20 count too. You can't fail just by holding.</p>
     <table>
       <thead><tr><th>Player</th><th>Today</th><th>Best day</th><th>All-time</th></tr></thead>
       <tbody id="tutBoardBody"><tr><td colspan="4">Waiting for sets…</td></tr></tbody>
@@ -1620,7 +1622,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
   <section id="squats" aria-labelledby="squatsTitle">
     <h2 id="squatsTitle">Gyatt Squats</h2>
-    <p class="lead" id="squatsLead">Front-camera Gyatt squats. Prop your phone up facing you and come in the frame, whole body in view. Stand about one and a half to two times shoulder width, toes pointed out around forty-five degrees. Sit back and down like you're lowering onto a chair behind you, chest up, knees tracking over your toes. Don't let them cave inward. Bottom is when your thighs are at or below parallel. Drive up through your heels, pushing your knees out as you rise, and squeeze your glutes hard at the top. Keep your glutes working the whole rep: down, hold, up and squeeze. The voice counts four on the way down and four on the hold, then a quick up and a squeeze. A rep counts when you reach parallel and stand back up, not from the timer. A set is ten reps. 10 squats = 1 ZAB.</p>
+    <p class="lead" id="squatsLead">Gyatt squats, camera facing you. Phone up in front, whole body in view. Stance one and a half to two times shoulder width, toes out about forty-five degrees. Sit back, chest up, knees out over your toes. Thighs at or below parallel at the bottom. Drive through your heels and squeeze your glutes at the top. Glutes on the whole rep. The voice counts four down and four on the hold, then up and squeeze. A rep counts when you reach parallel and stand back up, not from the timer. A set is ten reps. 10 squats = 1 ZAB.</p>
     <div class="stats duo">
       <div class="stat"><b id="sqReps">0</b><span>This set</span></div>
       <div class="stat"><b id="sqCount">–</b><span id="sqPhase">Cadence</span></div>
@@ -1641,7 +1643,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       </div>
       <button class="btn cam-end-btn" id="sqEndBtn" type="button" aria-label="End set and turn the camera off">End set</button>
     </div>
-    <p class="note" id="sqStatus" aria-live="polite">Face the camera, whole body in view. A set is ten reps; it ends on its own after the tenth. It also ends early if you stay down 15 seconds without a rep, go 45 seconds without a rep, sit down and stay down, put your hands on the floor, or leave the frame for 3 seconds. Small wobbles never end a set.</p>
+    <p class="note" id="sqStatus" aria-live="polite">Face the camera, whole body in view. A set is ten reps and ends after the tenth. It also ends early if you stay down 15 seconds, go 45 seconds without a rep, sit down and stay down, put your hands on the floor, or leave the frame for 3 seconds. Small wobbles never end a set.</p>
     <p class="fine">Reps come from the camera, not the voice. Today's squats reset at Eastern midnight. Signed-in sets are saved and earn ZAB. Video never uploads.</p>
   </section>
 
@@ -1739,7 +1741,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </section>
 <section id="washerbattle" role="tabpanel" aria-labelledby="pe-tab-washerbattle" hidden>
     <h2>Zabba Washer Battle</h2>
-    <p class="lead">One on one, or two teams of two, phone to phone, Bariboshi style. No video: you pitch at your own box and report each pitch, your opponent confirms or disputes, and the first to 21 wins. Make an arena, share the code, everyone taps ready, and a shared countdown starts the match. Pick 1v1 or 2v2: in 2v2 the team score is the sum of both teammates' packs, and the first team to 21 wins. The opening pitch (closest to the cup goes first), then rounds of one pack of 3 washers each, scored Bank 5, Shoot 3, Box-bound 2, Out 0. Your phone counts your steps as an optional extra. Forfeit, leave, or go silent for 30 seconds and your opponent wins. Optional ZAB wager: set the amount when you make the room, both players put in the same amount, and the winner takes the pot. See the <a href="/rules">official regulations</a>.</p>
+    <p class="lead">One on one, or two teams of two, phone to phone, Bariboshi style. No video: pitch at your own box, report each pitch, and your opponent confirms or disputes. First to 21 wins. Make an arena, share the code, everyone taps ready, and a shared countdown starts the match. In 2v2 the team score is the sum of both teammates' packs. Closest to the cup pitches first, then rounds of one pack of 3, scored Bank 5, Shoot 3, Box-bound 2, Out 0. Your phone can count steps as an extra. Forfeit, leave, or go silent for 30 seconds and your opponent wins. Optional ZAB wager: set the amount when you make the room, both put in the same amount, and the winner takes the pot. See the <a href="/rules">official regulations</a>.</p>
     <p class="note" id="wbSignIn"><a href="#play">Sign in</a> to create or join a Zabba Washer Battle, with an optional ZAB wager.</p>
     <div id="wbStart" hidden>
       <label id="wbSizeLabel">Players</label>
@@ -1814,7 +1816,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </section>
 <section id="steps" role="tabpanel" aria-labelledby="pe-tab-steps">
     <h2>Step Equity</h2>
-    <p class="lead" id="stepsLead">Step Equity: stopping posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's own step counter keeps the all-day total. In a browser, start a live walk, put the phone in your pocket and walk: the page keeps the screen awake and locked, and steps count from the pocket. Same login as washers.</p>
+    <p class="lead" id="stepsLead">Step Equity: Stop posts your steps to the daily board. Reset clears the session readout only; today's total never goes down. In the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone's step counter keeps the all-day total. In a browser, start a live walk, put the phone in your pocket, and walk. The page keeps the screen awake and locked, and steps count from the pocket. Same login as washers.</p>
     <div class="stats duo session-hud" id="stepsHud">
       <div class="stat"><b id="dailyCount">0</b><span>Steps today</span></div>
       <div class="stat"><b id="walkClock">00:00</b><span>Session time</span></div>
@@ -1841,7 +1843,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="note" id="dailyStatus" aria-live="polite">Signed-in totals post to the daily board. Unsigned stays on this phone.</p>
     <p class="note" id="stepsDebug" hidden></p>
     <h3 style="margin-top:1.6rem">Live walk sessions</h3>
-    <p class="lead" id="walkLead">Start a live walk and the session clock runs. Stop it to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap. Hiding the page pauses the clock; hidden over 2 minutes ends the session.</p>
+    <p class="lead" id="walkLead">Start a live walk to run the session clock. Stop it to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap. Hiding the page pauses the clock; hidden over 2 minutes ends the session.</p>
     <div class="stats">
       <div class="stat"><b id="dailySource">—</b><span>Source</span></div>
     </div>
@@ -1863,7 +1865,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </section>
 <section id="tutbattles" role="tabpanel" aria-labelledby="pe-tab-tutbattles" hidden>
     <h2>TUT Battles</h2>
-    <p class="lead" data-app-copy='[["each top hold counts for at most 10 seconds", "each plank push press counts for at most 10 seconds"]]'>Three minutes, head to head. Both tap ready, a shared countdown ("Set up, go on three. One, two, three, go.") starts the clock, then a 3:00 clock runs on both phones and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Drop a knee or leave the frame for 10 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins (then more reps; still tied is a draw). Video never uploads. Optional ZAB wager: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. A tie refunds both stakes, and leaving or 30 seconds of silence counts as a forfeit.</p>
+    <p class="lead" data-app-copy='[["each top hold counts for at most 10 seconds", "each plank push press counts for at most 10 seconds"]]'>Three minutes, head to head. Both tap ready. A shared countdown ("Set up, go on three. One, two, three, Go.") starts the clock. Then a 3:00 clock runs on both phones, and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Drop a knee or leave the frame for 10 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins, then more reps; still tied is a draw. Video never uploads. Optional ZAB wager: set a stake when you create the room, both lock it in before the countdown, and the winner takes the pot. A tie refunds both stakes. Leaving or 30 seconds of silence is a forfeit.</p>
     <p class="note" id="tbSignIn"><a href="#play">Sign in</a> to create or join a TUT battle.</p>
     <div id="tbStart" hidden>
       <div class="row"><button class="btn" id="tbCreate" type="button">Create arena</button></div>
@@ -1893,7 +1895,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 <section id="plank" role="tabpanel" aria-labelledby="pe-tab-plank" hidden>
     <h2>Plank House</h2>
     <p class="lead">Longest good plank in the House wins. The camera times your hold. Same login as washers and pushups. Honor system. Not a form judge and not medical treatment.</p>
-    <p class="note" id="plankSetup"><b>Set up:</b> Prop your phone on the floor, off to your side, sideways or upright. Step back until the dashed outline shows you head to heels, and turn to show your side.<br>Clock starts on a proper plank.</p>
+    <p class="note" id="plankSetup"><b>Set up:</b> Phone on the floor, on its side, off to your side. Step back until you're head to heels in the outline.</p>
     <div class="stats duo">
       <div class="stat"><b id="plankCount" hidden aria-live="assertive" style="display:block;font-size:4rem;line-height:1"></b><b id="plankClock">0:00</b><span>This hold</span></div>
       <div class="stat"><b id="plankBest">—</b><span>Your best</span></div>
@@ -1918,10 +1920,11 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div id="plankStage" style="position:relative">
         <video id="plankVid" autoplay playsinline muted style="width:100%;border-radius:0 0 14px 14px;background:#101816;transform:scaleX(-1);display:block"></video>
         <div id="plankOutline" class="plank-outline" aria-hidden="true"><span>head to heels</span></div>
+        <p class="plank-side-prompt" id="plankSidePrompt" hidden aria-live="polite"></p>
       </div>
       <button class="btn cam-end-btn" id="plankEndBtn" type="button" aria-label="End set and turn the camera off">End set</button>
     </div>
-    <p class="note" id="plankStatus" aria-live="polite">Get into a plank: shoulders, hips and ankles in one line. Clock starts on a proper plank.<br>Sagging, piking up, knees down, standing up, or leaving the frame for more than a second ends the hold. A framing tip only delays the start; it never ends a hold.</p>
+    <p class="note" id="plankStatus" aria-live="polite">Shoulders, hips and ankles in one line. Clock starts on a proper plank. Sagging, piking, knees down, standing up or leaving the frame ends it.</p>
     <p class="fine">Every camera hold of 10 seconds or more counts as one set. New hold starts the next set without stopping the camera. Signed-in holds post to the Plank House board and today's sets board. Unsigned stays on this phone. Video never uploads.</p>
     <h3 style="margin-top:1.6rem">Plank House board</h3>
     <p class="lead">Longest hold first.</p>
@@ -1944,7 +1947,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </section>
 <section id="battles" role="tabpanel" aria-labelledby="pe-tab-battles" hidden>
     <h2>Plank Battles</h2>
-    <p class="lead">Challenge a friend to a plank, phone to phone. Make a room, share the 4-letter code, and you both get the same countdown. Hold from GO; when you drop, tap I dropped. Last one holding wins. Forfeit or leave and your opponent wins. Keep this page open: switching away marks your hold unverified. Honor system. Optional ZAB wager: set a stake when you create the room, both players lock it in before the countdown, and the winner takes the pot. With a wager, the longest hold wins, holds within 1 second are a draw and both stakes come back, and 30 seconds of silence counts as a forfeit.</p>
+    <p class="lead">Challenge a friend to a plank, phone to phone. Make a room, share the 4-letter code, and you both get the same countdown. Hold from GO. When you drop, tap I dropped. Last one holding wins. Forfeit or leave and your opponent wins. Keep this page open: switching away marks your hold unverified. Honor system. Optional ZAB wager: set a stake when you create the room, both lock it in before the countdown, and the winner takes the pot. With a wager, the longest hold wins. Holds within 1 second are a draw and both stakes come back. 30 seconds of silence is a forfeit.</p>
     <p class="note" id="battleSignIn"><a href="#play">Sign in</a> to create or join a battle.</p>
     <div id="battleStart" hidden>
       <div class="row"><button class="btn" id="battleCreate" type="button">Create arena</button></div>
@@ -3085,7 +3088,7 @@ function twoMinDayKey() { const ET = window.ZabbadatEtDay, who = typeof currentU
 function twoMinToday() { try { return JSON.parse(localStorage.getItem(twoMinDayKey()) || "null"); } catch (e) { return null; } }
 function paintTwoMinToday() { const el = $("twoMinToday"); if (el && window.ZabbadatChallenge) el.textContent = window.ZabbadatChallenge.dayStatsText(twoMinToday()); }
 function saveTwoMinDay(r) { const st = window.ZabbadatChallenge.addDayStats(twoMinToday(), r); try { localStorage.setItem(twoMinDayKey(), JSON.stringify(st)); } catch (e) {} paintTwoMinToday(); return st; }
-// Start intro (owner, Nov 16): the written card and the spoken line go up together in the Start tap, before the One, two, three, Go count.
+// Start intro (owner, Nov 16): the written card and the spoken line go up together in the Start tap, before the One, two, three, Hold count.
 // Resolves when the line has been spoken (or the card is tapped); the card stays up until then.
 function showTwoMinIntro(cancelled) {
   const C = window.ZabbadatChallenge, G = window.ZabbadatGetSet, I = C.INTRO, card = $("twoMinIntro");
@@ -3099,7 +3102,7 @@ function showTwoMinIntro(cancelled) {
     : new Promise((res) => setTimeout(() => res(!cancelled()), 3500));
   return Promise.race([said, tap]).then((ok) => { if (card) card.onclick = null; return !!ok && !cancelled(); });
 }
-// Failure-watch settings for the hold: the first 1.5 s after Go read as the top, so the start pose becomes the body-line baseline
+// Failure-watch settings for the hold: the first 1.5 s after Hold read as the top, so the start pose becomes the body-line baseline
 // (sag / pike); after that every check is on (knees, collapse / arms giving out, stood up, sag / pike). Out of frame never ends it.
 const TWO_MIN_BASE_MS = 1500;
 function twoMinFailExtra(t) { const st = pushChallenge && pushChallenge.state ? pushChallenge.state() : null; const settling = !st || !st.started || t - st.startT < TWO_MIN_BASE_MS; return settling ? { skipFrame: true, atTop: true, reps: 1 } : { skipFrame: true, atTop: false, reps: 2 }; }
@@ -3454,9 +3457,12 @@ function finishPushSet(endedBy) {
 // 7 s start countdown: "Ready" · "get set" · "three" · "two" · "one" · "Go" (get-set.js STEPS)
 const GET_SET_MS = (window.ZabbadatGetSet && window.ZabbadatGetSet.NEXT_TOTAL_MS) || 7600;
 const getSet = window.ZabbadatGetSet && window.ZabbadatGetSet.makeNextSetCountdown ? window.ZabbadatGetSet.makeNextSetCountdown({ waitIdleMaxMs: 2500 }) : (window.ZabbadatGetSet ? window.ZabbadatGetSet.makeGoCountdown({ ms: GET_SET_MS }) : null);
+// Solo Two-minute challenge is a held push-up plank: same pace, but "Set up, hold on three." then One, two, three, Hold (clock at Hold).
+const holdSet = window.ZabbadatGetSet && window.ZabbadatGetSet.makeNextSetCountdown && window.ZabbadatGetSet.PLANK_STEPS ? window.ZabbadatGetSet.makeNextSetCountdown({ waitIdleMaxMs: 2500, line: window.ZabbadatGetSet.PLANK_SET_LINE, steps: window.ZabbadatGetSet.PLANK_STEPS }) : null;
 /* Restart start: a stop then a new start in the same exercise session skips first-time coaching and uses the shared
  * "Set up, go on three. One, two, three, go." cue (7.6 s, clock at Go). Fresh = first start after page load, after
- * switching exercise or mode, after leaving the section, or after 10 min idle — coaching, then the same go-cue. */
+ * switching exercise or mode, after leaving the section, or after 10 min idle — coaching, then the same go-cue.
+ * Two-minute challenge uses Hold instead of Go. */
 const quickSet = getSet;
 const sessionTrack = window.ZabbadatGetSet && window.ZabbadatGetSet.makeSessionTracker ? window.ZabbadatGetSet.makeSessionTracker() : null;
 function sessionPlan(kind) { return sessionTrack ? sessionTrack.plan(kind) : "fresh"; }
@@ -3464,7 +3470,8 @@ function sessionCommit(kind) { if (sessionTrack) sessionTrack.commit(kind); }
 function sessionTouch() { if (sessionTrack) sessionTrack.touch(); }
 window.addEventListener("hashchange", () => { if (sessionTrack) sessionTrack.reset(); });
 function getSetCountdown(show, cancelled) {
-  if (getSet) return getSet.run(show, cancelled);
+  const cue = (typeof pushMode !== "undefined" && pushMode === "challenge" && typeof holdSet !== "undefined" && holdSet) ? holdSet : getSet;
+  if (cue) return cue.run(show, cancelled);
   show("GO");
   return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), GET_SET_MS));
 }
@@ -3487,7 +3494,7 @@ function showPositioning(kind, el, cancelled, part) {
   if (lines && G.sayAndWait) return G.sayAndWait(spoken, Object.assign({ minMs: place ? 0 : POSITION_MS, maxMs: POSITION_SPOKEN_MAX_MS + (spoken === txt ? 0 : 3000), cancelled, now: () => performance.now() }, pv));
   return new Promise((resolve) => setTimeout(() => resolve(!cancelled()), place ? 0 : POSITION_MS));
 }
-function cancelGetSet(keepSpeech) { const c = keepSpeech && getSet && getSet.cancelKeepSpeech ? "cancelKeepSpeech" : "cancel"; if (getSet && getSet[c]) getSet[c](); }
+function cancelGetSet(keepSpeech) { const name = keepSpeech ? "cancelKeepSpeech" : "cancel"; [getSet, typeof holdSet !== "undefined" ? holdSet : null].forEach((cue) => { const fn = cue && (cue[name] || (!keepSpeech && cue.cancel)); if (fn) fn.call(cue); }); }
 function unlockGetSet() { if (getSet) getSet.unlock(); }
 let pushStarting = false, pushStartSeq = 0;
 function cancelPushStart(msg) {
@@ -3523,7 +3530,7 @@ async function startPush() {
     if (!live()) return;
     if (!(await placed)) return;
     if (!live()) return;
-    if (twoMin) hideTwoMinIntro(); // line spoken (or card tapped): then the One, two, three, Go count
+    if (twoMin) hideTwoMinIntro(); // line spoken (or card tapped): then the One, two, three, Hold count
     if (!restart && !(await showPositioning(coachKind, $("pushStatus"), () => !live(), "criteria"))) return;
     if (!live()) return;
     // Forget setup frames (placing the phone, getting into plank): the top locks from the first real dip from here.
@@ -4118,6 +4125,21 @@ function plankSpeechIdle() { const GS = window.ZabbadatGetSet; return !(GS && GS
 // Plank start: once a good plank is locked in (cue phase), show AND speak One, two, three, Hold (1.2 s each, slower plank voice, queued not cut, big digits); the clock starts at "Hold".
 // This is the only plank countdown (the old Ready / get set / 3-2-1 / Go before the camera loop and the "Hold it… 1.5s" digits are gone).
 const plankCount = window.ZabbadatGetSet && window.ZabbadatGetSet.PLANK_STEPS ? window.ZabbadatGetSet.makeGoCountdown({ steps: window.ZabbadatGetSet.PLANK_STEPS, speak: window.ZabbadatGetSet.plankSpeak, stop: () => {}, waitEnd: true, protect: true }) : null;
+const plankSide = window.ZabbadatGetSet && window.ZabbadatGetSet.makePlankSidePrompt ? window.ZabbadatGetSet.makePlankSidePrompt({
+  show: (line) => { const el = $("plankSidePrompt"); if (el) { el.textContent = line; el.hidden = false; } },
+  clear: () => { const el = $("plankSidePrompt"); if (el) { el.textContent = ""; el.hidden = true; } }
+}) : null;
+async function promptPlankSideways(cancelled) {
+  cancelled = cancelled || function () { return false; };
+  if (typeof plankSide === "undefined" || !plankSide) return !cancelled();
+  const line = plankSide.start();
+  if (!line) return !cancelled();
+  const G = window.ZabbadatGetSet;
+  if (G && G.waitSpeechIdle) await G.waitSpeechIdle(5000);
+  return !cancelled();
+}
+function plankSideClockStarted() { if (typeof plankSide !== "undefined" && plankSide) plankSide.clockStarted(); }
+function plankSideReset() { if (typeof plankSide !== "undefined" && plankSide) plankSide.reset(); }
 function plankCountShow(t) {
   const b = $("plankCount"); if (b) { b.textContent = t || ""; b.hidden = !t; }
   if (t) $("plankMsg").textContent = t;
@@ -4129,7 +4151,7 @@ function plankCue(r) {
   if (!r || r.phase !== "cue" || !r.cueSeq || r.cueSeq === plankCueSeq) return;
   plankCueSeq = r.cueSeq;
   const hold = plankHold, seq = r.cueSeq, cancelled = () => hold !== plankHold || !plankLoop || plankSaved || hold.state().phase !== "cue" || hold.state().cueSeq !== seq;
-  const begin = (ok) => { if (ok && !cancelled()) hold.begin(performance.now()); setTimeout(() => plankCountShow(""), 700); };
+  const begin = (ok) => { if (typeof plankSideClockStarted === "function") plankSideClockStarted(); if (ok && !cancelled()) hold.begin(performance.now()); setTimeout(() => plankCountShow(""), 700); };
   const say = () => (plankCount ? plankCount.run(plankCountShow, cancelled) : Promise.resolve(true)).then(begin, () => begin(false));
   // Lead-in: never count before plankLeadUntil so there is time to get down into position. After that,
   // waitEnd (makeGoCountdown) waits for earlier speech to end, then speaks One / two / three / Hold one
@@ -4164,6 +4186,7 @@ async function plankTick(id = plankLoopId) {
       } else {
         $("plankClock").textContent = formatTut(r.ms);
         if (typeof paintArcadeStrip === "function") paintArcadeStrip({ reps: "—", clock: formatTut(r.ms), plankClock: formatTut(r.ms), live: true });
+        if (typeof plankSideClockStarted === "function") plankSideClockStarted();
         if (typeof plankTimeVoice !== "undefined" && plankTimeVoice && !plankSaved) plankTimeVoice.tick(r.ms);
         if (!plankSaved && r.ms >= 60000 && currentUser) speakPlankZabOnce(); // one-time 1 ZAB mark at 60 s; claim still runs when the hold is saved
         // During the hold a framing hint is information only: it never ends the hold.
@@ -4177,6 +4200,7 @@ function newPlankHold() {
   plankLeadUntil = performance.now() + PLANK_LEAD_MS;
   plankHold = window.ZabbadatPlank.createPlankHold({ cue: true, cueMaxMs: 20000 }); if (typeof plankCount !== "undefined" && plankCount) plankCount.cancel(); if (typeof plankCountShow === "function") plankCountShow(""); plankSaved = false; plankZabSpoken = false; plankCueSeq = 0;
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.reset();
+  if (typeof plankSide !== "undefined" && plankSide) { plankSide.reset(); plankSide.start(); }
   $("plankClock").textContent = "0:00"; $("plankMsg").textContent = "Get into plank";
   $("plankStopBtn").hidden = false; $("plankAgainBtn").hidden = true;
 }
@@ -4234,8 +4258,10 @@ async function startPlankCam() {
     plankStarting = false;
     plankSessionStartedAt = Date.now();
     newPlankHold();
+    if (typeof promptPlankSideways === "function") { if (!(await promptPlankSideways(() => !live()))) return; }
+    if (!live()) return;
     if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(restart ? window.ZabbadatGetSet.COACH.plank.next : window.ZabbadatGetSet.COACH.plank.clock);
-    $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts on a proper plank. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold.";
+    $("plankStatus").textContent = "Shoulders, hips and ankles in one line. Clock starts on a proper plank. Sagging, piking, knees down, standing up or leaving the frame ends it.";
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once on a fresh start, before the go-cue */
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); /* counts (One / two / three / Hold) run at lock-in */
     plankPreview = false;
@@ -4245,7 +4271,7 @@ async function startPlankCam() {
 }
 let plankStarting = false, plankStartSeq = 0;
 function cancelPlankStart() {
-  plankStartSeq += 1; plankStarting = false; cancelGetSet();
+  plankStartSeq += 1; plankStarting = false; cancelGetSet(); if (typeof plankSideReset === "function") plankSideReset();
   if (plankPreview) { // camera up, hold not started: drop the preview pose/PFP loop and the stream
     plankPreview = false; plankLoopId += 1;
     try { if (window.ZabPfp && window.ZabPfp.clear) window.ZabPfp.clear("plankVid"); } catch (e) {}
@@ -4269,6 +4295,7 @@ function stopPlankCam() {
   $("plankWrap").hidden = true; $("plankStopBtn").hidden = true; if (typeof camFs === "function") camFs("plankWrap", false);
   $("plankCamBtn").textContent = "Start plank camera";
   if (typeof paintArcadeStrip === "function") paintArcadeStrip({ live: false });
+  if (typeof plankSideReset === "function") plankSideReset();
 }
 // ---- App-only native plank hook (iOS app build with the ZabbaPlank plugin: Apple Vision on the phone, Swift port of plank-session.js) ----
 // Browsers, Android and app builds without the plugin never enter this path: nativePlank() is null and the button runs startPlankCam() as before.
@@ -4291,6 +4318,10 @@ async function startNativePlank(P) {
   if (pushStarting) cancelPushStart();
   nativePlankBusy = true;
   const restart = sessionPlan("plank") === "restart", startedAt = Date.now();
+  try {
+    const G = window.ZabbadatGetSet;
+    if (G && G.isPortrait && G.isPortrait() === true && G.plankSpeak) G.plankSpeak(G.PLANK_SIDE_LINE || "Turn your phone to the side for optimal framing.");
+  } catch (e) {}
   let res;
   try { res = await P.start({ restart }); } catch (e) { nativePlankBusy = false; return startPlankCam(); }
   nativePlankBusy = false;
@@ -4312,7 +4343,7 @@ function plankEndSetNow() {
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.end();
 }
 if ($("plankEndBtn")) $("plankEndBtn").onclick = plankEndSetNow;
-$("plankAgainBtn").onclick = () => { if (plankLoop) { newPlankHold(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); $("plankStatus").textContent = "Whole body in the outline, side-on. Clock starts on a proper plank. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold."; } };
+$("plankAgainBtn").onclick = () => { if (plankLoop) { newPlankHold(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); $("plankStatus").textContent = "Shoulders, hips and ankles in one line. Clock starts on a proper plank. Sagging, piking, knees down, standing up or leaving the frame ends it."; } };
 renderPlankBest();
 renderPlankDays();
 paintPlankRows(localPlanks());

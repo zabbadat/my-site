@@ -295,7 +295,7 @@
   // Camera setup prompt (max 2 short lines) shown while the camera loads and ~2 s after it opens, before the countdown.
   var POSITION = {
     pushups: ["Lean your phone up in front of you, camera facing you", "Shoulders and hands in frame"],
-    plank: ["Prop your phone on the floor, off to your side, sideways or upright.", "Step back until the outline shows you head to heels."]
+    plank: ["Phone on the floor, on its side, off to your side.", "Step back until you're head to heels."]
   };
   // Plank setup line is also SPOKEN once when the camera opens; the countdown waits for it to finish.
   POSITION_SPOKEN = { plank: POSITION.plank[0] };
@@ -334,10 +334,99 @@
   var COACH = {
     pushups: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Go all the way down and back up." },
     tut: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up." },
-    squats: { place: "Prop your phone up in front of you, camera facing you.", criteria: "Step back and come in the frame, head to feet. Stand about one and a half to two times shoulder width, toes out around forty-five degrees. Glutes the whole way." },
-    plank: { clock: "Clock starts on a proper plank.", next: PLANK_SET_LINE, place: "Prop your phone on the floor, off to your side, sideways or upright. Turn to show your side.", criteria: "Step back until the outline shows you head to heels.", rules: "Stay steady. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold." }
+    squats: { place: "Phone up in front of you, camera facing you.", criteria: "Whole body in frame, head to feet. Stance one and a half to two times shoulder width, toes out about forty-five degrees. Glutes the whole way." },
+    plank: { clock: "Clock starts on a proper plank.", next: PLANK_SET_LINE, place: "Phone on the floor, on its side, off to your side.", criteria: "Step back until you're head to heels.", rules: "Sagging, piking, knees down, standing up or leaving the frame ends it." }
   };
   function coachLines(kind) { return COACH[kind] || COACH.pushups; }
+  // Plank House (owner, Nov 20): if the phone is still upright at setup, say and show this once
+  // before the countdown / clock. Clear it in landscape. Re-prompt at most once if the phone
+  // goes back to portrait before the clock starts. Never blocks the start if orientation can't
+  // be read, and never nags during the hold.
+  var PLANK_SIDE_LINE = "Turn your phone to the side for optimal framing.";
+  function isPortrait(win) {
+    try {
+      var w = win || g();
+      if (!w) return null;
+      if (typeof w.matchMedia === "function") {
+        var p = w.matchMedia("(orientation: portrait)"), l = w.matchMedia("(orientation: landscape)");
+        if (p && p.matches) return true;
+        if (l && l.matches) return false;
+      }
+      var so = w.screen && w.screen.orientation;
+      if (so && typeof so.type === "string") {
+        if (/^portrait/i.test(so.type)) return true;
+        if (/^landscape/i.test(so.type)) return false;
+      }
+      var iw = w.innerWidth, ih = w.innerHeight;
+      if (isFinite(iw) && isFinite(ih) && iw > 0 && ih > 0) return iw < ih;
+    } catch (e) {}
+    return null;
+  }
+  function makePlankSidePrompt(opts) {
+    opts = opts || {};
+    var speak = safe(opts.speak || plankSpeak);
+    var isPor = opts.isPortrait || function () { return isPortrait(opts.win || g()); };
+    var onShow = opts.show || function () {}, onClear = opts.clear || function () {};
+    var shown = 0, active = false, visible = false, unsubs = [];
+    function readPortrait() {
+      try {
+        var v = isPor();
+        if (v === true) return true;
+        if (v === false) return false;
+      } catch (e) {}
+      return null;
+    }
+    function display() {
+      if (visible) return;
+      visible = true;
+      try { onShow(PLANK_SIDE_LINE); } catch (e) {}
+      speak(PLANK_SIDE_LINE);
+    }
+    function hide() {
+      if (!visible) return;
+      visible = false;
+      try { onClear(); } catch (e) {}
+    }
+    function tick() {
+      if (!active) return;
+      var por = readPortrait();
+      if (por === true) { if (!visible && shown < 2) { shown += 1; display(); } }
+      else hide();
+    }
+    function listen() {
+      stopListen();
+      var w = opts.win || g();
+      if (!w || typeof w.addEventListener !== "function") return;
+      function on() { tick(); }
+      try { w.addEventListener("orientationchange", on); unsubs.push(function () { try { w.removeEventListener("orientationchange", on); } catch (e) {} }); } catch (e) {}
+      try { w.addEventListener("resize", on); unsubs.push(function () { try { w.removeEventListener("resize", on); } catch (e) {} }); } catch (e) {}
+      try {
+        var so = w.screen && w.screen.orientation;
+        if (so && typeof so.addEventListener === "function") {
+          so.addEventListener("change", on);
+          unsubs.push(function () { try { so.removeEventListener("change", on); } catch (e) {} });
+        }
+      } catch (e) {}
+      try {
+        if (typeof w.matchMedia === "function") {
+          var mq = w.matchMedia("(orientation: portrait)");
+          if (mq && typeof mq.addEventListener === "function") {
+            mq.addEventListener("change", on);
+            unsubs.push(function () { try { mq.removeEventListener("change", on); } catch (e) {} });
+          } else if (mq && typeof mq.addListener === "function") {
+            mq.addListener(on);
+            unsubs.push(function () { try { mq.removeListener(on); } catch (e) {} });
+          }
+        }
+      } catch (e) {}
+    }
+    function stopListen() { while (unsubs.length) { try { unsubs.pop()(); } catch (e) {} } }
+    function start() { active = true; listen(); tick(); return visible ? PLANK_SIDE_LINE : null; }
+    function clockStarted() { active = false; stopListen(); hide(); }
+    function reset() { active = false; shown = 0; stopListen(); hide(); }
+    return { start: start, tick: tick, clockStarted: clockStarted, reset: reset, line: PLANK_SIDE_LINE,
+      visible: function () { return visible; }, prompted: function () { return shown; }, active: function () { return active; } };
+  }
   // Camera-on line (owner, Nov 17): spoken every time a camera turns on, with what to do. The face part is said only
   // when the face cover (PFP) is actually on. Coached starts (push-ups, TUT, TUT Battle, plank, squats) put it in front of
   // the CRITERIA line, which is spoken once the camera is up (after the tap unlock) and is followed by the countdown, so it
@@ -500,7 +589,7 @@
       return enqueueSpeak(TUT_EXECUTED_LINE).then(done, done);
     } catch (e) { /* on-screen only */ }
   }
-  var api = { say: say, PRONOUNCE: PRONOUNCE, speakAndWait: speakAndWait, enqueueSpeak: enqueueSpeak, waitSpeechIdle: waitSpeechIdle, protectSpeech: protectSpeech, CAMERA_ON: CAMERA_ON, FACE_COVERED: FACE_COVERED, CAMERA_GUIDE: CAMERA_GUIDE, cameraOnLine: cameraOnLine, withCameraOn: withCameraOn, watchCameraVoice: watchCameraVoice, POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_EXECUTED_LINE: TUT_EXECUTED_LINE, speakTutExecuted: speakTutExecuted, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_SET_LINE: PLANK_SET_LINE, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
+  var api = { say: say, PRONOUNCE: PRONOUNCE, speakAndWait: speakAndWait, enqueueSpeak: enqueueSpeak, waitSpeechIdle: waitSpeechIdle, protectSpeech: protectSpeech, CAMERA_ON: CAMERA_ON, FACE_COVERED: FACE_COVERED, CAMERA_GUIDE: CAMERA_GUIDE, cameraOnLine: cameraOnLine, withCameraOn: withCameraOn, watchCameraVoice: watchCameraVoice, POCKET_LINE: POCKET_LINE, pocketCue: pocketCue, VOICE: VOICE, plankSpeak: plankSpeak, PLANK_VOICE: PLANK_VOICE, PLANK_STEP_MS: PLANK_STEP_MS, makeQuickCountdown: makeQuickCountdown, makeNextSetCountdown: makeNextSetCountdown, NEXT_SET_LINE: NEXT_SET_LINE, NEXT_LEAD_MS: NEXT_LEAD_MS, NEXT_STEPS: NEXT_STEPS, NEXT_COUNT_MS: NEXT_COUNT_MS, NEXT_TOTAL_MS: NEXT_TOTAL_MS, QUICK_STEPS: QUICK_STEPS, QUICK_MS: QUICK_MS, makeSessionTracker: makeSessionTracker, SESSION_IDLE_MS: SESSION_IDLE_MS, makeSharedCountdownVoice: makeSharedCountdownVoice, BATTLE_WORDS: BATTLE_WORDS, COACH: COACH, coachLines: coachLines, PLANK_SIDE_LINE: PLANK_SIDE_LINE, isPortrait: isPortrait, makePlankSidePrompt: makePlankSidePrompt, STEPS: STEPS, COUNTDOWN_MS: COUNTDOWN_MS, interruptSpeak: interruptSpeak, isSpeaking: isSpeaking, SET_DONE_LINE: "Set complete.", PLANK_SET_DONE_LINE: "Set complete", PLANK_TIME_EVERY_MS: PLANK_TIME_EVERY_MS, plankTimeCallout: plankTimeCallout, makePlankTimeVoice: makePlankTimeVoice, TUT_EXECUTED_LINE: TUT_EXECUTED_LINE, speakTutExecuted: speakTutExecuted, TUT_FAIL_LINE: "Set complete.", sayAndWait: sayAndWait, POSITION_SPOKEN: POSITION_SPOKEN, holdCallout: holdCallout, makeHoldVoice: makeHoldVoice, HOLD_EVERY_MS: HOLD_EVERY_MS, repCallout: repCallout, makeRepVoice: makeRepVoice, POSITION: POSITION, positionPrompt: positionPrompt, READY: READY, makeGetSet: makeGetSet, makeGoCountdown: makeGoCountdown, PLANK_STEPS: PLANK_STEPS, PLANK_SET_LINE: PLANK_SET_LINE, PLANK_COUNT_MS: PLANK_COUNT_MS, makeBattleVoice: makeBattleVoice };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else {
     root.ZabbadatGetSet = api;

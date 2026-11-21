@@ -39,7 +39,7 @@ async function loadCamLibs() {} async function ensurePose() { log.push("pose"); 
 function poseTick() {} function syncPushStartBtn() {} let poseLoopId = 0, plankLoopId = 0; function renderPush() {} function resetPoseBaseline() {} function camExitFs() {} function setCamStatus() {}
 let plankLeadUntil = 0; const PLANK_LEAD_MS = 4000;
 function newPlankHold() { log.push("plankHold"); } function plankTick() {} function plankEnded() {}`;
-  const SRC = [STUBS, line("const GET_SET_MS"), line("const getSet = "), line("const quickSet = "), line("const sessionTrack = "), line("function sessionPlan"), line("function sessionCommit"), line("function sessionTouch"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
+  const SRC = [STUBS, line("const GET_SET_MS"), line("const getSet = "), line("const holdSet = "), line("const quickSet = "), line("const sessionTrack = "), line("function sessionPlan"), line("function sessionCommit"), line("function sessionTouch"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
     fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '),
     "async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
     line('$("plankCamBtn").onclick = '), `const origClock = beginPushClock; beginPushClock = function () { log.push("clock"); return origClock(); };`].join("\n")
@@ -64,6 +64,10 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   // Plank: no pre-loop countdown any more (One, two, three, Hold runs at lock-in, see plank-cue.test.js): fresh = place, criteria, then clock / rules / next in series (each waits for onend); restart = short next-set intro.
   const FULLP = (t0) => [C.plank.place + "@" + t0, GS.withCameraOn(C.plank.criteria, false) + "@" + (t0 + 1000), C.plank.clock + "@" + (t0 + 3000), C.plank.rules + "@" + (t0 + 4000), C.plank.next + "@" + (t0 + 5000)].join(",");
   const QUICK = (t0) => [LINE + "@" + t0, "One@" + (t0 + 4000), "two@" + (t0 + 5200), "three@" + (t0 + 6400), "Go@" + (t0 + 7600)].join(",");
+  const cueOf = (mode) => mode === "challenge" ? GS.PLANK_SET_LINE : LINE;
+  const lastOf = (mode) => mode === "challenge" ? "Hold" : "Go";
+  const FULLM = (mode, t0) => { const k = mode === "long" ? "tut" : "pushups"; return [C[k].place + "@" + t0, GS.withCameraOn(C[k].criteria, false) + "@" + (t0 + 1000), cueOf(mode) + "@" + (t0 + 3000), "One@" + (t0 + 7000), "two@" + (t0 + 8200), "three@" + (t0 + 9400), lastOf(mode) + "@" + (t0 + 10600)].join(","); };
+  const QUICKM = (mode, t0) => [cueOf(mode) + "@" + t0, "One@" + (t0 + 4000), "two@" + (t0 + 5200), "three@" + (t0 + 6400), lastOf(mode) + "@" + (t0 + 7600)].join(",");
   // ---- get-set.js: quick countdown
   { const said = [], shown = [], q = []; const g = GS.makeQuickCountdown({ speak: (w) => said.push(w), unlock() {}, schedule: (f, d) => q.push([f, d]) });
     let done = null; g.run((t) => shown.push(t)).then((v) => (done = v));
@@ -89,28 +93,28 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   for (const mode of ["sets", "long", "challenge"]) {
     const k = mode === "long" ? "tut" : "pushups", e = env({ mode });
     e.$("pushStartBtn").onclick(); await e.advance(11000);
-    check(`${mode}: first set of a new session has the full intro + 7 s countdown`, words(e) === FULL(k, 0) && e.run("pushState.running") === true);
+    check(`${mode}: first set of a new session has the full intro + 7 s countdown`, words(e) === FULLM(mode, 0) && e.run("pushState.running") === true);
     /* stop mid-session: stop camera, then start a new set */
     e.run("pushState.running = false; stopCam();"); let n = SAID(e).length, t0 = e.now();
     e.$("pushStartBtn").onclick();
     check(`${mode}: restart tap: no placement line, unlock + camera opening, no clock yet`, SAID(e).length === n && e.log.includes("speech:unlock") && e.run("pushStarting") === true && e.run("pushState.running") === false);
     await e.advance(7700);
-    check(`${mode}: restart: shared go-cue only (no first-time coaching)`, words(e, n) === QUICK(t0) && NOINTRO(e, n));
+    check(`${mode}: restart: shared go-cue only (no first-time coaching)`, words(e, n) === QUICKM(mode, t0) && NOINTRO(e, n));
     check(`${mode}: restart: normal behavior continues (camera reopened, clock + status as a first set)`, e.run("camOn") === true && e.run("pushState.running") === true && e.$("pushStatus").textContent === STATUS[mode] && e.run("pushStarting") === false);
     /* next set after finishing the first (camera still on) and a third set */
     for (let i = 0; i < 2; i++) {
       e.run("pushState.running = false; pushState.finished = false; sessionTouch();"); n = SAID(e).length; t0 = e.now();
       e.$("pushStartBtn").onclick(); await e.advance(7700);
-      check(`${mode}: next set #${i + 2} (camera on): go-cue only, clock starts at Go`, words(e, n) === QUICK(t0) && e.run("pushState.running") === true);
+      check(`${mode}: next set #${i + 2} (camera on): go-cue only, clock starts at ${lastOf(mode)}`, words(e, n) === QUICKM(mode, t0) && e.run("pushState.running") === true);
     }
-    check(`${mode}: later sets still use the shared go-cue counts`, SAID(e).slice(8).filter((x) => x.w === "Go").length >= 3 && SAID(e).slice(8).some((x) => x.w === "One"));
+    check(`${mode}: later sets still use the shared go-cue counts`, SAID(e).slice(8).filter((x) => x.w === lastOf(mode)).length >= 3 && SAID(e).slice(8).some((x) => x.w === "One"));
   }
   /* switching push-up mode (sets -> TUT) is a different exercise: full intro again */
   { const e = env({ mode: "sets" }); e.$("pushStartBtn").onclick(); await e.advance(11000);
     e.run("pushState.running = false; pushMode = 'long';"); const n = SAID(e).length, t0 = e.now(); e.$("pushStartBtn").onclick(); await e.advance(11000);
     check("switching push-ups -> TUT: full TUT intro + countdown again", words(e, n) === FULL("tut", t0));
     e.run("pushState.running = false; pushMode = 'challenge';"); const m = SAID(e).length, t1 = e.now(); e.$("pushStartBtn").onclick(); await e.advance(11000);
-    check("switching TUT -> challenge (push-ups): full intro again", words(e, m) === FULL("pushups", t1)); }
+    check("switching TUT -> challenge (push-ups): full intro again", words(e, m) === FULLM("challenge", t1)); }
   /* a cancelled first start never counts as the first set */
   { const e = env(); e.$("pushStartBtn").onclick(); await e.advance(6000); e.run("stopCam()"); await e.advance(500);
     const n = SAID(e).length, t0 = e.now(); e.$("pushStartBtn").onclick(); await e.advance(11000);
@@ -137,7 +141,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     check("plank restart tap: no placement line, wake + unlock inside the tap", SAID(e).length === n && e.log.filter((x) => x !== "speech:cancel").slice(-2).join(",") === "plankWake:start,speech:unlock" && e.$("plankStatus").textContent !== C.plank.place);
     await e.advance(7700);
     check("plank restart: go-cue setup line only, no first-time coaching or pre-loop countdown (counts run at lock-in)", words(e, n) === C.plank.next + "@" + t0 && NOINTRO(e, n));
-    check("plank restart: hold armed + status exactly as a first start", e.run("plankLoop") === true && e.$("plankStatus").textContent === "Whole body in the outline, side-on. Clock starts on a proper plank. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold.");
+    check("plank restart: hold armed + status exactly as a first start", e.run("plankLoop") === true && e.$("plankStatus").textContent === "Shoulders, hips and ankles in one line. Clock starts on a proper plank. Sagging, piking, knees down, standing up or leaving the frame ends it.");
     e.run("plankHold = null; stopPlankCam();"); n = SAID(e).length; t0 = e.now(); e.$("plankCamBtn").onclick(); await e.advance(7700);
     check("plank: third start is quick too", words(e, n) === C.plank.next + "@" + t0 && e.run("plankLoop") === true);
     /* switch exercise: push-ups after plank is a new session, and plank after push-ups is new again */
@@ -156,7 +160,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   check("leaving the exercise (hashchange) resets the session; stops and finishes touch it",
     /addEventListener\("hashchange", \(\) => \{ if \(sessionTrack\) sessionTrack\.reset\(\); \}\)/.test(html) && /function finishPushSet\(endedBy\) \{\n  const opts = arguments\.length > 1 \? arguments\[1\] : undefined;\n  if \(pushState\.finished\) return;\n  sessionTouch\(\);/.test(html) && /function stopPlankCam\(\) \{\n  sessionTouch\(\);/.test(html) && /function plankEnded\(r\) \{\n[^\n]*plankTimeVoice\.end\(\);\n  sessionTouch\(\);/.test(html) && /function tbFinish\(r\) \{\n  sessionTouch\(\); clearInterval/.test(html));
   check("session is committed only after the first countdown finishes (push-ups and plank)", /sessionCommit\(coachKind\);\n    pushStarting = false;/.test(html) && /sessionCommit\("plank"\);\n    plankStarting = false;/.test(html));
-  check("get-set.js defaults: push-up COACH place line (leaned-up setup), plank line is the sideways side-view setup, and the 7 s STEPS", GS.STEPS.length === 5 && GS.COUNTDOWN_MS === 7600 && C.pushups.place === "Lean your phone up in front of you, camera facing you." && C.plank.place === "Prop your phone on the floor, off to your side, sideways or upright. Turn to show your side.");
+  check("get-set.js defaults: push-up COACH place line (leaned-up setup), plank line is the sideways side-view setup, and the 7 s STEPS", GS.STEPS.length === 5 && GS.COUNTDOWN_MS === 7600 && C.pushups.place === "Lean your phone up in front of you, camera facing you." && C.plank.place === "Phone on the floor, on its side, off to your side.");
   check("push-counter.js still exports DEFAULTS with the same rep-duration limits", require("../push-counter.js").DEFAULTS.minRepMs === 400 && require("../push-counter.js").DEFAULTS.maxRepMs === 6000);
   check("no 'zaba' user-facing or location text added in get-set.js", !/zaba(?!bba)/i.test(GS_SRC) && !/jersey/i.test(GS_SRC));
   const f = R.filter((x) => !x).length; console.log(`\n${R.length - f} passed, ${f} failed`); process.exit(f ? 1 : 0);

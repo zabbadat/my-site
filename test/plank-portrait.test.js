@@ -49,8 +49,9 @@ check("hold: portrait accepts slightly lower confidence (0.28)", r.phase === "ho
 r = run(seq(0, 8000, (t) => body(450, 0, { x0: 90, y0: 240, j: jit(t), score: 0.28 })), LAND);
 check("hold: landscape keeps its 0.3 confidence gate (0.28 never starts)", r.phase === "ready");
 check("thresholds pinned", P.PLANK.minSpanPortrait === 0.35 && P.PLANK.portraitMinScore === 0.25 && P.PLANK.portraitFrameScore === 0.25 && P.PLANK.kneeFrac === 0.75 && P.PLANK.sagStart === 0.08 && P.PLANK.pikeStart === 0.10 && P.PLANK.maxTilt === 50 && P.PLANK.sideSep === 0.5 && P.PLANK.edgeFrac === 0.06);
-// Copy: upright phone works; no rotate prompt; no location text.
-const idx = fs.readFileSync(__dirname + "/../index.html", "utf8"), pl = fs.readFileSync(__dirname + "/../plank.html", "utf8");
-check("copy: plank setup says sideways or upright", /sideways or upright/.test(idx) && /sideways or upright/.test(pl) && /sideways or upright/.test(require("../get-set.js").POSITION.plank[0]));
+// Copy: app setup asks for the phone on its side; the SEO page keeps the longer wording; upright still works (prompt does not block).
+const idx = fs.readFileSync(__dirname + "/../index.html", "utf8"), pl = fs.readFileSync(__dirname + "/../plank.html", "utf8"), GS = require("../get-set.js");
+check("copy: app setup says on its side; SEO page still says sideways or upright", /on its side, off to your side/.test(idx) && /sideways or upright/.test(pl) && GS.POSITION.plank[0] === "Phone on the floor, on its side, off to your side.");
 check("copy: no 'Prop the phone sideways' prompt is reached from the framing guide", ["level", "closer", "whole", "turn"].every((i) => P.MSG[i]) && !/Prop the phone sideways/.test(idx));
+check("copy: sideways framing prompt wording", GS.PLANK_SIDE_LINE === "Turn your phone to the side for optimal framing." && idx.includes("Turn your phone to the side for optimal framing.") && /id="plankSidePrompt"/.test(idx));
 const fail = R.filter((x) => !x).length; console.log(`\n${R.length - fail} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

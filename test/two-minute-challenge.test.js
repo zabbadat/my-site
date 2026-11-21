@@ -1,6 +1,6 @@
 // Two-minute challenge (Nov 16, owner): a 2:00 clock counting down while you hold a push-up plank (high plank, arms straight).
 // Complete at 0:00; a form break (knees / sag / pike / collapse / stood up), End set or Stop camera = failed, time held shown.
-// Start shows the intro card AND speaks the intro line together, before the One, two, three, Go count.
+// Start shows the intro card AND speaks the intro line together, before the One, two, three, Hold count.
 // Run: node test/two-minute-challenge.test.js
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const ROOT = path.join(__dirname, "..");
@@ -23,14 +23,14 @@ const fnSrc = (n) => { const a = "function " + n + "("; const i = html.indexOf(a
 check("TUT Battle's own 3:00 clock (createChallenge) is untouched", C.createChallenge({ durationMs: 180000 }).options.durationMs === 180000 && /durationMs: 180000/.test(fs.readFileSync(path.join(ROOT, "tut-battle.js"), "utf8")));
 
 // ---- 2. intro copy (card + spoken line)
-check("spoken intro line, verbatim", C.INTRO.spoken === "Hold yourself up in a push press plank position. Hold for two minutes.");
+check("spoken intro line, verbatim", C.INTRO.spoken === "Hold a push-up plank, arms straight, for two minutes.");
 check("written intro card: title + 2:00 clock + hold a push-up plank", C.INTRO.title === "Two-minute challenge" && /runs from 2:00 down to 0:00/.test(C.INTRO.lines[0]) && /Hold a push-up plank, arms straight, the whole two minutes/.test(C.INTRO.lines[1]));
 check("page: intro card element present, hidden until Start", /<div class="twomin-intro" id="twoMinIntro" hidden/.test(html) && /\.twomin-intro\{position:fixed;inset:0;z-index:10001/.test(html));
 check("intro speaks at the plank pace (VOICE rate 0.88) and resumes the speech engine first", G.VOICE.rate === 0.88 && /resume: true/.test(fnSrc("showTwoMinIntro")) && /ss\.resume\(\)/.test(fs.readFileSync(path.join(ROOT, "get-set.js"), "utf8")));
 
 // ---- 3. labels / panel
 check("mode button says Two-minute challenge; no three-minute copy left in the solo challenge", /id="modeChallengeBtn"[^>]*>Two-minute challenge</.test(html) && !/Three-minute|three-minute challenge/.test(html + fs.readFileSync(path.join(ROOT, "tut.html"), "utf8")));
-check("challenge note: 2:00 down, hold a push-up plank, what ends it, today's line", /id="challengeNote"[^>]*>Two-minute challenge: the clock runs from 2:00 down to 0:00\. Hold a push-up plank, arms straight, the whole two minutes\./.test(html) && /id="twoMinToday"/.test(html));
+check("challenge note: 2:00 down, hold a push-up plank, Hold cue, what ends it, today's line", /id="challengeNote"[^>]*>Two-minute challenge: hold a push-up plank, arms straight, while the clock runs from 2:00 to 0:00\. The start cue is "Set up, hold on three\. One, two, three, Hold\." The clock starts at Hold\./.test(html) && /id="twoMinToday"/.test(html));
 check("I give up removed (DOM + handler); no Pause / Finish set / Reset total in the panel (Start-set-only panel on main); End set stays on the camera", !/pushGiveUpBtn|I give up/.test(html) && !/id="(pushPauseBtn|pushFinishBtn|pushTotalResetBtn)"/.test(html) && /<button class="btn cam-end-btn" id="camEndBtn" type="button"[^>]*>End set<\/button>/.test(html));
 { // renderPushMode in challenge: only Start challenge is visible in the panel row
   const els = {}; const $ = (id) => els[id] || (els[id] = { id, hidden: false, disabled: false, textContent: "", setAttribute() {} });
@@ -103,16 +103,17 @@ const tick = () => new Promise((r) => setTimeout(r, 5));
   for (const [pose, want] of [["knees", "knees"], ["sag", "form"], ["pike", "form"], ["collapse", "collapse|elbows"], ["stand", "standing"]]) {
     const r = hold(pose, 20000); check(`${pose} at 0:20 ends it as '${want}' within ~1.5 s`, r && new RegExp("^(" + want + ")$").test(r.f) && r.t - 20000 < 2500, JSON.stringify(r)); }
 
-  // ---- 8. Start flow (real startPush / beginPushClock / poseTick): card + spoken line together, then One two three Go, then the 2:00 clock
+  // ---- 8. Start flow (real startPush / beginPushClock / poseTick): card + spoken line together, then One two three Hold, then the 2:00 clock
   const sp = []; let card = [];
   const res = await run(path.join(ROOT, "index.html"), { mode: "challenge", spoken: sp, script: () => ({ d: 0 }), ms: 40000, setup: (ctx, now) => {
     const el = ctx.$("twoMinIntro"); let h = true; Object.defineProperty(el, "hidden", { get: () => h, set: (v) => { if (v !== h) card.push({ hidden: v, at: now() }); h = v; } }); } });
   const intro = sp.find((x) => x.w === C.INTRO.spoken), shown = card.find((x) => x.hidden === false), gone = card.find((x) => x.hidden === true);
   check("Start: intro card shown and intro line spoken together in the tap (same moment)", intro && shown && intro.at === 0 && shown.at === 0, JSON.stringify({ intro, shown }));
   check("card stays up until the line has finished speaking, then the count", gone && gone.at >= 1000 && gone.at >= 2500, JSON.stringify(gone));
-  const go = sp.findIndex((x) => /go/i.test(x.w) && x.at >= (gone ? gone.at : 0));
-  check("after the card: One, two, three, Go, then the clock starts", go > sp.indexOf(intro) && res.startedAt > 0, JSON.stringify(sp.map((x) => x.w)));
-  check("holding the plank 30 s after Go: still running, no reps counted, nothing ended", res.running === true && res.reps === 0);
+  const holdAt = sp.findIndex((x) => /^Hold$/i.test(x.w) && x.at >= (gone ? gone.at : 0));
+  const said = sp.map((x) => x.w);
+  check("after the card: Set up, hold on three. One, two, three, Hold, then the clock starts", holdAt > sp.indexOf(intro) && said.includes("Set up, hold on three.") && said.includes("One") && said.includes("two") && said.includes("three") && said.includes("Hold") && !said.includes("Go") && res.startedAt > 0, JSON.stringify(said));
+  check("holding the plank 30 s after Hold: still running, no reps counted, nothing ended", res.running === true && res.reps === 0);
 
   // ---- 9. PFP on every camera start (cover from the moment the camera opens; same Enable profile - PFP switch)
   const seg = (a, b) => html.slice(html.indexOf(a), html.indexOf(b, html.indexOf(a)));

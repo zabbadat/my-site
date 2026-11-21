@@ -68,13 +68,13 @@
   // Form-break watch for the hold (owner spec: sag, pike, knees down, collapse / arms giving out, stood up all end it). Push-up
   // sets end only on a definitive break (push-session.js FAIL.endOn: form / elbows off); the plank hold opts back in to both.
   var HOLD_FAIL_OPTS = { endOn: { form: true, elbows: true } };
-  // Start-button intro: the card and the spoken line go up together, before the One, two, three, Go count.
+  // Start-button intro: the card and the spoken line go up together, before the One, two, three, Hold count.
   var INTRO = {
-    spoken: "Hold yourself up in a push press plank position. Hold for two minutes.",
+    spoken: "Hold a push-up plank, arms straight, for two minutes.",
     title: "Two-minute challenge",
-    lines: ["The clock runs from 2:00 down to 0:00.", "Hold a push-up plank, arms straight, the whole two minutes.", "Knees down, sagging, piking up, collapsing or standing up ends it."]
+    lines: ["The clock runs from 2:00 down to 0:00.", "Hold a push-up plank, arms straight, the whole two minutes.", "Knees down, sagging, piking, collapsing or standing up ends it."]
   };
-  // start(t) at Go; update(t) -> snapshot; fail(t, reason) ends it early (credit up to t); stop(t, reason) = ended by hand.
+  // start(t) at Hold; update(t) -> snapshot; fail(t, reason) ends it early (credit up to t); stop(t, reason) = ended by hand.
   // Snapshot: { started, ended, success, reason, heldMs, remainingMs }. Nothing after durationMs is ever credited.
   function createHoldChallenge(opts) {
     var o = {}; for (var k in HOLD_CHALLENGE) o[k] = HOLD_CHALLENGE[k];

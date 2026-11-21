@@ -39,7 +39,7 @@ async function loadCamLibs() {} async function ensurePose() { log.push("pose"); 
 function poseTick() {} function syncPushStartBtn() {} let poseLoopId = 0, plankLoopId = 0; function renderPush() {} function resetPoseBaseline() {} function camExitFs() {} function setCamStatus() {}
 let plankLeadUntil = 0; const PLANK_LEAD_MS = 5500;
 function newPlankHold() { log.push("plankHold"); } function plankTick() {} function plankEnded() {}`;
-  const SRC = [STUBS, line("const GET_SET_MS"), line("const getSet = "), line("const quickSet = "), line("const sessionTrack = "), line("function sessionPlan"), line("function sessionCommit"), line("function sessionTouch"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
+  const SRC = [STUBS, line("const GET_SET_MS"), line("const getSet = "), line("const holdSet = "), line("const quickSet = "), line("const sessionTrack = "), line("function sessionPlan"), line("function sessionCommit"), line("function sessionTouch"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"),
     fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '),
     "async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
     line('$("plankCamBtn").onclick = '), `const origClock = beginPushClock; beginPushClock = function () { log.push("clock"); return origClock(); };`].join("\n")
@@ -75,12 +75,13 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     check(`${mode}: camera + pose open while the placement line plays`, e.log.indexOf("camera") > 0 && e.log.indexOf("camera") < e.log.indexOf("pose") && SAID(e).length === 1);
     await e.advance(1000);
     check(`${mode}: criteria line spoken + shown after the placement line ends`, SAID(e)[1] && SAID(e)[1].w === GS.withCameraOn(C[mode].criteria, false) && SAID(e)[1].at === 1000 && e.$("pushStatus").textContent === C[mode].criteria);
+    const cue = mode === "challenge" ? GS.PLANK_SET_LINE : LINE, last = mode === "challenge" ? "Hold" : "Go", lastShown = mode === "challenge" ? "HOLD" : "3";
     await e.advance(10590 - e.now());
-    check(`${mode}: no Go / clock before 10.6 s`, !e.log.includes("say:Go") && !e.log.includes("clock") && e.$("pushStatus").textContent === "3");
+    check(`${mode}: no ${last} / clock before 10.6 s`, !e.log.includes("say:" + last) && !e.log.includes("clock") && (e.$("pushStatus").textContent === "3" || e.$("pushStatus").textContent === lastShown));
     await e.advance(20);
     const times = SAID(e).map((x) => x.w + "@" + x.at).join(",");
-    check(`${mode}: timeline`, times === [C[mode].place + "@0", GS.withCameraOn(C[mode].criteria, false) + "@1000", LINE + "@3000", "One@7000", "two@8200", "three@9400", "Go@10600"].join(","));
-    check(`${mode}: clock starts at Go`, e.run("pushState.running") === true && e.$("pushStatus").textContent === STATUS[mode] && e.$("pushStartBtn").disabled === true); // stays disabled while the set runs (pose-loop guard); syncPushStartBtn re-enables at the end
+    check(`${mode}: timeline`, times === [C[mode].place + "@0", GS.withCameraOn(C[mode].criteria, false) + "@1000", cue + "@3000", "One@7000", "two@8200", "three@9400", last + "@10600"].join(","));
+    check(`${mode}: clock starts at ${last}`, e.run("pushState.running") === true && e.$("pushStatus").textContent === STATUS[mode] && e.$("pushStartBtn").disabled === true); // stays disabled while the set runs (pose-loop guard); syncPushStartBtn re-enables at the end
     if (mode === "challenge") check("challenge: Two-minute challenge clock started", e.log.includes("challenge:start"));
   }
   { const e = env({ noEnd: true }); e.$("pushStartBtn").onclick(); await e.advance(9990);
@@ -116,7 +117,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     await e.advance(9980 - e.now()); check("plank: no pre-loop countdown: hold armed after the setup lines (One / two / three / Hold run at lock-in)", e.log.includes("plankHold") && e.run("plankLoop") === true && !SAID(e).some((x) => x.w === "Go"));
     await e.advance(30);
     check("plank: timeline", SAID(e).map((x) => x.w + "@" + x.at).join(",") === [C.plank.place + "@0", GS.withCameraOn(C.plank.criteria, false) + "@1000", C.plank.clock + "@3000", C.plank.rules + "@4000", C.plank.next + "@5000"].join(","));
-    check("plank: after the setup lines, 1.5 s good-form lock-in armed as the clock trigger", e.log.includes("plankHold") && e.run("plankLoop") === true && e.$("plankStatus").textContent === "Whole body in the outline, side-on. Clock starts on a proper plank. Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold." && /readyMs: 1500,/.test(fs.readFileSync(path.join(__dirname, "..", "plank-session.js"), "utf8"))); }
+    check("plank: after the setup lines, 1.5 s good-form lock-in armed as the clock trigger", e.log.includes("plankHold") && e.run("plankLoop") === true && e.$("plankStatus").textContent === "Shoulders, hips and ankles in one line. Clock starts on a proper plank. Sagging, piking, knees down, standing up or leaving the frame ends it." && /readyMs: 1500,/.test(fs.readFileSync(path.join(__dirname, "..", "plank-session.js"), "utf8"))); }
   { const e = env({ speech: "absent" }); e.$("plankCamBtn").onclick(); await e.advance(10); await e.advance(1900);
     check("plank silent fallback: criteria held 2 s", e.$("plankStatus").textContent === C.plank.criteria); await e.advance(150); check("plank silent fallback: hold armed after the 2 s criteria line", e.log.includes("plankHold")); }
   for (const at of [0, 600, 1500]) { const e = env(); e.$("plankCamBtn").onclick(); await e.advance(at); e.$("plankCamBtn").onclick(); await e.advance(12000);
@@ -126,7 +127,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   // ---- static UI
   check("static: single push Start button, no old phone-placement button / camBtn", !html.includes('id="camBtn"') && !html.includes("Phone on floor") && html.includes('<button class="btn" id="pushStartBtn" type="button">Start set</button>'));
   check("static: Stop camera kept", html.includes('<button class="btn ghost" id="camStopBtn" type="button" hidden>Stop camera</button>'));
-  check("static: note near the button", html.includes('Get set first: tapping Start turns on your camera and talks you through setup, then "Set up, go on three. One, two, three, go." Counting starts at Go; your first full push-up counts.'));
+  check("static: note near the button", html.includes('Tap Start to turn on the camera and hear setup, then "Set up, go on three. One, two, three, Go." Counting starts at Go. Your first full push-up counts. The Two-minute challenge uses Hold instead of Go.'));
   check("static: solo counter needs no calibration (the first real dip sets the top and counts)", html.includes("pushCounter = window.ZabbadatPush.createCounter();") && !html.includes("function waitCalibrated("));
   check("static: default status", html.includes('<p class="note" id="pushStatus">Ready. Get set, then tap Start.</p>'));
   check("static: no 'Start, get, set' text left", !/Start, get, set|"get", "set"|Set!/.test(html + GS_SRC));
