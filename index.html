@@ -1120,6 +1120,16 @@ body.arcade-live #playEarn10k{display:none}
     }
 
 </style>
+
+<style id="magicEyeCss">
+#magicEye.me-centered{margin:0 auto 2rem;max-width:52rem;text-align:center}
+#magicEye canvas{display:block;width:100%;height:auto;border-radius:12px;border:1px solid rgba(255,46,147,.28);background:#000}
+#magicEye .me-cap{margin:.7rem 0 0;color:var(--text);font-weight:600;font-size:1.02rem}
+#magicEye .me-tip{margin:.2rem 0 0;color:var(--muted);font-size:.92rem;font-weight:400}
+#magicEye .me-reveal{margin:.55rem 0 0;background:transparent;color:var(--muted);border:1px solid rgba(239,244,241,.22);border-radius:999px;padding:.3rem .8rem;font:inherit;font-size:.82rem;cursor:pointer}
+#magicEye .me-reveal:hover,#magicEye .me-reveal:focus-visible{color:var(--text);border-color:rgba(198,255,0,.5);outline:none}
+#magicEye .me-shape{margin:.4rem 0 0;color:var(--lime,#C6FF00);font-weight:600;font-size:.95rem}
+</style>
 </head>
 <body>
   <nav>
@@ -1524,6 +1534,15 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="cooling-box">
     <h2> Breathwork & Meditation —<br>Zabsticking<br>Sitkari coolbox breathing technique </h2>
     <p class="lead">Sitkari through the inhale, box counts on all four sides. Cool the mouth & mind, then close the cycle through the nose.</p>
+    <figure class="me-centered" id="magicEye">
+      <canvas id="magicEyeCanvas" width="1400" height="900" role="img" aria-label="Today's Magic Eye autostereogram"></canvas>
+      <figcaption>
+        <p class="me-cap">Today's Magic Eye</p>
+        <p class="me-tip">Cross your eyes until the two dots become three.</p>
+        <button type="button" class="me-reveal" id="magicEyeReveal" aria-expanded="false" aria-controls="magicEyeShape">Reveal today's shape</button>
+        <p class="me-shape" id="magicEyeShape" hidden></p>
+      </figcaption>
+    </figure>
     <div class="card" id="sitkari-how" style="margin-bottom:1.15rem">
       <div class="tag">How to sitkari</div>
       <h3>The inhale - (utilize <strong class="zabstick-hl">Zabstick</strong>)<br>or soften the jaw</h3>
@@ -2148,6 +2167,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/get-set.js"></script>
   <script src="/plank-session.js"></script>
   <script src="/et-day.js"></script>
+  <script src="/magic-eye.js"></script>
   <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>
   <script src="/game-steps.js"></script>
