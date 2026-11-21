@@ -82,7 +82,10 @@ const every = (period, first) => (t) => (t < (first || 0) ? 0 : 1 + Math.floor((
   const leave = sim((t) => (t >= 9000 && t < 14000 ? [] : kpsOf(rep(t))), 25000, repsAt, (t) => (t % REP) / REP < 0.4);
   check("leaves the frame 5 s mid-set, comes back: no end", leave.end === null, JSON.stringify(leave));
   const leaveLong = sim((t) => (t >= 9000 ? [] : kpsOf(rep(t))), 70000, (t) => Math.min(repsAt(t), 3), () => false);
-  check("out of frame for 60 s: no end (losing tracking pauses counting)", leaveLong.end === null, JSON.stringify(leaveLong));
+  // Nov 20 (owner): leaving the frame is a set that is over (Sets): body gone 10 s ends it as "frame". TUT keeps pausing.
+  check("Sets: out of frame for 10 s ends the set as 'frame' (~19 s, left at 9 s)", leaveLong.end === "frame" && leaveLong.at >= 18900 && leaveLong.at <= 19300, JSON.stringify(leaveLong));
+  const leaveTut = sim((t) => (t >= 9000 ? [] : kpsOf(rep(t))), 70000, (t) => Math.min(repsAt(t), 3), () => false, "long");
+  check("TUT: out of frame for 60 s: no end (losing tracking pauses the TUT set)", leaveTut.end === null, JSON.stringify(leaveTut));
   const elb = sim((t) => kpsOf(t >= 9000 && t < 12000 ? Object.assign({}, BOT, { elbow: [240, 338] }) : rep(t)), 20000, repsAt, (t) => (t % REP) / REP < 0.4);
   check("elbows flat 3 s mid-set: no end", elb.end === null, JSON.stringify(elb));
   for (const hold of [1500, 3000]) {

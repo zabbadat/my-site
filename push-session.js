@@ -218,7 +218,7 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
   function lineDiff(a, b) { var d = Math.abs(angDiff(a, b)); return d > Math.PI / 2 ? Math.PI - d : d; } // a shoulder line has no direction: left/right swap is not a tilt
   function createViewWatch(opts) {
     var o = Object.assign({}, VIEW, opts || {}), s;
-    function reset() { s = { base: null, warm: null, pend: null, riseY: null, seen: null, chest: null }; }
+    function reset() { s = { base: null, warm: null, pend: null, riseY: null, seen: null, chest: null, liftT: null }; }
     reset();
     function shoulders(kps) {
       var ls = pt(kps, "left_shoulder", o.minScore), rs = pt(kps, "right_shoulder", o.minScore);
@@ -277,12 +277,16 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
       if (!kind && lineDiff(sample.ang, s.base.ang) * 180 / Math.PI > o.rotDeg) kind = "lifted";
       if (!kind && rose > riseN * W) kind = "standing";
       if (!kind && sample.n >= 2 && s.base.hasW && s.base.wy - sample.wy > handN * W) kind = "standing";
+      // Nov 20: remembered for the set-end watch (a pickup is never "stuck" / "left the frame"). Only a real camera move: the
+      // shoulders AND hands shifting together, or a tilt of a shoulder line wide enough to measure (>= 8% of the frame); a
+      // side-on view (shoulders a few px apart) reads a noisy "tilt" every frame and must not suppress the set end.
+      if (kind === "lifted" && (dist > o.moveFrac * W && wd > o.moveFrac * W || sample.sw >= 0.08 * W)) s.liftT = t;
       if (!kind) { s.pend = null; return null; }
       if (!s.pend || s.pend.kind !== kind) s.pend = { kind: kind, since: t };
       if (t - s.pend.since >= (kind === "lifted" ? o.liftMs : o.badMs)) return kind;
       return null;
     }
-    return { update: update, reset: reset, options: o };
+    return { update: update, reset: reset, options: o, liftedAt: function () { return s.liftT; } };
   }
   // Form features for the failure watch. line: shoulder-hip-ankle angle (180 = straight plank), knee: hip-knee-ankle,
   // elbowsDown: an elbow at wrist / floor height (forearm flat), i.e. the arms gave out. Normal bending keeps the
@@ -405,7 +409,7 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
       else { upSince = null; upN = 0; }
       return null;
     }
-    return { update: update, reset: reset, failed: function () { return failed; }, failedAt: function () { return failAt; }, baseline: function () { return base; } };
+    return { update: update, reset: reset, failed: function () { return failed; }, failedAt: function () { return failAt; }, baseline: function () { return base; }, liftedAt: function () { return view && view.liftedAt ? view.liftedAt() : null; } };
   }
   // 30-second top-hold reward: one continuous hold at the top (press / plank) for holdMs earns the bonus ONCE per set.
   // update(atTop, t, kneesDown) -> { holdMs, awarded (true only on the frame it is earned), done }. Leaving the top or knees down
@@ -426,7 +430,7 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
     }
     return { update: update, reset: reset, options: o, state: function () { return s; } };
   }
-  var FAIL_TEXT = { knees: "Knees down", collapse: "Collapsed", standing: "Stood up / left plank", frame: "Out of frame", gaveup: "Gave up", elbows: "Elbows down", form: "Form broke", stalled: "No push-up for a while", ended: "Ended by you" };
+  var FAIL_TEXT = { knees: "Knees down", collapse: "Collapsed", standing: "Stood up / left plank", frame: "Out of frame", gaveup: "Gave up", elbows: "Elbows down", form: "Form broke", stalled: "No push-up for a while", failed: "Failed: could not push back up", ended: "Ended by you" };
   // Personal history from localStorage entries [[key, value], ...]: per-day time under tension
   // (tutPrefix, e.g. "zabbadat-push-tut-guest-") and reps (repsPrefix, "zabbadat-push-total-guest-").
   // Returns today, best day (by time), all-time totals and days (newest first).
@@ -545,36 +549,74 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
   //    keep the tighter atTop rule, and the 45 s idle (Sets only) already covers a true top hold.
   //  - "stalled" (45 s, Sets only): no new rep for setsIdleMs, top hold included, counted from the last rep or the last return to
   //    the top, whichever is later; paused while no body is in view. 45 s leaves the 30 s top-hold bonus reachable.
+  //  - "failed" (Nov 20, owner: "the camera did not catch my failed push-up, I had to end the set"): the set is OVER by failure
+  //    when the body is stuck down in the rep and can't push back up (no single-rep judging: a fail means the set has ended).
+  //    Sets and One long set (TUT) only, needs >= 1 rep and the counter state.
+  //    Position = the counter's smoothed shoulder level as a fraction of the rep range frozen at the last counted rep
+  //    (0 = lockout, 1 = bottom). When that fraction is >= stuckFrac (0.35, i.e. the lower 65% of the rep: stuck mid-rep, at
+  //    the bottom, lying flat, sat back on the knees) and it has not moved more than moveFrac (0.15 of the range, on the 400 ms
+  //    low-passed position) in either direction for stuckMs (3.5 s), the set ends and the reps so far are the result. Any
+  //    movement of 15% restarts the 3.5 s, so a slow rep (a 3 s lowering, a 1-2 s pause at the bottom, a slow grind up) never
+  //    trips it. The top part of the range (lockout and a relaxed breather up to 35% down) is never "stuck": a rest at the top
+  //    only ends on the 45 s Sets idle (which keeps the 30 s top-hold bonus reachable). Frames with no body in view pause the
+  //    3.5 s (they neither count nor reset). A phone pickup / camera move (s.liftedAt within liftGraceMs, 3 s) restarts the
+  //    3.5 s and the 15 s clock: picking the phone up never ends a set.
+  //  - "frame" (Nov 20, Sets only): at least 1 rep, then no body (no confident shoulder) in view for frameMs (10 s): the user
+  //    got up and walked out of the picture. NOT when a phone pickup / camera move (failure watch "lifted", passed as
+  //    s.liftedAt) was seen within liftGraceMs (3 s) of the last frame the body was in view: picking the phone up never ends a set.
   // Never fires before the first rep (a 0-rep set keeps going until End set), and never on the start frame.
-  var SET_END = { stallMs: 15000, setsIdleMs: 45000, minScore: 0.3, lowFrac: 0.6 };
+  var SET_END = { stallMs: 15000, setsIdleMs: 45000, minScore: 0.3, lowFrac: 0.6, stuckMs: 3500, stuckFrac: 0.35, moveFrac: 0.15, emaMs: 400, frameMs: 10000, liftGraceMs: 3000, stuckModes: { sets: true, long: true }, frameModes: { sets: true } };
   function createSetEnd(opts) {
-    var o = Object.assign({}, SET_END, opts || {}), lastRepT, lastReps, offSince, ended, rom, idleFrom, wasTop, prevT;
-    function reset(t0) { lastRepT = t0 == null ? null : t0; lastReps = 0; offSince = null; ended = null; rom = null; idleFrom = lastRepT; wasTop = false; prevT = null; }
+    var o = Object.assign({}, SET_END, opts || {}), lastRepT, lastReps, offSince, ended, endedAt, rom, idleFrom, wasTop, prevT, still, lastSeenT, ema;
+    function reset(t0) { lastRepT = t0 == null ? null : t0; lastReps = 0; offSince = null; ended = null; endedAt = null; rom = null; idleFrom = lastRepT; wasTop = false; prevT = null; still = null; lastSeenT = lastRepT; ema = null; }
     reset(null);
     function bodySeen(kps) { for (var i = 0; i < (kps || []).length; i++) { var k = kps[i]; if (k && /shoulder$/.test(k.name) && (k.score == null || k.score >= o.minScore)) return true; } return false; }
-    // s: { mode, reps, t, atTop, counter, kps (or seen) } -> null | "stalled". Sticky once it fires (until reset).
+    function end(kind, at) { ended = kind; endedAt = at; return ended; }
+    // s: { mode, reps, t, atTop, counter, kps (or seen), liftedAt } -> null | "stalled" | "failed" | "frame". Sticky once it fires (until reset).
     function update(s) {
       if (ended) return ended;
       var t = Number(s.t), reps = Number(s.reps) || 0, seen = s.seen != null ? !!s.seen : bodySeen(s.kps);
       if (lastRepT == null) lastRepT = t;
       if (idleFrom == null) idleFrom = t;
-      if (!seen && prevT != null && t > prevT) idleFrom += t - prevT; // out of view: the 45 s clock pauses (losing tracking never ends a set)
+      if (lastSeenT == null) lastSeenT = t;
+      var dt = prevT != null && t > prevT ? t - prevT : 0;
+      if (!seen && dt) { idleFrom += dt; if (still) still.since += dt; } // out of view: the 45 s and 3.5 s clocks pause (never count, never reset)
       prevT = t;
       var c = s.counter;
-      if (reps !== lastReps) { lastReps = reps; lastRepT = t; idleFrom = t; offSince = null; if (c && isFinite(c.top) && isFinite(c.bottom) && c.bottom !== c.top) rom = { top: c.top, bottom: c.bottom }; }
-      var low = !!(rom && c && isFinite(c.smooth) && (c.smooth - rom.top) / (rom.bottom - rom.top) > o.lowFrac);
+      if (reps !== lastReps) { lastReps = reps; lastRepT = t; idleFrom = t; offSince = null; still = null; if (c && isFinite(c.top) && isFinite(c.bottom) && c.bottom !== c.top) rom = { top: c.top, bottom: c.bottom }; }
+      var frac = rom && c && isFinite(c.smooth) ? (c.smooth - rom.top) / (rom.bottom - rom.top) : null;
+      var low = frac != null && frac > o.lowFrac;
+      // Position for the stuck rule: frac through a short low-pass (emaMs 400 ms) so landmark jitter (app counters jump
+      // +-0.1 of the range frame to frame) never reads as movement; a real rep moves the range in 1-3 s and passes through.
+      if (frac != null && seen) ema = ema == null || !dt ? frac : ema + (frac - ema) * (1 - Math.exp(-dt / o.emaMs));
       var topNow = !!(seen && s.atTop && !low);
+      // Sets (Nov 20): a breather in the top part of the range (above stuckFrac, 35% down) counts as the top for the 15 s clock
+      // too, so a rest at the top only ends on the 45 s idle.
+      if (s.mode === "sets" && seen && ema != null && ema < o.stuckFrac) topNow = true;
       // TUT set / TUT Battle: a hold settled slightly below the lockout line is still a top hold, not a 15 s stall.
       if ((s.mode === "long" || s.mode === "battle") && seen && rom && !low) topNow = true;
       if (topNow && !wasTop) idleFrom = t; // 45 s clock: restarts on every counted rep AND on every return to the top
       wasTop = topNow;
+      if (seen) lastSeenT = t;
       if (reps < 1) return null;
-      if (!seen || topNow) offSince = null; else if (offSince == null) offSince = t;
-      if (offSince != null && t - offSince >= o.stallMs && t - lastRepT >= o.stallMs) return (ended = "stalled");
-      if (s.mode === "sets" && t - idleFrom >= o.setsIdleMs) return (ended = "stalled");
+      var lift = s.liftedAt != null && isFinite(s.liftedAt) ? Number(s.liftedAt) : null;
+      var lifting = lift != null && lift >= t - o.liftGraceMs; // a phone pickup / camera move is never "stuck" and never stalls
+      // Failed: stuck in the lower part of the rep with no movement (can't push back up).
+      if (o.stuckModes[s.mode] && seen && ema != null) {
+        if (ema < o.stuckFrac || lifting) still = null;
+        else if (!still || Math.abs(ema - still.frac) > o.moveFrac) still = { since: t, frac: ema };
+        if (still && t - still.since >= o.stuckMs && t - lastRepT >= o.stuckMs) return end("failed", still.since);
+      }
+      // Left the frame (Sets): body gone 10 s, and the last thing seen was not a phone pickup.
+      if (o.frameModes[s.mode] && !seen && t - lastSeenT >= o.frameMs) {
+        if (!(lift != null && lift >= lastSeenT - o.liftGraceMs)) return end("frame", lastSeenT);
+      }
+      if (!seen || topNow || lifting) offSince = null; else if (offSince == null) offSince = t;
+      if (offSince != null && t - offSince >= o.stallMs && t - lastRepT >= o.stallMs) return end("stalled", t);
+      if (s.mode === "sets" && t - idleFrom >= o.setsIdleMs) return end("stalled", t);
       return null;
     }
-    return { update: update, reset: reset, ended: function () { return ended; }, options: o };
+    return { update: update, reset: reset, ended: function () { return ended; }, endedAt: function () { return endedAt; }, options: o };
   }
   var api = { SET_END: SET_END, createSetEnd: createSetEnd, TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, rawPt: rawPt, floorY: floorY, kneesFallback: kneesFallback, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, isUpright: isUpright, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

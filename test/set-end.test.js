@@ -50,7 +50,7 @@ for (const mode of ["long", "challenge", "battle"]) {
 
 // ---- 2. Real page flow (poseTick -> endPushSetAuto -> save path -> exitPushCam) ----
 const between = (a, b) => { const i = html.indexOf(a); if (i < 0) throw new Error("missing " + a); return html.slice(i, html.indexOf(b, i)); };
-const realEnd = between("function endPushSetAuto(kind) {", "// End set button (#camEndBtn");
+const realEnd = between("function endPushSetAuto(kind, at) {", "// End set button (#camEndBtn");
 function setup(ctx) {
   let se = null, fw = null;
   Object.defineProperty(ctx, "pushSetEnd", { get: () => se || (se = ctx.ZabbadatSession.createSetEnd()) });
@@ -74,12 +74,12 @@ const rep = (t0, per, n) => (t) => { if (t < t0) return { d: 0 }; const k = Math
   r = await run(HTML, { mode: "sets", script: rep(10000, 2000, 10), ms: 10000 + 10 * 2000 + 1000, setup: (c) => { grab(c); c.$("pushTarget").value = "5"; } });
   L = ctx.api.log;
   check(`Sets, configured target 5: reaching it does not end the set (${r.reps} reps), camera still on`, r.reps >= 8 && r.running === true && !L.some((x) => /^(finish|void):/.test(x)) && !L.includes("stopCam"));
-  // 6 reps then the user lies down at the bottom: stalled -> ends + exits (every push-up mode)
+  // 6 reps then the user lies down at the bottom: failed (Nov 20, 3.5 s parked low) -> ends + exits (every push-up mode)
   for (const mode of ["sets", "long"]) { // the Two-minute challenge has no reps, so no stall end (two-minute-challenge.test.js)
     const lie = (t) => { const x = rep(10000, 2000, 6)(t); return t >= 10000 + 6 * 2000 ? { d: 1 } : x; };
     r = await run(HTML, { mode, script: lie, ms: 10000 + 6 * 2000 + 25000, setup: grab });
     const l = ctx.api.log, endLine = l.find((x) => /^(finish|void):/.test(x)) || "";
-    check(`${mode}: 6 reps then lying at the bottom ends the set (${endLine}) and exits camera mode`, /(No push-up for a while|stalled)/.test(endLine) && l.includes("stopCam") && r.running === false);
+    check(`${mode}: 6 reps then lying at the bottom ends the set as failed (${endLine}) and exits camera mode`, /(Failed: could not push back up|failed)/.test(endLine) && l.includes("stopCam") && r.running === false);
   }
   // a long top hold in TUT does not end
   r = await run(HTML, { mode: "long", script: (t) => (t < 10000 + 6 * 2000 ? rep(10000, 2000, 6)(t) : { d: 0 }), ms: 10000 + 6 * 2000 + 40000, setup: grab });

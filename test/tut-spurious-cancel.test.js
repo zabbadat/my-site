@@ -43,7 +43,7 @@ check("TUT set-end reasons: form breaks (knees, collapse, standing), 15 s stall 
   !SS.FAIL.endOn.frame && !SS.FAIL.endOn.elbows && !SS.FAIL.endOn.lifted && !SS.FAIL.endOn.form &&
   SS.SET_END.stallMs === 15000 && /createLiveness/.test(fs.readFileSync(path.join(__dirname, "../plank-session.js"), "utf8")) &&
   !/createLiveness/.test(fs.readFileSync(path.join(__dirname, "../push-session.js"), "utf8")) &&
-  /voidTutSet\("stalled"\)/.test(html) && /function endSetNow/.test(html) && /function endPushOnCameraStop/.test(html) &&
+  /voidTutSet\(kind \|\| "stalled"/.test(html) && /function endSetNow/.test(html) && /function endPushOnCameraStop/.test(html) &&
   /finishPushSet\("Camera stopped"\)/.test(html));
 
 {
@@ -77,7 +77,8 @@ check("TUT set-end reasons: form breaks (knees, collapse, standing), 15 s stall 
 }
 {
   const x = sim([...S.reps(5, 1800), [60000, 0.85, 0.85]]);
-  check(`TUT: parked at the bottom ~15 s still ends as stalled (at ${x.stallAt && Math.round(x.stallAt)})`, x.stall === "stalled" && x.stallAt >= 23000 && x.stallAt <= 28000, JSON.stringify({ stall: x.stall, stallAt: x.stallAt, lastRepT: x.lastRepT }));
+  // Nov 20 (owner): parked low with no movement is a set that is over by failure: "failed" ~3.5 s after it stops moving (was the 15 s stall).
+  check(`TUT: parked at the bottom ends as failed (could not push back up) within ~3.5-5 s of the last rep (at ${x.stallAt && Math.round(x.stallAt)})`, x.stall === "failed" && x.stallAt - x.lastRepT >= 3500 && x.stallAt - x.lastRepT <= 5000, JSON.stringify({ stall: x.stall, stallAt: x.stallAt, lastRepT: x.lastRepT }));
 }
 
 // Real form breaks still end a TUT set (failure watch, same path as the live long-mode camera loop).
@@ -237,7 +238,7 @@ function simTail(segs, tail, tailMs, wrap) {
 // only through voidTutSet; sign-in buttons are not part of this change.
 check("live TUT loop still feeds createSetEnd the counter and atTopFrom, and auto-ends a stall through voidTutSet",
   /pushSetEnd\.update\(\{ mode: pushMode, reps: pushState\.reps, t: performance\.now\(\), atTop: !!\(C && C\.atTopFrom && C\.atTopFrom\(stE\)\), counter: stE/.test(html) &&
-  /voidTutSet\("stalled"\)/.test(html));
+  /voidTutSet\(kind \|\| "stalled"/.test(html));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

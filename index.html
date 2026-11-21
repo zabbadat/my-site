@@ -3251,11 +3251,14 @@ function endPushOnCameraStop() {
 }
 // Auto end of a push-up set (pushSetEnd): "stalled" ends any mode as a failure. Same save paths as
 // the buttons: Sets -> finishPushSet; One long set -> voidTutSet (posts with >= 1 rep, TUT completion rules unchanged). Never used by the Two-minute challenge.
-function endPushSetAuto(kind) {
+// Nov 20: also "failed" (stuck low in the rep, could not push back up: no movement 3.5 s) and "frame" (Sets: body gone 10 s, not a phone pickup). The clock
+// is cut back to the moment the user stopped (at = performance.now() time), and the reps so far are the result.
+function endPushSetAuto(kind, at) {
   if (pushState.finished || !pushState.running || pushMode === "challenge") return; // a hold has no reps to stall on
   const T = (window.ZabbadatSession && window.ZabbadatSession.FAIL_TEXT) || {};
-  if (pushMode === "sets") { finishPushSet(T.stalled || "No push-up for a while"); return; }
-  voidTutSet("stalled");
+  const why = kind && kind !== "stalled" && T[kind] ? T[kind] : (T.stalled || "No push-up for a while");
+  if (pushMode === "sets") { if (at != null && kind !== "stalled" && typeof freezePushClock === "function") freezePushClock(at); finishPushSet(why); return; }
+  if (at != null && kind !== "stalled") voidTutSet(kind || "stalled", at); else voidTutSet(kind || "stalled");
 }
 // Leave push-up camera mode after a set ends: stop the stream, the pose rAF loop, wake lock and full screen (stopCam).
 // The next Start opens the camera again. Skipped while stopCam itself is ending the set.
@@ -3847,8 +3850,9 @@ async function poseTick(id = poseLoopId) {
     // leaves camera mode (exitPushCam). The rep target never ends a set. Rep counting above is unchanged.
     if (typeof pushSetEnd !== "undefined" && pushSetEnd && pushState.running && !pushState.finished && pushMode !== "challenge") {
       const C = window.ZabbadatChallenge, stE = pushCounter.state();
-      const ended = pushSetEnd.update({ mode: pushMode, reps: pushState.reps, t: performance.now(), atTop: !!(C && C.atTopFrom && C.atTopFrom(stE)), counter: stE, kps: pose ? pose.keypoints : [] });
-      if (ended && typeof endPushSetAuto === "function") endPushSetAuto(ended);
+      const liftedAt = typeof failWatch !== "undefined" && failWatch && failWatch.liftedAt ? failWatch.liftedAt() : null; // phone pickup never ends a set
+      const ended = pushSetEnd.update({ mode: pushMode, reps: pushState.reps, t: performance.now(), atTop: !!(C && C.atTopFrom && C.atTopFrom(stE)), counter: stE, kps: pose ? pose.keypoints : [], liftedAt });
+      if (ended && typeof endPushSetAuto === "function") endPushSetAuto(ended, pushSetEnd.endedAt ? pushSetEnd.endedAt() : null);
     }
   } catch (e) {
     $("camNote").textContent = "Pose paused.";
