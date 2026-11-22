@@ -1,13 +1,19 @@
 /* Zabbadat daily Magic Eye (autostereogram).
- * Random-dot, cross-eyed (near = wider separation), union-find linking like
- * /workspace/stereogram/daily.py. Seeded by the America/New_York date from
- * et-day.js so everyone sees the same picture until Eastern midnight.
+ * Random-dot, union-find linking like daily.py. Seeded by the America/New_York
+ * date from et-day.js so everyone sees the same shape until Eastern midnight.
+ * The picture is generated at the canvas's CSS size × devicePixelRatio so the
+ * repeat period stays ~80–100 CSS px on a phone (large enough to fuse). A
+ * 1400×900 bitmap downscaled into a 343 px column shrinks the period to ~29 px
+ * and blurs sub-pixel dots, so the hidden shape will not pop.
+ * Cross-eyed default: nearer = wider separation. Optional wall-eyed mode flips that.
  * Browser: window.ZabbadatMagicEye. Node: require("./magic-eye.js").
  */
 (function (root) {
   "use strict";
-  var W = 700, H = 450, SCALE = 2, BASE = 60, AMP = 14, BLUR = 5, GAIN = 1.5;
-  var CX = W >> 1, CY = H >> 1;
+  var SRC_W = 700, SRC_H = 450, SCALE = 2, BASE = 60, AMP = 14, BLUR = 5, GAIN = 1.5;
+  var PERIOD_CSS_MIN = 80, PERIOD_CSS_MAX = 140, AMP_FRAC = 0.3, CELL_CSS = 2, BOLD = 1.22;
+  var TIP_CROSS = "Cross your eyes until the two dots become three.";
+  var TIP_WALL = "Relax and look through the image until the two dots become three.";
   var SHAPE_NAMES = [
     "heart", "star", "letter Z", "lightning bolt", "smiley face",
     "crescent moon", "dumbbell", "number 7", "arrow", "crown"
@@ -18,7 +24,6 @@
   ];
 
   function isLeap(y) { return y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0); }
-  // Python datetime.date.toordinal: 0001-01-01 => 1 (proleptic Gregorian).
   function toOrdinal(y, m, d) {
     var y0 = y - 1;
     var days = y0 * 365 + Math.floor(y0 / 4) - Math.floor(y0 / 100) + Math.floor(y0 / 400);
@@ -37,16 +42,12 @@
   }
   function shapeIndex(key) { return ((ordinalFromKey(key) % 10) + 10) % 10; }
   function shapeName(key) { return SHAPE_NAMES[shapeIndex(key)]; }
-
-  // Python 3 int(round(x)) — ties to even.
   function pyRound(x) {
     var n = Math.floor(x), f = x - n;
     if (f < 0.5) return n;
     if (f > 0.5) return n + 1;
     return n % 2 === 0 ? n : n + 1;
   }
-
-  // Mulberry32, seeded by the Python ordinal so the same day is the same picture.
   function rngFromSeed(seed) {
     var a = seed >>> 0;
     return function () {
@@ -65,12 +66,36 @@
     return arr;
   }
 
-  function makeMask() { return new Uint8Array(W * H); }
-  function setPx(m, x, y, v) {
+  // Phone-first layout: keep the fusion period in CSS pixels, not canvas pixels.
+  function layoutFor(cssW, dpr) {
+    cssW = Math.max(160, Math.round(Number(cssW) || 0));
+    dpr = Number(dpr);
+    if (!isFinite(dpr) || dpr < 1) dpr = 1;
+    if (dpr > 3) dpr = 3;
+    var cssH = Math.round(cssW * SRC_H / SRC_W);
+    // ~cssW/3.6, clamped 80–140 CSS px. A phone column (~343 px) lands near 95;
+    // a landscape full-screen picture (~490+ px) can reach the 140 cap.
+    var periodCss = Math.round(Math.max(PERIOD_CSS_MIN, Math.min(PERIOD_CSS_MAX, cssW / 3.6)));
+    var ampCss = Math.max(20, Math.round(periodCss * AMP_FRAC));
+    var cell = CELL_CSS;
+    var genW = Math.max(80, Math.round(cssW / cell));
+    var genH = Math.max(50, Math.round(cssH / cell));
+    var base = Math.max(8, Math.round(periodCss / cell));
+    var amp = Math.max(4, Math.round(ampCss / cell));
+    if (amp >= base - 4) amp = Math.max(4, base - 5);
+    return {
+      cssW: cssW, cssH: cssH, dpr: dpr,
+      genW: genW, genH: genH,
+      pixW: Math.round(cssW * dpr), pixH: Math.round(cssH * dpr),
+      base: base, amp: amp, cell: cell, periodCss: periodCss, ampCss: ampCss
+    };
+  }
+
+  function makeMask(W, H) { return new Uint8Array(W * H); }
+  function setPx(m, W, H, x, y, v) {
     if (x >= 0 && x < W && y >= 0 && y < H) m[y * W + x] = v;
   }
-  // Inclusive bounding-box ellipse, like PIL ImageDraw.ellipse.
-  function fillEllipse(m, x0, y0, x1, y1, v) {
+  function fillEllipse(m, W, H, x0, y0, x1, y1, v) {
     var a = (x1 - x0) / 2, b = (y1 - y0) / 2;
     var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     if (a <= 0 || b <= 0) return;
@@ -84,13 +109,13 @@
       for (x = xL; x <= xR; x++) m[y * W + x] = v;
     }
   }
-  function fillRect(m, x0, y0, x1, y1, v) {
+  function fillRect(m, W, H, x0, y0, x1, y1, v) {
     var x, y;
     x0 = Math.max(0, Math.round(x0)); y0 = Math.max(0, Math.round(y0));
     x1 = Math.min(W - 1, Math.round(x1)); y1 = Math.min(H - 1, Math.round(y1));
     for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) m[y * W + x] = v;
   }
-  function fillRoundRect(m, x0, y0, x1, y1, r, v) {
+  function fillRoundRect(m, W, H, x0, y0, x1, y1, r, v) {
     var x, y, dx, dy;
     r = Math.max(0, r);
     x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
@@ -101,12 +126,11 @@
         else if (x > x1 - r && y < y0 + r) { dx = x - (x1 - r); dy = y0 + r - y; }
         else if (x < x0 + r && y > y1 - r) { dx = x0 + r - x; dy = y - (y1 - r); }
         else if (x > x1 - r && y > y1 - r) { dx = x - (x1 - r); dy = y - (y1 - r); }
-        if (dx * dx + dy * dy <= r * r + r) setPx(m, x, y, v);
+        if (dx * dx + dy * dy <= r * r + r) setPx(m, W, H, x, y, v);
       }
     }
   }
-  // Nonzero-winding polygon fill (canvas / PIL-style, fills a star's center).
-  function fillPoly(m, pts, v) {
+  function fillPoly(m, W, H, pts, v) {
     var n = pts.length, y, x, i, j, y0, y1, x0, x1, t, xs, k, wind, xi;
     var minY = H, maxY = -1;
     for (i = 0; i < n; i++) { t = pts[i][1]; if (t < minY) minY = t; if (t > maxY) maxY = t; }
@@ -133,77 +157,95 @@
       }
     }
   }
-  // Stroke a circular arc (PIL ImageDraw.arc: 0° at 3 o'clock, clockwise, width in px).
-  function strokeArc(m, x0, y0, x1, y1, startDeg, endDeg, width, v) {
+  function strokeArc(m, W, H, x0, y0, x1, y1, startDeg, endDeg, width, v) {
     var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     var a = (x1 - x0) / 2, b = (y1 - y0) / 2;
     var step = 0.5 * Math.PI / 180, rad0 = startDeg * Math.PI / 180, rad1 = endDeg * Math.PI / 180;
-    var hw = width / 2, t, x, y, dx, dy, px, py, qx, qy;
+    var hw = width / 2, t, dx, dy, px, py;
     for (t = rad0; t <= rad1 + 1e-6; t += step) {
       px = cx + a * Math.cos(t);
       py = cy + b * Math.sin(t);
       for (dy = -Math.ceil(hw); dy <= Math.ceil(hw); dy++) {
         for (dx = -Math.ceil(hw); dx <= Math.ceil(hw); dx++) {
-          if (dx * dx + dy * dy <= hw * hw + hw) setPx(m, Math.round(px + dx), Math.round(py + dy), v);
+          if (dx * dx + dy * dy <= hw * hw + hw) setPx(m, W, H, Math.round(px + dx), Math.round(py + dy), v);
         }
       }
     }
   }
-  function fillHeart(m) {
-    var x, y, X, Y;
+
+  // Coordinates are authored on a 700×450 field, then scaled. `bold` enlarges the shape.
+  function u(n, s) { return n * s; }
+  function fillHeart(m, W, H, s, bold) {
+    var cx = W / 2, cy = H / 2, x, y, X, Y, sx = 150 * s * bold, sy = 165 * s * bold;
     for (y = 0; y < H; y++) {
       for (x = 0; x < W; x++) {
-        X = (x - CX) / 150;
-        Y = -(y - CY) / 165 + 0.25;
+        X = (x - cx) / sx;
+        Y = -(y - cy) / sy + 0.25;
         if ((X * X + Y * Y - 1) * (X * X + Y * Y - 1) * (X * X + Y * Y - 1) - X * X * Y * Y * Y <= 0) m[y * W + x] = 255;
       }
     }
   }
-  function fillStar(m) {
-    var pts = [], i, a, rad, n = 5, R = 170, r = 70;
+  function fillStar(m, W, H, s, bold) {
+    var cx = W / 2, cy = H / 2, pts = [], i, a, rad, n = 5, R = 170 * s * bold, r = 70 * s * bold;
     for (i = 0; i < 2 * n; i++) {
       a = Math.PI / 2 + i * Math.PI / n;
       rad = i % 2 === 0 ? R : r;
-      pts.push([CX + rad * Math.cos(a), CY - rad * Math.sin(a)]);
+      pts.push([cx + rad * Math.cos(a), cy - rad * Math.sin(a)]);
     }
-    fillPoly(m, pts, 255);
+    fillPoly(m, W, H, pts, 255);
   }
-  // Vector stand-ins for DejaVuSans-Bold "Z" (320) and "7" (340), same box and weight.
-  function fillLetterZ(m) {
-    fillPoly(m, [
-      [248, 103], [451, 103], [451, 148], [340, 148], [451, 290],
-      [451, 335], [248, 335], [248, 290], [360, 290], [248, 148], [248, 103]
+  function fillLetterZ(m, W, H, s, bold) {
+    var cx = W / 2, cy = H / 2, k = s * bold, ox = cx - u(350, k), oy = cy - u(225, k);
+    fillPoly(m, W, H, [
+      [ox + u(248, k), oy + u(103, k)], [ox + u(451, k), oy + u(103, k)], [ox + u(451, k), oy + u(148, k)],
+      [ox + u(340, k), oy + u(148, k)], [ox + u(451, k), oy + u(290, k)], [ox + u(451, k), oy + u(335, k)],
+      [ox + u(248, k), oy + u(335, k)], [ox + u(248, k), oy + u(290, k)], [ox + u(360, k), oy + u(290, k)],
+      [ox + u(248, k), oy + u(148, k)], [ox + u(248, k), oy + u(103, k)]
     ], 255);
   }
-  function fillNumber7(m) {
-    fillPoly(m, [
-      [254, 95], [441, 95], [441, 140], [360, 140], [300, 342],
-      [254, 342], [318, 140], [254, 140]
+  function fillNumber7(m, W, H, s, bold) {
+    var cx = W / 2, cy = H / 2, k = s * bold, ox = cx - u(350, k), oy = cy - u(225, k);
+    fillPoly(m, W, H, [
+      [ox + u(254, k), oy + u(95, k)], [ox + u(441, k), oy + u(95, k)], [ox + u(441, k), oy + u(140, k)],
+      [ox + u(360, k), oy + u(140, k)], [ox + u(300, k), oy + u(342, k)], [ox + u(254, k), oy + u(342, k)],
+      [ox + u(318, k), oy + u(140, k)], [ox + u(254, k), oy + u(140, k)]
     ], 255);
   }
-  function fillLightning(m) {
-    fillPoly(m, [[390, 40], [250, 250], [340, 250], [290, 410], [460, 180], [365, 180], [430, 40]], 255);
+  function fillLightning(m, W, H, s, bold) {
+    var k = s * bold, cx = W / 2, cy = H / 2, ox = cx - u(350, k), oy = cy - u(225, k);
+    fillPoly(m, W, H, [[390, 40], [250, 250], [340, 250], [290, 410], [460, 180], [365, 180], [430, 40]].map(function (p) {
+      return [ox + u(p[0], k), oy + u(p[1], k)];
+    }), 255);
   }
-  function fillSmiley(m) {
-    fillEllipse(m, CX - 170, CY - 170, CX + 170, CY + 170, 255);
-    fillEllipse(m, CX - 80, CY - 90, CX - 30, CY - 30, 0);
-    fillEllipse(m, CX + 30, CY - 90, CX + 80, CY - 30, 0);
-    strokeArc(m, CX - 100, CY - 40, CX + 100, CY + 110, 20, 160, 22, 0);
+  function fillSmiley(m, W, H, s, bold) {
+    var cx = W / 2, cy = H / 2, k = s * bold;
+    fillEllipse(m, W, H, cx - 170 * k, cy - 170 * k, cx + 170 * k, cy + 170 * k, 255);
+    fillEllipse(m, W, H, cx - 80 * k, cy - 90 * k, cx - 30 * k, cy - 30 * k, 0);
+    fillEllipse(m, W, H, cx + 30 * k, cy - 90 * k, cx + 80 * k, cy - 30 * k, 0);
+    strokeArc(m, W, H, cx - 100 * k, cy - 40 * k, cx + 100 * k, cy + 110 * k, 20, 160, 22 * k, 0);
   }
-  function fillMoon(m) {
-    fillEllipse(m, CX - 170, CY - 170, CX + 170, CY + 170, 255);
-    fillEllipse(m, CX - 80, CY - 200, CX + 230, CY + 130, 0);
+  function fillMoon(m, W, H, s, bold) {
+    var cx = W / 2, cy = H / 2, k = s * bold;
+    fillEllipse(m, W, H, cx - 170 * k, cy - 170 * k, cx + 170 * k, cy + 170 * k, 255);
+    fillEllipse(m, W, H, cx - 80 * k, cy - 200 * k, cx + 230 * k, cy + 130 * k, 0);
   }
-  function fillDumbbell(m) {
-    fillRect(m, CX - 160, CY - 25, CX + 160, CY + 25, 255);
-    fillRoundRect(m, CX - 250, CY - 110, CX - 150, CY + 110, 20, 255);
-    fillRoundRect(m, CX + 150, CY - 110, CX + 250, CY + 110, 20, 255);
+  function fillDumbbell(m, W, H, s, bold) {
+    var cx = W / 2, cy = H / 2, k = s * bold;
+    fillRect(m, W, H, cx - 160 * k, cy - 25 * k, cx + 160 * k, cy + 25 * k, 255);
+    fillRoundRect(m, W, H, cx - 250 * k, cy - 110 * k, cx - 150 * k, cy + 110 * k, 20 * k, 255);
+    fillRoundRect(m, W, H, cx + 150 * k, cy - 110 * k, cx + 250 * k, cy + 110 * k, 20 * k, 255);
   }
-  function fillArrow(m) {
-    fillPoly(m, [[150, 190], [400, 190], [400, 100], [580, 225], [400, 350], [400, 260], [150, 260]], 255);
+  function fillArrow(m, W, H, s, bold) {
+    var k = s * bold, cx = W / 2, cy = H / 2, ox = cx - u(350, k), oy = cy - u(225, k);
+    fillPoly(m, W, H, [[150, 190], [400, 190], [400, 100], [580, 225], [400, 350], [400, 260], [150, 260]].map(function (p) {
+      return [ox + u(p[0], k), oy + u(p[1], k)];
+    }), 255);
   }
-  function fillCrown(m) {
-    fillPoly(m, [[170, 330], [170, 140], [260, 230], [350, 100], [440, 230], [530, 140], [530, 330]], 255);
+  function fillCrown(m, W, H, s, bold) {
+    var k = s * bold, cx = W / 2, cy = H / 2, ox = cx - u(350, k), oy = cy - u(225, k);
+    fillPoly(m, W, H, [[170, 330], [170, 140], [260, 230], [350, 100], [440, 230], [530, 140], [530, 330]].map(function (p) {
+      return [ox + u(p[0], k), oy + u(p[1], k)];
+    }), 255);
   }
   var DRAW = [
     fillHeart, fillStar, fillLetterZ, fillLightning, fillSmiley,
@@ -216,8 +258,8 @@
     for (i = 0; i < n; i++) k[i] /= s;
     return { k: k, r: r };
   }
-  function blurGain(mask) {
-    var ker = gaussKernel(BLUR), k = ker.k, r = ker.r;
+  function blurGain(mask, W, H, blur) {
+    var ker = gaussKernel(blur), k = ker.k, r = ker.r;
     var tmp = new Float32Array(W * H), out = new Float32Array(W * H);
     var x, y, i, s, t, xx, yy, row;
     for (y = 0; y < H; y++) {
@@ -247,19 +289,22 @@
     return out;
   }
 
-  function buildDepth(key) {
-    var m = makeMask();
-    DRAW[shapeIndex(key)](m);
-    return blurGain(m);
+  function buildDepth(key, W, H, bold) {
+    var m = makeMask(W, H);
+    var s = W / SRC_W;
+    DRAW[shapeIndex(key)](m, W, H, s, bold == null ? 1 : bold);
+    var blur = Math.max(1.2, BLUR * (W / SRC_W));
+    return blurGain(m, W, H, blur);
   }
 
-  // Union-find linking, same walk as daily.py: for each column c, sep = base + amp*d,
-  // link c-sep//2 with that plus sep, always pointing the larger index at the smaller.
-  function renderRow(depth, y, pal, rng, rowOut) {
-    var same = new Int32Array(W), c, sep, l, rr, cols, i;
+  function renderRow(depth, y, W, base, amp, mode, pal, rng, rowOut) {
+    var same = new Int32Array(W), c, sep, l, rr, cols, i, d, sign;
+    sign = mode === "wall" ? -1 : 1; // cross-eyed: near = wider sep; wall-eyed: near = narrower
     for (c = 0; c < W; c++) same[c] = c;
     for (c = 0; c < W; c++) {
-      sep = pyRound(BASE + AMP * depth[y * W + c]);
+      d = depth[y * W + c];
+      sep = pyRound(base + sign * amp * d);
+      if (sep < 4) sep = 4;
       l = c - (sep >> 1);
       rr = l + sep;
       if (l >= 0 && rr < W) {
@@ -276,7 +321,6 @@
     for (c = 0; c < W; c++) {
       i = same[c] === c ? cols[c] : null;
       if (i == null) {
-        // parent is already colored (always a smaller index)
         rowOut[c * 3] = rowOut[same[c] * 3];
         rowOut[c * 3 + 1] = rowOut[same[c] * 3 + 1];
         rowOut[c * 3 + 2] = rowOut[same[c] * 3 + 2];
@@ -289,60 +333,77 @@
     return { same: same };
   }
 
-  function renderBitmap(key) {
-    var depth = buildDepth(key), ord = ordinalFromKey(key);
+  function renderBitmap(key, opts) {
+    opts = opts || {};
+    var W = opts.w || SRC_W, H = opts.h || SRC_H;
+    var base = opts.base == null ? BASE : opts.base;
+    var amp = opts.amp == null ? AMP : opts.amp;
+    var mode = opts.mode === "wall" ? "wall" : "cross";
+    var bold = opts.bold == null ? 1 : opts.bold;
+    var depth = buildDepth(key, W, H, bold), ord = ordinalFromKey(key);
     var rng = rngFromSeed(ord);
     var pal = PAL.map(function (c) { return c.slice(); });
     shuffle(rng, pal);
     var img = new Uint8ClampedArray(W * H * 3);
     var y, row = new Uint8ClampedArray(W * 3);
     for (y = 0; y < H; y++) {
-      renderRow(depth, y, pal, rng, row);
+      renderRow(depth, y, W, base, amp, mode, pal, rng, row);
       img.set(row, y * W * 3);
     }
-    return { width: W, height: H, data: img, depth: depth, name: shapeName(key), index: shapeIndex(key), ordinal: ord, base: BASE, amp: AMP };
+    return {
+      width: W, height: H, data: img, depth: depth, name: shapeName(key),
+      index: shapeIndex(key), ordinal: ord, base: base, amp: amp, mode: mode
+    };
   }
 
-  function scaleNearestAndDots(bmp) {
-    var w2 = W * SCALE, h2 = H * SCALE;
-    var out = new Uint8ClampedArray(w2 * h2 * 4);
-    var x, y, sx, sy, i, j, p;
-    for (y = 0; y < h2; y++) {
-      sy = y >> 1;
-      for (x = 0; x < w2; x++) {
-        sx = x >> 1;
+  function scaleNearestAndDots(bmp, pixW, pixH) {
+    pixW = pixW || bmp.width * SCALE;
+    pixH = pixH || bmp.height * SCALE;
+    var out = new Uint8ClampedArray(pixW * pixH * 4);
+    var x, y, sx, sy, j, p, W = bmp.width, H = bmp.height;
+    for (y = 0; y < pixH; y++) {
+      sy = Math.min(H - 1, Math.floor(y * H / pixH));
+      for (x = 0; x < pixW; x++) {
+        sx = Math.min(W - 1, Math.floor(x * W / pixW));
         p = (sy * W + sx) * 3;
-        j = (y * w2 + x) * 4;
+        j = (y * pixW + x) * 4;
         out[j] = bmp.data[p];
         out[j + 1] = bmp.data[p + 1];
         out[j + 2] = bmp.data[p + 2];
         out[j + 3] = 255;
       }
     }
-    // Guide dots on the 2x image, same placement as daily.py (W-base, W+base).
-    function dot(gx, gy, r, outline) {
-      var x, y, dx, dy, j, d2, ro = r + outline;
-      for (y = gy - ro; y <= gy + ro; y++) {
-        for (x = gx - ro; x <= gx + ro; x++) {
-          if (x < 0 || y < 0 || x >= w2 || y >= h2) continue;
-          dx = x - gx; dy = y - gy; d2 = dx * dx + dy * dy;
-          j = (y * w2 + x) * 4;
+    // Guide dots one background period apart, centered. Radius ~8 CSS px
+    // (periodPix / css scale ≈ dpr; rCss=8 → rPix = 8 * pixW / cssW, but cssW is
+    // unknown here; use a fraction of the period, at least 8px, typ. 8 CSS px when pix=css*dpr and period~90).
+    var periodPix = bmp.base * (pixW / W);
+    var r = Math.max(8, Math.round(periodPix * 0.09));
+    var outline = Math.max(2, Math.round(r * 0.3));
+    var gy = Math.round(Math.max(r + outline + 4, pixH * 0.04 + r));
+    var mid = pixW / 2;
+    function dot(gx) {
+      var x, y, dx, dy, j, d2, ro = r + outline, cx = Math.round(gx), cy = gy;
+      for (y = cy - ro; y <= cy + ro; y++) {
+        for (x = cx - ro; x <= cx + ro; x++) {
+          if (x < 0 || y < 0 || x >= pixW || y >= pixH) continue;
+          dx = x - cx; dy = y - cy; d2 = dx * dx + dy * dy;
+          j = (y * pixW + x) * 4;
           if (d2 <= r * r) { out[j] = 0; out[j + 1] = 0; out[j + 2] = 0; out[j + 3] = 255; }
-          else if (d2 <= (r + outline) * (r + outline)) { out[j] = 255; out[j + 1] = 255; out[j + 2] = 255; out[j + 3] = 255; }
+          else if (d2 <= ro * ro) { out[j] = 255; out[j + 1] = 255; out[j + 2] = 255; out[j + 3] = 255; }
         }
       }
     }
-    // ellipse [gx-10,14,gx+10,34] => center (gx, 24), radius 10, outline width 3
-    dot(W - BASE, 24, 10, 3);
-    dot(W + BASE, 24, 10, 3);
-    return { width: w2, height: h2, data: out };
+    dot(mid - periodPix / 2);
+    dot(mid + periodPix / 2);
+    return { width: pixW, height: pixH, data: out, periodPix: periodPix, guideY: gy, guideR: r };
   }
 
   function meanSeparation(bmp) {
-    var inside = 0, outside = 0, nIn = 0, nOut = 0, i, d, sep;
+    var inside = 0, outside = 0, nIn = 0, nOut = 0, i, d, sep, sign;
+    sign = bmp.mode === "wall" ? -1 : 1;
     for (i = 0; i < bmp.depth.length; i++) {
       d = bmp.depth[i];
-      sep = pyRound(BASE + AMP * d);
+      sep = pyRound(bmp.base + sign * bmp.amp * d);
       if (d > 0.8) { inside += sep; nIn++; }
       else if (d < 0.1) { outside += sep; nOut++; }
     }
@@ -350,9 +411,12 @@
   }
 
   function paintCanvas(canvas, rgba) {
-    var ctx = canvas.getContext("2d");
+    var ctx = canvas.getContext("2d", { alpha: false });
     canvas.width = rgba.width;
     canvas.height = rgba.height;
+    if (ctx.imageSmoothingEnabled != null) ctx.imageSmoothingEnabled = false;
+    if (ctx.webkitImageSmoothingEnabled != null) ctx.webkitImageSmoothingEnabled = false;
+    if (ctx.mozImageSmoothingEnabled != null) ctx.mozImageSmoothingEnabled = false;
     var img;
     if (typeof ImageData === "function") {
       try { img = new ImageData(rgba.data, rgba.width, rgba.height); }
@@ -364,11 +428,186 @@
     ctx.putImageData(img, 0, 0);
   }
 
-  function renderToCanvas(canvas, key) {
-    var bmp = renderBitmap(key);
-    var rgba = scaleNearestAndDots(bmp);
-    paintCanvas(canvas, rgba);
-    return bmp;
+  function renderToCanvas(canvas, key, opts) {
+    opts = opts || {};
+    var cssW = opts.cssW || (canvas && canvas.clientWidth) || SRC_W * SCALE / 2;
+    var dpr = opts.dpr;
+    if (dpr == null && typeof window !== "undefined") dpr = window.devicePixelRatio || 1;
+    if (dpr == null) dpr = 1;
+    var layout = layoutFor(cssW, dpr);
+    var bmp = renderBitmap(key, {
+      w: layout.genW, h: layout.genH, base: layout.base, amp: layout.amp,
+      mode: opts.mode, bold: opts.bold == null ? BOLD : opts.bold
+    });
+    var rgba = scaleNearestAndDots(bmp, layout.pixW, layout.pixH);
+    if (canvas) paintCanvas(canvas, rgba);
+    return { bmp: bmp, layout: layout, rgba: rgba };
+  }
+
+
+  // Production (ee042b5) path: 700×450 bitmap, 2× nearest-neighbor to 1400×900, then CSS-downscaled.
+  // Used on the compare test page so the live defect is visible next to the fix.
+  function renderLegacyToCanvas(canvas, key) {
+    var bmp = renderBitmap(key, { w: SRC_W, h: SRC_H, base: BASE, amp: AMP, mode: "cross", bold: 1 });
+    var pixW = SRC_W * SCALE, pixH = SRC_H * SCALE, W = SRC_W, H = SRC_H;
+    var out = new Uint8ClampedArray(pixW * pixH * 4);
+    var x, y, sx, sy, j, p;
+    for (y = 0; y < pixH; y++) {
+      sy = y >> 1;
+      for (x = 0; x < pixW; x++) {
+        sx = x >> 1;
+        p = (sy * W + sx) * 3;
+        j = (y * pixW + x) * 4;
+        out[j] = bmp.data[p]; out[j + 1] = bmp.data[p + 1]; out[j + 2] = bmp.data[p + 2]; out[j + 3] = 255;
+      }
+    }
+    function dot(gx, gy, r, outline) {
+      var x, y, dx, dy, j, d2, ro = r + outline;
+      for (y = gy - ro; y <= gy + ro; y++) {
+        for (x = gx - ro; x <= gx + ro; x++) {
+          if (x < 0 || y < 0 || x >= pixW || y >= pixH) continue;
+          dx = x - gx; dy = y - gy; d2 = dx * dx + dy * dy;
+          j = (y * pixW + x) * 4;
+          if (d2 <= r * r) { out[j] = 0; out[j + 1] = 0; out[j + 2] = 0; out[j + 3] = 255; }
+          else if (d2 <= ro * ro) { out[j] = 255; out[j + 1] = 255; out[j + 2] = 255; out[j + 3] = 255; }
+        }
+      }
+    }
+    dot(W - BASE, 24, 10, 3);
+    dot(W + BASE, 24, 10, 3);
+    if (canvas) paintCanvas(canvas, { width: pixW, height: pixH, data: out });
+    return { bmp: bmp, width: pixW, height: pixH };
+  }
+
+  function ensureFsStyle() {
+    if (typeof document === "undefined" || document.getElementById("magicEyeFsCss")) return;
+    var s = document.createElement("style");
+    s.id = "magicEyeFsCss";
+    s.textContent = [
+      "#magicEyeFs{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;z-index:2147483000;background:#000;display:flex;flex-direction:column;align-items:stretch;box-sizing:border-box;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0)}",
+      "#magicEyeFs[hidden]{display:none!important}",
+      "body.me-fs-open{overflow:hidden;overscroll-behavior:none}",
+      "#magicEyeFs .me-fs-bar{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.55rem .75rem}",
+      "#magicEyeFs .me-fs-tip{margin:0;color:#c8d4ce;font-size:.92rem;font-weight:400;text-align:center;flex:1}",
+      "#magicEyeFs .me-fs-close{flex:0 0 auto;width:44px;height:44px;border:1px solid rgba(255,255,255,.4);border-radius:999px;background:rgba(8,12,10,.55);color:#fff;font-size:1.6rem;line-height:1;cursor:pointer}",
+      "#magicEyeFs .me-fs-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 .5rem .75rem}",
+      "#magicEyeFs canvas{display:block;width:100%;height:auto;max-width:100%;max-height:100%;background:#000;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;image-rendering:pixelated}"
+    ].join("");
+    document.head.appendChild(s);
+  }
+
+  function ensureOverlay() {
+    ensureFsStyle();
+    var el = document.getElementById("magicEyeFs");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "magicEyeFs";
+    el.hidden = true;
+    el.setAttribute("role", "dialog");
+    el.setAttribute("aria-modal", "true");
+    el.setAttribute("aria-label", "Today's Magic Eye, full screen");
+    el.innerHTML = '<div class="me-fs-bar"><p class="me-fs-tip" id="magicEyeFsTip"></p><button type="button" class="me-fs-close" id="magicEyeFsClose" aria-label="Close full screen">&times;</button></div><div class="me-fs-stage"><canvas id="magicEyeFsCanvas" width="1400" height="900" role="img" aria-label="Today\'s Magic Eye autostereogram, full screen"></canvas></div>';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  var _fsBound = false, _fsOpen = false, _fsMode = "cross", _fsPrevOverflow = "";
+  function drawFullscreen(mode) {
+    var canvas = document.getElementById("magicEyeFsCanvas");
+    var stage = canvas && canvas.parentNode;
+    if (!canvas) return;
+    var sb = stage ? stage.getBoundingClientRect() : { width: 0, height: 0 };
+    var stageW = Math.round((stage && stage.clientWidth) || sb.width || 0);
+    var stageH = Math.round((stage && stage.clientHeight) || sb.height || 0);
+    if (!stageW) stageW = Math.round(window.innerWidth || 0);
+    if (!stageH) stageH = Math.round(window.innerHeight || 0);
+    // Largest 14:9 box that fits the stage, then render at that CSS width × dpr.
+    var cssW = stageW, cssH = Math.round(stageW * SRC_H / SRC_W);
+    if (stageH > 0 && cssH > stageH) {
+      cssH = stageH;
+      cssW = Math.round(stageH * SRC_W / SRC_H);
+    }
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
+    canvas.style.maxWidth = "100%";
+    canvas.style.maxHeight = "100%";
+    var shown = canvas.getBoundingClientRect();
+    if (shown.width && shown.height && (Math.abs(shown.width - cssW) > 1 || Math.abs(shown.height - cssH) > 1)) {
+      cssW = Math.round(shown.width);
+      cssH = Math.round(shown.height);
+      // Keep the 14:9 picture; never let max-width/max-height squash it.
+      if (cssW / cssH > SRC_W / SRC_H) cssW = Math.round(cssH * SRC_W / SRC_H);
+      else cssH = Math.round(cssW * SRC_H / SRC_W);
+      canvas.style.width = cssW + "px";
+      canvas.style.height = cssH + "px";
+    }
+    var dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
+    if (!cssW) return;
+    var key = todayKey();
+    renderToCanvas(canvas, key, { cssW: cssW, dpr: dpr, mode: mode || _fsMode || "cross" });
+    canvas.setAttribute("data-magic-eye-day", key);
+    var tip = document.getElementById("magicEyeFsTip");
+    if (tip) {
+      var turn = cssW >= 480 ? "" : " Turn the phone sideways for a larger picture.";
+      tip.textContent = ((mode === "wall") ? TIP_WALL : TIP_CROSS) + turn;
+    }
+  }
+  function closeFullscreen() {
+    if (!_fsOpen) return;
+    _fsOpen = false;
+    var el = document.getElementById("magicEyeFs");
+    function hide() {
+      if (el) el.hidden = true;
+      if (typeof document !== "undefined" && document.body) {
+        document.body.classList.remove("me-fs-open");
+        document.body.style.overflow = _fsPrevOverflow;
+      }
+    }
+    var doc = typeof document !== "undefined" ? document : null;
+    var fsEl = doc && (doc.fullscreenElement || doc.webkitFullscreenElement);
+    if (fsEl && el && fsEl === el) {
+      var exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+      if (exit) Promise.resolve(exit.call(doc)).catch(function () {}).then(hide);
+      else hide();
+    } else hide();
+  }
+  function openFullscreen(opts) {
+    if (typeof document === "undefined") return;
+    var mode = (opts && opts.mode) || "cross";
+    _fsMode = mode;
+    var el = ensureOverlay();
+    el.hidden = false;
+    _fsOpen = true;
+    if (document.body) {
+      _fsPrevOverflow = document.body.style.overflow;
+      document.body.classList.add("me-fs-open");
+      document.body.style.overflow = "hidden";
+    }
+    var tip = document.getElementById("magicEyeFsTip");
+    if (tip) tip.textContent = (mode === "wall") ? TIP_WALL : TIP_CROSS;
+    if (!_fsBound) {
+      _fsBound = true;
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && _fsOpen) { e.preventDefault(); closeFullscreen(); }
+      });
+      function onFsChange() { if (_fsOpen) drawFullscreen(_fsMode); }
+      document.addEventListener("fullscreenchange", onFsChange);
+      document.addEventListener("webkitfullscreenchange", onFsChange);
+      window.addEventListener("resize", function () { if (_fsOpen) drawFullscreen(_fsMode); });
+      window.addEventListener("orientationchange", function () { if (_fsOpen) setTimeout(function () { drawFullscreen(_fsMode); }, 120); });
+      if (window.visualViewport) window.visualViewport.addEventListener("resize", function () { if (_fsOpen) drawFullscreen(_fsMode); });
+    }
+    function paint() { drawFullscreen(mode); }
+    requestAnimationFrame(function () { requestAnimationFrame(paint); });
+    var req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) {
+      try { var p = req.call(el); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+    }
+    var closeBtn = document.getElementById("magicEyeFsClose");
+    if (closeBtn && !closeBtn._meBound) {
+      closeBtn._meBound = true;
+      closeBtn.addEventListener("click", function (e) { e.preventDefault(); closeFullscreen(); });
+    }
   }
 
   function todayKey(ms) {
@@ -380,7 +619,6 @@
     var m = d.getMonth() + 1, day = d.getDate();
     return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
   }
-
   function nextMidnightMs(now) {
     var ET = (typeof module !== "undefined" && module.exports)
       ? require("./et-day.js")
@@ -397,7 +635,10 @@
     if (!canvas) return;
     var revealBtn = document.getElementById((opts && opts.revealId) || "magicEyeReveal");
     var shapeEl = document.getElementById((opts && opts.shapeId) || "magicEyeShape");
-    var drawn = false, drawing = false, lastKey = "";
+    var tipEl = document.getElementById((opts && opts.tipId) || "magicEyeTip") || document.querySelector("#magicEye .me-tip");
+    var modeBtn = document.getElementById((opts && opts.modeId) || "magicEyeMode");
+    var lastKey = "", lastSig = "", drawing = false, drawn = false, mode = "cross";
+    try { if (localStorage.getItem("zabMagicEyeMode") === "wall") mode = "wall"; } catch (e) {}
 
     function applyReveal(show) {
       if (!shapeEl) return;
@@ -411,18 +652,33 @@
         if (revealBtn) { revealBtn.setAttribute("aria-expanded", "false"); revealBtn.hidden = false; }
       }
     }
+    function applyModeUi() {
+      if (tipEl) tipEl.textContent = mode === "wall" ? TIP_WALL : TIP_CROSS;
+      if (modeBtn) {
+        modeBtn.setAttribute("aria-pressed", mode === "wall" ? "true" : "false");
+        modeBtn.textContent = mode === "wall" ? "Viewing: Wall-eyed" : "Viewing: Cross-eyed";
+      }
+    }
 
     function draw(force) {
       var key = todayKey();
+      var cssW = Math.round(canvas.clientWidth || canvas.getBoundingClientRect().width || 0);
+      var dpr = window.devicePixelRatio || 1;
+      var sig = key + "|" + cssW + "|" + dpr.toFixed(3) + "|" + mode;
       if (drawing) return;
-      if (drawn && key === lastKey && !force) return;
+      if (!cssW) return;
+      if (drawn && sig === lastSig && !force) return;
       drawing = true;
       try {
         lastKey = key;
-        renderToCanvas(canvas, key);
+        lastSig = sig;
+        renderToCanvas(canvas, key, { cssW: cssW, dpr: dpr, mode: mode });
         drawn = true;
         applyReveal(false);
+        applyModeUi();
         canvas.setAttribute("data-magic-eye-day", key);
+        canvas.setAttribute("data-magic-eye-mode", mode);
+        canvas.setAttribute("data-magic-eye-width", String(cssW));
       } finally {
         drawing = false;
       }
@@ -445,6 +701,42 @@
       revealBtn._meBound = true;
       revealBtn.addEventListener("click", function () { if (lastKey) applyReveal(true); });
     }
+    if (modeBtn && !modeBtn._meBound) {
+      modeBtn._meBound = true;
+      modeBtn.addEventListener("click", function () {
+        mode = mode === "wall" ? "cross" : "wall";
+        try { localStorage.setItem("zabMagicEyeMode", mode); } catch (e) {}
+        drawn = false;
+        draw(true);
+      });
+    }
+    applyModeUi();
+
+    var fsBtn = document.getElementById((opts && opts.fsId) || "magicEyeFsBtn");
+    function goFs() { openFullscreen({ mode: mode }); }
+    if (fsBtn && !fsBtn._meBound) {
+      fsBtn._meBound = true;
+      fsBtn.addEventListener("click", function (e) { e.preventDefault(); goFs(); });
+    }
+    if (canvas && !canvas._meFsBound) {
+      canvas._meFsBound = true;
+      canvas.style.cursor = "zoom-in";
+      canvas.addEventListener("click", function () { goFs(); });
+    }
+
+    var resizeTimer = 0;
+    function onResize() {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () { draw(false); }, 80);
+    }
+    if (typeof ResizeObserver === "function") {
+      var ro = new ResizeObserver(onResize);
+      ro.observe(canvas);
+      if (canvas.parentNode) ro.observe(canvas.parentNode);
+    }
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", onResize);
 
     if (opts && opts.immediate) { draw(true); return; }
 
@@ -463,12 +755,16 @@
   }
 
   var api = {
-    W: W, H: H, SCALE: SCALE, BASE: BASE, AMP: AMP, SHAPE_NAMES: SHAPE_NAMES,
+    W: SRC_W, H: SRC_H, SCALE: SCALE, BASE: BASE, AMP: AMP, BOLD: BOLD,
+    PERIOD_CSS_MIN: PERIOD_CSS_MIN, PERIOD_CSS_MAX: PERIOD_CSS_MAX,
+    SHAPE_NAMES: SHAPE_NAMES, TIP_CROSS: TIP_CROSS, TIP_WALL: TIP_WALL,
     toOrdinal: toOrdinal, ordinalFromKey: ordinalFromKey,
     shapeIndex: shapeIndex, shapeName: shapeName,
-    buildDepth: buildDepth, renderBitmap: renderBitmap, renderToCanvas: renderToCanvas,
-    scaleNearestAndDots: scaleNearestAndDots, meanSeparation: meanSeparation,
-    todayKey: todayKey, nextMidnightMs: nextMidnightMs, mount: mount, pyRound: pyRound
+    layoutFor: layoutFor, buildDepth: buildDepth, renderBitmap: renderBitmap,
+    renderToCanvas: renderToCanvas, renderLegacyToCanvas: renderLegacyToCanvas,
+    scaleNearestAndDots: scaleNearestAndDots, openFullscreen: openFullscreen, closeFullscreen: closeFullscreen,
+    meanSeparation: meanSeparation, todayKey: todayKey, nextMidnightMs: nextMidnightMs,
+    mount: mount, pyRound: pyRound
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else {

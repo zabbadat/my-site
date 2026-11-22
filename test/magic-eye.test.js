@@ -41,11 +41,13 @@ check("cross-eyed decode also holds for heart and crown", sepOk("2026-11-20") &&
 
 const big = M.scaleNearestAndDots(a);
 check("2x nearest-neighbor scale is 1400×900 with ~2px dots", big.width === 1400 && big.height === 900 && M.SCALE === 2);
-function isBlack(x, y) {
-  const j = (y * big.width + x) * 4;
-  return big.data[j] === 0 && big.data[j + 1] === 0 && big.data[j + 2] === 0 && big.data[j + 3] === 255;
+function isBlack(buf, x, y) {
+  const j = (y * buf.width + x) * 4;
+  return buf.data[j] === 0 && buf.data[j + 1] === 0 && buf.data[j + 2] === 0 && buf.data[j + 3] === 255;
 }
-check("two black guide dots at the top (W-base, W+base)", isBlack(M.W - M.BASE, 24) && isBlack(M.W + M.BASE, 24));
+// Default 2× of a 700×450 / BASE 60 bitmap: period is 120 px, dots centered one period apart.
+check("two black guide dots one period apart, centered near the top",
+  isBlack(big, 700 - 60, 47) && isBlack(big, 700 + 60, 47));
 
 check("todayKey uses et-day.js (Eastern date)", M.todayKey(Date.parse("2026-11-21T04:59:59Z")) === "2026-11-20" && M.todayKey(Date.parse("2026-11-21T05:00:00Z")) === "2026-11-21" && ET.key(Date.parse("2026-11-21T05:00:00Z")) === "2026-11-21");
 
@@ -69,6 +71,41 @@ check("draw is lazy: IntersectionObserver + requestIdleCallback, not on script p
   typeof M.mount === "function");
 check("does not touch pfp, camera, auth, Firebase, or Netlify config from this file",
   !/pfp\.js|ZabPfp|signInWith|firebase|netlify\.toml/.test(src));
+
+
+const phone = M.layoutFor(343, 3);
+check("phone layout: period 80–100 CSS px and depth step ≥ 20 CSS px",
+  phone.periodCss >= 80 && phone.periodCss <= 100 && phone.ampCss >= 20 && phone.pixW === 343 * 3 && phone.dpr === 3);
+const wide = M.layoutFor(844, 3);
+check("wide / landscape full-screen period can reach 140 CSS px",
+  wide.periodCss === 140 && wide.ampCss >= 20 && wide.pixW === 844 * 3);
+
+const wall = M.renderBitmap("2026-11-21", { w: 172, h: 111, base: 48, amp: 15, mode: "wall", bold: 1.22 });
+const wallSep = M.meanSeparation(wall);
+check("wall-eyed decode: separation inside the shape is narrower than the background",
+  wallSep.nIn > 200 && wallSep.nOut > 200 && wallSep.inside + 8 < wallSep.outside);
+
+check("index has View full screen, viewing-mode toggle, pixelated canvas, and a tip id",
+  /id="magicEyeFsBtn"/.test(sec) && /View full screen/.test(sec) &&
+  /id="magicEyeMode"/.test(sec) && /id="magicEyeTip"/.test(sec) &&
+  /image-rendering:\s*pixelated/.test(html));
+check("magic-eye.js opens a full-screen overlay (Fullscreen API + 100dvh fallback) and redraws at screen size",
+  /requestFullscreen|webkitRequestFullscreen/.test(src) &&
+  /100dvh/.test(src) && /magicEyeFsClose/.test(src) &&
+  typeof M.openFullscreen === "function" && typeof M.closeFullscreen === "function" &&
+  typeof M.renderLegacyToCanvas === "function");
+
+const testPage = fs.readFileSync(path.join(__dirname, "..", "magic-eye-test.html"), "utf8");
+check("magic-eye-test.html is noindex, not linked from nav, and compares live vs fix vs full screen",
+  /name="robots" content="noindex/.test(testPage) &&
+  /id="legacyCanvas"/.test(testPage) && /id="fixCanvas"/.test(testPage) && /id="fsOpen"/.test(testPage) &&
+  /renderLegacyToCanvas/.test(testPage) && /openFullscreen/.test(testPage) &&
+  !/<nav[\s>]/.test(testPage) &&
+  !/href="\/magic-eye-test"/.test(html) && !/href="magic-eye-test/.test(html));
+check("legacy renderer still paints a 1400×900 bitmap (live path) with old guide-dot placement", (() => {
+  const out = M.renderLegacyToCanvas(null, "2026-11-21");
+  return out && out.width === 1400 && out.height === 900 && out.bmp && out.bmp.name === "star";
+})());
 
 const fail = R.filter((x) => !x).length;
 console.log(`\n${R.length - fail}/${R.length} passed`);

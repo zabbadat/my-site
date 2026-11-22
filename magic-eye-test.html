@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magic Eye compare — Zabbadat</title>
+  <meta name="description" content="Test-only side-by-side of the live Magic Eye, the phone-tuned fix, and a full-screen viewer. Not the live site.">
+  <meta name="theme-color" content="#0e1412">
+  <link rel="icon" href="/zd-square.png">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Outfit:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+  <style>
+    :root { --bg:#0e1412; --bg-2:#15201c; --card:#1b2723; --accent:#8fbfa8; --text:#eef4f1; --muted:#9aada4; --warn:#e2b36a; --lime:#c6ff00; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: var(--bg); color: var(--text); font-family: Outfit, system-ui, sans-serif; line-height: 1.5; }
+    body { max-width: 52rem; margin: 0 auto; padding: 1rem 1rem 3rem; }
+    .banner { background: #3a2010; color: var(--warn); font-size: .8rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: .45rem .7rem; border-radius: 8px; margin-bottom: 1rem; }
+    h1 { font-family: "Cormorant Garamond", Georgia, serif; font-weight: 500; font-size: 2rem; margin: .2rem 0 .35rem; }
+    .lead { color: var(--muted); font-size: .95rem; margin-bottom: 1.1rem; }
+    .lead a { color: var(--accent); }
+    .panel { background: var(--card); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: .85rem .85rem 1rem; margin: 0 0 1rem; }
+    .panel h2 { font-size: 1.05rem; font-weight: 600; margin: 0 0 .25rem; }
+    .panel .meta { color: var(--muted); font-size: .82rem; margin: 0 0 .6rem; }
+    canvas { display: block; width: 100%; height: auto; background: #000; border-radius: 10px; }
+    #legacyCanvas { image-rendering: auto; }
+    #fixCanvas { image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; image-rendering: pixelated; cursor: zoom-in; }
+    .row { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .7rem; }
+    button {
+      font-family: inherit; border: 1px solid rgba(239,244,241,.22); background: var(--bg-2); color: var(--text);
+      padding: .4rem .85rem; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: .85rem;
+    }
+    button:hover, button:focus-visible { border-color: rgba(198,255,0,.5); outline: none; }
+    button.primary { background: var(--accent); color: #0e1412; border-color: var(--accent); }
+    .tip { margin-top: .45rem; color: var(--muted); font-size: .9rem; }
+    @media (min-width: 900px) {
+      .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <p class="banner">Test page — not linked from the site. Compare live vs. fixed vs. full screen on your phone.</p>
+  <h1>Daily Magic Eye compare</h1>
+  <p class="lead">Same Eastern-day picture, three ways. (1) is how the live homepage currently draws it (1400×900, then shrunk). (2) is the fix: drawn at the size you actually see. (3) opens a full-screen view (Fullscreen API, or a 100dvh overlay on iPhone). Tip: cross your eyes until the two dots become three; turn the phone sideways in full screen for a larger picture. <a href="/#cooling-box">Back to the cooling box</a>.</p>
+
+  <div class="cols">
+    <section class="panel" id="legacyPanel">
+      <h2>1. Current live rendering</h2>
+      <p class="meta" id="legacyMeta">1400×900 canvas, CSS-downscaled, default smoothing — the live homepage path.</p>
+      <canvas id="legacyCanvas" width="1400" height="900" role="img" aria-label="Live-style Magic Eye, downscaled from 1400 by 900"></canvas>
+    </section>
+
+    <section class="panel" id="fixPanel">
+      <h2>2. Fixed inline rendering</h2>
+      <p class="meta" id="fixMeta">Drawn at displayed width × devicePixelRatio, with a fuseable period and crisp pixels.</p>
+      <canvas id="fixCanvas" width="1400" height="900" role="img" aria-label="Fixed inline Magic Eye autostereogram"></canvas>
+      <p class="tip" id="fixTip">Cross your eyes until the two dots become three.</p>
+    </section>
+  </div>
+
+  <section class="panel" id="fsPanel">
+    <h2>3. Full screen</h2>
+    <p class="meta">Opens a full-screen overlay and redraws the stereogram at the full screen size × devicePixelRatio, with the guide dots, tip, and a close X. Tap the fixed picture above, or this button.</p>
+    <div class="row">
+      <button type="button" class="primary" id="fsOpen">View full screen</button>
+      <button type="button" id="modeToggle" aria-pressed="false">Viewing: Cross-eyed</button>
+    </div>
+  </section>
+
+  <script src="/et-day.js"></script>
+  <script src="/magic-eye.js"></script>
+  <script>
+    (function () {
+      var M = window.ZabbadatMagicEye;
+      if (!M) return;
+      var key = M.todayKey();
+      var mode = "cross";
+      try { if (localStorage.getItem("zabMagicEyeMode") === "wall") mode = "wall"; } catch (e) {}
+      var legacy = document.getElementById("legacyCanvas");
+      var fix = document.getElementById("fixCanvas");
+      var tip = document.getElementById("fixTip");
+      var legacyMeta = document.getElementById("legacyMeta");
+      var fixMeta = document.getElementById("fixMeta");
+      var modeBtn = document.getElementById("modeToggle");
+
+      function applyTip() {
+        var t = mode === "wall" ? M.TIP_WALL : M.TIP_CROSS;
+        if (tip) tip.textContent = t;
+        if (modeBtn) {
+          modeBtn.setAttribute("aria-pressed", mode === "wall" ? "true" : "false");
+          modeBtn.textContent = mode === "wall" ? "Viewing: Wall-eyed" : "Viewing: Cross-eyed";
+        }
+      }
+      function paint() {
+        var cssW = Math.round(fix.clientWidth || fix.getBoundingClientRect().width || 0);
+        var dpr = window.devicePixelRatio || 1;
+        if (legacy) M.renderLegacyToCanvas(legacy, key);
+        if (fix && cssW) M.renderToCanvas(fix, key, { cssW: cssW, dpr: dpr, mode: mode });
+        applyTip();
+        if (legacyMeta) {
+          var box = legacy.getBoundingClientRect();
+          legacyMeta.textContent = "Live path: 1400×900 bitmap shown at " + Math.round(box.width) + "×" + Math.round(box.height) + " CSS px (period shrinks to ~" + Math.round(120 * box.width / 1400) + " CSS px).";
+        }
+        if (fixMeta && cssW) {
+          var L = M.layoutFor(cssW, dpr);
+          fixMeta.textContent = "Fix: " + L.pixW + "×" + L.pixH + " px at dpr " + L.dpr + ". Period " + L.periodCss + " CSS px, depth step " + L.ampCss + " CSS px.";
+        }
+      }
+      function goFs() { M.openFullscreen({ mode: mode }); }
+      document.getElementById("fsOpen").addEventListener("click", function (e) { e.preventDefault(); goFs(); });
+      fix.addEventListener("click", goFs);
+      modeBtn.addEventListener("click", function () {
+        mode = mode === "wall" ? "cross" : "wall";
+        try { localStorage.setItem("zabMagicEyeMode", mode); } catch (e) {}
+        paint();
+      });
+      var t;
+      function onR() { clearTimeout(t); t = setTimeout(paint, 80); }
+      window.addEventListener("resize", onR);
+      window.addEventListener("orientationchange", onR);
+      if (window.visualViewport) window.visualViewport.addEventListener("resize", onR);
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", paint);
+      else paint();
+    })();
+  </script>
+</body>
+</html>
