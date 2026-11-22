@@ -57,7 +57,8 @@ check("#cooling-box has the centered Magic Eye figure after the Sitkari lead and
 check("canvas is 1400×900, caption and tip match the brief, no shape name shown by default",
   /id="magicEyeCanvas" width="1400" height="900"/.test(sec) &&
   />Today's Magic Eye</.test(sec) &&
-  /Cross your eyes until the two dots become three\./.test(sec) &&
+  /Tap for full screen\. Relax your eyes and look through the picture/.test(sec) &&
+  /until the two dots become three\. Hold still and the shape floats up\./.test(sec) &&
   /id="magicEyeShape" hidden/.test(sec) &&
   !/Today's shape:/.test(sec) &&
   /id="magicEyeReveal"/.test(sec));
@@ -89,11 +90,24 @@ check("index has View full screen, viewing-mode toggle, pixelated canvas, and a 
   /id="magicEyeFsBtn"/.test(sec) && /View full screen/.test(sec) &&
   /id="magicEyeMode"/.test(sec) && /id="magicEyeTip"/.test(sec) &&
   /image-rendering:\s*pixelated/.test(html));
+check("wall-eyed is the default mode (inline markup and JS); cross-eyed remains a toggle",
+  M.DEFAULT_MODE === "wall" &&
+  /id="magicEyeMode"[^>]*aria-pressed="true"/.test(sec) &&
+  />Viewing: Wall-eyed</.test(sec) &&
+  /zabMagicEyeMode"\) === "cross"/.test(src) &&
+  typeof M.tipFor === "function" &&
+  /Tap for full screen/.test(M.TIP_WALL) &&
+  /look through the picture/.test(M.TIP_WALL) &&
+  /Tap the picture to go back/.test(M.TIP_WALL_FS));
 check("magic-eye.js opens a full-screen overlay (Fullscreen API + 100dvh fallback) and redraws at screen size",
   /requestFullscreen|webkitRequestFullscreen/.test(src) &&
   /100dvh/.test(src) && /magicEyeFsClose/.test(src) &&
   typeof M.openFullscreen === "function" && typeof M.closeFullscreen === "function" &&
   typeof M.renderLegacyToCanvas === "function");
+check("tapping the full-screen picture itself closes the overlay",
+  /fsCanvas\.addEventListener\("click"/.test(src) &&
+  /closeFullscreen\(\)/.test(src) &&
+  /_fsOpenedAt/.test(src));
 
 const testPage = fs.readFileSync(path.join(__dirname, "..", "magic-eye-test.html"), "utf8");
 check("magic-eye-test.html is noindex, not linked from nav, and compares live vs fix vs full screen",

@@ -5,15 +5,22 @@
  * repeat period stays ~80–100 CSS px on a phone (large enough to fuse). A
  * 1400×900 bitmap downscaled into a 343 px column shrinks the period to ~29 px
  * and blurs sub-pixel dots, so the hidden shape will not pop.
- * Cross-eyed default: nearer = wider separation. Optional wall-eyed mode flips that.
+ * Wall-eyed default (relax / look through): nearer = narrower separation. Optional cross-eyed mode flips that.
  * Browser: window.ZabbadatMagicEye. Node: require("./magic-eye.js").
  */
 (function (root) {
   "use strict";
   var SRC_W = 700, SRC_H = 450, SCALE = 2, BASE = 60, AMP = 14, BLUR = 5, GAIN = 1.5;
   var PERIOD_CSS_MIN = 80, PERIOD_CSS_MAX = 140, AMP_FRAC = 0.3, CELL_CSS = 2, BOLD = 1.22;
-  var TIP_CROSS = "Cross your eyes until the two dots become three.";
-  var TIP_WALL = "Relax and look through the image until the two dots become three.";
+  var DEFAULT_MODE = "wall";
+  var TIP_CROSS = "Tap for full screen. Cross your eyes until the two dots become three. Hold still and the shape floats up.";
+  var TIP_WALL = "Tap for full screen. Relax your eyes and look through the picture, as if at something far behind it, until the two dots become three. Hold still and the shape floats up.";
+  var TIP_CROSS_FS = "Tap the picture to go back. Cross your eyes until the two dots become three. Hold still and the shape floats up.";
+  var TIP_WALL_FS = "Tap the picture to go back. Relax your eyes and look through the picture, as if at something far behind it, until the two dots become three. Hold still and the shape floats up.";
+  function tipFor(mode, fs) {
+    if (fs) return mode === "cross" ? TIP_CROSS_FS : TIP_WALL_FS;
+    return mode === "cross" ? TIP_CROSS : TIP_WALL;
+  }
   var SHAPE_NAMES = [
     "heart", "star", "letter Z", "lightning bolt", "smiley face",
     "crescent moon", "dumbbell", "number 7", "arrow", "crown"
@@ -511,7 +518,7 @@
     return el;
   }
 
-  var _fsBound = false, _fsOpen = false, _fsMode = "cross", _fsPrevOverflow = "";
+  var _fsBound = false, _fsOpen = false, _fsMode = DEFAULT_MODE, _fsPrevOverflow = "", _fsOpenedAt = 0;
   function drawFullscreen(mode) {
     var canvas = document.getElementById("magicEyeFsCanvas");
     var stage = canvas && canvas.parentNode;
@@ -544,13 +551,10 @@
     var dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
     if (!cssW) return;
     var key = todayKey();
-    renderToCanvas(canvas, key, { cssW: cssW, dpr: dpr, mode: mode || _fsMode || "cross" });
+    renderToCanvas(canvas, key, { cssW: cssW, dpr: dpr, mode: mode || _fsMode || DEFAULT_MODE });
     canvas.setAttribute("data-magic-eye-day", key);
     var tip = document.getElementById("magicEyeFsTip");
-    if (tip) {
-      var turn = cssW >= 480 ? "" : " Turn the phone sideways for a larger picture.";
-      tip.textContent = ((mode === "wall") ? TIP_WALL : TIP_CROSS) + turn;
-    }
+    if (tip) tip.textContent = tipFor(mode || _fsMode || DEFAULT_MODE, true);
   }
   function closeFullscreen() {
     if (!_fsOpen) return;
@@ -573,8 +577,9 @@
   }
   function openFullscreen(opts) {
     if (typeof document === "undefined") return;
-    var mode = (opts && opts.mode) || "cross";
+    var mode = (opts && opts.mode) || DEFAULT_MODE;
     _fsMode = mode;
+    _fsOpenedAt = Date.now();
     var el = ensureOverlay();
     el.hidden = false;
     _fsOpen = true;
@@ -584,7 +589,7 @@
       document.body.style.overflow = "hidden";
     }
     var tip = document.getElementById("magicEyeFsTip");
-    if (tip) tip.textContent = (mode === "wall") ? TIP_WALL : TIP_CROSS;
+    if (tip) tip.textContent = tipFor(mode, true);
     if (!_fsBound) {
       _fsBound = true;
       document.addEventListener("keydown", function (e) {
@@ -606,7 +611,27 @@
     var closeBtn = document.getElementById("magicEyeFsClose");
     if (closeBtn && !closeBtn._meBound) {
       closeBtn._meBound = true;
-      closeBtn.addEventListener("click", function (e) { e.preventDefault(); closeFullscreen(); });
+      closeBtn.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); closeFullscreen(); });
+    }
+    var fsCanvas = document.getElementById("magicEyeFsCanvas");
+    if (fsCanvas && !fsCanvas._meCloseBound) {
+      fsCanvas._meCloseBound = true;
+      fsCanvas.style.cursor = "zoom-out";
+      fsCanvas.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (Date.now() - _fsOpenedAt < 400) return;
+        closeFullscreen();
+      });
+    }
+    var stage = fsCanvas && fsCanvas.parentNode;
+    if (stage && !stage._meCloseBound) {
+      stage._meCloseBound = true;
+      stage.addEventListener("click", function (e) {
+        if (e.target === fsCanvas) return;
+        if (Date.now() - _fsOpenedAt < 400) return;
+        closeFullscreen();
+      });
     }
   }
 
@@ -637,8 +662,8 @@
     var shapeEl = document.getElementById((opts && opts.shapeId) || "magicEyeShape");
     var tipEl = document.getElementById((opts && opts.tipId) || "magicEyeTip") || document.querySelector("#magicEye .me-tip");
     var modeBtn = document.getElementById((opts && opts.modeId) || "magicEyeMode");
-    var lastKey = "", lastSig = "", drawing = false, drawn = false, mode = "cross";
-    try { if (localStorage.getItem("zabMagicEyeMode") === "wall") mode = "wall"; } catch (e) {}
+    var lastKey = "", lastSig = "", drawing = false, drawn = false, mode = DEFAULT_MODE;
+    try { if (localStorage.getItem("zabMagicEyeMode") === "cross") mode = "cross"; } catch (e) {}
 
     function applyReveal(show) {
       if (!shapeEl) return;
@@ -653,7 +678,7 @@
       }
     }
     function applyModeUi() {
-      if (tipEl) tipEl.textContent = mode === "wall" ? TIP_WALL : TIP_CROSS;
+      if (tipEl) tipEl.textContent = tipFor(mode, false);
       if (modeBtn) {
         modeBtn.setAttribute("aria-pressed", mode === "wall" ? "true" : "false");
         modeBtn.textContent = mode === "wall" ? "Viewing: Wall-eyed" : "Viewing: Cross-eyed";
@@ -757,7 +782,8 @@
   var api = {
     W: SRC_W, H: SRC_H, SCALE: SCALE, BASE: BASE, AMP: AMP, BOLD: BOLD,
     PERIOD_CSS_MIN: PERIOD_CSS_MIN, PERIOD_CSS_MAX: PERIOD_CSS_MAX,
-    SHAPE_NAMES: SHAPE_NAMES, TIP_CROSS: TIP_CROSS, TIP_WALL: TIP_WALL,
+    SHAPE_NAMES: SHAPE_NAMES, DEFAULT_MODE: DEFAULT_MODE, tipFor: tipFor,
+    TIP_CROSS: TIP_CROSS, TIP_WALL: TIP_WALL, TIP_CROSS_FS: TIP_CROSS_FS, TIP_WALL_FS: TIP_WALL_FS,
     toOrdinal: toOrdinal, ordinalFromKey: ordinalFromKey,
     shapeIndex: shapeIndex, shapeName: shapeName,
     layoutFor: layoutFor, buildDepth: buildDepth, renderBitmap: renderBitmap,

@@ -41,7 +41,7 @@
 <body>
   <p class="banner">Test page — not linked from the site. Compare live vs. fixed vs. full screen on your phone.</p>
   <h1>Daily Magic Eye compare</h1>
-  <p class="lead">Same Eastern-day picture, three ways. (1) is how the live homepage currently draws it (1400×900, then shrunk). (2) is the fix: drawn at the size you actually see. (3) opens a full-screen view (Fullscreen API, or a 100dvh overlay on iPhone). Tip: cross your eyes until the two dots become three; turn the phone sideways in full screen for a larger picture. <a href="/#cooling-box">Back to the cooling box</a>.</p>
+  <p class="lead">Same Eastern-day picture, three ways. (1) is how the live homepage currently draws it (1400×900, then shrunk). (2) is the fix: drawn at the size you actually see, wall-eyed by default. (3) opens a full-screen view (tap the picture or the button; tap the picture again to go back). Relax your eyes and look through the picture until the two dots become three. <a href="/#cooling-box">Back to the cooling box</a>.</p>
 
   <div class="cols">
     <section class="panel" id="legacyPanel">
@@ -54,7 +54,7 @@
       <h2>2. Fixed inline rendering</h2>
       <p class="meta" id="fixMeta">Drawn at displayed width × devicePixelRatio, with a fuseable period and crisp pixels.</p>
       <canvas id="fixCanvas" width="1400" height="900" role="img" aria-label="Fixed inline Magic Eye autostereogram"></canvas>
-      <p class="tip" id="fixTip">Cross your eyes until the two dots become three.</p>
+      <p class="tip" id="fixTip">Tap for full screen. Relax your eyes and look through the picture, as if at something far behind it, until the two dots become three. Hold still and the shape floats up.</p>
     </section>
   </div>
 
@@ -63,7 +63,7 @@
     <p class="meta">Opens a full-screen overlay and redraws the stereogram at the full screen size × devicePixelRatio, with the guide dots, tip, and a close X. Tap the fixed picture above, or this button.</p>
     <div class="row">
       <button type="button" class="primary" id="fsOpen">View full screen</button>
-      <button type="button" id="modeToggle" aria-pressed="false">Viewing: Cross-eyed</button>
+      <button type="button" id="modeToggle" aria-pressed="true">Viewing: Wall-eyed</button>
     </div>
   </section>
 
@@ -74,8 +74,8 @@
       var M = window.ZabbadatMagicEye;
       if (!M) return;
       var key = M.todayKey();
-      var mode = "cross";
-      try { if (localStorage.getItem("zabMagicEyeMode") === "wall") mode = "wall"; } catch (e) {}
+      var mode = (M.DEFAULT_MODE || "wall");
+      try { if (localStorage.getItem("zabMagicEyeMode") === "cross") mode = "cross"; } catch (e) {}
       var legacy = document.getElementById("legacyCanvas");
       var fix = document.getElementById("fixCanvas");
       var tip = document.getElementById("fixTip");
@@ -84,7 +84,7 @@
       var modeBtn = document.getElementById("modeToggle");
 
       function applyTip() {
-        var t = mode === "wall" ? M.TIP_WALL : M.TIP_CROSS;
+        var t = M.tipFor ? M.tipFor(mode, false) : (mode === "wall" ? M.TIP_WALL : M.TIP_CROSS);
         if (tip) tip.textContent = t;
         if (modeBtn) {
           modeBtn.setAttribute("aria-pressed", mode === "wall" ? "true" : "false");
