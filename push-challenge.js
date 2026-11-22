@@ -72,7 +72,7 @@
   var INTRO = {
     spoken: "Hold a push-up plank, arms straight, for two minutes.",
     title: "Two-minute challenge",
-    lines: ["The clock runs from 2:00 down to 0:00.", "Hold a push-up plank, arms straight, the whole two minutes.", "Knees down, sagging, piking, collapsing or standing up ends it."]
+    lines: ["The clock runs from 2:00 down to 0:00.", "Hold a push-up plank, arms straight, the whole two minutes.", "Bad form fails the plank."]
   };
   // start(t) at Hold; update(t) -> snapshot; fail(t, reason) ends it early (credit up to t); stop(t, reason) = ended by hand.
   // Snapshot: { started, ended, success, reason, heldMs, remainingMs }. Nothing after durationMs is ever credited.

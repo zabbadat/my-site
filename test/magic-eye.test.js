@@ -52,16 +52,20 @@ check("two black guide dots one period apart, centered near the top",
 check("todayKey uses et-day.js (Eastern date)", M.todayKey(Date.parse("2026-11-21T04:59:59Z")) === "2026-11-20" && M.todayKey(Date.parse("2026-11-21T05:00:00Z")) === "2026-11-21" && ET.key(Date.parse("2026-11-21T05:00:00Z")) === "2026-11-21");
 
 const sec = (html.match(/<section id="cooling-box">([\s\S]*?)<\/section>/) || [])[1] || "";
-check("#cooling-box has the centered Magic Eye figure after the Sitkari lead and before How to sitkari",
-  /id="magicEye"/.test(sec) && sec.indexOf("Sitkari through the inhale") < sec.indexOf('id="magicEye"') && sec.indexOf('id="magicEye"') < sec.indexOf('id="sitkari-how"'));
+const fig = (html.match(/<figure class="me-centered" id="magicEye">([\s\S]*?)<\/figure>/) || [])[0] || "";
+check("Magic Eye sits after the plank prompt and above TUTS & PUSH up sets, not inside #cooling-box",
+  !/id="magicEye"/.test(sec) && /id="sitkari-how"/.test(sec) &&
+  html.indexOf('id="plank-prompt"') < html.indexOf('id="magicEye"') &&
+  html.indexOf('id="magicEye"') < html.indexOf('<section id="push">') &&
+  /TUTS &amp; PUSH up sets/.test(html.slice(html.indexOf('<section id="push">'), html.indexOf('<section id="push">') + 80)));
 check("canvas is 1400×900, caption and tip match the brief, no shape name shown by default",
-  /id="magicEyeCanvas" width="1400" height="900"/.test(sec) &&
-  />Today's Magic Eye</.test(sec) &&
-  /Tap for full screen\. Relax your eyes and look through the picture/.test(sec) &&
-  /until the two dots become three\. Hold still and the shape floats up\./.test(sec) &&
-  /id="magicEyeShape" hidden/.test(sec) &&
-  !/Today's shape:/.test(sec) &&
-  /id="magicEyeReveal"/.test(sec));
+  /id="magicEyeCanvas" width="1400" height="900"/.test(fig) &&
+  />Today's Magic Eye</.test(fig) &&
+  /Tap for full screen\. Relax your eyes and look through the picture/.test(fig) &&
+  /until the two dots become three\. Hold still and the shape floats up\./.test(fig) &&
+  /id="magicEyeShape" hidden/.test(fig) &&
+  !/Today's shape:/.test(fig) &&
+  /id="magicEyeReveal"/.test(fig));
 check("layout A CSS: centered, max-width 52rem, full-width canvas",
   /#magicEye\.me-centered\{[^}]*max-width:52rem/.test(html) && /#magicEye canvas\{[^}]*width:100%/.test(html));
 check("index.html loads magic-eye.js immediately after et-day.js",
@@ -87,13 +91,13 @@ check("wall-eyed decode: separation inside the shape is narrower than the backgr
   wallSep.nIn > 200 && wallSep.nOut > 200 && wallSep.inside + 8 < wallSep.outside);
 
 check("index has View full screen, viewing-mode toggle, pixelated canvas, and a tip id",
-  /id="magicEyeFsBtn"/.test(sec) && /View full screen/.test(sec) &&
-  /id="magicEyeMode"/.test(sec) && /id="magicEyeTip"/.test(sec) &&
+  /id="magicEyeFsBtn"/.test(fig) && /View full screen/.test(fig) &&
+  /id="magicEyeMode"/.test(fig) && /id="magicEyeTip"/.test(fig) &&
   /image-rendering:\s*pixelated/.test(html));
 check("wall-eyed is the default mode (inline markup and JS); cross-eyed remains a toggle",
   M.DEFAULT_MODE === "wall" &&
-  /id="magicEyeMode"[^>]*aria-pressed="true"/.test(sec) &&
-  />Viewing: Wall-eyed</.test(sec) &&
+  /id="magicEyeMode"[^>]*aria-pressed="true"/.test(fig) &&
+  />Viewing: Wall-eyed</.test(fig) &&
   /zabMagicEyeMode"\) === "cross"/.test(src) &&
   typeof M.tipFor === "function" &&
   /Tap for full screen/.test(M.TIP_WALL) &&

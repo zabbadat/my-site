@@ -6,17 +6,17 @@ const R = []; const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  $
 const C = G.COACH.plank, words = (t) => t.trim().split(/\s+/).length;
 check("spoken place line (in the tap)", C.place === "Phone on the floor, on its side, off to your side.");
 check("spoken criteria line (camera up)", C.criteria === "Step back until you're head to heels.");
-check("spoken rules line (fresh start only)", C.rules === "Sagging, piking, knees down, standing up or leaving the frame ends it.");
+check("spoken rules line (fresh start only)", C.rules === "Bad form fails the plank.");
 check("each spoken line is short enough to finish inside the 10 s speech cap (<= 22 words)", [C.place, C.criteria, C.rules, C.clock, C.next].every((l) => words(l) <= 22));
 check("the lines cover the walk-through: phone on the floor on its side, step back head to heels; setup does not preview the countdown", /on the floor, on its side, off to your side/.test(C.place) && /Step back until you're head to heels/.test(C.criteria) && !/3, 2, 1, Hold/.test(C.criteria) && !C.cue);
-check("the rules line names every hold-ender", ["sagging", "piking", "knees down", "standing up", "leaving the frame"].every((w) => C.rules.toLowerCase().includes(w)));
+check("the rules line is the owner fail line", C.rules === "Bad form fails the plank.");
 check("on-screen setup prompt (get-set.js POSITION.plank) matches", G.POSITION.plank.length <= 2 && G.POSITION.plank[0] === C.place && G.POSITION.plank[1] === C.criteria);
 const html = rd("index.html"), plank = rd("plank.html");
 const setup = html.match(/id="plankSetup">([\s\S]*?)<\/p>/)[1], status = html.match(/id="plankStatus"[^>]*>([\s\S]*?)<\/p>/)[1];
-check("index.html set-up note: phone on the floor on its side, head to heels in the outline, without previewing the countdown", /Phone on the floor, on its side, off to your side/.test(setup) && /head to heels in the outline/.test(setup) && !/3, 2, 1, Hold/.test(setup));
-check("index.html status note names every hold-ender and when the clock starts", /sagging/i.test(status) && /piking/.test(status) && /knees/.test(status) && /standing up/.test(status) && /leaving the frame/.test(status) && /Clock starts on a proper plank/.test(status));
-check("after Go the on-screen line repeats what ends the hold; the rules line is spoken once, not on a quick restart", html.includes("Shoulders, hips and ankles in one line. Clock starts on a proper plank. Sagging, piking, knees down, standing up or leaving the frame ends it.") && /if \(!restart && window\.ZabbadatGetSet && window\.ZabbadatGetSet\.plankSpeak\) window\.ZabbadatGetSet\.plankSpeak\(window\.ZabbadatGetSet\.COACH\.plank\.rules\)/.test(html));
-check("plank.html describes the same setup and hold-enders", /Prop your phone on the floor, off to your side, sideways or upright/.test(plank) && /outline shows you head to heels/.test(plank) && /Turn to show your side/.test(plank) && /Sagging, piking up, knees down, standing up, or leaving the frame for a second ends the hold/.test(plank));
+check("index.html set-up note: shortened side-view setup, without previewing the countdown", /Phone on the floor, on its side, off to your side/.test(setup) && /head to heels/.test(setup) && !/in the outline/.test(setup) && !/3, 2, 1, Hold/.test(setup));
+check("index.html status note: clock start and Bad form fails the plank.", /Clock starts on a proper plank/.test(status) && /Bad form fails the plank\./.test(status) && !/sagging/i.test(status));
+check("after Go the on-screen line repeats what ends the hold; the rules line is spoken once, not on a quick restart", html.includes("Shoulders, hips and ankles in one line. Clock starts on a proper plank. Bad form fails the plank.") && /if \(!restart && window\.ZabbadatGetSet && window\.ZabbadatGetSet\.plankSpeak\) window\.ZabbadatGetSet\.plankSpeak\(window\.ZabbadatGetSet\.COACH\.plank\.rules\)/.test(html));
+check("plank.html describes the same setup and the owner fail line", /Prop your phone on the floor, off to your side, sideways or upright/.test(plank) && /outline shows you head to heels/.test(plank) && /Turn to show your side/.test(plank) && /Bad form fails the plank/.test(plank));
 check("no old plank setup wording left anywhere (a few steps away, screen facing you, Place your phone on the ground)", ![html, plank, rd("get-set.js")].some((t) => /a few steps away, (with the )?screen facing you|Place your phone on the ground|Get your whole body in camera view/.test(t)));
 check("framing messages shown on screen come from the guide (whole body / turn / sideways)", P.MSG.whole === "Step back until your whole body fits" && html.includes('"Step back until your whole body fits"') && /r\.framing\.msg/.test(html));
 check("plank stays side-view only: no front-view or placement choice text", !/front-facing|lean your phone/i.test(C.place + C.criteria + C.rules + setup + status));
@@ -30,6 +30,12 @@ check("plank start cue is the exact owner line, once (no doubled count)",
   G.PLANK_SET_LINE + " " + G.PLANK_STEPS.map((s) => s[1]).join(", ") + "." === FULL_CUE
   && (G.PLANK_SET_LINE + " " + G.PLANK_STEPS.map((s) => s[1]).join(", ") + ".").split(/one, two, three, hold/i).length === 2
   && !/one, two, three, hold/i.test(G.PLANK_SIDE_LINE));
+check("homepage plank prompt sits above Magic Eye and ends with the exact cue, once",
+  html.indexOf('id="plank-prompt"') < html.indexOf('id="magicEye"') &&
+  html.indexOf('id="magicEye"') < html.indexOf('<section id="push">') &&
+  /id="plankPrompt">Phone on the floor, on its side, off to your side\. Step back until you're head to heels\. Clock starts on a proper plank\. Bad form fails the plank\. Go on, hold on three\. One, two, three, hold\.</.test(html) &&
+  html.split("Go on, hold on three. One, two, three, hold.").length === 3 /* prompt + challengeNote, not a third */);
+
 check("plank page no longer previews countdown and explains proper plank", !/3, 2, 1, Hold/.test(plank) && /Clock starts on a proper plank/.test(plank));
 // Exercise the actual New hold handler with an already-running camera, not a camera-start stub.
 const vm = require("vm"), els = {}, said = []; let now = 100;

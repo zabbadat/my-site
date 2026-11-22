@@ -1539,17 +1539,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="cooling-box">
     <h2> Breathwork & Meditation —<br>Zabsticking<br>Sitkari coolbox breathing technique </h2>
     <p class="lead">Sitkari through the inhale, box counts on all four sides. Cool the mouth & mind, then close the cycle through the nose.</p>
-    <figure class="me-centered" id="magicEye">
-      <canvas id="magicEyeCanvas" width="1400" height="900" role="img" aria-label="Today's Magic Eye autostereogram"></canvas>
-      <figcaption>
-        <p class="me-cap">Today's Magic Eye</p>
-        <p class="me-tip" id="magicEyeTip">Tap for full screen. Relax your eyes and look through the picture, as if at something far behind it, until the two dots become three. Hold still and the shape floats up.</p>
-        <button type="button" class="me-mode" id="magicEyeMode" aria-pressed="true">Viewing: Wall-eyed</button>
-        <button type="button" class="me-fs" id="magicEyeFsBtn">View full screen</button>
-        <button type="button" class="me-reveal" id="magicEyeReveal" aria-expanded="false" aria-controls="magicEyeShape">Reveal today's shape</button>
-        <p class="me-shape" id="magicEyeShape" hidden></p>
-      </figcaption>
-    </figure>
     <div class="card" id="sitkari-how" style="margin-bottom:1.15rem">
       <div class="tag">How to sitkari</div>
       <h3>The inhale - (utilize <strong class="zabstick-hl">Zabstick</strong>)<br>or soften the jaw</h3>
@@ -1569,6 +1558,23 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="lead">Quick version: mouth in 4, hold 4, nose out 4, hold empty 4. Full steps, timing, and the Bariboshi minute are in <a href="#sitkari-how">How to sitkari</a> above.</p>
     <p class="fine">Sit upright. Stop if you get dizzy. This is a settling drill before a Bariboshi, not a medical treatment.</p>
   </section>
+  <section id="plank-prompt">
+    <h2>Plank</h2>
+    <p class="lead" id="plankPrompt">Phone on the floor, on its side, off to your side. Step back until you're head to heels. Clock starts on a proper plank. Bad form fails the plank. Go on, hold on three. One, two, three, hold.</p>
+    <p class="fine">Open <a href="#plank">Plank House</a> to start a timed hold.</p>
+  </section>
+  <figure class="me-centered" id="magicEye">
+      <canvas id="magicEyeCanvas" width="1400" height="900" role="img" aria-label="Today's Magic Eye autostereogram"></canvas>
+      <figcaption>
+        <p class="me-cap">Today's Magic Eye</p>
+        <p class="me-tip" id="magicEyeTip">Tap for full screen. Relax your eyes and look through the picture, as if at something far behind it, until the two dots become three. Hold still and the shape floats up.</p>
+        <button type="button" class="me-mode" id="magicEyeMode" aria-pressed="true">Viewing: Wall-eyed</button>
+        <button type="button" class="me-fs" id="magicEyeFsBtn">View full screen</button>
+        <button type="button" class="me-reveal" id="magicEyeReveal" aria-expanded="false" aria-controls="magicEyeShape">Reveal today's shape</button>
+        <p class="me-shape" id="magicEyeShape" hidden></p>
+      </figcaption>
+    </figure>
+
 <section id="push">
     <h2>TUTS &amp; PUSH up sets</h2>
     <ul class="lead push-rules">
@@ -1586,7 +1592,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="olt-banner" id="oltBanner"><span>TIME UNDER TENSION SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
     <p class="note" id="longNote" hidden>Time under tension set. The clock runs non-stop. Do as many push-ups as you can, or hold a plank push press. A TUT set counts even with zero push-ups, as long as form isn't broken. Ends only on knees down or a failure motion. Time, reps and TUT sets will post.</p>
     <span class="vcount" id="pushViol" hidden>0</span>
-    <p class="note" id="challengeNote" hidden>Two-minute challenge: hold a push-up plank, arms straight, while the clock runs from 2:00 to 0:00. The start cue is "Go on, hold on three. One, two, three, hold." The clock starts at hold. Knees down, sagging, piking, collapsing or standing up ends it, and you see how long you held. End set on the camera screen stops it.<br><span id="twoMinToday">Today: no tries yet.</span></p>
+    <p class="note" id="challengeNote" hidden>Two-minute challenge: hold a push-up plank, arms straight, while the clock runs from 2:00 to 0:00. The start cue is "Go on, hold on three. One, two, three, hold." The clock starts at hold. Bad form fails the plank. You see how long you held. End set on the camera screen stops it.<br><span id="twoMinToday">Today: no tries yet.</span></p>
     <div class="twomin-intro" id="twoMinIntro" hidden role="dialog" aria-live="assertive" aria-label="Two-minute challenge"><div class="twomin-card"><h3 id="twoMinIntroTitle">Two-minute challenge</h3><p id="twoMinIntroBody"></p><p class="fine">Tap to skip</p></div></div>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Reps today</span></div>
@@ -1934,7 +1940,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 <section id="plank" role="tabpanel" aria-labelledby="pe-tab-plank" hidden>
     <h2>Plank House</h2>
     <p class="lead">Longest good plank in the House wins. The camera times your hold. Same login as washers and pushups. Honor system. Not a form judge and not medical treatment.</p>
-    <p class="note" id="plankSetup"><b>Set up:</b> Phone on the floor, on its side, off to your side. Step back until you're head to heels in the outline.</p>
+    <p class="note" id="plankSetup">Phone on the floor, on its side, off to your side. Step back until you're head to heels.</p>
     <div class="stats duo">
       <div class="stat"><b id="plankCount" hidden aria-live="assertive" style="display:block;font-size:4rem;line-height:1"></b><b id="plankClock">0:00</b><span>This hold</span></div>
       <div class="stat"><b id="plankBest">—</b><span>Your best</span></div>
@@ -1963,7 +1969,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       </div>
       <button class="btn cam-end-btn" id="plankEndBtn" type="button" aria-label="End set and turn the camera off">End set</button>
     </div>
-    <p class="note" id="plankStatus" aria-live="polite">Shoulders, hips and ankles in one line. Clock starts on a proper plank. Sagging, piking, knees down, standing up or leaving the frame ends it.</p>
+    <p class="note" id="plankStatus" aria-live="polite">Shoulders, hips and ankles in one line. Clock starts on a proper plank. Bad form fails the plank.</p>
     <p class="fine">Every camera hold of 10 seconds or more counts as one set. New hold starts the next set without stopping the camera. Signed-in holds post to the Plank House board and today's sets board. Unsigned stays on this phone. Video never uploads.</p>
     <h3 style="margin-top:1.6rem">Plank House board</h3>
     <p class="lead">Longest hold first.</p>
@@ -4301,7 +4307,7 @@ async function startPlankCam() {
     if (typeof promptPlankSideways === "function") { if (!(await promptPlankSideways(() => !live()))) return; }
     if (!live()) return;
     if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(restart ? window.ZabbadatGetSet.COACH.plank.next : window.ZabbadatGetSet.COACH.plank.clock);
-    $("plankStatus").textContent = "Shoulders, hips and ankles in one line. Clock starts on a proper plank. Sagging, piking, knees down, standing up or leaving the frame ends it.";
+    $("plankStatus").textContent = "Shoulders, hips and ankles in one line. Clock starts on a proper plank. Bad form fails the plank.";
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once on a fresh start, before the go-cue */
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); /* counts (One / two / three / Hold) run at lock-in */
     plankPreview = false;
@@ -4383,7 +4389,7 @@ function plankEndSetNow() {
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.end();
 }
 if ($("plankEndBtn")) $("plankEndBtn").onclick = plankEndSetNow;
-$("plankAgainBtn").onclick = () => { if (plankLoop) { newPlankHold(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); $("plankStatus").textContent = "Shoulders, hips and ankles in one line. Clock starts on a proper plank. Sagging, piking, knees down, standing up or leaving the frame ends it."; } };
+$("plankAgainBtn").onclick = () => { if (plankLoop) { newPlankHold(); if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); $("plankStatus").textContent = "Shoulders, hips and ankles in one line. Clock starts on a proper plank. Bad form fails the plank."; } };
 renderPlankBest();
 renderPlankDays();
 paintPlankRows(localPlanks());

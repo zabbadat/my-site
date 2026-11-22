@@ -335,7 +335,7 @@
     pushups: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Go all the way down and back up." },
     tut: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up." },
     squats: { place: "Phone up in front of you, camera facing you.", criteria: "Whole body in frame, head to feet. Stance one and a half to two times shoulder width, toes out about forty-five degrees. Glutes the whole way." },
-    plank: { clock: "Clock starts on a proper plank.", next: PLANK_SET_LINE, place: "Phone on the floor, on its side, off to your side.", criteria: "Step back until you're head to heels.", rules: "Sagging, piking, knees down, standing up or leaving the frame ends it." }
+    plank: { clock: "Clock starts on a proper plank.", next: PLANK_SET_LINE, place: "Phone on the floor, on its side, off to your side.", criteria: "Step back until you're head to heels.", rules: "Bad form fails the plank." }
   };
   function coachLines(kind) { return COACH[kind] || COACH.pushups; }
   // Plank House (owner, Nov 20): if the phone is still upright at setup, say and show this once
