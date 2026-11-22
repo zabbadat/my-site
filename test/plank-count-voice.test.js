@@ -62,19 +62,19 @@ check("plankCue no longer force-starts the count on a 5 s speech-idle cap (that 
   // --- fix: waitEnd waits for the intro to end, then speaks each count on onend ---
   {
     const ss = install(iosSynth(300));
-    G.plankSpeak("Set up, hold on three."); // still speaking when the cue starts
+    G.plankSpeak("Go on, hold on three."); // still speaking when the cue starts
     const shown = [];
     let doneAt = null, started = Date.now();
     const cd = G.makeGoCountdown({ steps: G.PLANK_STEPS, speak: G.plankSpeak, stop: () => {}, waitEnd: true, protect: true });
     const p = cd.run((t) => shown.push(t)).then((ok) => { doneAt = { ok, ms: Date.now() - started }; return ok; });
     await wait(80);
-    check("waitEnd: does not speak One while the intro is still talking", !ss.spoken.includes("One") && ss.dropped.length === 0 && ss.spoken[0] === "Set up, hold on three.");
+    check("waitEnd: does not speak One while the intro is still talking", !ss.spoken.includes("One") && ss.dropped.length === 0 && ss.spoken[0] === "Go on, hold on three.");
     const ok = await p;
-    check("waitEnd: intro then One, two, three, Hold, each accepted (none dropped)",
-      ss.dropped.length === 0 && ss.spoken.join("|") === "Set up, hold on three.|One|two|three|Hold");
-    check("waitEnd: on-screen digits 1 2 3 HOLD", shown.join("|") === "1|2|3|HOLD");
+    check("waitEnd: intro then One, two, three, hold, each accepted (none dropped)",
+      ss.dropped.length === 0 && ss.spoken.join("|") === "Go on, hold on three.|One|two|three|hold");
+    check("waitEnd: on-screen digits 1 2 3 HOLD", shown.join("|") === "1|2|3|hold");
     check("waitEnd: run() resolves true at Hold (clock starts when Hold is spoken)", ok === true && doneAt && doneAt.ok === true);
-    const iHold = ss.spoken.indexOf("Hold"), iThree = ss.spoken.indexOf("three");
+    const iHold = ss.spoken.indexOf("hold"), iThree = ss.spoken.indexOf("three");
     check("waitEnd: Hold is spoken after three, not queued under it", iHold === iThree + 1 && iHold === 4);
   }
 
@@ -87,7 +87,7 @@ check("plankCue no longer force-starts the count on a 5 s speech-idle cap (that 
     G.interruptSpeak("Set complete.");
     const ok = await p;
     check("protect: interruptSpeak during the cue does not cancel the engine", ss.cancelled === 0 && !ss.spoken.includes("Set complete."));
-    check("protect: One, two, three, Hold all still spoken", ok === true && ss.spoken.join("|") === "One|two|three|Hold" && ss.dropped.length === 0);
+    check("protect: One, two, three, hold all still spoken", ok === true && ss.spoken.join("|") === "One|two|three|hold" && ss.dropped.length === 0);
   }
 
   // --- onend never fires: timed fallback still advances and reaches Hold ---
@@ -103,7 +103,7 @@ check("plankCue no longer force-starts the count on a 5 s speech-idle cap (that 
     const ok = await Promise.race([cd.run(() => {}), wait(12000).then(() => "timeout")]);
     const ms = Date.now() - t0;
     check("fallback: when onend never fires, One / two / three / Hold are still spoken and the cue finishes",
-      ok === true && ss.spoken.join("|") === "One|two|three|Hold" && ms >= 4000 && ms < 11000, { ok, spoken: ss.spoken, ms });
+      ok === true && ss.spoken.join("|") === "One|two|three|hold" && ms >= 4000 && ms < 11000, { ok, spoken: ss.spoken, ms });
   }
 
   delete global.window; delete global.self;

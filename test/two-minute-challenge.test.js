@@ -30,7 +30,7 @@ check("intro speaks at the plank pace (VOICE rate 0.88) and resumes the speech e
 
 // ---- 3. labels / panel
 check("mode button says Two-minute challenge; no three-minute copy left in the solo challenge", /id="modeChallengeBtn"[^>]*>Two-minute challenge</.test(html) && !/Three-minute|three-minute challenge/.test(html + fs.readFileSync(path.join(ROOT, "tut.html"), "utf8")));
-check("challenge note: 2:00 down, hold a push-up plank, Hold cue, what ends it, today's line", /id="challengeNote"[^>]*>Two-minute challenge: hold a push-up plank, arms straight, while the clock runs from 2:00 to 0:00\. The start cue is "Set up, hold on three\. One, two, three, Hold\." The clock starts at Hold\./.test(html) && /id="twoMinToday"/.test(html));
+check("challenge note: 2:00 down, hold a push-up plank, hold cue, what ends it, today's line", /id="challengeNote"[^>]*>Two-minute challenge: hold a push-up plank, arms straight, while the clock runs from 2:00 to 0:00\. The start cue is "Go on, hold on three\. One, two, three, hold\." The clock starts at hold\./.test(html) && /id="twoMinToday"/.test(html));
 check("I give up removed (DOM + handler); no Pause / Finish set / Reset total in the panel (Start-set-only panel on main); End set stays on the camera", !/pushGiveUpBtn|I give up/.test(html) && !/id="(pushPauseBtn|pushFinishBtn|pushTotalResetBtn)"/.test(html) && /<button class="btn cam-end-btn" id="camEndBtn" type="button"[^>]*>End set<\/button>/.test(html));
 { // renderPushMode in challenge: only Start challenge is visible in the panel row
   const els = {}; const $ = (id) => els[id] || (els[id] = { id, hidden: false, disabled: false, textContent: "", setAttribute() {} });
@@ -112,7 +112,7 @@ const tick = () => new Promise((r) => setTimeout(r, 5));
   check("card stays up until the line has finished speaking, then the count", gone && gone.at >= 1000 && gone.at >= 2500, JSON.stringify(gone));
   const holdAt = sp.findIndex((x) => /^Hold$/i.test(x.w) && x.at >= (gone ? gone.at : 0));
   const said = sp.map((x) => x.w);
-  check("after the card: Set up, hold on three. One, two, three, Hold, then the clock starts", holdAt > sp.indexOf(intro) && said.includes("Set up, hold on three.") && said.includes("One") && said.includes("two") && said.includes("three") && said.includes("Hold") && !said.includes("Go") && res.startedAt > 0, JSON.stringify(said));
+  check("after the card: Go on, hold on three. One, two, three, hold, then the clock starts", holdAt > sp.indexOf(intro) && said.includes("Go on, hold on three.") && said.includes("One") && said.includes("two") && said.includes("three") && said.includes("hold") && !said.includes("Go") && res.startedAt > 0, JSON.stringify(said));
   check("holding the plank 30 s after Hold: still running, no reps counted, nothing ended", res.running === true && res.reps === 0);
 
   // ---- 9. PFP on every camera start (cover from the moment the camera opens; same Enable profile - PFP switch)

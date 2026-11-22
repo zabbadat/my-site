@@ -150,12 +150,12 @@
   var NEXT_COUNT_MS = 3600;
   var NEXT_TOTAL_MS = NEXT_LEAD_MS + NEXT_COUNT_MS; // 7600
   // Legacy names kept so older tests and any leftover callers still resolve. STEPS/QUICK now follow the same go-cue
-  // (no separate hasty 2.4 s restart). Plank (owner, Nov 16): same pace and voice, but "One, two, three, Hold" after "Set up, hold on three."; the clock starts at "Hold", and only once a proper plank is locked in.
+  // (no separate hasty 2.4 s restart). Plank: same pace and voice, but "One, two, three, hold" after "Go on, hold on three."; the clock starts at "hold", and only once a proper plank is locked in.
   var STEPS = [[0, NEXT_SET_LINE, NEXT_SET_LINE], [4000, "One", "1"], [5200, "two", "2"], [6400, "three", "3"], [7600, "Go", "GO"]], DEFAULT_STEPS = STEPS;
   var COUNTDOWN_MS = NEXT_TOTAL_MS;
   var PLANK_STEP_MS = 1200;
-  var PLANK_SET_LINE = "Set up, hold on three.";
-  var PLANK_STEPS = [[0, "One", "1"], [1200, "two", "2"], [2400, "three", "3"], [3600, "Hold", "HOLD"]];
+  var PLANK_SET_LINE = "Go on, hold on three.";
+  var PLANK_STEPS = [[0, "One", "1"], [1200, "two", "2"], [2400, "three", "3"], [3600, "hold", "hold"]];
   var PLANK_COUNT_MS = NEXT_COUNT_MS;
   var QUICK_STEPS = STEPS;
   var QUICK_MS = NEXT_TOTAL_MS;
@@ -247,7 +247,7 @@
             };
             return step(0);
           }
-          // Wait for any earlier line (Set up, hold on three. / rules / camera-on) to finish, then
+          // Wait for any earlier line (Go on, hold on three. / rules / camera-on) to finish, then
           // speak each count on utterance end (timed fallback if onend never fires). Clock starts
           // when the last word (Hold) is *started*, not when it ends.
           function counts() {

@@ -23,7 +23,13 @@ check("plank stays side-view only: no front-view or placement choice text", !/fr
 check("push-up copy is unchanged (leaned-up front-facing)", G.COACH.pushups.place === "Lean your phone up in front of you, camera facing you." && G.COACH.pushups.criteria === "Shoulders and hands in frame. Go all the way down and back up." && G.COACH.tut.criteria === "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up.");
 check("plank page: the Plank House board and ZAB lines are untouched", /Every 60 seconds of plank earns 1 <span class="zab">ZAB/.test(plank) && /honor system, not a form judge/.test(plank));
 check("no Ready / get set / go wording left in the plank intro (index set-up + status, plank.html, spoken criteria)", ![setup, status, plank, C.criteria].some((x) => /says go|say go|get set|"Ready"/.test(x)) && /Clock starts/.test(status) && !/3, 2, 1, Hold/.test(status));
-check("clock line says when timing starts; next-set line leads into One, two, three, Hold (owner Nov 16)", C.clock === "Clock starts on a proper plank." && C.next === "Set up, hold on three.");
+check("clock line says when timing starts; next-set line leads into One, two, three, hold", C.clock === "Clock starts on a proper plank." && C.next === "Go on, hold on three.");
+
+const FULL_CUE = "Go on, hold on three. One, two, three, hold.";
+check("plank start cue is the exact owner line, once (no doubled count)",
+  G.PLANK_SET_LINE + " " + G.PLANK_STEPS.map((s) => s[1]).join(", ") + "." === FULL_CUE
+  && (G.PLANK_SET_LINE + " " + G.PLANK_STEPS.map((s) => s[1]).join(", ") + ".").split(/one, two, three, hold/i).length === 2
+  && !/one, two, three, hold/i.test(G.PLANK_SIDE_LINE));
 check("plank page no longer previews countdown and explains proper plank", !/3, 2, 1, Hold/.test(plank) && /Clock starts on a proper plank/.test(plank));
 // Exercise the actual New hold handler with an already-running camera, not a camera-start stub.
 const vm = require("vm"), els = {}, said = []; let now = 100;

@@ -1128,7 +1128,7 @@ body.arcade-live #playEarn10k{display:none}
 #magicEye .me-mode:hover,#magicEye .me-mode:focus-visible,#magicEye .me-mode[aria-pressed="true"]{color:var(--text);border-color:rgba(198,255,0,.5);outline:none}
 #magicEye .me-cap{margin:.7rem 0 0;color:var(--text);font-weight:600;font-size:1.02rem}
 #magicEye .me-tip{margin:.2rem 0 0;color:var(--muted);font-size:.92rem;font-weight:400}
-#magicEye canvas{cursor:zoom-in}
+#magicEye canvas{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 #magicEye .me-fs{margin:.55rem .35rem 0;background:transparent;color:var(--muted);border:1px solid rgba(239,244,241,.22);border-radius:999px;padding:.3rem .8rem;font:inherit;font-size:.82rem;cursor:pointer}
 #magicEye .me-fs:hover,#magicEye .me-fs:focus-visible{color:var(--text);border-color:rgba(198,255,0,.5);outline:none}
 #magicEye .me-reveal{margin:.55rem 0 0;background:transparent;color:var(--muted);border:1px solid rgba(239,244,241,.22);border-radius:999px;padding:.3rem .8rem;font:inherit;font-size:.82rem;cursor:pointer}
@@ -1586,7 +1586,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="olt-banner" id="oltBanner"><span>TIME UNDER TENSION SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
     <p class="note" id="longNote" hidden>Time under tension set. The clock runs non-stop. Do as many push-ups as you can, or hold a plank push press. A TUT set counts even with zero push-ups, as long as form isn't broken. Ends only on knees down or a failure motion. Time, reps and TUT sets will post.</p>
     <span class="vcount" id="pushViol" hidden>0</span>
-    <p class="note" id="challengeNote" hidden>Two-minute challenge: hold a push-up plank, arms straight, while the clock runs from 2:00 to 0:00. The start cue is "Set up, hold on three. One, two, three, Hold." The clock starts at Hold. Knees down, sagging, piking, collapsing or standing up ends it, and you see how long you held. End set on the camera screen stops it.<br><span id="twoMinToday">Today: no tries yet.</span></p>
+    <p class="note" id="challengeNote" hidden>Two-minute challenge: hold a push-up plank, arms straight, while the clock runs from 2:00 to 0:00. The start cue is "Go on, hold on three. One, two, three, hold." The clock starts at hold. Knees down, sagging, piking, collapsing or standing up ends it, and you see how long you held. End set on the camera screen stops it.<br><span id="twoMinToday">Today: no tries yet.</span></p>
     <div class="twomin-intro" id="twoMinIntro" hidden role="dialog" aria-live="assertive" aria-label="Two-minute challenge"><div class="twomin-card"><h3 id="twoMinIntroTitle">Two-minute challenge</h3><p id="twoMinIntroBody"></p><p class="fine">Tap to skip</p></div></div>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Reps today</span></div>
@@ -3497,7 +3497,7 @@ function finishPushSet(endedBy) {
 // 7 s start countdown: "Ready" · "get set" · "three" · "two" · "one" · "Go" (get-set.js STEPS)
 const GET_SET_MS = (window.ZabbadatGetSet && window.ZabbadatGetSet.NEXT_TOTAL_MS) || 7600;
 const getSet = window.ZabbadatGetSet && window.ZabbadatGetSet.makeNextSetCountdown ? window.ZabbadatGetSet.makeNextSetCountdown({ waitIdleMaxMs: 2500 }) : (window.ZabbadatGetSet ? window.ZabbadatGetSet.makeGoCountdown({ ms: GET_SET_MS }) : null);
-// Solo Two-minute challenge is a held push-up plank: same pace, but "Set up, hold on three." then One, two, three, Hold (clock at Hold).
+// Solo Two-minute challenge is a held push-up plank: same pace, but "Go on, hold on three." then One, two, three, hold (clock at hold).
 const holdSet = window.ZabbadatGetSet && window.ZabbadatGetSet.makeNextSetCountdown && window.ZabbadatGetSet.PLANK_STEPS ? window.ZabbadatGetSet.makeNextSetCountdown({ waitIdleMaxMs: 2500, line: window.ZabbadatGetSet.PLANK_SET_LINE, steps: window.ZabbadatGetSet.PLANK_STEPS }) : null;
 /* Restart start: a stop then a new start in the same exercise session skips first-time coaching and uses the shared
  * "Set up, go on three. One, two, three, go." cue (7.6 s, clock at Go). Fresh = first start after page load, after
@@ -4162,7 +4162,7 @@ function plankEnded(r) {
 // to finish instead of cutting it off, and starts on its own if speech is silent or stuck (sayAndWait caps, cueMaxMs in the logic).
 let plankCueSeq = 0, plankLeadUntil = 0; const PLANK_LEAD_MS = (window.ZabbadatGetSet && window.ZabbadatGetSet.NEXT_LEAD_MS) || 4000;
 function plankSpeechIdle() { const GS = window.ZabbadatGetSet; return !(GS && GS.isSpeaking && GS.isSpeaking()); }
-// Plank start: once a good plank is locked in (cue phase), show AND speak One, two, three, Hold (1.2 s each, slower plank voice, queued not cut, big digits); the clock starts at "Hold".
+// Plank start: once a good plank is locked in (cue phase), show AND speak One, two, three, hold (1.2 s each, slower plank voice, queued not cut, big digits); the clock starts at "hold".
 // This is the only plank countdown (the old Ready / get set / 3-2-1 / Go before the camera loop and the "Hold it… 1.5s" digits are gone).
 const plankCount = window.ZabbadatGetSet && window.ZabbadatGetSet.PLANK_STEPS ? window.ZabbadatGetSet.makeGoCountdown({ steps: window.ZabbadatGetSet.PLANK_STEPS, speak: window.ZabbadatGetSet.plankSpeak, stop: () => {}, waitEnd: true, protect: true }) : null;
 const plankSide = window.ZabbadatGetSet && window.ZabbadatGetSet.makePlankSidePrompt ? window.ZabbadatGetSet.makePlankSidePrompt({
@@ -4293,7 +4293,7 @@ async function startPlankCam() {
     if (!live()) return;
     if (!restart && !(await showPositioning("plank", $("plankStatus"), () => !live(), "criteria"))) return;
     if (!live()) return;
-    // no pre-countdown here: One, two, three, Hold runs once the plank is locked in (plankCue); the clock starts at "Hold"
+    // no pre-countdown here: One, two, three, hold runs once the plank is locked in (plankCue); the clock starts at "hold"
     sessionCommit("plank");
     plankStarting = false;
     plankSessionStartedAt = Date.now();

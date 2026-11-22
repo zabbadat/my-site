@@ -38,11 +38,11 @@ const frontHipNearHands = (t, jitter) => SY.frontKps(false).map((k) => {
   const cd = G.makeGoCountdown({ steps: G.PLANK_STEPS, speak: (w) => said.push([now, w]), stop: () => {}, schedule: (fn, d) => timers.push([now + d, fn]) });
   let done = null; cd.run((t) => shown.push([now, t])).then((ok) => { done = ok; });
   while (timers.length) { timers.sort((a, b) => a[0] - b[0]); const [t, fn] = timers.shift(); now = t; fn(); }
-  check("plank countdown speaks One, two, three, Hold in order", said.map((x) => x[1]).join(",") === "One,two,three,Hold");
+  check("plank countdown speaks One, two, three, hold in order", said.map((x) => x[1]).join(",") === "One,two,three,hold");
   check("plank countdown timing 0 / 1.2 / 2.4 / 3.6 s (same pace as push-ups' go on three)", said.map((x) => x[0]).join(",") === "0,1200,2400,3600" && JSON.stringify(G.PLANK_STEPS.map((s) => s[0])) === JSON.stringify(G.NEXT_STEPS.map((s) => s[0])));
-  check("on screen: 1, 2, 3, HOLD (same big-digit style)", shown.map((x) => x[1]).join(",") === "1,2,3,HOLD");
+  check("on screen: 1, 2, 3, HOLD (same big-digit style)", shown.map((x) => x[1]).join(",") === "1,2,3,hold");
   setImmediate(() => check("countdown resolves true at Hold", done === true));
-  check("setup line before the count: Set up, hold on three.", G.COACH.plank.next === "Set up, hold on three." && G.PLANK_SET_LINE === G.COACH.plank.next);
+  check("setup line before the count: Go on, hold on three.", G.COACH.plank.next === "Go on, hold on three." && G.PLANK_SET_LINE === G.COACH.plank.next);
   check("push-ups keep Set up, go on three. / One two three Go", G.NEXT_SET_LINE === "Set up, go on three." && G.NEXT_STEPS.map((s) => s[1]).join(" ") === "One two three Go");
   // the clock only starts on a proper plank: begin() is refused until the hold has locked into the cue phase
   const hold = PS.createPlankHold({ cue: true, cueMaxMs: 20000 });

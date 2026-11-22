@@ -65,7 +65,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
   const FULLP = (t0) => [C.plank.place + "@" + t0, GS.withCameraOn(C.plank.criteria, false) + "@" + (t0 + 1000), C.plank.clock + "@" + (t0 + 3000), C.plank.rules + "@" + (t0 + 4000), C.plank.next + "@" + (t0 + 5000)].join(",");
   const QUICK = (t0) => [LINE + "@" + t0, "One@" + (t0 + 4000), "two@" + (t0 + 5200), "three@" + (t0 + 6400), "Go@" + (t0 + 7600)].join(",");
   const cueOf = (mode) => mode === "challenge" ? GS.PLANK_SET_LINE : LINE;
-  const lastOf = (mode) => mode === "challenge" ? "Hold" : "Go";
+  const lastOf = (mode) => mode === "challenge" ? "hold" : "Go";
   const FULLM = (mode, t0) => { const k = mode === "long" ? "tut" : "pushups"; return [C[k].place + "@" + t0, GS.withCameraOn(C[k].criteria, false) + "@" + (t0 + 1000), cueOf(mode) + "@" + (t0 + 3000), "One@" + (t0 + 7000), "two@" + (t0 + 8200), "three@" + (t0 + 9400), lastOf(mode) + "@" + (t0 + 10600)].join(","); };
   const QUICKM = (mode, t0) => [cueOf(mode) + "@" + t0, "One@" + (t0 + 4000), "two@" + (t0 + 5200), "three@" + (t0 + 6400), lastOf(mode) + "@" + (t0 + 7600)].join(",");
   // ---- get-set.js: quick countdown

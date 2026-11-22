@@ -105,9 +105,13 @@ check("magic-eye.js opens a full-screen overlay (Fullscreen API + 100dvh fallbac
   typeof M.openFullscreen === "function" && typeof M.closeFullscreen === "function" &&
   typeof M.renderLegacyToCanvas === "function");
 check("tapping the full-screen picture itself closes the overlay",
-  /fsCanvas\.addEventListener\("click"/.test(src) &&
+  /bindTap\(\s*fsCanvas/.test(src) &&
   /closeFullscreen\(\)/.test(src) &&
   /_fsOpenedAt/.test(src));
+check("inline Magic Eye is a real phone tap target (cursor:pointer + touch/pointer, not click-only / zoom-in)",
+  /#magicEye canvas\{[^}]*cursor:\s*pointer/.test(html) &&
+  /touchend/.test(src) && /pointerup/.test(src) &&
+  /function bindTap\(/.test(src));
 
 const testPage = fs.readFileSync(path.join(__dirname, "..", "magic-eye-test.html"), "utf8");
 check("magic-eye-test.html is noindex, not linked from nav, and compares live vs fix vs full screen",

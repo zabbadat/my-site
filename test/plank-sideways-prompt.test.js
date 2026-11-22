@@ -86,7 +86,7 @@ check("New hold / between-set restarts the prompt", /function newPlankHold\(\) \
 check("on-screen prompt element and exact wording are in the plank stage", /id="plankSidePrompt"/.test(html) && html.includes("Turn your phone to the side for optimal framing."));
 check("TUT / push-up / two-minute paths do not call the sideways prompt (front-facing, not a side plank)", !/promptPlankSideways/.test(html.slice(html.indexOf("async function startPush("), html.indexOf("function beginPushClock("))) && !/plankSide/.test(pc));
 check("Two-minute challenge countdown uses the Hold steps (clock at Hold)", /const holdSet = /.test(html) && /pushMode === "challenge"[\s\S]*holdSet/.test(html.slice(html.indexOf("function getSetCountdown"), html.indexOf("function getSetCountdown") + 500)) && /line: window\.ZabbadatGetSet\.PLANK_SET_LINE, steps: window\.ZabbadatGetSet\.PLANK_STEPS/.test(html));
-check("rep-based getSet countdown is unchanged (Set up, go on three / Go)", /makeNextSetCountdown\(\{ waitIdleMaxMs: 2500 \}\)/.test(html) && G.NEXT_STEPS[3][1] === "Go" && G.PLANK_STEPS[3][1] === "Hold");
+check("rep-based getSet countdown is unchanged (Set up, go on three / Go)", /makeNextSetCountdown\(\{ waitIdleMaxMs: 2500 \}\)/.test(html) && G.NEXT_STEPS[3][1] === "Go" && G.PLANK_STEPS[3][1] === "hold");
 
 const ok = R.filter(Boolean).length;
 console.log(`\n${ok}/${R.length} passed`);

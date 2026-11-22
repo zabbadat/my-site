@@ -9,7 +9,7 @@ const check = (n, ok, extra) => { ok ? pass++ : fail++; console.log((ok ? "PASS 
 check("setup line, lead, counts, and total", G.NEXT_SET_LINE === "Set up, go on three." && G.NEXT_LEAD_MS === 4000 && G.NEXT_COUNT_MS === 3600 && G.NEXT_TOTAL_MS === 7600);
 check("counts are One, two, three, Go at 1.2 s; clock at Go", JSON.stringify(G.NEXT_STEPS) === JSON.stringify([[0, "One", "1"], [1200, "two", "2"], [2400, "three", "3"], [3600, "Go", "GO"]]));
 check("STEPS / QUICK / makeQuickCountdown / makeGoCountdown all use the 7.6 s cue", G.COUNTDOWN_MS === 7600 && G.QUICK_MS === 7600 && G.STEPS[0][1] === G.NEXT_SET_LINE && G.STEPS[G.STEPS.length - 1][0] === 7600 && G.makeGoCountdown().ms === 7600 && G.makeQuickCountdown().ms === 7600 && G.makeNextSetCountdown().ms === 7600);
-check("plank counts at the shared pace, ending on Hold (owner Nov 16); clock starts at Hold (setup line is spoken before lock-in)", JSON.stringify(G.PLANK_STEPS.map((s) => s[0])) === JSON.stringify(G.NEXT_STEPS.map((s) => s[0])) && G.PLANK_STEPS.slice(0, 3).every((s, i) => s[1] === G.NEXT_STEPS[i][1]) && G.PLANK_STEPS[3][1] === "Hold" && G.PLANK_COUNT_MS === 3600 && G.COACH.plank.next === "Set up, hold on three.");
+check("plank counts at the shared pace, ending on hold; clock starts at hold (setup line is spoken before lock-in)", JSON.stringify(G.PLANK_STEPS.map((s) => s[0])) === JSON.stringify(G.NEXT_STEPS.map((s) => s[0])) && G.PLANK_STEPS.slice(0, 3).every((s, i) => s[1] === G.NEXT_STEPS[i][1]) && G.PLANK_STEPS[3][1] === "hold" && G.PLANK_COUNT_MS === 3600 && G.COACH.plank.next === "Go on, hold on three.");
 
 { const said = [], shown = [], q = [];
   const g = G.makeNextSetCountdown({ speak: (w) => said.push(w), unlock() {}, schedule: (f, d) => q.push([f, d]) });

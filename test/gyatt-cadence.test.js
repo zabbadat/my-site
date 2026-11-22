@@ -75,6 +75,6 @@ check("no cue or set-done line contains a rep number (beat counts one..four are 
 // page path uses serial enqueueSpeak; plank / push-up cues are unchanged
 { const src = fs.readFileSync(path.join(__dirname, "../gyatt-cadence.js"), "utf8");
   check("cadence default speak uses enqueueSpeak / speakAndWait (no cancel of the previous beat)", /enqueueSpeak/.test(src) && !/if \(ss\.speaking \|\| ss\.pending\) ss\.cancel\(\)/.test(src));
-  check("plank countdown is unchanged (One, two, three, Hold; not a four-count phase)", G.PLANK_STEPS.map((x) => x[1]).join() === "One,two,three,Hold" && G.PLANK_SET_LINE === "Set up, hold on three.");
+  check("plank countdown ends on hold (One, two, three, hold; not a four-count phase)", G.PLANK_STEPS.map((x) => x[1]).join() === "One,two,three,hold" && G.PLANK_SET_LINE === "Go on, hold on three.");
   check("push-up / TUT go-cue is unchanged (not applied yet)", G.NEXT_STEPS.map((x) => x[1]).join() === "One,two,three,Go" && G.NEXT_SET_LINE === "Set up, go on three."); }
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

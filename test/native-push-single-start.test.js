@@ -75,7 +75,7 @@ const STATUS = { sets: "Set on. The camera counts each full rep.", long: "Sessio
     check(`${mode}: camera + pose open while the placement line plays`, e.log.indexOf("camera") > 0 && e.log.indexOf("camera") < e.log.indexOf("pose") && SAID(e).length === 1);
     await e.advance(1000);
     check(`${mode}: criteria line spoken + shown after the placement line ends`, SAID(e)[1] && SAID(e)[1].w === GS.withCameraOn(C[mode].criteria, false) && SAID(e)[1].at === 1000 && e.$("pushStatus").textContent === C[mode].criteria);
-    const cue = mode === "challenge" ? GS.PLANK_SET_LINE : LINE, last = mode === "challenge" ? "Hold" : "Go", lastShown = mode === "challenge" ? "HOLD" : "3";
+    const cue = mode === "challenge" ? GS.PLANK_SET_LINE : LINE, last = mode === "challenge" ? "hold" : "Go", lastShown = mode === "challenge" ? "hold" : "3";
     await e.advance(10590 - e.now());
     check(`${mode}: no ${last} / clock before 10.6 s`, !e.log.includes("say:" + last) && !e.log.includes("clock") && (e.$("pushStatus").textContent === "3" || e.$("pushStatus").textContent === lastShown));
     await e.advance(20);

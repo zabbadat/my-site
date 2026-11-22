@@ -21,6 +21,30 @@
     if (fs) return mode === "cross" ? TIP_CROSS_FS : TIP_WALL_FS;
     return mode === "cross" ? TIP_CROSS : TIP_WALL;
   }
+  // iOS Safari does not synthesize click on a canvas unless cursor is pointer (zoom-in is not enough).
+  // Also listen for touchend/pointerup, debounce so touchend + click do not open-then-close.
+  function bindTap(el, fn) {
+    if (!el || el._meTapBound) return;
+    el._meTapBound = true;
+    var last = 0;
+    function go(e) {
+      var now = Date.now();
+      if (now - last < 500) {
+        if (e && e.cancelable) e.preventDefault();
+        return;
+      }
+      last = now;
+      if (e && e.type === "touchend" && e.cancelable) e.preventDefault();
+      fn(e);
+    }
+    el.addEventListener("click", go);
+    el.addEventListener("pointerup", function (e) {
+      if (e && e.pointerType === "touch") return; // touchend handles this; avoid double fire
+      go(e);
+    });
+    el.addEventListener("touchend", go, { passive: false });
+  }
+
   var SHAPE_NAMES = [
     "heart", "star", "letter Z", "lightning bolt", "smiley face",
     "crescent moon", "dumbbell", "number 7", "arrow", "crown"
@@ -616,20 +640,19 @@
     var fsCanvas = document.getElementById("magicEyeFsCanvas");
     if (fsCanvas && !fsCanvas._meCloseBound) {
       fsCanvas._meCloseBound = true;
-      fsCanvas.style.cursor = "zoom-out";
-      fsCanvas.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (Date.now() - _fsOpenedAt < 400) return;
+      fsCanvas.style.cursor = "pointer";
+      bindTap(fsCanvas, function (e) {
+        if (e) { if (e.preventDefault) e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); }
+        if (Date.now() - _fsOpenedAt < 500) return;
         closeFullscreen();
       });
     }
     var stage = fsCanvas && fsCanvas.parentNode;
     if (stage && !stage._meCloseBound) {
       stage._meCloseBound = true;
-      stage.addEventListener("click", function (e) {
-        if (e.target === fsCanvas) return;
-        if (Date.now() - _fsOpenedAt < 400) return;
+      bindTap(stage, function (e) {
+        if (e && e.target === fsCanvas) return;
+        if (Date.now() - _fsOpenedAt < 500) return;
         closeFullscreen();
       });
     }
@@ -745,8 +768,8 @@
     }
     if (canvas && !canvas._meFsBound) {
       canvas._meFsBound = true;
-      canvas.style.cursor = "zoom-in";
-      canvas.addEventListener("click", function () { goFs(); });
+      canvas.style.cursor = "pointer";
+      bindTap(canvas, function () { goFs(); });
     }
 
     var resizeTimer = 0;
