@@ -35,7 +35,7 @@ check("plank spoken TUT line is before the go-cue", G.COACH.plank.theme === "You
 check("existing spoken start lines are unchanged", G.COACH.plank.place === "Phone on the floor, on its side, off to your side." && G.COACH.plank.rules === "Bad form fails the plank." && G.COACH.plank.next === "Go on, hold on three." && G.COACH.plank.clock === "Clock starts on a proper plank." && G.COACH.squats.place === "Phone up in front of you, camera facing you.");
 check("squat save still uses only the allowed fields (no tutMs written to Firestore)", /H\.save\(\{ name: H\.playerName\(\), reps: r\.reps, ms: r\.ms, sessionStartedAt: st\.startedAt \}\)/.test(pg));
 check("push finish still posts tutMs only for long / TUT sets (pay path unchanged)", /record\.tutMs = pushMode === "long" && window\.ZabbadatSession \? Math\.round\(window\.ZabbadatSession\.tutToAdd\(pushMode, ms, doneTut\)\) : 0;/.test(html));
-check("Magic Eye block was not edited by this theme work", /id="magicEye"/.test(html) && /id="magicEyeCanvas"/.test(html));
+check("Magic Eye stays fully removed in the combined bundle", !/id="magicEye"/.test(html) && !/magic-eye\.js/.test(html) && !/id="magicEyeCanvas"/.test(html));
 
 { const c = SS.createTutClock();
   c.tick(1000, true); c.tick(2000, true); c.tick(2500, false); c.tick(4000, false); c.tick(4000, true); c.tick(5000, true);
