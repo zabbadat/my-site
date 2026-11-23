@@ -32,12 +32,14 @@ check("plank start cue is the exact owner line, once (no doubled count)",
   && !/one, two, three, hold/i.test(G.PLANK_SIDE_LINE));
 check("spoken TUT line comes before the go-cue, never after it", C.theme === "You're under tension the whole hold, so breathe through it." && /COACH\.plank\.theme\).*COACH\.plank\.next/.test(html.replace(/\s+/g, "")));
 const promptTxt = html.match(/id="plankPrompt">([\s\S]*?)<\/p>/)[1].replace(/<[^>]+>/g, "");
-check("homepage plank prompt sits above Magic Eye and ends with the exact cue, once, with the TUT line before that ending",
-  html.indexOf('id="plank-prompt"') < html.indexOf('id="magicEye"') &&
-  html.indexOf('id="magicEye"') < html.indexOf('<section id="push">') &&
+check("homepage plank prompt sits above TUTS & PUSH up sets and ends with the exact cue, once, with the TUT line before that ending",
+  html.indexOf('id="cooling-box"') < html.indexOf('id="plank-prompt"') &&
+  html.indexOf('id="plank-prompt"') < html.indexOf('<section id="push">') &&
+  /TUTS &amp; PUSH up sets/.test(html.slice(html.indexOf('<section id="push">'), html.indexOf('<section id="push">') + 80)) &&
   promptTxt === "Phone on the floor, on its side, off to your side. Step back until you're head to heels. Clock starts on a proper plank. Bad form fails the plank. You're under tension the whole hold, so breathe through it. Go on, hold on three. One, two, three, hold." &&
   promptTxt.endsWith(FULL_CUE) && promptTxt.indexOf("You're under tension the whole hold, so breathe through it.") < promptTxt.indexOf(FULL_CUE) &&
-  html.split("Go on, hold on three. One, two, three, hold.").length === 3 /* prompt + challengeNote, not a third */);
+  html.split("Go on, hold on three. One, two, three, hold.").length === 3 /* prompt + challengeNote, not a third */ &&
+  !/id="magicEye"/.test(html) && !/magic-eye\.js/.test(html));
 
 check("plank page no longer previews countdown and explains proper plank", !/3, 2, 1, Hold/.test(plank) && /Clock starts on a proper plank/.test(plank));
 // Exercise the actual New hold handler with an already-running camera, not a camera-start stub.

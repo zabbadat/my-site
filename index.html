@@ -1125,20 +1125,6 @@ body.arcade-live #playEarn10k{display:none}
 
 </style>
 
-<style id="magicEyeCss">
-#magicEye.me-centered{margin:0 auto 2rem;max-width:52rem;text-align:center}
-#magicEye canvas{display:block;width:100%;height:auto;border-radius:12px;border:1px solid rgba(255,46,147,.28);background:#000;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;image-rendering:pixelated}
-#magicEye .me-mode{margin:.45rem .35rem 0;background:transparent;color:var(--muted);border:1px solid rgba(239,244,241,.22);border-radius:999px;padding:.3rem .8rem;font:inherit;font-size:.82rem;cursor:pointer}
-#magicEye .me-mode:hover,#magicEye .me-mode:focus-visible,#magicEye .me-mode[aria-pressed="true"]{color:var(--text);border-color:rgba(198,255,0,.5);outline:none}
-#magicEye .me-cap{margin:.7rem 0 0;color:var(--text);font-weight:600;font-size:1.02rem}
-#magicEye .me-tip{margin:.2rem 0 0;color:var(--muted);font-size:.92rem;font-weight:400}
-#magicEye canvas{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-#magicEye .me-fs{margin:.55rem .35rem 0;background:transparent;color:var(--muted);border:1px solid rgba(239,244,241,.22);border-radius:999px;padding:.3rem .8rem;font:inherit;font-size:.82rem;cursor:pointer}
-#magicEye .me-fs:hover,#magicEye .me-fs:focus-visible{color:var(--text);border-color:rgba(198,255,0,.5);outline:none}
-#magicEye .me-reveal{margin:.55rem 0 0;background:transparent;color:var(--muted);border:1px solid rgba(239,244,241,.22);border-radius:999px;padding:.3rem .8rem;font:inherit;font-size:.82rem;cursor:pointer}
-#magicEye .me-reveal:hover,#magicEye .me-reveal:focus-visible{color:var(--text);border-color:rgba(198,255,0,.5);outline:none}
-#magicEye .me-shape{margin:.4rem 0 0;color:var(--lime,#C6FF00);font-weight:600;font-size:.95rem}
-</style>
 </head>
 <body>
   <nav>
@@ -1569,18 +1555,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="lead" id="plankPrompt">Phone on the floor, on its side, off to your side. Step back until you're head to heels. Clock starts on a proper plank. Bad form fails the plank. <strong class="tut-em" id="plankTutLine">You're under tension the whole hold, so breathe through it.</strong> Go on, hold on three. One, two, three, hold.</p>
     <p class="fine">Open <a href="#plank">Plank House</a> to start a timed hold.</p>
   </section>
-  <figure class="me-centered" id="magicEye">
-      <canvas id="magicEyeCanvas" width="1400" height="900" role="img" aria-label="Today's Magic Eye autostereogram"></canvas>
-      <figcaption>
-        <p class="me-cap">Today's Magic Eye</p>
-        <p class="me-tip" id="magicEyeTip">Tap for full screen. Relax your eyes and look through the picture, as if at something far behind it, until the two dots become three. Hold still and the shape floats up.</p>
-        <button type="button" class="me-mode" id="magicEyeMode" aria-pressed="true">Viewing: Wall-eyed</button>
-        <button type="button" class="me-fs" id="magicEyeFsBtn">View full screen</button>
-        <button type="button" class="me-reveal" id="magicEyeReveal" aria-expanded="false" aria-controls="magicEyeShape">Reveal today's shape</button>
-        <p class="me-shape" id="magicEyeShape" hidden></p>
-      </figcaption>
-    </figure>
-
 <section id="push">
     <h2>TUTS &amp; PUSH up sets</h2>
     <p class="tut-theme" id="pushTutLine"><strong>Stay under tension the whole set.</strong> Every second in position counts.</p>
@@ -2192,7 +2166,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/get-set.js"></script>
   <script src="/plank-session.js"></script>
   <script src="/et-day.js"></script>
-  <script src="/magic-eye.js"></script>
   <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>
   <script src="/game-steps.js"></script>
