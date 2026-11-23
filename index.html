@@ -851,7 +851,7 @@ body:has(#zmGame.cam-fs) #sessionStrip,body:has(#zmLiveSlot.cam-fs) #sessionStri
 .zm-log{margin:.6rem 0;padding-left:1.2rem;font-size:.92rem;color:var(--muted,#a9bdb4)}
 
     /* Per-user dashboard (lifetime-dash.js): compact, mobile-first, readable in the iOS app. */
-    #userDash { margin-top: 1rem; }
+    #userDash { margin-top: 1rem; scroll-margin-top: calc(var(--navh, 4.6rem) + .5rem); }
     #userDash h3 { font-size: 1.15rem; margin: 1.15rem 0 .4rem; }
     #userDash .dash-nudge { margin: .15rem 0 .85rem; font-weight: 700; color: var(--accent-2); font-size: 1rem; }
     #userDash .dash-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin: .5rem 0 .85rem; }
@@ -1059,6 +1059,19 @@ body.arcade-live #playEarn10k{display:none}
 .pe-10k-track{display:block;height:.55rem;border-radius:999px;background:rgba(143,191,168,.15);overflow:hidden;border:1px solid rgba(198,255,0,.28);margin-bottom:.3rem}
 .pe-10k-track i{display:block;height:100%;width:0;background:var(--grad,linear-gradient(90deg,#c6ff00,#ff8a00,#ff2e93));border-radius:inherit}
 .pe-10k + .home-art{margin-top:0}
+.pe-mini{display:flex;align-items:center;justify-content:space-between;gap:.45rem .75rem;flex-wrap:wrap;margin:.35rem 0 0;padding:.35rem .1rem 0;border-top:1px solid rgba(198,255,0,.18)}
+.pe-mini-stats{display:flex;gap:.9rem;align-items:baseline;min-width:0}
+.pe-mini-stat{display:flex;flex-direction:column;gap:.05rem;min-width:3.2rem}
+.pe-mini-stat b{font-family:Outfit,sans-serif;font-weight:600;font-variant-numeric:tabular-nums;font-size:1.05rem;line-height:1.15;color:var(--text,#eef4f1)}
+.pe-mini-stat span,.pe-mini-nudge{color:var(--muted,#9aada4);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase}
+.pe-mini-nudge{margin:0;flex:1 1 8rem}
+.pe-mini-go{flex:0 0 auto;font:inherit;font-weight:700;font-size:.82rem;line-height:1.2;text-decoration:none;color:#0e1412;background:var(--grad,linear-gradient(135deg,#C6FF00,#FF8A00,#FF2E93));border-radius:999px;padding:.4rem .85rem;white-space:nowrap}
+#playEarn10k.pe-10k{transition:opacity .25s ease}
+#playEarn10k.pe-10k.is-tucked{opacity:0;pointer-events:none;visibility:hidden}
+@media (prefers-reduced-motion: reduce){
+  #playEarn10k.pe-10k{transition:none}
+  html{scroll-behavior:auto}
+}
 .home-art{position:relative;height:250px;overflow:hidden;margin-top:calc(var(--navh,4.6rem) + .2rem);background:#000;background-image:radial-gradient(circle,rgba(255,255,255,.22) 1.1px,transparent 1.4px),repeating-linear-gradient(135deg,rgba(255,255,255,.07) 0 1px,transparent 1px 9px);background-size:7px 7px,auto;border-bottom:2px solid #fff}
 .home-art img.big{position:absolute;width:330px;height:330px;right:-110px;top:-50px;filter:grayscale(1) contrast(1.2);opacity:.95}
 .home-art img.small{position:absolute;width:46px;height:46px;left:18px;top:32px;filter:grayscale(1)}
@@ -1171,6 +1184,14 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <span class="pe-10k-label" id="playEarn10kLabel"><span id="playEarn10kText">0 / 10,000 · 4 </span><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></span>
       </span>
     </a>
+    <div class="pe-mini" id="miniDash">
+      <div class="pe-mini-stats">
+        <span class="pe-mini-stat"><b id="miniDashZab">—</b><span>ZAB bag</span></span>
+        <span class="pe-mini-stat"><b id="miniDashTut">—</b><span>TUT sets</span></span>
+      </div>
+      <p class="pe-mini-nudge" id="miniDashNudge">Sign in to track your totals</p>
+      <a class="pe-mini-go" id="goToDash" href="#userDash">Go to dashboard</a>
+    </div>
   </div>
   <div class="home-art" aria-hidden="true">
     <img class="big" src="/zd-v2-mark.svg" width="330" height="330" alt="">
@@ -1863,7 +1884,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <tbody id="dailyBoardBody"><tr><td colspan="3">Waiting for walkers…</td></tr></tbody>
       </table>
     </div>
-    <div class="card" id="userDash" style="margin-top:1rem">
+    <div class="card" id="userDash" style="margin-top:1rem" tabindex="-1">
       <h3>Your dashboard</h3>
       <p class="note" id="userDashSignIn">Sign in to track your 10K days</p>
       <div id="userDashBody" hidden></div>
@@ -2285,6 +2306,28 @@ function peShowTab(id, opts) {
   }
   return true;
 }
+function reduceMotionOn() {
+  return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+function goToUserDash() {
+  const el = $("userDash");
+  peShowTab("steps", { scroll: false });
+  if (history && history.replaceState) history.replaceState(null, "", "#userDash");
+  else location.hash = "userDash";
+  if (!el) return;
+  if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "-1");
+  const navh = parseFloat((document.documentElement && getComputedStyle(document.documentElement).getPropertyValue("--navh")) || "72") || 72;
+  const y = el.getBoundingClientRect().top + (window.scrollY || 0) - navh - 8;
+  const focusDash = () => { try { el.focus({ preventScroll: true }); } catch (e) { try { el.focus(); } catch (e2) {} } };
+  window.scrollTo({ top: Math.max(0, y), behavior: reduceMotionOn() ? "auto" : "smooth" });
+  if (reduceMotionOn()) focusDash();
+  else {
+    let done = false;
+    const finish = () => { if (done) return; done = true; window.removeEventListener("scrollend", finish); focusDash(); };
+    window.addEventListener("scrollend", finish, { once: true });
+    setTimeout(finish, 900);
+  }
+}
 function peHashName(hash) {
   const raw = String(hash || "").replace(/^#/, "");
   if (!raw) return "";
@@ -2302,6 +2345,11 @@ function peTabFor(name) {
 function peApplyHash(opts) {
   const name = peHashName(location.hash);
   if (name === "live" || name === "zabbaMatch" || name === "zabbaLive" || name === "live-cameras") return; // live cameras stay above the tabs
+  if (name === "userDash") {
+    if (opts && opts.scroll === false) peShowTab("steps", { scroll: false });
+    else goToUserDash();
+    return;
+  }
   const tab = peTabFor(name);
   if (tab) {
     const deep = name && name !== tab && name !== "play-and-earn" && name !== "playEarn10k" && document.getElementById(name);
@@ -2324,6 +2372,11 @@ document.addEventListener("click", (e) => {
   if (!a) return;
   const href = a.getAttribute("href") || "";
   const name = peHashName(href);
+  if (name === "userDash") {
+    e.preventDefault();
+    goToUserDash();
+    return;
+  }
   const tab = peTabFor(name);
   if (!tab) return;
   e.preventDefault();
@@ -3328,6 +3381,26 @@ function endSetNow() {
 }
 // Hero CTAs: jump to the counter and preselect a mode (never mid-session; the camera still loads only from the counter).
 (function navHeightVar() { const set = () => { const n = document.querySelector("nav"); if (n) document.documentElement.style.setProperty("--navh", n.offsetHeight + "px"); }; set(); window.addEventListener("resize", set); window.addEventListener("load", set); try { const n = document.querySelector("nav"); if (n && window.ResizeObserver) new ResizeObserver(set).observe(n); } catch (e) {} })();
+(function tuckMiniDash() {
+  const tile = document.getElementById("playEarn10k");
+  const nav = document.querySelector("nav");
+  if (!tile || !nav) return;
+  const tick = () => {
+    const navBottom = nav.getBoundingClientRect().bottom;
+    const r = tile.getBoundingClientRect();
+    const tucked = Math.max(0, navBottom - r.top);
+    const reduce = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const hidden = reduce ? tucked > 0 : tucked >= Math.max(8, r.height * 0.35);
+    tile.classList.toggle("is-tucked", hidden);
+    if (!reduce && !hidden && tucked > 0) tile.style.opacity = String(Math.max(0, 1 - tucked / Math.max(8, r.height * 0.35)));
+    else if (!hidden) tile.style.opacity = "";
+  };
+  tick();
+  window.addEventListener("scroll", tick, { passive: true });
+  window.addEventListener("resize", tick);
+  window.addEventListener("load", tick);
+  try { if (window.ResizeObserver) new ResizeObserver(tick).observe(nav); } catch (e) {}
+})();
 function heroGo(mode, e) {
   if (e) e.preventDefault();
   if (pushMode !== mode) {
@@ -6072,6 +6145,31 @@ function boardSnap(bodyId, q, next, fail) { boardSubs.push({ bodyId, q, next, fa
 let tutLifeOff = null;
 let dashOffs = [];
 const dashState = { signedIn: false, uid: "", today: "", ledger: [], daily: [], pushups: [], planks: [], games: [], matches: [], seasons: [] };
+function paintMiniDash() {
+  const zabEl = $("miniDashZab"), tutEl = $("miniDashTut"), nudge = $("miniDashNudge");
+  const signed = !!(typeof dashState !== "undefined" && dashState && dashState.signedIn);
+  if (nudge) nudge.hidden = !!signed;
+  if (!signed) {
+    if (zabEl) zabEl.textContent = "—";
+    if (tutEl) tutEl.textContent = "—";
+    return;
+  }
+  const D = window.ZabbadatDash;
+  let zab = (typeof zabBalNow !== "undefined" && zabBalNow != null) ? zabBalNow : null;
+  let tut = null;
+  if (D) {
+    const today = (window.ZabbadatEtDay && window.ZabbadatEtDay.key()) || dashState.today;
+    const sum = D.summarize(Object.assign({}, dashState, { today: today, session: window.ZabbadatSession, zabBalance: zab }));
+    if (zab == null && sum && sum.zabBalance != null) zab = sum.zabBalance;
+    if (sum) tut = sum.tutSets;
+  }
+  if (zabEl) {
+    if (zab == null) zabEl.textContent = "—";
+    else if (window.ZabCurrency && typeof window.ZabCurrency.fmtZab === "function") zabEl.textContent = window.ZabCurrency.fmtZab(Number(zab));
+    else zabEl.textContent = String(zab);
+  }
+  if (tutEl) tutEl.textContent = tut == null ? "—" : Number(tut || 0).toLocaleString();
+}
 function paintUserDash() {
   const D = window.ZabbadatDash, root = $("userDash"), sign = $("userDashSignIn"), body = $("userDashBody");
   if (!D || !root) return;
@@ -6079,6 +6177,7 @@ function paintUserDash() {
   if (!dashState.signedIn) {
     if (sign) { sign.hidden = false; sign.textContent = "Sign in to track your 10K days"; }
     if (body) { body.hidden = true; body.innerHTML = ""; }
+    paintMiniDash();
     return;
   }
   if (sign) sign.hidden = true;
@@ -6087,6 +6186,7 @@ function paintUserDash() {
     const sum = D.summarize(Object.assign({}, dashState, { today: today, session: window.ZabbadatSession, zabBalance: typeof zabBalNow !== "undefined" ? zabBalNow : null }));
     body.innerHTML = D.cardBodyHtml(sum, escapeHtml);
   }
+  paintMiniDash();
 }
 function dashListen(q, apply) {
   dashOffs.push(onSnapshot(q, (snap) => { apply(snap.docs.map((d) => Object.assign({ id: d.id }, d.data()))); paintUserDash(); }, () => { apply([]); paintUserDash(); }));
