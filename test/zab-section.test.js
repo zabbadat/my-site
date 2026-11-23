@@ -13,8 +13,9 @@ ok(sec.includes('id="ztBalance"')&&sec.includes('id="ztRates"')&&sec.includes('i
 const lines=ZT.rateLines();
 ok(lines[0]==='1 push-up = 0.1 ZAB'&&ZT.RATES.pushups.per===1&&ZT.RATES.pushups.zab===0.1,'pushups rate');
 ok(lines[1]==='1 ZAB for a 60-second plank'&&ZT.RATES.plank.per===60&&ZT.RATES.plank.max===60,'plank rate');
-ok(lines[2]==='1 minute of TUT = 1 ZAB'&&ZT.RATES.tut.per===60,'tut rate');
-ok(lines[3]==='10 minutes of walking = 1 ZAB'&&ZT.RATES.walk.per===10,'walk rate');
+ok(lines[2]==='1 ZAB for an 80-second plank TUT'&&ZT.RATES.plankTut.per===80,'plank TUT rate');
+ok(lines[3]==='1 minute of TUT = 1 ZAB'&&ZT.RATES.tut.per===60,'tut rate');
+ok(lines[4]==='10 minutes of walking = 1 ZAB'&&ZT.RATES.walk.per===10,'walk rate');
 // tx render
 const esc=x=>String(x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const d=new Date(2026,9,21,20,0);

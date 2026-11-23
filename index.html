@@ -1188,6 +1188,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="pe-mini-stats">
         <span class="pe-mini-stat"><b id="miniDashZab">—</b><span>ZAB bag</span></span>
         <span class="pe-mini-stat"><b id="miniDashTut">—</b><span>TUT sets</span></span>
+        <span class="pe-mini-stat"><b id="miniDashBreath">0</b><span>Breath cycles</span></span>
       </div>
       <p class="pe-mini-nudge" id="miniDashNudge">Sign in to track your totals</p>
       <a class="pe-mini-go" id="goToDash" href="#userDash">Go to dashboard</a>
@@ -1569,6 +1570,13 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>                                                                                                                                        
     <p class="lead">Quick version: mouth in 4, hold 4, nose out 4, hold empty 4. Full steps, timing, and the Bariboshi minute are in <a href="#sitkari-how">How to sitkari</a> above.</p>
     <p class="fine">Sit upright. Stop if you get dizzy. This is a settling drill before a Bariboshi, not a medical treatment.</p>
+    <div class="card" id="coolingPlay" style="margin-top:1.15rem">
+      <p class="lead" id="coolingStatus">Start a 16-second 4-count cycle.</p>
+      <p class="note">All-time on this phone: <strong id="coolingCycles">0</strong> breath cycles.</p>
+      <div class="row">
+        <button class="btn" id="coolingStartBtn" type="button">Start cooling box</button>
+      </div>
+    </div>
   </section>
   <section id="plank-prompt">
     <h2>Plank</h2>
@@ -1729,13 +1737,13 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="motto">BREATHE. ACTIVATE. TUT. SCORE. WIN. RANK. REWARD.</p>
     <p class="lead" id="tutBoardSub">Drop Your Tuts scoreboard</p>
     <p class="tuts-stat-lbl">Today · Best day · All-time</p>
-    <p class="lead">A TUT set is complete at 1:20 with at least 10 push-ups. Keep going: time and reps after 1:20 count too. You can't fail just by holding.</p>
+    <p class="lead">A TUT set is complete at 1:20 with at least 10 push-ups, or an 80-second regular plank. Keep going: time and reps after 1:20 count too. You can't fail just by holding.</p>
     <table>
       <thead><tr><th>Player</th><th>Today</th><th>Best day</th><th>All-time</th></tr></thead>
       <tbody id="tutBoardBody"><tr><td colspan="4">Waiting for sets…</td></tr></tbody>
     </table>
     <h3 style="margin-top:1.6rem" id="tutAllBoardTitle">All-time TUT sets</h3>
-    <p class="fine">Every player's completed TUT sets (1:20 with at least 10 push-ups), all time, most first. Sets done signed out stay on that phone and aren't counted.</p>
+    <p class="fine">Every player's completed TUT sets (1:20 with at least 10 push-ups, or an 80-second regular plank), all time, most first. Plank TUTs are marked as plank. Sets done signed out stay on that phone and aren't counted.</p>
     <table>
       <thead><tr><th>#</th><th>Player</th><th>TUT sets</th></tr></thead>
       <tbody id="tutAllBoardBody"><tr><td colspan="3">Waiting for sets…</td></tr></tbody>
@@ -1878,7 +1886,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="note" id="ztSignedOut">Sign in to start earning. <a href="#play" id="ztSignInLink">Go to sign-in</a></p>
     <h3>Earn rates</h3>
     <ul class="zt-rates" id="ztRates"></ul>
-    <p class="fine">Each set or walk counts on its own. Leftovers from plank, TUT and walking don't carry over. A plank pays once per set, at 60 seconds. The 10K steps bonus pays once per Eastern day. Gyatt Squats have no daily cap.</p>
+    <p class="fine">Each set or walk counts on its own. Leftovers from plank, TUT and walking don't carry over. A plank pays once per set, at 60 seconds. An 80-second plank TUT pays 1 more ZAB, once per set. The 10K steps bonus pays once per Eastern day. Gyatt Squats have no daily cap.</p>
     <h3>Recent earnings</h3>
     <table><thead><tr><th>Source</th><th><span class="zab">ZAB<svg class="zab-ring" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg></span></th><th>Activity</th><th>When</th></tr></thead><tbody id="ztTxBody"><tr><td colspan="4">Sign in to see your earnings.</td></tr></tbody></table>
   </section>
@@ -2282,6 +2290,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/plank-session.js"></script>
   <script src="/et-day.js"></script>
   <script src="/hide-daily.js"></script>
+  <script src="/cooling-box.js"></script>
   <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>
   <script src="/game-steps.js"></script>
@@ -3550,8 +3559,9 @@ function paintTutRows(rows) {
   const S = window.ZabbadatSession;
   paintTutRows.last = rows || []; paintTutRows.day = tutDayOf({ at: Date.now() });
   const people = S.tutBoardStats(rows, tutDayOf, paintTutRows.day).slice(0, 50);
+  const mark = S.plankMark || ((n) => (n ? " · " + n + " plank" : ""));
   body.innerHTML = people.length
-    ? people.map((p) => `<tr><td>${escapeHtml(publicName(p.name))}</td><td>${p.today}</td><td>${p.bestDay}</td><td>${p.allTime}</td></tr>`).join("")
+    ? people.map((p) => `<tr><td>${escapeHtml(publicName(p.name))}</td><td>${p.today}${mark(p.plankToday)}</td><td>${p.bestDay}</td><td>${p.allTime}${mark(p.plankAll)}</td></tr>`).join("")
     : `<tr><td colspan="4">No TUT sets completed yet.</td></tr>`;
 }
 // All-time TUT sets board: every completed TUT set ever posted (query: all pushups docs with tutMs >= 80000, no limit),
@@ -3561,8 +3571,9 @@ function paintTutAllRows(rows) {
   if (!body) return;
   if (rows == null) { body.innerHTML = `<tr><td colspan="3">Board unavailable right now.</td></tr>`; return; }
   const ranked = window.ZabbadatSession.tutAllTime(rows, 50);
+  const mark = window.ZabbadatSession.plankMark || ((n) => (n ? " · " + n + " plank" : ""));
   body.innerHTML = ranked.length
-    ? ranked.map((p) => `<tr><td>${p.rank}</td><td>${escapeHtml(publicName(p.name))}</td><td>${p.sets}</td></tr>`).join("")
+    ? ranked.map((p) => `<tr><td>${p.rank}</td><td>${escapeHtml(publicName(p.name))}</td><td>${p.sets}${mark(p.plank)}</td></tr>`).join("")
     : `<tr><td colspan="3">No TUT sets completed yet.</td></tr>`;
 }
 // ET midnight: repaint so Today's column resets; best day and all-time stay.
@@ -4266,11 +4277,22 @@ let plankStream = null, plankLoop = false, plankPreview = false, plankHold = nul
 const plankTimeVoice = window.ZabbadatGetSet && window.ZabbadatGetSet.makePlankTimeVoice ? window.ZabbadatGetSet.makePlankTimeVoice() : null; // spoken time every 15 s for the whole hold, no cap
 // Regular plank: 1 ZAB once per set at a continuous 60 s hold. Spoken once (plankSpeak, queued). The hold bonus (30 s plank push press, 0.5 ZAB) is separate.
 const PLANK_ZAB_LINE = "One minute plank. Plus one ZAB.";
+const PLANK_TUT_LINE = (window.ZabbadatGetSet && window.ZabbadatGetSet.PLANK_TUT_EXECUTED_LINE) || "plank TUT executed";
 let plankZabSpoken = false;
+let plankTutSpoken = false;
 function speakPlankZabOnce() {
   if (plankZabSpoken) return;
   plankZabSpoken = true;
   const GS = window.ZabbadatGetSet; if (GS && GS.plankSpeak) GS.plankSpeak(PLANK_ZAB_LINE);
+}
+function speakPlankTutOnce() {
+  if (plankTutSpoken) return;
+  plankTutSpoken = true;
+  $("plankMsg").textContent = PLANK_TUT_LINE;
+  if ($("plankStatus")) $("plankStatus").textContent = PLANK_TUT_LINE;
+  const GS = window.ZabbadatGetSet;
+  if (GS && GS.speakPlankTutExecuted) GS.speakPlankTutExecuted();
+  else if (GS && GS.plankSpeak) GS.plankSpeak(PLANK_TUT_LINE);
 }
 const PLANK_BEST_KEY = "zabbadat-plank-best";
 let saveRemotePlank = async () => { throw new Error("Plank board is not connected"); };
@@ -4338,8 +4360,15 @@ function plankEnded(r) {
   $("plankStatus").textContent = "Hold ended: " + why + ". Time " + formatTut(r.ms) + ". Time under tension " + formatTut(r.ms) + "." + (isSet ? " Set " + day.sets + " today." : " Under 10 seconds, not counted as a set.");
   if (!currentUser) { $("plankStatus").textContent += " Sign in to post to the Plank House board."; paintPlankRows(localPlanks()); return; }
   if (day) saveRemotePlankDaily(day, record).catch(() => { $("plankStatus").textContent += " Sets saved on this phone (sets board offline)."; });
+  if (r.ms >= 80000) speakPlankTutOnce();
   saveRemotePlank(record).then((id) => { $("plankStatus").textContent += " Posted to the Plank House board.";
-    if (ZT) awardZab("plank", id).then((tk) => { $("plankStatus").textContent += zabNote(tk); if (tk && tk.credited > 0) speakPlankZabOnce(); if (typeof zabRing === "function") zabRing($("plankStatus")); }, () => {}); })
+    const after = (tk) => { $("plankStatus").textContent += zabNote(tk); if (tk && tk.credited > 0 && (tk.source === "plank" || !tk.source)) speakPlankZabOnce(); if (typeof zabRing === "function") zabRing($("plankStatus")); };
+    if (ZT) {
+      const jobs = [awardZab("plank", id)];
+      if (Math.floor(Number(record.ms) / 1000) >= 80) jobs.push(awardZab("plankTut", id));
+      Promise.all(jobs.map((p) => p.then((tk) => { after(tk); return tk; }, () => null)));
+    }
+  })
     .catch(() => { $("plankStatus").textContent += " Saved on this phone (board offline)."; paintPlankRows(localPlanks()); });
 }
 // Cue first, count after: when the hold locks in (aligned, 1.5 s ready satisfied) it enters the "cue" phase and
@@ -4414,8 +4443,9 @@ async function plankTick(id = plankLoopId) {
         if (typeof plankSideClockStarted === "function") plankSideClockStarted();
         if (typeof plankTimeVoice !== "undefined" && plankTimeVoice && !plankSaved) plankTimeVoice.tick(r.ms);
         if (!plankSaved && r.ms >= 60000 && currentUser) speakPlankZabOnce(); // one-time 1 ZAB mark at 60 s; claim still runs when the hold is saved
-        // During the hold a framing hint is information only: it never ends the hold.
-        $("plankMsg").textContent = r.frame === "ok" ? (r.framing && r.framing.msg ? "Holding · " + r.framing.msg : "Holding") : r.frame === "missing" ? "Back in frame!" : window.ZabbadatPlank.reasonText(r.frame) + "! Fix it";
+        if (!plankSaved && r.ms >= 80000) speakPlankTutOnce(); // show and speak plank TUT executed once at 80 s of unbroken form
+        // During the hold a framing hint is information only: it never ends the hold. Keep the TUT line on screen after 80 s.
+        $("plankMsg").textContent = plankTutSpoken ? PLANK_TUT_LINE : (r.frame === "ok" ? (r.framing && r.framing.msg ? "Holding · " + r.framing.msg : "Holding") : r.frame === "missing" ? "Back in frame!" : window.ZabbadatPlank.reasonText(r.frame) + "! Fix it");
       }
     }
   } catch (e) { $("plankStatus").textContent = "Pose paused."; }
@@ -4423,7 +4453,7 @@ async function plankTick(id = plankLoopId) {
 }
 function newPlankHold() {
   plankLeadUntil = performance.now() + PLANK_LEAD_MS;
-  plankHold = window.ZabbadatPlank.createPlankHold({ cue: true, cueMaxMs: 20000 }); if (typeof plankCount !== "undefined" && plankCount) plankCount.cancel(); if (typeof plankCountShow === "function") plankCountShow(""); plankSaved = false; plankZabSpoken = false; plankCueSeq = 0;
+  plankHold = window.ZabbadatPlank.createPlankHold({ cue: true, cueMaxMs: 20000 }); if (typeof plankCount !== "undefined" && plankCount) plankCount.cancel(); if (typeof plankCountShow === "function") plankCountShow(""); plankSaved = false; plankZabSpoken = false; plankTutSpoken = false; plankCueSeq = 0;
   if (typeof plankTimeVoice !== "undefined" && plankTimeVoice) plankTimeVoice.reset();
   if (typeof plankSide !== "undefined" && plankSide) { plankSide.reset(); plankSide.start(); }
   $("plankClock").textContent = "0:00"; $("plankMsg").textContent = "Get into plank";
@@ -6245,10 +6275,16 @@ function boardSnap(bodyId, q, next, fail) { boardSubs.push({ bodyId, q, next, fa
 let tutLifeOff = null;
 let dashOffs = [];
 const dashState = { signedIn: false, uid: "", today: "", ledger: [], daily: [], pushups: [], planks: [], games: [], matches: [], seasons: [] };
+function paintBreathCycles() {
+  const el = $("miniDashBreath"), box = window.ZabbadatCoolingBox;
+  const n = box && typeof box.getCycles === "function" ? box.getCycles() : 0;
+  if (el) el.textContent = Number(n || 0).toLocaleString();
+}
 function paintMiniDash() {
   const zabEl = $("miniDashZab"), tutEl = $("miniDashTut"), nudge = $("miniDashNudge");
   const signed = !!(typeof dashState !== "undefined" && dashState && dashState.signedIn);
   if (nudge) nudge.hidden = !!signed;
+  paintBreathCycles();
   if (!signed) {
     if (zabEl) zabEl.textContent = "—";
     if (tutEl) tutEl.textContent = "—";
@@ -6270,6 +6306,10 @@ function paintMiniDash() {
   }
   if (tutEl) tutEl.textContent = tut == null ? "—" : Number(tut || 0).toLocaleString();
 }
+if (window.ZabbadatCoolingBox && typeof window.ZabbadatCoolingBox.mount === "function") {
+  window.ZabbadatCoolingBox.mount(document, localStorage);
+}
+if (typeof document !== "undefined" && document.addEventListener) document.addEventListener("zabbadat-breath-cycles", function () { if (typeof paintBreathCycles === "function") paintBreathCycles(); });
 function paintUserDash() {
   const D = window.ZabbadatDash, root = $("userDash"), sign = $("userDashSignIn"), body = $("userDashBody");
   if (!D || !root) return;
@@ -6302,7 +6342,7 @@ function dashOnUser(u) {
   // Equality / array-contains only, or a single orderBy: no new composite index. Filter source client-side.
   dashListen(query(collection(db, "users", u.uid, "zabLedger"), orderBy("createdAt", "desc"), limit(500)), (rows) => { dashState.ledger = rows; });
   dashListen(query(collection(db, "dailySteps"), where("uid", "==", u.uid)), (rows) => { dashState.daily = rows; });
-  dashListen(query(collection(db, "planks"), where("uid", "==", u.uid)), (rows) => { dashState.planks = rows; });
+  dashListen(query(collection(db, "planks"), where("uid", "==", u.uid)), (rows) => { dashState.planks = rows; const pu = window.ZabbadatSession && window.ZabbadatSession.tutLifetime ? window.ZabbadatSession.tutLifetime(dashState.pushups, u.uid) : 0; const pl = window.ZabbadatSession && window.ZabbadatSession.plankTutLifetime ? window.ZabbadatSession.plankTutLifetime(rows, u.uid) : 0; if (dashState.signedIn) paintTutLifetime(pu + pl); });
   dashListen(query(collection(db, "games"), where("uid", "==", u.uid)), (rows) => { dashState.games = rows; });
   dashListen(query(collection(db, "washersBattleSeason"), where("uid", "==", u.uid)), (rows) => { dashState.seasons = rows; });
   dashListen(query(collection(db, "matches"), where("uids", "array-contains", u.uid)), (rows) => { dashState.matches = rows; });
@@ -6312,7 +6352,7 @@ function tutLifetimeOnUser(u) {
   if (!u) { paintTutLifetime(null); dashState.pushups = []; paintUserDash(); return; }
   // Equality on uid only: no composite index. Allowed by the pushups read rule (signed in).
   tutLifeOff = onSnapshot(query(collection(db, "pushups"), where("uid", "==", u.uid)),
-    (snap) => { const rows = snap.docs.map((d) => d.data()); paintTutLifetime(window.ZabbadatSession.tutLifetime(rows, u.uid)); dashState.pushups = rows; paintUserDash(); },
+    (snap) => { const rows = snap.docs.map((d) => d.data()); dashState.pushups = rows; const pu = window.ZabbadatSession.tutLifetime(rows, u.uid); const pl = window.ZabbadatSession.plankTutLifetime ? window.ZabbadatSession.plankTutLifetime(dashState.planks, u.uid) : 0; paintTutLifetime(pu + pl); paintUserDash(); },
     () => { paintTutLifetime(null); dashState.pushups = []; paintUserDash(); });
 }
 function boardsOnUser(u) {
@@ -6907,9 +6947,25 @@ const tutRowsOf = (snap) => snap.docs.map((d) => {
 // listener for identical queries): drop your tuts (Today / Best day / All-time, so Best day and All-time are kept forever) and
 // the All-time TUT sets ranking. Newest first client-side, so drop your tuts keeps people in order of their latest set.
 const tutAllQ = query(collection(db, "pushups"), where("tutMs", ">=", 80000));
+const plankTutQ = query(collection(db, "planks"), where("holdSec", ">=", 80));
 const tutAllRowsOf = (snap) => tutRowsOf(snap).sort((a, b) => (b.at || 9e15) - (a.at || 9e15)); // pending (unsaved) sets first
-boardSnap("tutBoardBody", tutAllQ, (snap) => paintTutRows(tutAllRowsOf(snap)), () => paintTutRows(localPush().slice().reverse()));
-boardSnap("tutAllBoardBody", tutAllQ, (snap) => paintTutAllRows(tutAllRowsOf(snap)), () => paintTutAllRows(null));
+const plankTutRowsOf = (snap) => snap.docs.map((d) => {
+  const x = d.data();
+  const at = x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : 0;
+  return { name: x.name, xHandle: x.xHandle || "", uid: x.uid || "", holdSec: x.holdSec, ms: x.ms, at, kind: "plank" };
+}).sort((a, b) => (b.at || 0) - (a.at || 0));
+let tutPushBoard = [], tutPlankBoard = [];
+function paintTutBoards() {
+  const rows = tutPushBoard.concat(tutPlankBoard).sort((a, b) => (b.at || 0) - (a.at || 0));
+  paintTutRows(rows);
+  paintTutAllRows(rows);
+}
+boardSnap("tutBoardBody", tutAllQ, (snap) => { tutPushBoard = tutAllRowsOf(snap); paintTutBoards(); }, () => { tutPushBoard = localPush().slice().reverse(); paintTutBoards(); });
+boardSnap("tutAllBoardBody", plankTutQ, (snap) => { tutPlankBoard = plankTutRowsOf(snap); paintTutBoards(); }, () => {
+  const local = (typeof localPlanks === "function" ? localPlanks() : []).filter((r) => (Number(r.holdSec) >= 80) || (Number(r.ms) >= 80000)).map((r) => Object.assign({ kind: "plank", at: r.sessionStartedAt || 0 }, r));
+  tutPlankBoard = local;
+  paintTutBoards();
+});
 // Plank board: longest hold first.
 const plankRowsOf = (snap) => snap.docs.map((d) => { const x = d.data(); return { name: x.name, xHandle: x.xHandle || "", ms: x.ms, when: x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toLocaleDateString() : "" }; });
 boardSnap("plankBoardBody", query(collection(db, "planks"), orderBy("ms", "desc"), limit(80)), (snap) => paintPlankRows(plankRowsOf(snap)), () => paintPlankRows(localPlanks()));

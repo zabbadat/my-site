@@ -29,11 +29,13 @@ check("mini dashboard sits in the 10K step tile, after the nav and before the ho
 check("Go to dashboard button lives on the mini tile and targets #userDash",
   /id="goToDash"[^>]*href="#userDash"/.test(html.slice(strip, home))
   && /Go to dashboard/.test(html.slice(strip, home)));
-check("mini shows ZAB bag and TUT sets only (no second Steps today readout)",
+check("mini shows ZAB bag, TUT sets, and Breath cycles (no second Steps today readout)",
   /id="miniDashZab"/.test(html.slice(strip, home))
   && /ZAB bag/.test(html.slice(strip, home))
   && /id="miniDashTut"/.test(html.slice(strip, home))
   && /TUT sets/.test(html.slice(strip, home))
+  && /id="miniDashBreath"/.test(html.slice(strip, home))
+  && /Breath cycles/.test(html.slice(strip, home))
   && html.slice(html.indexOf('id="miniDash"'), home).indexOf("Steps today") < 0);
 check("signed-out nudge is present and does not add a second Google or X sign-in button",
   /id="miniDashNudge">Sign in to track your totals</.test(html)

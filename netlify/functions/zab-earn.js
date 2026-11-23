@@ -1,4 +1,4 @@
-// POST /.netlify/functions/zab-earn  { source: pushups|tut|hold|plank|walk|washers|tutBattle|steps10k|squats, id: <session doc id / battle code> }
+// POST /.netlify/functions/zab-earn  { source: pushups|tut|hold|plank|plankTut|walk|washers|tutBattle|steps10k|squats, id: <session doc id / battle code> }
 // Authorization: Bearer <Firebase sign-in credential>. Credits ZAB for one recorded session the caller owns, computed on the
 // server from the stored session (zab-earn.js), once per session and source, within the per-claim and per-day caps.
 // Needs FIREBASE_SERVICE_ACCOUNT and ZAB_EARN_SINCE (ms since epoch: sessions recorded before it can't be claimed; set it to

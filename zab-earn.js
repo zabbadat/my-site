@@ -10,6 +10,7 @@
  *   tut      pushups/{id}      tutMs (One long set only, written by the page)  60 s = 1 ZAB
  *   hold     pushups/{id}      holds (30-second top holds in that set)          0.5 ZAB each
  *   plank    planks/{id}       holdSec         60 s = 1 ZAB once per set (no extra for time past 60 s)
+ *   plankTut planks/{id}       holdSec >= 80   1 ZAB once per set, stacks on the 60 s plank pay
  *   walk     walkSessions/{id} ms              10 min = 1 ZAB
  *   washers  games/{id}        verified 21     1 ZAB per game won
  *   tutBattle tutBattles/{code}  players[uid].tutMs of a finished TUT Battle (credited as source "tut")
@@ -25,7 +26,7 @@ const ZB = require("./zab-balance.js");
 
 // ---- OWNER DECISION: caps (ZAB). Per claim and per source per America/New_York day (resets at Eastern midnight, see capDay). ----
 const CLAIM_CAP = 500;
-const DAY_CAP = { pushups: 50, tut: 30, hold: 10, plank: 30, walk: 24, washers: 20, steps10k: 4 };
+const DAY_CAP = { pushups: 50, tut: 30, hold: 10, plank: 30, plankTut: 30, walk: 24, washers: 20, steps10k: 4 };
 // Sources with NO daily cap (owner, Nov 16: Gyatt Squats). Only CLAIM_CAP and the per-set rule cap (1000 reps = 100 ZAB) bound a claim.
 const NO_DAY_CAP = { squats: true };
 const MAX_AGE_MS = 48 * 3600000;          // a session can be claimed for 48 h after it was recorded
@@ -36,6 +37,7 @@ const KINDS = {
   tut:       { col: "pushups", source: "tut" },
   hold:      { col: "pushups", source: "hold" },
   plank:     { col: "planks", source: "plank" },
+  plankTut:  { col: "planks", source: "plankTut" },
   walk:      { col: "walkSessions", source: "walk" },
   washers:   { col: "games", source: "washers" },
   tutBattle: { col: "tutBattles", source: "tut" },
@@ -91,8 +93,12 @@ function measure(kind, d, uid, nowMs) {
     if (reps > ms / 700 + 1) bad("more squats than the set time allows");
     return { qty: reps, units: "reps", amount: ZB.zabFor("squats", reps) };
   }
-  if (kind === "plank") {
+  if (kind === "plank" || kind === "plankTut") {
     if (d.source !== "camera" || !isInt(d.holdSec) || d.holdSec < 0 || d.holdSec > 7200) bad("bad plank record");
+    if (kind === "plankTut") {
+      if (d.holdSec < 80) bad("shorter than 80 seconds");
+      return { qty: 80, units: "seconds", amount: ZB.zabFor("plankTut", 80) };
+    }
     const qty = Math.min(60, d.holdSec);
     return { qty, units: "seconds", amount: ZB.zabFor("plank", qty) };
   }

@@ -479,6 +479,18 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
   }
   // Lifetime completed TUT sets for one uid.
   function tutLifetime(rows, uid) { var n = 0; (rows || []).forEach(function (r) { if (r && (!uid || r.uid === uid) && isTutSetDoc(r)) n++; }); return n; }
+  // Regular plank TUT: one continuous hold of 80 s or more (holdSec or ms). kind "plank" marks query rows.
+  function isPlankTutDoc(r) {
+    if (!r) return false;
+    if (r.kind && r.kind !== "plank") return false;
+    if (r.kind === "plank") return (Number(r.holdSec) >= 80) || (Number(r.ms) >= 80000);
+    if (r.holdSec != null && r.tutMs == null && (r.reps == null || r.reps === 0) && !isTutSetDoc(r)) {
+      return Number(r.holdSec) >= 80 || Number(r.ms) >= 80000;
+    }
+    return false;
+  }
+  function plankTutLifetime(rows, uid) { var n = 0; (rows || []).forEach(function (r) { if (r && (!uid || r.uid === uid) && isPlankTutDoc(r)) n++; }); return n; }
+  function plankMark(n) { n = Number(n) || 0; return n > 0 ? " \u00b7 " + n + " plank" : ""; }
   // All-time TUT sets board (owner, Nov 14): completed TUT sets per person across ALL pushups docs (the page reads every
   // One long set doc with tutMs >= 80000, no limit; this filters with isTutSetDoc so 1:20 + 10 push-ups is the one rule).
   // One row per uid (rows without a uid are skipped: every posted set is signed in). Name = that person's latest name.
@@ -486,10 +498,13 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
   function tutAllTime(rows, n) {
     var by = {}, list = [];
     (rows || []).forEach(function (r) {
-      if (!r || !r.uid || !isTutSetDoc(r)) return;
+      if (!r || !r.uid) return;
+      var plank = isPlankTutDoc(r), push = isTutSetDoc(r);
+      if (!plank && !push) return;
       var p = by[r.uid];
-      if (!p) { p = by[r.uid] = { uid: r.uid, name: r.name || "Player", sets: 0, at: -1 }; list.push(p); }
+      if (!p) { p = by[r.uid] = { uid: r.uid, name: r.name || "Player", sets: 0, plank: 0, at: -1 }; list.push(p); }
       p.sets++;
+      if (plank) p.plank++;
       var at = Number(r.at) || 0;
       if (at >= p.at) { p.at = at; if (r.name) p.name = r.name; }
     });
@@ -516,20 +531,22 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
   function tutBoardStats(rows, dayOf, today) {
     var out = [], by = {};
     (rows || []).forEach(function (r) {
-      if (!isTutSetDoc(r)) return;
+      var plank = isPlankTutDoc(r), push = isTutSetDoc(r);
+      if (!plank && !push) return;
       var k = r.uid ? "u:" + r.uid : "n:" + (r.name || "Player");
       var day = dayOf(r);
-      var reps = Number(r.reps) || 0;
-      if (!by[k]) { by[k] = { key: k, uid: r.uid || "", name: r.name || "Player", today: 0, bestDay: 0, allTime: 0, days: {} }; out.push(by[k]); }
+      var reps = push ? (Number(r.reps) || 0) : 0;
+      if (!by[k]) { by[k] = { key: k, uid: r.uid || "", name: r.name || "Player", today: 0, bestDay: 0, allTime: 0, plankToday: 0, plankAll: 0, days: {} }; out.push(by[k]); }
       var p = by[k];
       p.allTime += reps;
+      if (plank) p.plankAll++;
       if (day) {
         p.days[day] = (p.days[day] || 0) + reps;
         if (p.days[day] > p.bestDay) p.bestDay = p.days[day];
       }
-      if (day === today) p.today += reps;
+      if (day === today) { p.today += reps; if (plank) p.plankToday++; }
     });
-    return out.map(function (p) { return { key: p.key, uid: p.uid, name: p.name, today: p.today, bestDay: p.bestDay, allTime: p.allTime }; });
+    return out.map(function (p) { return { key: p.key, uid: p.uid, name: p.name, today: p.today, bestDay: p.bestDay, allTime: p.allTime, plankToday: p.plankToday, plankAll: p.plankAll }; });
   }
 
   // End-of-set watch (Nov 16, owner): the one shared no-rep rule every push-up camera view (Sets, One long set / TUT, 3:00 challenge,
@@ -634,7 +651,7 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
     function stop(t) { if (t != null) tick(t, false); last = null; return ms; }
     return { tick: tick, reset: reset, stop: stop, ms: function () { return ms; }, loaded: function () { return loaded; } };
   }
-  var api = { createTutClock: createTutClock, SET_END: SET_END, createSetEnd: createSetEnd, TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, rawPt: rawPt, floorY: floorY, kneesFallback: kneesFallback, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, isUpright: isUpright, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
+  var api = { createTutClock: createTutClock, SET_END: SET_END, createSetEnd: createSetEnd, TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, isPlankTutDoc: isPlankTutDoc, tutLifetime: tutLifetime, plankTutLifetime: plankTutLifetime, plankMark: plankMark, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, rawPt: rawPt, floorY: floorY, kneesFallback: kneesFallback, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, isUpright: isUpright, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

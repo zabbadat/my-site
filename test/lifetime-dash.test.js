@@ -106,7 +106,7 @@ const sum = D.summarize(Object.assign({}, base, {
   zabBalance: 17.5, ledger: ledger, daily: [{ uid: "a", date: "2026-11-10", steps: 8000 }, { uid: "a", date: "2026-11-14", steps: 8760 }],
   pushups: tutRows, planks: planks, games: games, matches: matches, seasons: seasons
 }));
-check("summarize rolls every section together", sum.signedIn && sum.steps === 16760 && sum.todaySteps === 8760 && sum.pushups === 82 && sum.tutSets === 2 && sum.planks === 2 && sum.plank.setsCompleted === 2 && sum.tenK.count === 3 && sum.washers.wins === 8 && sum.zabBalance === 17.5);
+check("summarize rolls every section together", sum.signedIn && sum.steps === 16760 && sum.todaySteps === 8760 && sum.pushups === 82 && sum.pushupTutSets === 2 && sum.plankTutSets === 1 && sum.tutSets === 3 && sum.planks === 2 && sum.plank.setsCompleted === 2 && sum.tenK.count === 3 && sum.washers.wins === 8 && sum.zabBalance === 17.5);
 check("nudge is steps remaining to 10K when under the goal", sum.nudge === "1,240 steps to your next 10K");
 check("activity streak counts any posted day and is still current", sum.activityStreak >= 1);
 check("personal bests capture longest plank, best steps day, best push-up set", sum.bests.plankMs === 180000 && sum.bests.steps.steps === 8760 && sum.bests.pushups === 30);
@@ -114,11 +114,11 @@ check("personal bests capture longest plank, best steps day, best push-up set", 
 const filled = D.cardHtml(sum);
 check("card layout: summary, Zabba washer near the top, then Steps, 10K, Push-ups, TUT, Planks", (() => {
   const i = (s) => filled.indexOf(s);
-  return i("Your dashboard") >= 0 && i("1,240 steps to your next 10K") < i("Zabba washer") && i("Zabba washer") < i(">Steps<") && i(">Steps<") < i("10K Milestones") && i("10K Milestones") < i("Push-ups") && i("Push-ups") < i(">TUT<") && i(">TUT<") < i(">Planks<") && i(">Planks<") < i("Plank push press") && i("Plank push press") < i("Personal bests");
+  return i("Your dashboard") >= 0 && i("1,240 steps to your next 10K") < i("Zabba washer") && i("Zabba washer") < i(">Steps<") && i(">Steps<") < i("10K Milestones") && i("10K Milestones") < i("Push-ups") && i("Push-ups") < i("Push-up TUT") && i("Push-up TUT") < i("Plank TUT") && i("Plank TUT") < i(">Planks<") && i(">Planks<") < i("Plank push press") && i("Plank push press") < i("Personal bests");
 })());
 check("washer section shows W/L/T, win pct, streaks and recent Live Match line", /Wins/.test(filled) && /Losses/.test(filled) && /Ties/.test(filled) && /Win pct/.test(filled) && /Cy/.test(filled) && /Live Match/.test(filled) && /21–15/.test(filled));
 check("plank section uses plank set complete and plank push press copy", /Plank sets completed/.test(filled) && /plank set complete/.test(filled) && /plank push press holds/.test(filled) && /Lifetime time held/.test(filled) && /Longest hold/.test(filled) && /Sets this week/.test(filled));
-check("signed-in card keeps lifetime steps, TUT, 10K list newest first", /Lifetime steps/.test(filled) && /16,760/.test(filled) && /TUT sets completed/.test(filled) && /Nov 14, 2026/.test(filled) && filled.indexOf("Nov 14") < filled.indexOf("Nov 13"));
+check("signed-in card keeps lifetime steps, TUT, 10K list newest first", /Lifetime steps/.test(filled) && /16,760/.test(filled) && /Push-up TUT/.test(filled) && /Plank TUT/.test(filled) && /Nov 14, 2026/.test(filled) && filled.indexOf("Nov 14") < filled.indexOf("Nov 13"));
 
 const empty = D.cardHtml(D.summarize(Object.assign({}, base, { ledger: [], daily: [], pushups: [], planks: [], games: [], matches: [], seasons: [] })));
 check("empty 10K and plank and washer states are friendly", /No 10K days yet/.test(empty) && /No plank set complete yet/.test(empty) && /No Zabba washer games posted yet/.test(empty));

@@ -173,6 +173,42 @@
   // A set that breaks form before 60 s counts 0. To switch to "one per full minute", change the
   // increment below to Math.floor(plankHoldMs(s) / ONE_MINUTE_MS).
   function isOneMinutePlank(set) { return plankHoldMs(set) >= ONE_MINUTE_MS; }
+  var PLANK_TUT_MS = 80000;
+  function isPlankTut(set) { return plankHoldMs(set) >= PLANK_TUT_MS; }
+  function plankTutSets(sets, uid) {
+    var n = 0;
+    (sets || []).forEach(function (s) {
+      if (!s || (uid && s.uid && s.uid !== uid)) return;
+      if (isPlankTut(s)) n += 1;
+    });
+    return n;
+  }
+  function plankTutStats(sets, uid, todayKey, s) {
+    var n = 0, longestMs = 0, recent = [];
+    (sets || []).forEach(function (set) {
+      if (!set || (uid && set.uid && set.uid !== uid)) return;
+      if (!isPlankTut(set)) return;
+      var ms = plankHoldMs(set), day = plankDay(set, s);
+      n += 1;
+      if (ms > longestMs) longestMs = ms;
+      recent.push({ date: day, ms: ms, kind: "plank", label: "plank TUT", atMs: toMs(set.createdAt || set.sessionStartedAt || set.at) });
+    });
+    recent.sort(function (a, b) { return (b.atMs || 0) - (a.atMs || 0) || (a.date < b.date ? 1 : -1); });
+    return { sets: n, longestMs: longestMs, recent: recent.slice(0, 10) };
+  }
+  function pushupTutRecent(rows, uid, session, s) {
+    var recent = [];
+    (rows || []).forEach(function (r) {
+      if (!r || (uid && r.uid && r.uid !== uid)) return;
+      if (session && session.isTutSetDoc && !session.isTutSetDoc(r)) return;
+      if (!(session && session.isTutSetDoc) && !(Number(r.tutMs) >= 80000)) return;
+      var ms = Number(r.ms) || Number(r.tutMs) || 0;
+      var day = plankDay(r, s);
+      recent.push({ date: day, ms: ms, kind: "pushup", label: "push-up TUT", atMs: toMs(r.createdAt || r.at), reps: Number(r.reps) || 0 });
+    });
+    recent.sort(function (a, b) { return (b.atMs || 0) - (a.atMs || 0); });
+    return recent.slice(0, 10);
+  }
   function oneMinutePlanks(sets, uid) {
     var n = 0;
     (sets || []).forEach(function (s) {
@@ -219,7 +255,7 @@
     var holds = ledgerSum(ledger, "hold", uid);
     return {
       setsCompleted: completed, totalMs: totalMs, longestMs: longestMs, today: today, week: week,
-      zab: ledgerSum(ledger, "plank", uid).zab, recent: recent.slice(0, 10),
+      zab: (ledgerSum(ledger, "plank", uid).zab || 0) + (ledgerSum(ledger, "plankTut", uid).zab || 0), recent: recent.slice(0, 10),
       holds: { count: holds.qty || holds.list.length, zab: holds.zab }
     };
   }
@@ -332,8 +368,12 @@
       todaySteps: todaySteps(s.daily, s.uid, today),
       pushups: pu.total,
       bestPushups: pu.best,
-      tutSets: lifetimeTut(s.pushups, s.uid, session),
+      tutSets: lifetimeTut(s.pushups, s.uid, session) + plankTutSets(s.planks, s.uid),
+      pushupTutSets: lifetimeTut(s.pushups, s.uid, session),
+      plankTutSets: plankTutSets(s.planks, s.uid),
+      plankTut: plankTutStats(s.planks, s.uid, today, s),
       bestTutMs: bestTutMs(s.pushups, s.uid, session),
+      tutRecent: pushupTutRecent(s.pushups, s.uid, session, s).concat(plankTutStats(s.planks, s.uid, today, s).recent).sort(function (a, b) { return (b.atMs || 0) - (a.atMs || 0); }).slice(0, 10),
       plank: plank,
       planks: plank.setsCompleted,
       tenK: ten,
@@ -363,6 +403,16 @@
     }
     return '<ul class="dash-list dash-10k-list">' + milestones.map(function (m) {
       return "<li><span>" + e(formatDay(m.date)) + " \u00b7 " + e(fmt(m.steps)) + " steps</span><span>+" + e(String(m.zab)) + " ZAB</span></li>";
+    }).join("") + "</ul>";
+  }
+  function tutRecentHtml(recent, escapeFn) {
+    var e = escapeFn || esc;
+    if (!recent || !recent.length) {
+      return '<p class="note dash-empty">No TUT sets yet. A push-up TUT is 1:20 with at least 10 push-ups. A plank TUT is a continuous 80-second regular plank.</p>';
+    }
+    return '<ul class="dash-list">' + recent.map(function (m) {
+      var bit = m.kind === "plank" ? "plank TUT" : "push-up TUT";
+      return "<li><span>" + e(formatDay(m.date)) + " \u00b7 " + e(formatHold(m.ms)) + (m.reps ? " \u00b7 " + e(String(m.reps)) + " reps" : "") + "</span><span>" + e(m.label || bit) + "</span></li>";
     }).join("") + "</ul>";
   }
   function plankListHtml(recent, escapeFn) {
@@ -428,11 +478,18 @@
         stat(e, fmt(sum.pushups), "Lifetime push-ups") +
         stat(e, fmt(sum.bestPushups || 0), "Best set") +
       "</div>" +
-      "<h3>TUT</h3>" +
+      "<h3>Push-up TUT</h3>" +
       '<div class="dash-stats">' +
-        stat(e, fmt(sum.tutSets), "TUT sets completed") +
-        stat(e, formatHold(sum.bestTutMs || 0), "Longest TUT set") +
+        stat(e, fmt(sum.pushupTutSets || 0), "Push-up TUT") +
+        stat(e, formatHold(sum.bestTutMs || 0), "Longest push-up TUT") +
       "</div>" +
+      "<h3>Plank TUT</h3>" +
+      '<div class="dash-stats">' +
+        stat(e, fmt((sum.plankTut && sum.plankTut.sets) || sum.plankTutSets || 0), "Plank TUT") +
+        stat(e, formatHold((sum.plankTut && sum.plankTut.longestMs) || 0), "Longest plank TUT") +
+      "</div>" +
+      '<p class="note">Recent TUT sets</p>' +
+      tutRecentHtml(sum.tutRecent, e) +
       "<h3>Planks</h3>" +
       '<div class="dash-stats">' +
         stat(e, p.setsCompleted, "Plank sets completed") +
@@ -469,7 +526,7 @@
     shiftDay: shiftDay, formatDay: formatDay, formatHold: formatHold, weekStart: weekStart,
     fromLedger: fromLedger, streaks: streaks, summarize10k: summarize10k,
     lifetimeSteps: lifetimeSteps, todaySteps: todaySteps, pushupStats: pushupStats, lifetimePushups: lifetimePushups, lifetimeTut: lifetimeTut,
-    plankHoldMs: plankHoldMs, isOneMinutePlank: isOneMinutePlank, oneMinutePlanks: oneMinutePlanks, plankStats: plankStats,
+    plankHoldMs: plankHoldMs, isOneMinutePlank: isOneMinutePlank, oneMinutePlanks: oneMinutePlanks, isPlankTut: isPlankTut, plankTutSets: plankTutSets, plankTutStats: plankTutStats, plankStats: plankStats,
     ledgerSum: ledgerSum, washerRecord: washerRecord, winPct: winPct, resultStreaks: resultStreaks,
     activityDays: activityDays, nudge: nudge, summarize: summarize,
     listHtml: list10kHtml, cardBodyHtml: cardBodyHtml, cardHtml: cardHtml

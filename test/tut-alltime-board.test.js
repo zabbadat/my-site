@@ -29,12 +29,12 @@ check("limit n", S.tutAllTime(many, 1).length === 1 && S.tutAllTime([]).length =
 const i1 = html.indexOf('id="tutBoardBody"'), i2 = html.indexOf('id="tutAllBoardBody"'), i3 = html.indexOf("Your time under tension</h3>");
 check("page: board sits after the drop your tuts table, before 'Your time under tension'", i1 > 0 && i2 > i1 && i2 < i3 && /All-time TUT sets<\/h3>/.test(html));
 check("page: Tuts dropped stays removed", !/tutPeopleCount|tutTimesCount|Tuts dropped/.test(html));
-check("page: true all-time query, no limit, tutMs >= 80000, shared by both TUT boards", html.includes('const tutAllQ = query(collection(db, "pushups"), where("tutMs", ">=", 80000));') && html.includes('boardSnap("tutAllBoardBody", tutAllQ, (snap) => paintTutAllRows(tutAllRowsOf(snap))') && !/limit\(300\)\), \(snap\) => paintTut/.test(html));
+check("page: true all-time query, no limit, tutMs >= 80000, plus planks holdSec >= 80", html.includes('const tutAllQ = query(collection(db, "pushups"), where("tutMs", ">=", 80000));') && html.includes('const plankTutQ = query(collection(db, "planks"), where("holdSec", ">=", 80));') && /boardSnap\("tutAllBoardBody", plankTutQ/.test(html) && !/limit\(300\)\), \(snap\) => paintTut/.test(html));
 // Best day / All-time on drop your tuts come from every doc (not 300): 400 sets over two days for one player.
 const old = []; for (let i = 0; i < 400; i++) old.push(Object.assign(set("a", "Ann", 90000, 10, i), { day: i < 250 ? "d1" : "d2" }));
 const st = S.tutBoardStats(old, (r) => r.day, "d2");
 check("drop your tuts stats over 400 docs: All-time 4000, Best day 2500, Today 1500", st.length === 1 && st[0].allTime === 4000 && st[0].bestDay === 2500 && st[0].today === 1500);
-check("page: names go through publicName + escapeHtml", html.includes("escapeHtml(publicName(p.name))}</td><td>${p.sets}"));
+check("page: names go through publicName + escapeHtml", html.includes("escapeHtml(publicName(p.name))}</td><td>${p.sets}${mark(p.plank)}"));
 
 // Render.
 const src = html.match(/function paintTutAllRows\(rows\) \{[\s\S]*?\n\}/)[0];

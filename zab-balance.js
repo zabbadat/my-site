@@ -20,6 +20,8 @@
     squats: { units: "reps", per: 10, max: 1000 },
     // Regular plank: 1 ZAB once per set, paid at a continuous 60 s hold. Time past 60 s does not earn more.
     plank: { units: "seconds", per: 60, max: 60 },
+    // 80-second regular plank TUT: 1 more ZAB once per set, stacks on the 60 s plank pay.
+    plankTut: { units: "seconds", per: 80, max: 80 },
     walk: { units: "minutes", per: 10, max: 1440 },
     tut: { units: "seconds", per: 60, max: 7200 },
     washers: { units: "wins", per: 1, max: 1 },
@@ -34,7 +36,7 @@
     var n = Number(raw) || 0;
     if (source === "pushups" || source === "squats") return Math.max(0, Math.floor(n));
     if (source === "walk") return Math.max(0, Math.floor(n / 60000));
-    if (source === "plank" || source === "tut") return Math.max(0, Math.floor(n / 1000));
+    if (source === "plank" || source === "plankTut" || source === "tut") return Math.max(0, Math.floor(n / 1000));
     if (source === "washers") return n > 0 ? 1 : 0;
     if (source === "hold") return n >= 1 ? 1 : 0;
     if (source === "steps10k") return n >= 10000 ? 10000 : 0;
@@ -118,7 +120,7 @@
   function claimKey(c) { return c.source + ":" + c.id; }
   function keepClaim(store, c) { var q = readClaims(store); if (!q.some(function (x) { return claimKey(x) === claimKey(c); })) q.push(c); store.setItem(CLAIM_KEY, JSON.stringify(q.slice(-50))); }
   function dropClaim(store, c) { store.setItem(CLAIM_KEY, JSON.stringify(readClaims(store).filter(function (x) { return claimKey(x) !== claimKey(c); }))); }
-  var CLAIM_SOURCES = ["pushups", "tut", "hold", "plank", "walk", "washers", "tutBattle", "steps10k", "squats"];
+  var CLAIM_SOURCES = ["pushups", "tut", "hold", "plank", "plankTut", "walk", "washers", "tutBattle", "steps10k", "squats"];
   function claimEarn(post, store, source, id) {
     var c = { source: String(source || ""), id: cleanId(id) };
     if (CLAIM_SOURCES.indexOf(c.source) < 0 || !c.id) return Promise.resolve({ credited: 0, skipped: "invalid" });
@@ -131,23 +133,24 @@
   // App only (Capacitor native): the 30-second top hold is called "plank push press". Browsers keep "30-second holds".
   function isNativeApp() { return typeof root !== "undefined" && !!(root && root.Capacitor && typeof root.Capacitor.isNativePlatform === "function" && root.Capacitor.isNativePlatform()); }
   var APP = isNativeApp();
-  var LABEL = { pushups: "Push-ups", squats: "Gyatt Squats", plank: "Plank", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers", hold: APP ? "30-second plank push presses" : "30-second holds", steps10k: "10K steps bonus" };
+  var LABEL = { pushups: "Push-ups", squats: "Gyatt Squats", plank: "Plank", plankTut: "Plank TUT", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers", hold: APP ? "30-second plank push presses" : "30-second holds", steps10k: "10K steps bonus" };
   var WAGER_TYPE = { stake: "Battle stake", payout: "Battle win", refund: "Battle refund" };
   var WAGER_GAME = { washers: "Zabba Washer Battle", tut: "TUT Battle", plank: "Plank Battle" };
   function mins(m) { m = Math.floor(m); return m + " minute" + (m === 1 ? "" : "s"); }
-  var UNIT = { pushups: function (n) { return n + " push-up" + (n === 1 ? "" : "s"); }, squats: function (n) { return n + " squat" + (n === 1 ? "" : "s"); }, plank: function (n) { return mins(n / 60); },
+  var UNIT = { pushups: function (n) { return n + " push-up" + (n === 1 ? "" : "s"); }, squats: function (n) { return n + " squat" + (n === 1 ? "" : "s"); }, plank: function (n) { return mins(n / 60); }, plankTut: function (n) { return mins(n / 60); },
     tut: function (n) { return mins(n / 60); }, walk: function (n) { return mins(n); },
     washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; }, hold: function (n) { return APP ? n + " 30-second plank push press" + (n === 1 ? "" : "es") : n + " 30-second hold" + (n === 1 ? "" : "s"); },
     steps10k: function (n) { return Number(n).toLocaleString("en-US") + " steps in a day"; } };
   var OF = { pushups: "", squats: "", plank: " of plank", tut: " of TUT", walk: " of walking", hold: "", steps10k: "" };
   // Display lines built from RATES so the page always matches the earn math.
-  // Earn rates: eight lines, one tile each (2 x 4 on phones, 4 x 2 on wide screens), built from RATES so they match the earn math.
+  // Earn rates: nine lines, one tile each (2 columns on phones, 4 on wide screens), built from RATES so they match the earn math.
   // Owner wording (Nov 16): "One set of 10 Gyatt Squats = 1 ZAB" (no daily cap, zab-earn.js NO_DAY_CAP), "4 ZAB for 10,000 steps"
   // (once per Eastern day), "1 ZAB for a 60-second plank" (once per set). Plank push press = the 30-second top hold (RATES.hold).
   function rateLines() {
     var one = function (k) { var r = RATES[k]; return UNIT[k](r.per) + OF[k] + " = " + ZC.fmtZab(r.zab || 1) + " ZAB"; };
     return [one("pushups"),
       ZC.fmtZab(RATES.plank.zab || 1) + " ZAB for a " + RATES.plank.per + "-second plank",
+      ZC.fmtZab(RATES.plankTut.zab || 1) + " ZAB for an " + RATES.plankTut.per + "-second plank TUT",
       one("tut"), one("walk"),
       "One set of " + RATES.squats.per + " Gyatt Squats = " + ZC.fmtZab(RATES.squats.zab || 1) + " ZAB",
       ZC.fmtZab(RATES.steps10k.zab) + " ZAB for " + RATES.steps10k.per.toLocaleString("en-US") + " steps",

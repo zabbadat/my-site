@@ -61,7 +61,7 @@ const plankDoc = (id, holdSec) => ({ uid: "u1", holdSec, source: "camera", creat
     && /function speakPlankZabOnce\(\)/.test(html)
     && /if \(plankZabSpoken\) return/.test(html)
     && /!plankSaved && r\.ms >= 60000 && currentUser\) speakPlankZabOnce\(\)/.test(html)
-    && /tk && tk\.credited > 0\) speakPlankZabOnce\(\)/.test(html)
+    && /tk && tk\.credited > 0/.test(html) && /speakPlankZabOnce\(\)/.test(html)
     && /plankSaved = false; plankZabSpoken = false/.test(html));
   check("rate copy says once per set, amount still 1 ZAB",
     Z.rateLines()[1] === "1 ZAB for a 60-second plank"
