@@ -22,6 +22,7 @@
   // Every spoken squat line outside the cadence cues (short, plain, no numbers):
   var SAY = {
     start: "Gyatt squat on three.", // then One · two · three · Go (shared get-set timing); standing baseline calibrates meanwhile
+    theme: "Stay under tension: down, hold, and up.",
     missing: "Step back into view.", moved: "Stay on your spot.", bent: "Squat, don't bend over.",
     half: "Lower to parallel", chest: "Chest up", knees: "Knees out", stance: "Stand wider, toes out.",
     end: { stall_bottom: "Set over. You stayed down too long.", no_rep: "Set over. No squats for a while.", sat: "Set over. You sat down.",
@@ -53,6 +54,12 @@
   function msg(t) { if ($("sqMsg")) $("sqMsg").textContent = t; }
   function status(t) { if ($("sqStatus")) $("sqStatus").textContent = t; }
   function speak(line) { try { if (GS && GS.plankSpeak) GS.plankSpeak(line); } catch (e) {} }
+  function fmtTut(ms) {
+    var t = Math.max(0, Math.floor((Number(ms) || 0) / 1000)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = t % 60;
+    var ss = (sec < 10 ? "0" : "") + sec;
+    return h ? h + ":" + (m < 10 ? "0" : "") + m + ":" + ss : m + ":" + ss;
+  }
+  function paintTut(ms) { var s = fmtTut(ms); if ($("sqHudTut")) $("sqHudTut").textContent = s; }
 
   function nextFrame(vid, fn) { if (vid && typeof vid.requestVideoFrameCallback === "function") vid.requestVideoFrameCallback(function () { fn(); }); else requestAnimationFrame(fn); }
   function frameMsg(r) {
@@ -101,7 +108,7 @@
       if (st.running && st.set) {
         var r = st.set.update(kps, t, extra);
         if (r.ended) { endSet(r); return; }
-        paintReps(r.reps);
+        paintReps(r.reps); paintTut(r.tutMs);
         // Reps come from pose only. Do not resync the voice when a squat finishes early or late — that jump
         // used to yank the cadence to Squeeze and fight the next descent.
         coachFor(r);
@@ -142,10 +149,12 @@
     paintReps(r.reps);
     if ($("sqPhase")) $("sqPhase").textContent = done ? "Set done" : "Cadence";
     if ($("sqCount")) $("sqCount").textContent = done ? "\u2713" : "\u2013";
-    msg(done ? "Set done! " + r.reps + " squats" : "Set over: " + r.reps + (r.reps === 1 ? " squat" : " squats"));
+    paintTut(r.tutMs);
+    var tutBit = r.tutMs != null ? " Time under tension " + fmtTut(r.tutMs) + "." : "";
+    msg(done ? "Set done! " + r.reps + " squats · TUT " + fmtTut(r.tutMs || 0) : "Set over: " + r.reps + (r.reps === 1 ? " squat" : " squats") + " · TUT " + fmtTut(r.tutMs || 0));
     var day = SS.recordSet(localStorage, r.reps);
     paintDay();
-    var line = (done ? "Set done: ten reps." : "Set ended: " + r.why + ". " + r.reps + (r.reps === 1 ? " squat" : " squats") + (r.halfReps ? " (" + r.halfReps + " not deep enough)" : "") + ".") + (r.reps > 0 ? " Set " + day.sets + " today." : "") + " Tap Start next set when ready.";
+    var line = (done ? "Set done: ten reps." : "Set ended: " + r.why + ". " + r.reps + (r.reps === 1 ? " squat" : " squats") + (r.halfReps ? " (" + r.halfReps + " not deep enough)" : "") + ".") + tutBit + (r.reps > 0 ? " Set " + day.sets + " today." : "") + " Tap Start next set when ready.";
     status(line);
     window.__sqLast = r;
     if (!(r.reps > 0) || !H) return;
@@ -187,6 +196,7 @@
       st.counter = SQ.createCounter(); paintReps(0);
       tick(++st.loopId); // pose + face logo from camera open (before Go)
       if (!restart && C && GS.sayAndWait) { status(C.criteria); msg("Whole body in view"); if (!(await GS.sayAndWait(GS.withCameraOn ? GS.withCameraOn(C.criteria) : C.criteria, { minMs: 2000, maxMs: 22000, cancelled: function () { return !live(); }, now: now }))) return; }
+      if (!restart && SAY.theme && GS && GS.sayAndWait) { status(SAY.theme); if (!(await GS.sayAndWait(SAY.theme, { minMs: 0, maxMs: 8000, cancelled: function () { return !live(); }, now: now }))) return; }
       if (!live()) return;
       st.calibrating = true; // standing baseline from the "Gyatt squat on three. One, two, three, Go" frames
       st.countdown = GS && GS.makeNextSetCountdown ? GS.makeNextSetCountdown({ line: SAY.start }) : null;

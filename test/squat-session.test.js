@@ -56,5 +56,17 @@ const hold = (d, ms, o) => { const a = []; for (let t = 0; t < ms; t += 33) a.pu
   check("after the end, frames change nothing", s.update(pose(0), t + 2000).reason === "stopped" && s.update(pose(0), t + 2000).reps === 1); }
 check("limits: 15 s stall, 45 s no rep, 8 s sit, 3 s out of frame, set = 10 reps (1000 reps hard cap kept)", SS.L.stallBottomMs === 15000 && SS.L.noRepMs === 45000 && SS.L.sitStillMs === 8000 && SS.L.missingMs === 3000 && SS.L.maxReps === 1000 && SS.L.setReps === 10 && SS.reasonText("set_done") === "ten reps, set complete");
 check("reason text", SS.reasonText("sat") === "sat down" && SS.reasonText("stopped") === "End set");
+
+{ const s = newSet(); let t = 1000, r;
+  ({ r, t } = run(s, t, repProfile(1.0))); // 4s down + 4s hold + 1s up + 1s top
+  check("one Gyatt Squat rep reports tutMs less than wall-clock ms (top rest is paused)", r.tutMs > 7000 && r.tutMs < r.ms && r.ms >= 9000, JSON.stringify({ tutMs: r.tutMs, ms: r.ms, reps: r.reps }));
+  const afterStand = s.update(pose(0), t + 5000);
+  check("five more seconds standing at the top add no TUT", afterStand.tutMs === r.tutMs && afterStand.ms > r.ms, JSON.stringify({ tut: afterStand.tutMs, was: r.tutMs, ms: afterStand.ms }));
+}
+{ const s = newSet(); let t = 1000, r;
+  for (let i = 0; i < 10; i++) ({ r, t } = run(s, t + 33, repProfile(1.0)));
+  check("a finished ten-rep set records tutMs on the result (local / on-screen only)", r.ended && r.reason === "set_done" && r.tutMs > 70000 && r.tutMs < r.ms, JSON.stringify({ tutMs: r.tutMs, ms: r.ms }));
+}
+check("squatLoaded is true on the way down / at the bottom / on the way up, not at the top", SS.squatLoaded({ frame: "ok", guard: "ok", phase: "bottom" }) && SS.squatLoaded({ frame: "ok", guard: "ok", phase: "down" }) && SS.squatLoaded({ frame: "ok", guard: "ok", phase: "up" }) && !SS.squatLoaded({ frame: "ok", guard: "ok", phase: "top" }) && !SS.squatLoaded({ frame: "missing", guard: "ok", phase: "bottom" }));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

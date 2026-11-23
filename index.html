@@ -305,6 +305,10 @@
     .hero .tut-best { font-size: .88rem; margin: -.3rem 0 .9rem; }
     .tut-hero .actions { margin: 0; }
     .hero h1 em { font-style: italic; color: var(--accent-2); }
+
+    .tut-theme { color: var(--accent-2); font-weight: 700; font-size: 1.05rem; max-width: 36rem; margin: -0.6rem 0 1.5rem; line-height: 1.45; }
+    .tut-theme strong { color: var(--accent); font-weight: 800; }
+    .tut-em, #plankPrompt strong { color: var(--accent); font-weight: 800; }
     .hero p, .lead { color: var(--muted); max-width: 36rem; margin-bottom: 1.8rem; }
     .actions, .row { display: flex; gap: .8rem; flex-wrap: wrap; }
     .row { margin-top: .9rem; }
@@ -1386,6 +1390,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
         <div class="tut-hero unboxed" id="tutHero">
           <p class="motto">BREATHE. ACTIVATE. <a href="#tut-board">TUT</a>. SCORE. WIN. RANK. REWARD.</p>
           <h2><span class="tuts-l">T</span>ime <span class="tuts-l">U</span>nder <span class="tuts-l">T</span>ension <span class="tuts-l">S</span>et: <em>how long can you stay under tension?</em></h2>
+          <p class="tut-theme" id="tutThemeTag">Breathe through every second of it.</p>
           <p class="tut-rules">Nonstop timer &middot; No standing &middot; No knees</p>
           <div class="tut-stats">
             <div class="tut-main"><b id="heroTut">0:00</b><span>Your time under tension today</span></div>
@@ -1539,6 +1544,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="cooling-box">
     <h2> Breathwork & Meditation —<br>Zabsticking<br>Sitkari coolbox breathing technique </h2>
     <p class="lead">Sitkari through the inhale, box counts on all four sides. Cool the mouth & mind, then close the cycle through the nose.</p>
+    <p class="tut-theme" id="coolingTutLine"><strong>Breathe through the tension,</strong> then move.</p>
     <div class="card" id="sitkari-how" style="margin-bottom:1.15rem">
       <div class="tag">How to sitkari</div>
       <h3>The inhale - (utilize <strong class="zabstick-hl">Zabstick</strong>)<br>or soften the jaw</h3>
@@ -1560,7 +1566,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </section>
   <section id="plank-prompt">
     <h2>Plank</h2>
-    <p class="lead" id="plankPrompt">Phone on the floor, on its side, off to your side. Step back until you're head to heels. Clock starts on a proper plank. Bad form fails the plank. Go on, hold on three. One, two, three, hold.</p>
+    <p class="lead" id="plankPrompt">Phone on the floor, on its side, off to your side. Step back until you're head to heels. Clock starts on a proper plank. Bad form fails the plank. <strong class="tut-em" id="plankTutLine">You're under tension the whole hold, so breathe through it.</strong> Go on, hold on three. One, two, three, hold.</p>
     <p class="fine">Open <a href="#plank">Plank House</a> to start a timed hold.</p>
   </section>
   <figure class="me-centered" id="magicEye">
@@ -1577,6 +1583,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
 <section id="push">
     <h2>TUTS &amp; PUSH up sets</h2>
+    <p class="tut-theme" id="pushTutLine"><strong>Stay under tension the whole set.</strong> Every second in position counts.</p>
     <ul class="lead push-rules">
       <li data-app-copy='[["holding yourself up in a push-press plank", "holding yourself up in a plank push press"]]'>As many good-form push-ups as you can in a minute and twenty seconds, or hold a plank push press. Use a controlled tempo, not too fast. Even holding yourself up in a push-press plank never fails the set.</li>
       <li>Lean your phone up in front of you, camera facing you. It counts each full set.</li>
@@ -1592,7 +1599,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="olt-banner" id="oltBanner"><span>TIME UNDER TENSION SET</span><span><a class="tut-link" href="#tut-board">TUT</a></span></div>
     <p class="note" id="longNote" hidden>Time under tension set. The clock runs non-stop. Do as many push-ups as you can, or hold a plank push press. A TUT set counts even with zero push-ups, as long as form isn't broken. Ends only on knees down or a failure motion. Time, reps and TUT sets will post.</p>
     <span class="vcount" id="pushViol" hidden>0</span>
-    <p class="note" id="challengeNote" hidden>Two-minute challenge: hold a push-up plank, arms straight, while the clock runs from 2:00 to 0:00. The start cue is "Go on, hold on three. One, two, three, hold." The clock starts at hold. Bad form fails the plank. You see how long you held. End set on the camera screen stops it.<br><span id="twoMinToday">Today: no tries yet.</span></p>
+    <p class="note" id="challengeNote" hidden>Two-minute challenge: hold a push-up plank, arms straight, while the clock runs from 2:00 to 0:00. The start cue is "Go on, hold on three. One, two, three, hold." The clock starts at hold. Those two minutes are time under tension. Bad form fails the plank. You see how long you held. End set on the camera screen stops it.<br><span id="twoMinToday">Today: no tries yet.</span></p>
     <div class="twomin-intro" id="twoMinIntro" hidden role="dialog" aria-live="assertive" aria-label="Two-minute challenge"><div class="twomin-card"><h3 id="twoMinIntroTitle">Two-minute challenge</h3><p id="twoMinIntroBody"></p><p class="fine">Tap to skip</p></div></div>
 <div class="stats duo">
       <div class="stat"><b id="pushReps">0</b><span>Reps today</span></div>
@@ -1601,7 +1608,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
     <p class="reps-display" id="pushRepsBig">0</p>
     <p class="note" id="pushHoldTimer" hidden style="text-align:center" aria-live="polite"></p>
-    <p class="note" style="text-align:center;margin-top:-1rem"><span id="pushSetLabel">This set</span> &middot; <span id="pushClock">00:00</span></p>
+    <p class="note" style="text-align:center;margin-top:-1rem"><span id="pushSetLabel">This set</span> &middot; <span id="pushLiveTutLabel">TUT</span> <span id="pushLiveTut">0:00</span> &middot; <span id="pushClock">00:00</span></p>
     <div class="row">
       <label class="note" id="pushTargetWrap" for="pushTarget" style="display:inline-flex;align-items:center;gap:.4rem;margin:0">Target reps <input id="pushTarget" type="number" inputmode="numeric" min="1" max="500" step="1" value="10" style="width:4.5rem"></label>
       <button class="btn ghost rec-btn" type="button" data-rec="camWrap" hidden aria-pressed="false"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button>
@@ -1668,6 +1675,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <section id="squats" aria-labelledby="squatsTitle">
     <h2 id="squatsTitle">Gyatt Squats</h2>
     <p class="lead" id="squatsLead">Gyatt squats, camera facing you. Phone up in front, whole body in view. Stance one and a half to two times shoulder width, toes out about forty-five degrees. Sit back, chest up, knees out over your toes. Thighs at or below parallel at the bottom. Drive through your heels and squeeze your glutes at the top. Glutes on the whole rep. The voice counts four down and four on the hold, then up and squeeze. A rep counts when you reach parallel and stand back up, not from the timer. A set is ten reps. 10 squats = 1 ZAB.</p>
+    <p class="tut-theme" id="squatsTutLine"><strong>Every Gyatt Squat rep is time under tension.</strong> Breathe at the top.</p>
     <div class="stats duo">
       <div class="stat"><b id="sqReps">0</b><span>This set</span></div>
       <div class="stat"><b id="sqCount">–</b><span id="sqPhase">Cadence</span></div>
@@ -1681,6 +1689,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div id="sqWrap" hidden style="margin-top:1rem;max-width:22rem;position:relative">
       <div class="arcade-strip" id="sqHud">
         <div class="arcade-cell"><span class="arcade-num" id="sqHudReps">0</span><span class="arcade-lbl">Squats</span></div>
+        <div class="arcade-cell"><span class="arcade-num" id="sqHudTut">0:00</span><span class="arcade-lbl">TUT</span></div>
         <div class="arcade-cell"><span class="arcade-num" id="sqHudCount">–</span><span class="arcade-lbl" id="sqHudPhase">Ready</span></div>
       </div>
       <div id="sqStage" style="position:relative">
@@ -1910,6 +1919,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </section>
 <section id="tutbattles" role="tabpanel" aria-labelledby="pe-tab-tutbattles" hidden>
     <h2>TUT Battles</h2>
+    <p class="tut-theme" id="tbTutLine"><strong>Keep the tension going.</strong> The clock is counting it.</p>
     <p class="lead" data-app-copy='[["each top hold counts for at most 10 seconds", "each plank push press counts for at most 10 seconds"]]'>Three minutes, head to head. Both tap ready. A shared countdown ("Set up, go on three. One, two, three, Go.") starts the clock. Then a 3:00 clock runs on both phones, and each phone counts its own reps. Stay in plank: push-ups or resting at the top are fine, but each top hold counts for at most 10 seconds of time under tension. Drop a knee or leave the frame for 10 seconds and you lose on the spot. If nobody breaks, more time under tension at 3:00 wins, then more reps; still tied is a draw. Video never uploads. Optional ZAB wager: set a stake when you create the room, both lock it in before the countdown, and the winner takes the pot. A tie refunds both stakes. Leaving or 30 seconds of silence is a forfeit.</p>
     <p class="note" id="tbSignIn"><a href="#play">Sign in</a> to create or join a TUT battle.</p>
     <div id="tbStart" hidden>
@@ -1940,6 +1950,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 <section id="plank" role="tabpanel" aria-labelledby="pe-tab-plank" hidden>
     <h2>Plank House</h2>
     <p class="lead">Longest good plank in the House wins. The camera times your hold. Same login as washers and pushups. Honor system. Not a form judge and not medical treatment.</p>
+    <p class="tut-theme" id="plankHouseTutLine"><strong>You're under tension the whole hold, so breathe through it.</strong></p>
     <p class="note" id="plankSetup">Phone on the floor, on its side, off to your side. Step back until you're head to heels.</p>
     <div class="stats duo">
       <div class="stat"><b id="plankCount" hidden aria-live="assertive" style="display:block;font-size:4rem;line-height:1"></b><b id="plankClock">0:00</b><span>This hold</span></div>
@@ -1959,7 +1970,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
     <div id="plankWrap" hidden style="margin-top:1rem;max-width:22rem;position:relative">
       <div class="arcade-strip" id="plankHud">
-        <div class="arcade-cell"><span class="arcade-num" id="plankHudClock">0:00</span><span class="arcade-lbl">Hold</span></div>
+        <div class="arcade-cell"><span class="arcade-num" id="plankHudClock">0:00</span><span class="arcade-lbl">TUT</span></div>
         <div class="arcade-cell"><span class="arcade-num" id="plankHudCount" hidden></span><span class="arcade-lbl" id="plankHudCountLbl" hidden>Go</span></div>
       </div>
       <div id="plankStage" style="position:relative">
@@ -1992,6 +2003,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   </section>
 <section id="battles" role="tabpanel" aria-labelledby="pe-tab-battles" hidden>
     <h2>Plank Battles</h2>
+    <p class="tut-theme" id="plankBattleTutLine"><strong>You're under tension the whole hold.</strong> Breathe through it.</p>
     <p class="lead">Challenge a friend to a plank, phone to phone. Make a room, share the 4-letter code, and you both get the same countdown. Hold from GO. When you drop, tap I dropped. Last one holding wins. Forfeit or leave and your opponent wins. Keep this page open: switching away marks your hold unverified. Honor system. Optional ZAB wager: set a stake when you create the room, both lock it in before the countdown, and the winner takes the pot. With a wager, the longest hold wins. Holds within 1 second are a draw and both stakes come back. 30 seconds of silence is a forfeit.</p>
     <p class="note" id="battleSignIn"><a href="#play">Sign in</a> to create or join a battle.</p>
     <div id="battleStart" hidden>
@@ -2400,6 +2412,7 @@ let lastViolFlag = 0;
 const HOLD_ZAB_LIVE = true;
 let pushHoldsThisSet = 0; // 30-second holds in the current set: saved with the set (pushups.holds) and credited by the server (zab-earn)
 const holdReward = window.ZabbadatSession && window.ZabbadatSession.createHoldReward ? window.ZabbadatSession.createHoldReward() : null;
+const pushLoadClock = window.ZabbadatSession && window.ZabbadatSession.createTutClock ? window.ZabbadatSession.createTutClock() : null; // live TUT: time in position, pauses on rest or a form break; display only (does not change tutMs / ZAB)
 let saveRemote = async () => { throw new Error("Live board is not connected"); };
 let pushTutQualified = false; // this One long set has reached 1:20 with 10+ push-ups (status line shown once)
 let saveRemotePush = async () => { throw new Error("Push board is not connected"); };
@@ -3087,6 +3100,10 @@ function renderPush() {
   renderTutHistory();
   const shown = pushMode === "challenge" ? Math.max(0, TWO_MIN_MS - now) : now; // challenge: count down from 2:00
   if ($("pushClock")) $("pushClock").textContent = formatTime(shown);
+  if ($("pushLiveTut")) {
+    const loadMs = (typeof pushLoadClock !== "undefined" && pushLoadClock) ? pushLoadClock.ms() : (pushMode === "long" || pushMode === "challenge" ? now : pushState.tut);
+    $("pushLiveTut").textContent = formatTut(loadMs);
+  }
   if ($("camHudReps")) $("camHudReps").textContent = pushState.reps;
   if ($("camHudClock")) $("camHudClock").textContent = formatTime(shown);
   if (typeof paintArcadeStrip === "function") paintArcadeStrip({ reps: pushState.reps, clock: formatTime(shown), live: !!(pushState.running && !pushState.finished) || (typeof camOn !== "undefined" && camOn) });
@@ -3241,6 +3258,7 @@ function freshPushSet(opts) {
   if (typeof postureGuard !== "undefined" && postureGuard) postureGuard.reset();
   if (typeof pushChallenge !== "undefined" && pushChallenge) pushChallenge.reset();
   if (typeof holdReward !== "undefined" && holdReward) holdReward.reset();
+  if (typeof pushLoadClock !== "undefined" && pushLoadClock) pushLoadClock.reset();
   if (typeof pushHoldsThisSet !== "undefined") pushHoldsThisSet = 0;
   if ($("pushHoldTimer")) $("pushHoldTimer").hidden = true;
   if ($("challengeResult")) $("challengeResult").hidden = true;
@@ -3250,6 +3268,7 @@ function showChallengeResult(r, title) {
   const box = $("challengeResult");
   if (!box) return;
   box.innerHTML = "<strong>" + escapeHtml(title) + "</strong><br>Time held: " + formatTime(r.heldMs) + " of 2:00" +
+    "<br>Time under tension " + formatTime(r.heldMs) +
     "<br>Flags: " + escapeHtml(window.ZabbadatChallenge.flagSummary(challengeFlags));
   box.hidden = false;
 }
@@ -3484,18 +3503,20 @@ function finishPushSet(endedBy) {
   if (typeof exitPushCam === "function") exitPushCam(endedBy); // set over (completed, failed, or ended by hand): leave camera mode
   const why = endedBy ? " Ended: " + endedBy + "." : "";
   const what = pushMode === "long" ? "Session" : pushMode === "challenge" ? "Challenge" : "Set";
+  const loadMs = (typeof pushLoadClock !== "undefined" && pushLoadClock) ? pushLoadClock.ms() : (pushMode === "long" ? ms : doneTut);
+  const tutBit = " Time under tension " + formatTut(loadMs) + ".";
   const head = category === "tut-set" ? "TUT set complete: " + record.reps + " reps, " + formatTime(ms) + "." : failedTut ? "Set failed: " + record.reps + " reps, " + formatTime(ms) + ". Ready for the next set." : what + " done: " + record.reps + " reps, " + formatTime(ms) + ".";
   if (!currentUser) {
-    $("pushStatus").textContent = head + " Saved on this device. Sign in to post." + why;
+    $("pushStatus").textContent = head + " Saved on this device. Sign in to post." + why + tutBit;
     return;
   }
-  $("pushStatus").textContent = head + " Posting…" + why;
+  $("pushStatus").textContent = head + " Posting…" + why + tutBit;
   // Server-checked ZAB: save the set first, then claim push-ups (+ TUT for One long set, + 30-second holds) for that saved set.
   const zabFor = (id) => Promise.all([awardZab("pushups", id), record.tutMs > 0 ? awardZab("tut", id) : null, record.holds > 0 ? awardZab("hold", id) : null].map((p) => p && p.catch(() => null)))
     .then((a) => ({ credited: (window.ZabCurrency && window.ZabCurrency.roundZab ? window.ZabCurrency.roundZab : function (x) { return Math.round(Number(x) * 10) / 10; })(a.reduce((n, x) => n + ((x && x.credited) || 0), 0)) }), () => null);
   saveRemotePush(record)
-    .then((id) => zabFor(id)).then((tk) => { $("pushStatus").textContent = (failedTut || category === "tut-set" ? head + " " + name + " posted it." : name + " posted " + record.reps + " reps in " + formatTime(ms) + ".") + why + zabNote(tk); if (typeof zabRing === "function") zabRing($("pushStatus")); })
-    .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err); });
+    .then((id) => zabFor(id)).then((tk) => { $("pushStatus").textContent = (failedTut || category === "tut-set" ? head + " " + name + " posted it." : name + " posted " + record.reps + " reps in " + formatTime(ms) + ".") + why + zabNote(tk) + tutBit; if (typeof zabRing === "function") zabRing($("pushStatus")); })
+    .catch((err) => { $("pushStatus").textContent = "Saved locally. Live post failed: " + (err.message || err) + tutBit; });
 }
 // One Start button: gate -> wake + speech unlock + spoken placement line (in the tap) -> camera -> pose -> spoken
 // criteria line -> 7 s countdown -> clock. Push-ups need no calibration: the first real dip sets the top and counts.
@@ -3603,6 +3624,7 @@ function beginPushClock() {
   if ($("pushViolFlag")) $("pushViolFlag").hidden = true;
   if ($("pushViol")) $("pushViol").textContent = "0";
   pushState.running = true;
+  if (typeof pushLoadClock !== "undefined" && pushLoadClock) pushLoadClock.reset();
   pushState.startedAt = Date.now();
   if (typeof pushSetEnd !== "undefined" && pushSetEnd) pushSetEnd.reset(performance.now()); // end-of-set watch starts with the clock
   if (typeof pushTutQualified !== "undefined") pushTutQualified = false;
@@ -3863,6 +3885,17 @@ async function poseTick(id = poseLoopId) {
       const f = $("pushViolFlag");
       if (f) { f.hidden = !g.active; if (g.active) f.textContent = (g.active === "knees" ? "Knees down" : "Standing") + " · " + g.count; }
       if ($("pushViol")) $("pushViol").textContent = String(g.count);
+    }
+    if (typeof pushLoadClock !== "undefined" && pushLoadClock && pushState.running && !pushState.finished) {
+      const kps = pose ? pose.keypoints : [];
+      const hasBody = !!(kps && kps.some((k) => k && /shoulder$/.test(k.name) && (k.score == null || k.score >= 0.3)));
+      const stPg = postureGuard && postureGuard.state ? postureGuard.state().active : null;
+      const stC = pushCounter && pushCounter.state ? pushCounter.state() : null;
+      const topW = stC && stC.topSize ? stC.topSize * w : 0;
+      const cls = hasBody && window.ZabbadatSession && window.ZabbadatSession.classify ? window.ZabbadatSession.classify(kps, topW) : null;
+      const broken = stPg === "knees" || stPg === "standing" || cls === "knees" || cls === "standing";
+      pushLoadClock.tick(tFrame, hasBody && !broken);
+      if ($("pushLiveTut")) $("pushLiveTut").textContent = formatTut(pushLoadClock.ms());
     }
     if (typeof holdReward !== "undefined" && holdReward && pushState.running && !pushState.finished && pushCounter) {
       const hg = postureGuard && postureGuard.state ? postureGuard.state().active === "knees" : false;
@@ -4142,7 +4175,7 @@ function plankEnded(r) {
   $("plankClock").textContent = formatTut(r.ms);
   if ($("plankHudClock")) $("plankHudClock").textContent = formatTut(r.ms);
   if (typeof paintArcadeStrip === "function") paintArcadeStrip({ reps: "—", clock: formatTut(r.ms), plankClock: formatTut(r.ms), live: true });
-  $("plankMsg").textContent = "Final " + formatTut(r.ms);
+  $("plankMsg").textContent = "Final TUT " + formatTut(r.ms);
   $("plankStopBtn").hidden = true;
   $("plankAgainBtn").hidden = false;
   if (!(r.ms > 0)) { $("plankStatus").textContent = "Hold ended: " + why + ". The clock never started."; return; }
@@ -4156,7 +4189,7 @@ function plankEnded(r) {
   const day = isSet ? PD.recordHold(localStorage, r.ms, PD.localDateKey()) : null;
   renderPlankDays();
   const local = localPlanks(); local.push(record); localStorage.setItem("zabbadat-plank-local", JSON.stringify(local.slice(-100)));
-  $("plankStatus").textContent = "Hold ended: " + why + ". Time " + formatTut(r.ms) + "." + (isSet ? " Set " + day.sets + " today." : " Under 10 seconds, not counted as a set.");
+  $("plankStatus").textContent = "Hold ended: " + why + ". Time " + formatTut(r.ms) + ". Time under tension " + formatTut(r.ms) + "." + (isSet ? " Set " + day.sets + " today." : " Under 10 seconds, not counted as a set.");
   if (!currentUser) { $("plankStatus").textContent += " Sign in to post to the Plank House board."; paintPlankRows(localPlanks()); return; }
   if (day) saveRemotePlankDaily(day, record).catch(() => { $("plankStatus").textContent += " Sets saved on this phone (sets board offline)."; });
   saveRemotePlank(record).then((id) => { $("plankStatus").textContent += " Posted to the Plank House board.";
@@ -4309,6 +4342,7 @@ async function startPlankCam() {
     if (window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(restart ? window.ZabbadatGetSet.COACH.plank.next : window.ZabbadatGetSet.COACH.plank.clock);
     $("plankStatus").textContent = "Shoulders, hips and ankles in one line. Clock starts on a proper plank. Bad form fails the plank.";
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.rules); /* spoken once on a fresh start, before the go-cue */
+    if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak && window.ZabbadatGetSet.COACH.plank.theme) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.theme); /* TUT line, still before "Go on, hold on three." */
     if (!restart && window.ZabbadatGetSet && window.ZabbadatGetSet.plankSpeak) window.ZabbadatGetSet.plankSpeak(window.ZabbadatGetSet.COACH.plank.next); /* counts (One / two / three / Hold) run at lock-in */
     plankPreview = false;
     if (!plankLoop) { plankLoop = true; plankTick(++plankLoopId); }

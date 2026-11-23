@@ -332,10 +332,10 @@
   // Spoken + on-screen start coaching, one shared sequence for all camera exercises:
   //   tap -> PLACE line (spoken in the tap; camera opens meanwhile) -> CRITERIA line -> countdown.
   var COACH = {
-    pushups: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Go all the way down and back up." },
-    tut: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up." },
-    squats: { place: "Phone up in front of you, camera facing you.", criteria: "Whole body in frame, head to feet. Stance one and a half to two times shoulder width, toes out about forty-five degrees. Glutes the whole way." },
-    plank: { clock: "Clock starts on a proper plank.", next: PLANK_SET_LINE, place: "Phone on the floor, on its side, off to your side.", criteria: "Step back until you're head to heels.", rules: "Bad form fails the plank." }
+    pushups: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Go all the way down and back up.", theme: "Stay under tension the whole set." },
+    tut: { place: "Lean your phone up in front of you, camera facing you.", criteria: "Shoulders and hands in frame. Slow, controlled reps, all the way down and back up.", theme: "Stay under tension the whole set." },
+    squats: { place: "Phone up in front of you, camera facing you.", criteria: "Whole body in frame, head to feet. Stance one and a half to two times shoulder width, toes out about forty-five degrees. Glutes the whole way.", theme: "Stay under tension: down, hold, and up." },
+    plank: { clock: "Clock starts on a proper plank.", next: PLANK_SET_LINE, place: "Phone on the floor, on its side, off to your side.", criteria: "Step back until you're head to heels.", rules: "Bad form fails the plank.", theme: "You're under tension the whole hold, so breathe through it." }
   };
   function coachLines(kind) { return COACH[kind] || COACH.pushups; }
   // Plank House (owner, Nov 20): if the phone is still upright at setup, say and show this once

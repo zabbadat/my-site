@@ -618,7 +618,23 @@ var GUARD = { hiddenKneeFold: true, minScore: 0.4, kneeMin: 0.5, minFrames: 5, h
     }
     return { update: update, reset: reset, ended: function () { return ended; }, endedAt: function () { return endedAt; }, options: o };
   }
-  var api = { SET_END: SET_END, createSetEnd: createSetEnd, TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, rawPt: rawPt, floorY: floorY, kneesFallback: kneesFallback, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, isUpright: isUpright, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
+
+  // Running TUT clock: accumulates while the body is under load / in position, pauses on rest or a form break.
+  // Display / local summary only. Does not change tutToAdd, posted tutMs, or ZAB.
+  function createTutClock() {
+    var ms = 0, last = null, loaded = false;
+    function tick(t, on) {
+      t = Number(t);
+      if (last != null && on && isFinite(t) && t > last) ms += t - last;
+      if (isFinite(t)) last = t;
+      loaded = !!on;
+      return ms;
+    }
+    function reset() { ms = 0; last = null; loaded = false; }
+    function stop(t) { if (t != null) tick(t, false); last = null; return ms; }
+    return { tick: tick, reset: reset, stop: stop, ms: function () { return ms; }, loaded: function () { return loaded; } };
+  }
+  var api = { createTutClock: createTutClock, SET_END: SET_END, createSetEnd: createSetEnd, TUT_DONE: TUT_DONE, tutCompleted: tutCompleted, isTutSetDoc: isTutSetDoc, tutLifetime: tutLifetime, tutAllTime: tutAllTime, tutDaily: tutDaily, tutBoardStats: tutBoardStats, tutHistory: tutHistory, rankTut: rankTut, tutToAdd: tutToAdd, postOnFailure: postOnFailure, postOnCameraStop: postOnCameraStop, setsToAdd: setsToAdd, canSwitchMode: canSwitchMode, classify: classify, foldedLegs: foldedLegs, rawPt: rawPt, floorY: floorY, kneesFallback: kneesFallback, minKnee3D: minKnee3D, createPostureGuard: createPostureGuard, createFailureWatch: createFailureWatch, createViewWatch: createViewWatch, isUpright: isUpright, formFeatures: formFeatures, elbowsDown: elbowsDown, createHoldReward: createHoldReward, HOLD_REWARD: HOLD_REWARD, FAIL: FAIL, FAIL_TEXT: FAIL_TEXT, GUARD: GUARD, VIEW: VIEW };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSession = api;
 })(this);

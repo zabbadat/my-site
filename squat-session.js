@@ -23,24 +23,42 @@
   var REASON = { stall_bottom: "15 seconds at the bottom with no rep", no_rep: "45 seconds with no rep", sat: "sat down", hands_down: "hands down",
     left_frame: "left the frame", stopped: "End set", set_done: "ten reps, set complete", max_reps: "1000 reps, the most one set can post" };
   function reasonText(r) { return REASON[r] || "set over"; }
+  // TUT while the squat is under load (down, bottom, or up). Pauses at the top rest, out of frame, or a form break.
+  function createTutClock() {
+    var ms = 0, last = null, loaded = false;
+    function tick(t, on) {
+      t = Number(t);
+      if (last != null && on && isFinite(t) && t > last) ms += t - last;
+      if (isFinite(t)) last = t;
+      loaded = !!on;
+      return ms;
+    }
+    function reset() { ms = 0; last = null; loaded = false; }
+    function stop(t) { if (t != null) tick(t, false); last = null; return ms; }
+    return { tick: tick, reset: reset, stop: stop, ms: function () { return ms; }, loaded: function () { return loaded; } };
+  }
+  function squatLoaded(st) {
+    return !!(st && st.frame === "ok" && st.guard === "ok" && (st.phase === "down" || st.phase === "bottom" || st.phase === "up"));
+  }
 
   function createSquatSet(opts) {
     opts = opts || {};
     var lim = Object.assign({}, L, opts.limits || {});
     var counter = opts.counter || SC.createCounter(opts.counterOpts);
     var t0 = opts.startT != null ? opts.startT : null, lastRepT = null, downT = null, missT = null, handsT = null, floorT = null;
-    var still = null, ended = null, repTimes = [], lastSt = null;
+    var still = null, ended = null, repTimes = [], lastSt = null, tut = createTutClock();
     function finish(t, reason) {
       if (ended) return ended;
-      ended = { ended: true, reason: reason, why: reasonText(reason), reps: counter.state().reps, halfReps: counter.state().halfReps, ms: Math.max(0, Math.round(t - t0)), repTimes: repTimes.slice(), endedAt: t };
+      if (lastSt) tut.tick(t, squatLoaded(lastSt)); else tut.stop(t);
+      ended = { ended: true, reason: reason, why: reasonText(reason), reps: counter.state().reps, halfReps: counter.state().halfReps, ms: Math.max(0, Math.round(t - t0)), tutMs: Math.round(tut.stop(t)), repTimes: repTimes.slice(), endedAt: t };
       return ended;
     }
-    function out(st, extra) { return Object.assign({ ended: false, reps: st.reps, halfReps: st.halfReps, phase: st.phase, frame: st.frame, guard: st.guard, drop: st.drop, ms: Math.max(0, Math.round((extra && extra.t) - t0)), event: st.event }, extra || {}); }
+    function out(st, extra) { return Object.assign({ ended: false, reps: st.reps, halfReps: st.halfReps, phase: st.phase, frame: st.frame, guard: st.guard, drop: st.drop, ms: Math.max(0, Math.round((extra && extra.t) - t0)), tutMs: Math.round(tut.ms()), event: st.event }, extra || {}); }
     function update(kps, t, extra) {
       if (ended) return ended;
       if (t0 == null) t0 = t;
       if (lastRepT == null) lastRepT = t0;
-      var st = counter.update(kps, t, extra); lastSt = st;
+      var st = counter.update(kps, t, extra); lastSt = st; tut.tick(t, squatLoaded(st));
       if (st.event === "rep") { lastRepT = t; repTimes.push(Math.round(t - t0)); downT = null; still = null; if (lim.setReps && st.reps >= lim.setReps) return finish(t, "set_done"); if (st.reps >= lim.maxReps) return finish(t, "max_reps"); }
       // out of frame
       if (st.frame === "missing") { if (missT == null) missT = t; if (t - missT >= lim.missingMs) return finish(t, "left_frame"); }
@@ -80,7 +98,7 @@
   }
   // ms until the next Eastern midnight (the page repaints today's totals then, even if left open)
   function msToMidnight(ms) { ms = ms == null ? Date.now() : ms; if (!ETD) return 3600000; var s = ETD.startMs(ms); return Math.max(1000, ETD.startMs(s + 30 * 3600000) - ms); }
-  var api = { L: L, REASON: REASON, reasonText: reasonText, createSquatSet: createSquatSet, dayKey: dayKey, getDay: getDay, recordSet: recordSet, msToMidnight: msToMidnight };
+  var api = { L: L, REASON: REASON, reasonText: reasonText, createTutClock: createTutClock, squatLoaded: squatLoaded, createSquatSet: createSquatSet, dayKey: dayKey, getDay: getDay, recordSet: recordSet, msToMidnight: msToMidnight };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZabbadatSquatSession = api;
 })(typeof window !== "undefined" ? window : this);

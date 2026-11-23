@@ -7,7 +7,7 @@ const C = G.COACH.plank, words = (t) => t.trim().split(/\s+/).length;
 check("spoken place line (in the tap)", C.place === "Phone on the floor, on its side, off to your side.");
 check("spoken criteria line (camera up)", C.criteria === "Step back until you're head to heels.");
 check("spoken rules line (fresh start only)", C.rules === "Bad form fails the plank.");
-check("each spoken line is short enough to finish inside the 10 s speech cap (<= 22 words)", [C.place, C.criteria, C.rules, C.clock, C.next].every((l) => words(l) <= 22));
+check("each spoken line is short enough to finish inside the 10 s speech cap (<= 22 words)", [C.place, C.criteria, C.rules, C.clock, C.theme, C.next].every((l) => words(l) <= 22));
 check("the lines cover the walk-through: phone on the floor on its side, step back head to heels; setup does not preview the countdown", /on the floor, on its side, off to your side/.test(C.place) && /Step back until you're head to heels/.test(C.criteria) && !/3, 2, 1, Hold/.test(C.criteria) && !C.cue);
 check("the rules line is the owner fail line", C.rules === "Bad form fails the plank.");
 check("on-screen setup prompt (get-set.js POSITION.plank) matches", G.POSITION.plank.length <= 2 && G.POSITION.plank[0] === C.place && G.POSITION.plank[1] === C.criteria);
@@ -30,10 +30,13 @@ check("plank start cue is the exact owner line, once (no doubled count)",
   G.PLANK_SET_LINE + " " + G.PLANK_STEPS.map((s) => s[1]).join(", ") + "." === FULL_CUE
   && (G.PLANK_SET_LINE + " " + G.PLANK_STEPS.map((s) => s[1]).join(", ") + ".").split(/one, two, three, hold/i).length === 2
   && !/one, two, three, hold/i.test(G.PLANK_SIDE_LINE));
-check("homepage plank prompt sits above Magic Eye and ends with the exact cue, once",
+check("spoken TUT line comes before the go-cue, never after it", C.theme === "You're under tension the whole hold, so breathe through it." && /COACH\.plank\.theme\).*COACH\.plank\.next/.test(html.replace(/\s+/g, "")));
+const promptTxt = html.match(/id="plankPrompt">([\s\S]*?)<\/p>/)[1].replace(/<[^>]+>/g, "");
+check("homepage plank prompt sits above Magic Eye and ends with the exact cue, once, with the TUT line before that ending",
   html.indexOf('id="plank-prompt"') < html.indexOf('id="magicEye"') &&
   html.indexOf('id="magicEye"') < html.indexOf('<section id="push">') &&
-  /id="plankPrompt">Phone on the floor, on its side, off to your side\. Step back until you're head to heels\. Clock starts on a proper plank\. Bad form fails the plank\. Go on, hold on three\. One, two, three, hold\.</.test(html) &&
+  promptTxt === "Phone on the floor, on its side, off to your side. Step back until you're head to heels. Clock starts on a proper plank. Bad form fails the plank. You're under tension the whole hold, so breathe through it. Go on, hold on three. One, two, three, hold." &&
+  promptTxt.endsWith(FULL_CUE) && promptTxt.indexOf("You're under tension the whole hold, so breathe through it.") < promptTxt.indexOf(FULL_CUE) &&
   html.split("Go on, hold on three. One, two, three, hold.").length === 3 /* prompt + challengeNote, not a third */);
 
 check("plank page no longer previews countdown and explains proper plank", !/3, 2, 1, Hold/.test(plank) && /Clock starts on a proper plank/.test(plank));
