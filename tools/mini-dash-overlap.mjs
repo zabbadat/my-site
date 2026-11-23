@@ -22,14 +22,28 @@ function boxesOverlap(a, b) {
 
 async function measure(page) {
   return page.evaluate(() => {
+    const intersect = (a, b) => {
+      const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
+      const r = Math.min(a.x + a.w, b.x + b.w), btm = Math.min(a.y + a.h, b.y + b.h);
+      return { x, y, w: Math.max(0, r - x), h: Math.max(0, btm - y) };
+    };
     const vis = (el) => {
       if (!el) return null;
       const st = getComputedStyle(el);
       if (st.display === "none" || st.visibility === "hidden" || Number(st.opacity) === 0) return null;
-      const r = el.getBoundingClientRect();
-      if (r.width < 0.5 || r.height < 0.5) return null;
-      if (r.bottom <= 0 || r.right <= 0 || r.top >= innerHeight || r.left >= innerWidth) return null;
-      return { x: r.left, y: r.top, w: r.width, h: r.height, id: el.id || el.className || el.tagName };
+      let box = el.getBoundingClientRect();
+      box = { x: box.left, y: box.top, w: box.width, h: box.height };
+      // Clip to overflow:hidden/auto/scroll ancestors so pre-clip overflow (e.g. .home-art img.big) is not counted.
+      for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+        const ps = getComputedStyle(p);
+        if (ps.overflowX !== "visible" || ps.overflowY !== "visible") {
+          const cr = p.getBoundingClientRect();
+          box = intersect(box, { x: cr.left, y: cr.top, w: cr.width, h: cr.height });
+        }
+      }
+      box = intersect(box, { x: 0, y: 0, w: innerWidth, h: innerHeight });
+      if (box.w < 0.5 || box.h < 0.5) return null;
+      return { x: box.x, y: box.y, w: box.w, h: box.h, id: el.id || el.className || el.tagName };
     };
     const brand = [];
     const logo = document.querySelector("nav a.logo");
