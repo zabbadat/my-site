@@ -197,7 +197,7 @@ function mkPlugin(init) {
   const playStart = html.indexOf('<section id="play">'), playEnd = html.indexOf("</section>", playStart);
   const play = html.slice(playStart, playEnd);
   check("play section still has Start / Pause / Reset (Reset is a new-game control, not a daily-total reset)",
-    /id="startBtn"/.test(play) && /id="pauseBtn"/.test(play) && /id="resetBtn"/.test(play));
+    /id="startBtn"/.test(play) && !/id="pauseBtn"/.test(play) && /id="resetBtn"/.test(play) && /Hold to score for 0\.6 seconds/.test(play));
   check("arcade top strip has washers Score, Steps and Time cells",
     /id="washersStripScore"/.test(html) && /id="washersStripSteps"/.test(html) && /id="washersStripClock"/.test(html) &&
     /paintArcadeStrip/.test(html) && /kind === "washers"|kind: "washers"/.test(html));

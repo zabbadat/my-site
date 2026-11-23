@@ -1512,10 +1512,9 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
     <div class="row">
       <button class="btn" id="startBtn" type="button">Start game</button>
-      <button class="btn ghost" id="pauseBtn" type="button">Pause</button>
       <button class="btn danger" id="resetBtn" type="button">Reset</button>
     </div>
-    <p class="note" id="gameLockNote">Pocket play: after Start game, put the phone in your pocket and walk. Steps count from the pocket and the screen stays awake. The screen locks when the game starts. Hold 1 second to unlock and score a pack; it locks again after you score. While unlocked, hold 1 second to end the game.</p>
+    <p class="note" id="gameLockNote">Pocket play: after Start game, put the phone in your pocket and walk. Steps count from the pocket and the screen stays awake. The screen locks when the game starts. Hold to score for 0.6 seconds to unlock and score a pack; it locks again after you score. While unlocked, hold 0.6 seconds to end the game.</p>
        <div class="row">
       <button class="btn ghost" type="button" data-points="2">+2 box-bound</button>
       <button class="btn ghost" type="button" data-points="3">+3 shoot</button>
@@ -2509,6 +2508,7 @@ let currentUser = null;
 const signGate = window.SignInGate ? window.SignInGate.createSignInGate({ document, storage: (() => { try { return window.sessionStorage; } catch (e) { return null; } })(), isSignedIn: () => !!currentUser,
   onSignIn: () => { const b = document.getElementById("signInBtn"), s = document.getElementById("play"); if (s && s.scrollIntoView) s.scrollIntoView({ behavior: "smooth", block: "start" }); if (b && b.focus) setTimeout(() => b.focus(), 300); } }) : null;
 function requireSignIn(feature, startFn, opts) { return signGate ? signGate.requireSignIn(feature, startFn, opts) : !!currentUser || !!(opts && opts.practice); }
+const WASHERS_HOLD_MS = 600; // pocket-game hold to unlock / end
 let pocketOn = false; // washers game lock (main Start button)
 let walkLockOn = false; // live walk lock (steps section), independent of pocketOn
 let relockTimer = null;
@@ -2742,7 +2742,8 @@ function bindHoldNative(btn, o) {
 // Default: one 1 s stage calling o.done. o.stages: [{ ms, label?, fire }] for multi-stage holds.
 // In the native app, bindHoldNative adds a fill, pointer capture, drift/grace, and blocks iOS text selection.
 function bindHold(btn, o) {
-  if (typeof isNativeApp === "function" && isNativeApp()) { bindHoldNative(btn, o); return; }
+  // App always uses bindHoldNative. Washers pocket hold also uses it on the web (0.6 s + fill, no pointerleave cancel).
+  if ((typeof isNativeApp === "function" && isNativeApp()) || (o && o.fill)) { bindHoldNative(btn, o); return; }
   let timers = [], fired = 0;
   const clear = () => { timers.forEach(clearTimeout); timers = []; };
   const stages = o.stages || [{ ms: 1000, fire: o.done }];
@@ -2850,7 +2851,7 @@ function localBoard() {
 let gameHoldDone = false;
 $("startBtn").onclick = () => {
   if (gameHoldDone) { gameHoldDone = false; return; } // swallow the click that follows a hold
-  if (state.running && !state.finished) { setStatus(pocketOn ? "Locked. Hold 1 second to unlock and score." : "Hold 1 second to end the game."); return; }
+  if (state.running && !state.finished) { setStatus(pocketOn ? "Locked. Hold to score for 0.6 seconds to unlock." : "Hold to stop for 0.6 seconds to end the game."); return; }
   if (state.finished || state.running) return;
   if (!requireSignIn("washers", () => $("startBtn").onclick(), { practice: true })) return;
   if (state.elapsed === 0) { stepDetector.reset(); stepVerifier.reset(); }
@@ -2869,15 +2870,18 @@ const holdGuard = () => { gameHoldDone = true; if (typeof isNativeApp === "funct
 bindHold($("startBtn"), {
   active: () => state.running && !state.finished,
   label: () => (pocketOn ? "Hold to score" : "Hold to stop"),
-  // One 1 s hold; the action depends on state: locked -> unlock to score, unlocked -> stop the game.
+  holdMs: WASHERS_HOLD_MS,
+  fill: true,
+  hint: () => setStatus(pocketOn ? "Locked. Hold to score for 0.6 seconds to unlock." : "Hold to stop for 0.6 seconds to end the game."),
+  // One 0.6 s hold with fill; locked -> unlock to score, unlocked -> stop the game. No Pause button.
   done: () => {
     holdGuard();
     if (pocketOn) { setPocket(false); armRelock(); setStatus("Unlocked. Score the pack."); }
-    else { setPocket(false); $("pauseBtn").onclick(); }
+    else { setPocket(false); pauseGame(); }
   },
 });
-$("pauseBtn").onclick = async () => {
-  if (pocketOn) { setStatus("Locked. Hold the game button 1 second to unlock."); return; }
+async function pauseGame() {
+  if (pocketOn) { setStatus("Locked. Hold to score for 0.6 seconds to unlock."); return; }
   if (!state.running || state.finished) return;
   setPocket(false);
   state.elapsed += Date.now() - state.startedAt;
@@ -2890,9 +2894,9 @@ $("pauseBtn").onclick = async () => {
   else stopPhoneSteps();
   render();
   paintGameBtn();
-};
+}
 $("resetBtn").onclick = async () => {
-  if (pocketOn) { setStatus("Locked. Hold the game button 1 second to unlock."); return; }
+  if (pocketOn) { setStatus("Locked. Hold to score for 0.6 seconds to unlock."); return; }
   setPocket(false);
   clearInterval(state.tick);
   if (typeof isNativeGameSteps === "function" && isNativeGameSteps()) { await stopNativeGameSteps(); if (washersGame) washersGame.reset(); }
@@ -2911,7 +2915,7 @@ $("resetBtn").onclick = async () => {
 
 document.querySelectorAll("[data-points]").forEach((btn) => {
   btn.onclick = () => {
-    if (pocketOn) { setStatus("Locked. Hold the game button 1 second to score."); return; }
+    if (pocketOn) { setStatus("Locked. Hold to score for 0.6 seconds to unlock."); return; }
     if (state.finished) return;
     if (!state.running && state.elapsed === 0) { setStatus("Start the game before scoring."); return; }
     if (Number(btn.dataset.points) > 0) stepVerifier.scoreTap(performance.now());
@@ -4673,7 +4677,7 @@ if (daily) {
     $("stepsLead").innerHTML = 'Step Equity: in the ZabbaDat<sup style="font-size:0.5em">™</sup> app the phone\'s step counter keeps your all-day total automatically, even when the app is closed. Tap Start walk to time a session: lock your phone or use other apps, steps still count. Today\'s total never goes down. Same login as washers.';
     $("walkLead").textContent = "Tap Start walk and the session clock runs on the phone's step counter. Lock your phone or use other apps; the session clock doesn't pause and steps still count. Hold to stop to log the session: 10 minute minimum, 30+ steps a minute on average, no time cap.";
     if (typeof isNativeGameSteps === "function" && isNativeGameSteps()) {
-      const n2 = $("gameLockNote"); if (n2) n2.textContent = "Pocket play: after Start game, the phone's step counter keeps counting if you lock the phone or switch apps. The screen locks when the game starts. Hold 1 second to unlock and score a pack; it locks again after you score. While unlocked, hold 1 second to end the game.";
+      const n2 = $("gameLockNote"); if (n2) n2.textContent = "Pocket play: after Start game, the phone's step counter keeps counting if you lock the phone or switch apps. The screen locks when the game starts. Hold to score for 0.6 seconds to unlock and score a pack; it locks again after you score. While unlocked, hold 0.6 seconds to end the game.";
     }
     dailyFg.run();
   }
@@ -5816,7 +5820,7 @@ function wbStartGame() {
   setStatus("Battle on. Your steps are counted for the board. Report your scores in the Zabba Washer Battle panel.");
 }
 /* Battle decided while this phone is still counting: stop the local game, no board post. */
-function wbStopGame() { if (state.running && !state.finished) { setPocket(false); $("pauseBtn").onclick(); setStatus("Battle over. " + WB.resultText(wbRoom, currentUser && currentUser.uid)); } wbPlayingFor = null; }
+function wbStopGame() { if (state.running && !state.finished) { setPocket(false); pauseGame(); setStatus("Battle over. " + WB.resultText(wbRoom, currentUser && currentUser.uid)); } wbPlayingFor = null; }
 function wbTickFn() {
   const st = wbc.state(wbRoom && wbRoom.startAt), c = $("wbCount");
   if (battleVoice && wbRoom) battleVoice.phase("washers:" + wbCodeCur + ":" + wbRoom.startAt, st.phase, st.n);
@@ -6045,7 +6049,7 @@ function waStartGame() {
   setPocket(false); Promise.resolve($("resetBtn").onclick()).then(() => { $("startBtn").onclick(); });
   setStatus("Battle on. Your steps are counted for the board. Report your scores in the Zabba Washer Arena panel.");
 }
-function waStopGame() { if (state.running && !state.finished) { setPocket(false); $("pauseBtn").onclick(); setStatus("Battle over. " + AR.resultText(waArena, currentUser && currentUser.uid)); } waPlayingFor = null; }
+function waStopGame() { if (state.running && !state.finished) { setPocket(false); pauseGame(); setStatus("Battle over. " + AR.resultText(waArena, currentUser && currentUser.uid)); } waPlayingFor = null; }
 function waTickFn() {
   const a = waArena; if (!a) return; const st = wac.state(a.startAt), c = $("waCount");
   if (battleVoice) battleVoice.phase("arena:" + waCodeCur + ":" + a.startAt, st.phase, st.n);

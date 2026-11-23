@@ -1,4 +1,4 @@
-// App-only sharpened hold-to-stop (createHoldTracker + index.css/guards). Browser bindHold is unchanged.
+// App-only sharpened hold-to-stop (createHoldTracker + index.css/guards). Browser bindHold still cancels on pointerleave unless fill routes to bindHoldNative.
 // Run: node test/app-hold-stop.test.js
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
@@ -56,10 +56,11 @@ const ev = (o) => Object.assign({ isPrimary: true, pointerId: 1, clientX: 0, cli
   check("primary hold can still complete after an ignored extra finger", t.tick(1000).action === "complete");
 }
 
-check("browser bindHold path is unchanged (pointerleave still cancels only on the web branch)",
-  /if \(typeof isNativeApp === "function" && isNativeApp\(\)\) \{ bindHoldNative\(btn, o\); return; \}/.test(html) &&
+check("browser bindHold still cancels on pointerleave unless fill routes to bindHoldNative",
+  /if \(\(typeof isNativeApp === "function" && isNativeApp\(\)\) \|\| \(o && o\.fill\)\) \{ bindHoldNative\(btn, o\); return; \}/.test(html) &&
   /btn\.onpointerleave = cancel;/.test(html) &&
-  /btn\.onpointerup = cancel;/.test(html));
+  /btn\.onpointerup = cancel;/.test(html) &&
+  /Do not cancel on pointerleave/.test(html));
 check("app hold uses pointer capture, touch-action none, and a growing fill indicator",
   /setPointerCapture/.test(html) && /touch-action: none/.test(html) && /hold-fill/.test(html) && /fill\.style\.width/.test(html));
 check("button and session HUD block iOS text selection, callout and the magnifier loupe",

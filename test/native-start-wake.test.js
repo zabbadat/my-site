@@ -41,7 +41,7 @@ const stepDetector = { reset() {} }; const stepVerifier = { reset() {}, resume()
 let camStream = null, camOn = false, poseLoopOn = false, plankLoop = false, plankPreview = false, plankHold = null, plankSaved = false, plankStream = null, plankSessionStartedAt = 0;
 const getSet = null, quickSet = null; function sessionPlan() { return "fresh"; } function sessionCommit() {} function sessionTouch() {} let pushCounter = null; let camFail = false; async function loadCamLibs() { if (camFail) throw new Error("blocked"); } async function ensurePose() {} function poseTick() {} function plankTick() {} function syncPushStartBtn() {} let poseLoopId = 0, plankLoopId = 0;
 function camExitFs() {} function setCamStatus() {} function newPlankHold() {} function plankEnded() {} let plankLeadUntil = 0; const PLANK_LEAD_MS = 5500;`;
-const GAME = [handler("startBtn"), handler("pauseBtn"), handler("resetBtn"), "async " + fnSrc("finishGame"), "this.finishGame = finishGame;"].join("\n");
+const GAME = [handler("startBtn"), fnSrc("pauseGame", "async function "), handler("resetBtn"), "async " + fnSrc("finishGame"), "this.finishGame = finishGame; this.pauseGame = pauseGame;"].join("\n");
 const PUSH = [fnSrc("finishPushSet"), line("const GET_SET_MS"), fnSrc("getSetCountdown"), line("function cancelGetSet"), line("function unlockGetSet"), line("let pushStarting"), fnSrc("cancelPushStart"), line("const POSITION_MS"), fnSrc("showPositioning"), "async " + fnSrc("startPush"), fnSrc("beginPushClock"), line('if ($("pushStartBtn")) $("pushStartBtn").onclick = '),
   fnSrc("freshPushSet"), "this.finishPushSet = finishPushSet;"].join("\n");
 const CAM = [line("const CAM_CONSTRAINTS"), fnSrc("camErrorText"), fnSrc("stopCamTracks"), fnSrc("attachCam"), "async " + fnSrc("openCam"), fnSrc("stopCam"), "async " + fnSrc("startPlankCam"), line("let plankStarting"), fnSrc("cancelPlankStart"), fnSrc("stopPlankCam"),
@@ -60,7 +60,7 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
       $("startBtn").onclick(); await tick();
       check(`${tag} washers Start game: wake held, pocket lock engaged as before`, held(e, "gameWake") && e.ctx.S().pocketOn === true);
       const before = e.ctx.S().pocketOn;
-      if (end === "pause") { e.ctx.setPocket(false); $("pauseBtn").onclick(); }
+      if (end === "pause") { e.ctx.setPocket(false); e.ctx.pauseGame(); }
       if (end === "reset") { e.ctx.setPocket(false); $("resetBtn").onclick(); }
       if (end === "finish") { try { await e.ctx.finishGame(); } catch (x) {} }
       await tick();
@@ -102,7 +102,7 @@ const load = (api) => { const e = env(api); e.run([BASE, STATE, STUBS, GAME, PUS
     // ---- Independence: every instance holds its own sentinel/video; ending one leaves the rest held.
     { const e = load(api); for (const w of ALL_WAKES) await e.ctx.W[w].start();
       check(`${tag} 6 features hold 6 separate locks`, ALL_WAKES.every((w) => held(e, w)) && (api ? new Set(e.sent).size === 6 : e.vids.length === 6));
-      e.ctx.$("startBtn"); e.run("state.running = true;"); e.ctx.setPocket(false); e.ctx.$("pauseBtn").onclick(); await tick();
+      e.ctx.$("startBtn"); e.run("state.running = true;"); e.ctx.setPocket(false); e.ctx.pauseGame(); await tick();
       check(`${tag} ending washers leaves the other 6 held`, !e.ctx.W.gameWake.isHeld() && ALL_WAKES.filter((w) => w !== "gameWake").every((w) => held(e, w)));
       try { e.ctx.finishPushSet(); } catch (x) {} e.ctx.stopCam(); await tick();
       check(`${tag} ending push + camera leaves plank/battles held`, ["plankWake", "plankBattleWake", "tbWake"].every((w) => held(e, w)));

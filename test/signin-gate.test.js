@@ -59,7 +59,7 @@ for (const [name, snip, practice, n] of INV) {
 // Holds while running must not hit the gate: gate sits after the running/walking early returns.
 { const s = html.slice(html.indexOf('$("startBtn").onclick = () => {'), html.indexOf("const holdGuard"));
   check("washers: gate is after gameHoldDone swallow + running/finished returns (holds don't trigger it)", s.indexOf("gameHoldDone") < s.indexOf("requireSignIn") && s.indexOf("state.running && !state.finished") < s.indexOf("requireSignIn") && s.indexOf("if (state.finished || state.running) return;") < s.indexOf("requireSignIn"));
-  const bh = html.slice(html.indexOf('bindHold($("startBtn")'), html.indexOf('$("pauseBtn").onclick'));
+  const bh = html.slice(html.indexOf('bindHold($("startBtn")'), html.indexOf('async function pauseGame'));
   check("washers hold handler has no gate", !/requireSignIn/.test(bh)); }
 { const i = html.lastIndexOf('$("dailyWalkBtn").onclick = async () => {'); const s = html.slice(i, html.indexOf("bindHold(", i));
   check("walk: gate after walkHoldDone swallow + walking return (Hold to stop not gated)", s.indexOf("walkHoldDone") < s.indexOf("requireSignIn") && s.indexOf("Hold to stop the walk") < s.indexOf("requireSignIn"));
