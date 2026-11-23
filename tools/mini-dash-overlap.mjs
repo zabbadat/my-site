@@ -57,7 +57,7 @@ async function measure(page) {
       if (box) { box.id = sel; brand.push(box); }
     }
     const neu = [];
-    for (const sel of ["#miniDash", "#goToDash", "#miniDashNudge", "#miniDashZab", "#miniDashTut", "#miniDashBreath"]) {
+    for (const sel of ["#miniDash", "#goToDash", "#miniDashNudge", "#miniDashZab", "#miniDashTut", "#miniDashBreath", "#miniDashStreak"]) {
       const box = vis(document.querySelector(sel));
       if (box) neu.push(box);
     }

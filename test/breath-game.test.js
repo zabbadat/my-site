@@ -172,6 +172,19 @@ check("Sitkari how-to text is unchanged",
   && /Bariboshi:<\/strong> both sides, one mandatory minute/.test(html));
 check("Today's Hide section and script are left in place",
   /id="todays-hide"/.test(html) && /hide-daily\.js/.test(html));
+check("cooling play UI has ring, goal, streak, gauge, mute and share",
+  /id="coolingRing"/.test(html) && /id="coolingRingScale"/.test(html)
+  && /id="coolingGoalFill"/.test(html) && /id="coolingGoalText"/.test(html)
+  && /id="coolingStreak"/.test(html) && /id="coolingStreakDays"/.test(html)
+  && /id="coolingSessionMin"/.test(html) && /id="coolingMuteBtn"/.test(html)
+  && /id="coolingShareBtn"/.test(html) && /id="coolingNudge"/.test(html)
+  && /id="coolingCeleb"/.test(html) && /id="coolingLevelBadge"/.test(html)
+  && /cursor:pointer/.test(html.slice(html.indexOf("id=\"coolingStartBtn\""), html.indexOf("id=\"coolingStartBtn\"") + 80)));
+check("mini dash has a compact streak badge beside Breath cycles",
+  /id="miniDashStreak"/.test(html) && /class="pe-mini-streak"/.test(html)
+  && html.indexOf("id=\"miniDashBreath\"") < html.indexOf("id=\"miniDashStreak\""));
+check("prefers-reduced-motion calms the cooling-box motion",
+  /prefers-reduced-motion:reduce/.test(html) && /cooling-plus/.test(html));
 
 const bad = R.filter((x) => !x).length;
 console.log(`\n${R.length - bad} passed, ${bad} failed`);

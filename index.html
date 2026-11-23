@@ -1066,6 +1066,10 @@ body.arcade-live #playEarn10k{display:none}
 .pe-mini-stat span,.pe-mini-nudge{color:var(--muted,#9aada4);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase}
 .pe-mini-nudge{margin:0;flex:1 1 8rem}
 .pe-mini-go{flex:0 0 auto;font:inherit;font-weight:700;font-size:.82rem;line-height:1.2;text-decoration:none;color:#0e1412;background:var(--grad,linear-gradient(135deg,#C6FF00,#FF8A00,#FF2E93));border-radius:999px;padding:.4rem .85rem;white-space:nowrap}
+.pe-mini-streak{display:inline-flex;align-items:center;gap:.12rem;margin-left:.28rem;padding:0;font-style:normal;font-weight:700;font-size:.68rem;letter-spacing:.02em;text-transform:none;color:#C6FF00;vertical-align:middle}
+.pe-mini-streak[hidden]{display:none}
+.pe-mini-streak::before{content:"";width:.55rem;height:.7rem;flex:0 0 auto;background:linear-gradient(180deg,#FF8A00,#C6FF00);clip-path:polygon(50% 0,100% 68%,72% 68%,86% 100%,14% 100%,28% 68%,0 68%);transform:translateY(-1px)}
+
 #playEarn10k.pe-10k{transition:opacity .25s ease}
 #playEarn10k.pe-10k.is-tucked{opacity:0;pointer-events:none;visibility:hidden}
 @media (prefers-reduced-motion: reduce){
@@ -1188,7 +1192,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="pe-mini-stats">
         <span class="pe-mini-stat"><b id="miniDashZab">—</b><span>ZAB bag</span></span>
         <span class="pe-mini-stat"><b id="miniDashTut">—</b><span>TUT sets</span></span>
-        <span class="pe-mini-stat"><b id="miniDashBreath">0</b><span>Breath cycles</span></span>
+        <span class="pe-mini-stat"><b id="miniDashBreath">0</b><span>Breath cycles <i id="miniDashStreak" class="pe-mini-streak" hidden></i></span></span>
       </div>
       <p class="pe-mini-nudge" id="miniDashNudge">Sign in to track your totals</p>
       <a class="pe-mini-go" id="goToDash" href="#userDash">Go to dashboard</a>
@@ -1570,11 +1574,78 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>                                                                                                                                        
     <p class="lead">Quick version: mouth in 4, hold 4, nose out 4, hold empty 4. Full steps, timing, and the Bariboshi minute are in <a href="#sitkari-how">How to sitkari</a> above.</p>
     <p class="fine">Sit upright. Stop if you get dizzy. This is a settling drill before a Bariboshi, not a medical treatment.</p>
+    <style id="coolingBoxCss">
+#coolingPlay{position:relative}
+#coolingStartBtn,#coolingMuteBtn,#coolingShareBtn{cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.cooling-nudge{margin:0 0 .85rem;padding:.55rem .7rem;border-radius:10px;border:1px solid rgba(198,255,0,.28);background:rgba(198,255,0,.06);color:var(--text,#eef4f1);font-weight:700;font-size:.95rem}
+.cooling-nudge[hidden],.cooling-celeb[hidden],.cooling-summary[hidden],.cooling-streak[hidden],.cooling-level[hidden]{display:none}
+.cooling-stage{display:flex;flex-direction:column;align-items:center;text-align:center}
+.cooling-ring-wrap{position:relative;width:168px;height:168px;margin:.15rem auto .35rem}
+.cooling-ring-wrap>svg{display:block;width:168px;height:168px}
+.cooling-ring-track{stroke:rgba(198,255,0,.16)}
+.cooling-ring-glow{stroke:rgba(198,255,0,.28)}
+.cooling-ring-line{stroke:#C6FF00;filter:drop-shadow(0 0 8px rgba(198,255,0,.5))}
+.cooling-ring-scale{transform-origin:60px 60px;transform:scale(.55)}
+#coolingRing[data-side="0"] .cooling-ring-line{stroke:#C6FF00}
+#coolingRing[data-side="1"] .cooling-ring-line{stroke:#E8FF8A}
+#coolingRing[data-side="2"] .cooling-ring-line{stroke:#7ad0ff}
+#coolingRing[data-side="3"] .cooling-ring-line{stroke:#9aada4}
+.cooling-goal{position:absolute;right:-6px;bottom:6px;width:44px;text-align:center;pointer-events:none}
+.cooling-goal-track{stroke:rgba(198,255,0,.2)}
+.cooling-goal-fill{stroke:#C6FF00;stroke-linecap:round;transition:stroke-dashoffset .25s linear}
+.cooling-goal span{display:block;margin-top:.05rem;font-size:.62rem;letter-spacing:.04em;color:var(--muted,#9aada4)}
+#coolingPlay #coolingStatus{margin:.15rem 0 0}
+.cooling-celeb{margin:.25rem 0 0;font-weight:800;letter-spacing:.05em;color:#C6FF00}
+.cooling-summary{margin:.4rem 0 0;color:var(--muted,#9aada4)}
+.cooling-streak{display:flex;align-items:center;gap:.4rem;margin:.7rem 0 0;font-weight:700;color:var(--text,#eef4f1)}
+.cooling-flame{width:14px;height:18px;flex:0 0 auto;background:linear-gradient(180deg,#FF8A00,#C6FF00);clip-path:polygon(50% 0,100% 68%,72% 68%,86% 100%,14% 100%,28% 68%,0 68%)}
+.cooling-level{display:inline-block;margin-left:.4rem;padding:.12rem .55rem;border-radius:999px;border:1px solid rgba(198,255,0,.4);color:#C6FF00;font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;vertical-align:middle}
+.cooling-gauge{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;margin:.9rem 0 .55rem;color:var(--muted,#9aada4);font-size:.88rem}
+.cooling-gauge input[type=range]{flex:1 1 9rem;accent-color:#C6FF00}
+.cooling-actions{gap:.5rem;flex-wrap:wrap}
+.cooling-plus{position:fixed;z-index:40;margin:0;pointer-events:none;font-weight:800;color:#C6FF00;text-shadow:0 0 12px rgba(198,255,0,.65);transform:translate(-50%,-50%)}
+.cooling-plus.is-fly{animation:cooling-fly .75s ease-out forwards}
+.cooling-plus.is-fade,.cooling-plus.is-calm{animation:cooling-fade .6s ease-out forwards}
+@keyframes cooling-fly{0%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(calc(-50% + var(--fly-x,0px)),calc(-50% + var(--fly-y,-40px))) scale(.7)}}
+@keyframes cooling-fade{to{opacity:0}}
+.cooling-sparkle{position:absolute;inset:16%;border-radius:50%;pointer-events:none;background:radial-gradient(circle,rgba(198,255,0,.55),rgba(198,255,0,0) 70%);animation:cooling-pop .55s ease-out forwards}
+@keyframes cooling-pop{from{transform:scale(.45);opacity:.9}to{transform:scale(1.35);opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .cooling-plus,.cooling-sparkle,.cooling-celeb{animation:none !important}
+  .cooling-plus{opacity:.85}
+  .cooling-ring-scale,.cooling-goal-fill{transition:opacity .2s linear,transform .2s linear,stroke-dashoffset .2s linear}
+}
+    </style>
     <div class="card" id="coolingPlay" style="margin-top:1.15rem">
-      <p class="lead" id="coolingStatus">Start a 16-second 4-count cycle.</p>
-      <p class="note">All-time on this phone: <strong id="coolingCycles">0</strong> breath cycles.</p>
-      <div class="row">
-        <button class="btn" id="coolingStartBtn" type="button">Start cooling box</button>
+      <p class="cooling-nudge" id="coolingNudge" hidden></p>
+      <div class="cooling-stage">
+        <div class="cooling-ring-wrap" id="coolingRing">
+          <svg viewBox="0 0 120 120" width="168" height="168" aria-hidden="true" focusable="false">
+            <circle class="cooling-ring-track" cx="60" cy="60" r="44" fill="none" stroke-width="2.2"/>
+            <g id="coolingRingScale" class="cooling-ring-scale">
+              <circle class="cooling-ring-glow" cx="60" cy="60" r="44" fill="none" stroke-width="8"/>
+              <circle class="cooling-ring-line" cx="60" cy="60" r="44" fill="none" stroke-width="3"/>
+            </g>
+          </svg>
+          <div class="cooling-goal">
+            <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false">
+              <circle class="cooling-goal-track" cx="20" cy="20" r="16" fill="none" stroke-width="3"/>
+              <circle id="coolingGoalFill" class="cooling-goal-fill" cx="20" cy="20" r="16" fill="none" stroke-width="3" transform="rotate(-90 20 20)"/>
+            </svg>
+            <span id="coolingGoalText">0 / 4</span>
+          </div>
+        </div>
+        <p class="lead" id="coolingStatus">Start a 16-second 4-count cycle.</p>
+        <p class="cooling-celeb" id="coolingCeleb" hidden></p>
+        <p class="cooling-summary" id="coolingSummary" hidden></p>
+      </div>
+      <p class="note">All-time on this phone: <strong id="coolingCycles">0</strong> breath cycles. <span class="cooling-level" id="coolingLevelBadge" hidden></span></p>
+      <p class="cooling-streak" id="coolingStreak" hidden><span class="cooling-flame" aria-hidden="true"></span><b id="coolingStreakDays">0</b> day streak</p>
+      <label class="cooling-gauge" for="coolingSessionMin">Session <input id="coolingSessionMin" type="range" min="1" max="10" step="1" value="5"> <span id="coolingSessionLabel">5 min · 18 rounds</span></label>
+      <div class="row cooling-actions">
+        <button class="btn" id="coolingStartBtn" type="button" style="cursor:pointer">Start cooling box</button>
+        <button class="btn ghost" id="coolingMuteBtn" type="button" aria-pressed="false">Sound on</button>
+        <button class="btn ghost" id="coolingShareBtn" type="button">Share</button>
       </div>
     </div>
   </section>
@@ -6279,6 +6350,12 @@ function paintBreathCycles() {
   const el = $("miniDashBreath"), box = window.ZabbadatCoolingBox;
   const n = box && typeof box.getCycles === "function" ? box.getCycles() : 0;
   if (el) el.textContent = Number(n || 0).toLocaleString();
+  const badge = $("miniDashStreak");
+  if (badge && box && typeof box.streakStatus === "function") {
+    const st = box.streakStatus();
+    if (!st || !st.streak) { badge.hidden = true; badge.textContent = ""; }
+    else { badge.hidden = false; badge.textContent = String(st.streak); }
+  }
 }
 function paintMiniDash() {
   const zabEl = $("miniDashZab"), tutEl = $("miniDashTut"), nudge = $("miniDashNudge");
