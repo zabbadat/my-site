@@ -11,3 +11,5 @@
 # so these never change in place: cache for a year, no revalidation (repeat visits skip the ~4.8 MB download).
 /models/*
   Cache-Control: public, max-age=31536000, immutable
+/hide/*
+  Cache-Control: public, max-age=86400

@@ -1576,6 +1576,101 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="lead" id="plankPrompt">Phone on the floor, on its side, off to your side. Step back until you're head to heels. Clock starts on a proper plank. Bad form fails the plank. <strong class="tut-em" id="plankTutLine">You're under tension the whole hold, so breathe through it.</strong> Go on, hold on three. One, two, three, hold.</p>
     <p class="fine">Open <a href="#plank">Plank House</a> to start a timed hold.</p>
   </section>
+
+<style id="todaysHideCss">
+#todays-hide { margin: 0 auto 2rem; max-width: 52rem; text-align: center; }
+#todays-hide .th-stage {
+  margin: .85rem auto 0; position: relative; overflow: hidden;
+  background: #0a100e; border: 1px solid rgba(255,46,147,.28); border-radius: 12px;
+  touch-action: none; cursor: pointer; -webkit-user-select: none; user-select: none;
+  line-height: 0;
+}
+#todays-hide .th-pan { transform-origin: 0 0; will-change: transform; }
+#todays-hide .th-pan img { display: block; width: 100%; height: auto; pointer-events: none; }
+#todays-hide .th-glow {
+  position: absolute; width: 50%; height: 50%; pointer-events: none;
+  background: radial-gradient(circle at center, rgba(198,255,0,.28), rgba(198,255,0,0) 70%);
+  transition: opacity .4s ease;
+}
+#todays-hide .th-glow[data-q="nw"] { left: 0; top: 0; }
+#todays-hide .th-glow[data-q="ne"] { right: 0; top: 0; left: auto; }
+#todays-hide .th-glow[data-q="sw"] { left: 0; bottom: 0; top: auto; }
+#todays-hide .th-glow[data-q="se"] { right: 0; bottom: 0; left: auto; top: auto; }
+#todays-hide .th-found-ring {
+  position: absolute; width: 12%; aspect-ratio: 1; border-radius: 50%;
+  border: 2px solid #C6FF00; box-shadow: 0 0 14px rgba(198,255,0,.55);
+  transform: translate(-50%,-50%); pointer-events: none;
+  animation: th-found-pop .55s ease-out;
+}
+@keyframes th-found-pop { from { transform: translate(-50%,-50%) scale(.4); opacity: 0; } to { transform: translate(-50%,-50%) scale(1); opacity: 1; } }
+#todays-hide .th-breath {
+  margin: .85rem auto 0; width: 88px; height: 88px; position: relative;
+}
+#todays-hide .th-breath svg { width: 88px; height: 88px; display: block; }
+#todays-hide .th-breath-ring { transform-origin: 44px 44px; animation: th-breathe 16s linear infinite; }
+#todays-hide[data-th-phase="0"] .th-breath-ring { transform: scale(1.08); }
+#todays-hide[data-th-phase="1"] .th-breath-ring { transform: scale(1.12); }
+#todays-hide[data-th-phase="2"] .th-breath-ring { transform: scale(1.02); }
+#todays-hide[data-th-phase="3"] .th-breath-ring { transform: scale(.92); }
+#todays-hide .th-breath-lbl {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: .78rem; color: var(--lime, #C6FF00); letter-spacing: .06em;
+  pointer-events: none;
+}
+@keyframes th-breathe { 0%,100% { opacity: .85; } 25% { opacity: 1; } 75% { opacity: .7; } }
+@media (prefers-reduced-motion: reduce) {
+  #todays-hide .th-breath-ring, #todays-hide .th-found-ring { animation: none; }
+}
+#todays-hide .th-tip { margin: .55rem 0 0; color: var(--muted); font-size: .92rem; }
+#todays-hide .th-msg { margin: .35rem 0 0; color: var(--lime, #C6FF00); font-weight: 600; min-height: 1.2em; }
+#todays-hide .th-row { display: flex; justify-content: center; gap: .45rem; flex-wrap: wrap; margin-top: .7rem; }
+#todays-hide .th-btn {
+  font: inherit; font-weight: 600; font-size: .82rem; cursor: pointer;
+  background: transparent; color: var(--muted);
+  border: 1px solid rgba(239,244,241,.22); border-radius: 999px; padding: .4rem .85rem;
+}
+#todays-hide .th-btn:hover, #todays-hide .th-btn:focus-visible { color: var(--text); border-color: rgba(198,255,0,.5); outline: none; }
+#todays-hide .th-share {
+  font: inherit; font-weight: 700; font-size: .82rem; cursor: pointer;
+  background: var(--grad, linear-gradient(135deg,#C6FF00,#FF8A00,#FF2E93)); color: #0e1412;
+  border: 0; border-radius: 999px; padding: .4rem .85rem;
+  box-shadow: 0 4px 18px rgba(255,46,147,.25);
+}
+#todays-hide .fine { margin: .45rem 0 0; }
+</style>
+  <section id="todays-hide">
+    <h2>Today's Hide</h2>
+    <p class="lead">Breathe and look.</p>
+    <div class="th-stage" id="todaysHideStage">
+      <div class="th-pan" id="todaysHidePan">
+        <img id="todaysHideImg" width="1152" height="864" alt="Today's hide. Breathe and look.">
+      </div>
+      <div class="th-glow" id="todaysHideGlow" hidden></div>
+      <div class="th-found-ring" id="todaysHideFound" hidden></div>
+    </div>
+    <div class="th-breath" id="todaysHideBreath" aria-hidden="true">
+      <svg viewBox="0 0 88 88">
+        <defs>
+          <linearGradient id="thBreathGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#C6FF00"/>
+            <stop offset=".55" stop-color="#FF8A00"/>
+            <stop offset="1" stop-color="#FF2E93"/>
+          </linearGradient>
+        </defs>
+        <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(238,244,241,.12)" stroke-width="2"/>
+        <circle class="th-breath-ring" cx="44" cy="44" r="28" fill="none" stroke="url(#thBreathGrad)" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <div class="th-breath-lbl" id="todaysHideBreathLbl">In · 1</div>
+    </div>
+    <p class="th-tip" id="todaysHideTip">Pinch to look closer. Tap when you see it.</p>
+    <p class="th-msg" id="todaysHideMsg" aria-live="polite"></p>
+    <div class="th-row">
+      <button type="button" class="th-btn" id="todaysHideHint">Hint</button>
+      <button type="button" class="th-btn" id="todaysHideReset" hidden>Reset view</button>
+      <button type="button" class="th-share" id="todaysHideShare" hidden>Share</button>
+    </div>
+    <p class="fine">Stop if you get dizzy. Same 4-count as the cooling box.</p>
+  </section>
 <section id="push">
     <h2>TUTS &amp; PUSH up sets</h2>
     <p class="tut-theme" id="pushTutLine"><strong>Stay under tension the whole set.</strong> Every second in position counts.</p>
@@ -2187,6 +2282,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/get-set.js"></script>
   <script src="/plank-session.js"></script>
   <script src="/et-day.js"></script>
+  <script src="/hide-daily.js"></script>
   <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>
   <script src="/game-steps.js"></script>
