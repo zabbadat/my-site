@@ -54,7 +54,7 @@ check("Nov 22 and Nov 23 both have the first picture",
 check("today's key is used when the entry exists",
   H.pickDay(man, "2026-11-23").key === "2026-11-23" && H.pickDay(man, "2026-11-23").fallback === false);
 check("a later day with no entry falls back to the last available",
-  H.pickDay(man, "2026-12-01").key === "2026-11-26" && H.pickDay(man, "2026-12-01").fallback === true);
+  H.pickDay(man, "2026-12-01").key === "2026-11-27" && H.pickDay(man, "2026-12-01").fallback === true);
 check("Nov 24 uses its own five-item picture",
   H.pickDay(man, "2026-11-24").key === "2026-11-24" && H.pickDay(man, "2026-11-24").fallback === false);
 check("a day before the first entry still shows the earliest, so the slot is not empty",
@@ -112,7 +112,8 @@ check("asset file exists", fs.existsSync(path.join(root, "hide/2026-11-23.webp")
 check("new hide pictures exist",
   fs.existsSync(path.join(root, "hide/2026-11-24.webp")) &&
   fs.existsSync(path.join(root, "hide/2026-11-25.webp")) &&
-  fs.existsSync(path.join(root, "hide/2026-11-26.webp")));
+  fs.existsSync(path.join(root, "hide/2026-11-26.webp")) &&
+  fs.existsSync(path.join(root, "hide/2026-11-27.webp")));
 check("design note is in the branch as a doc only",
   fs.existsSync(path.join(root, "docs/todays-hide-design.md")));
 check("module does not touch pfp, camera, auth, Firebase, or Netlify config",
@@ -126,7 +127,7 @@ check("share text is spoiler-free",
 const ZOOM_UI = { x0: 0.86, y0: 0.82 };
 const MARGIN = 0.04;
 const cssW = 390, cssH = 292.5;
-for (const day of ["2026-11-24", "2026-11-25", "2026-11-26"]) {
+for (const day of ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27"]) {
   const its = H.unpackDay(man.days[day]);
   check(day + " has five packed items", its.length === 5);
   check(day + " includes the steel ring in the list", its.some((it) => /washer/i.test(it.name)));
@@ -176,7 +177,8 @@ const LINES = {
   "2026-11-23": "Know the field. Know your breath. Then strike.",
   "2026-11-24": "Breathe still. The hidden reveal themselves to the calm.",
   "2026-11-25": "Stay hard. One more breath. One more find.",
-  "2026-11-26": "Breathe big, look bold. All five are yours."
+  "2026-11-26": "Breathe big, look bold. All five are yours.",
+  "2026-11-27": "Slow breath, kind eyes. You'll find them."
 };
 for (const [day, line] of Object.entries(LINES)) {
   check(day + " has the exact daily line", man.days[day] && man.days[day].line === line);
@@ -186,7 +188,7 @@ check("dayLine falls back when a record has no line",
   H.dayLine({ line: "  " }) === "Breathe and look." &&
   H.dayLine(man.days["2026-11-24"]) === LINES["2026-11-24"]);
 check("a later missing day falls back to the last picture and its line",
-  H.dayLine(H.pickDay(man, "2026-12-01").rec) === LINES["2026-11-26"]);
+  H.dayLine(H.pickDay(man, "2026-12-01").rec) === LINES["2026-11-27"]);
 
 const ok = R.every(Boolean);
 console.log((ok ? "OK" : "NOT OK") + "  " + R.filter(Boolean).length + " passed, " + (R.length - R.filter(Boolean).length) + " failed");
