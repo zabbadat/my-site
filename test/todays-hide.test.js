@@ -87,13 +87,20 @@ check("list and zoom controls are in the hide section",
   html.includes('id="todaysHideZoomOut"') && html.includes('id="todaysHideMarks"'));
 const hideChunk = html.slice(html.indexOf('id="todays-hide"'), html.indexOf('<section id="push">'));
 const at = (id) => hideChunk.indexOf(id);
-check("layout order is line, list, picture, then breath and the cue",
+check("layout order is kicker, line, list, picture, Hint and zoom, then breath and the cue",
+  hideChunk.indexOf("th-kicker") >= 0 &&
+  hideChunk.indexOf("th-kicker") < at('id="todaysHideLine"') &&
   at('id="todaysHideLine"') > 0 &&
   at('id="todaysHideLine"') < at('id="todaysHideList"') &&
   at('id="todaysHideList"') < at('id="todaysHideStage"') &&
-  at('id="todaysHideStage"') < at('id="todaysHideBreath"') &&
+  at('id="todaysHideStage"') < at('id="todaysHideHint"') &&
+  at('id="todaysHideHint"') < at('id="todaysHideZoomOut"') &&
+  at('id="todaysHideZoomOut"') < at('id="todaysHideZoomIn"') &&
+  at('id="todaysHideZoomIn"') < at('id="todaysHideBreath"') &&
   at('id="todaysHideBreath"') < at('id="todaysHideCue"') &&
   /id="todaysHideCue">Breathe and look\./.test(hideChunk));
+check("the daily line has extra space above the item pills",
+  /#todays-hide \.th-line \{[^}]*margin: 0 auto 1\.55rem/.test(html));
 check("the daily line is styled as the largest text in the section",
   /#todays-hide \.th-line \{[^}]*font-size: clamp\(1\.5rem/.test(html) &&
   /h2\.th-kicker \{[^}]*font-size: \.7rem/.test(html));

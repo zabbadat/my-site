@@ -1663,7 +1663,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
 }
 #todays-hide .th-line {
-  margin: 0 auto .8rem; max-width: 34rem;
+  margin: 0 auto 1.55rem; max-width: 34rem;
   font-size: clamp(1.5rem, 5.6vw, 2.2rem); font-weight: 800;
   line-height: 1.2; letter-spacing: -.02em; color: var(--text);
   text-wrap: balance;
@@ -1712,7 +1712,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 }
 @keyframes th-found-pop { from { transform: translate(-50%,-50%) scale(.4); opacity: 0; } to { transform: translate(-50%,-50%) scale(1); opacity: 1; } }
 #todays-hide .th-breath {
-  margin: .8rem auto 0; width: 88px; height: 88px; position: relative;
+  margin: .85rem auto 0; width: 88px; height: 88px; position: relative;
 }
 #todays-hide .lead {
   margin: .4rem 0 0; font-size: 1.02rem; font-weight: 600;
@@ -1748,7 +1748,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 #todays-hide .th-list button:focus-visible { outline: none; border-color: rgba(198,255,0,.75); }
 #todays-hide .th-tip { margin: .55rem 0 0; color: var(--muted); font-size: .92rem; }
 #todays-hide .th-msg { margin: .35rem 0 0; color: var(--lime, #C6FF00); font-weight: 600; min-height: 1.2em; }
-#todays-hide .th-row { display: flex; justify-content: center; gap: .45rem; flex-wrap: wrap; margin-top: .7rem; }
+#todays-hide .th-row { display: flex; justify-content: center; gap: .45rem; flex-wrap: wrap; margin-top: .65rem; }
 #todays-hide .th-btn {
   font: inherit; font-weight: 600; font-size: .82rem; cursor: pointer;
   background: transparent; color: var(--muted);
@@ -1775,6 +1775,13 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="th-glow" id="todaysHideGlow" hidden></div>
       <div class="th-found-ring" id="todaysHideFound" hidden></div>
     </div>
+    <div class="th-row">
+      <button type="button" class="th-btn" id="todaysHideHint">Hint</button>
+      <button type="button" class="th-btn" id="todaysHideZoomOut" aria-label="Zoom out">−</button>
+      <button type="button" class="th-btn" id="todaysHideZoomIn" aria-label="Zoom in">+</button>
+      <button type="button" class="th-btn" id="todaysHideReset" hidden>Reset view</button>
+      <button type="button" class="th-share" id="todaysHideShare" hidden>Share</button>
+    </div>
     <div class="th-breath" id="todaysHideBreath" aria-hidden="true">
       <svg viewBox="0 0 88 88">
         <defs>
@@ -1792,13 +1799,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="lead" id="todaysHideCue">Breathe and look.</p>
     <p class="th-tip" id="todaysHideTip">Pinch to look closer. Tap when you see it.</p>
     <p class="th-msg" id="todaysHideMsg" aria-live="polite"></p>
-    <div class="th-row">
-      <button type="button" class="th-btn" id="todaysHideHint">Hint</button>
-      <button type="button" class="th-btn" id="todaysHideZoomOut" aria-label="Zoom out">−</button>
-      <button type="button" class="th-btn" id="todaysHideZoomIn" aria-label="Zoom in">+</button>
-      <button type="button" class="th-btn" id="todaysHideReset" hidden>Reset view</button>
-      <button type="button" class="th-share" id="todaysHideShare" hidden>Share</button>
-    </div>
     <p class="fine">Stop if you get dizzy. Same 4-count as the cooling box.</p>
   </section>
 <section id="push">

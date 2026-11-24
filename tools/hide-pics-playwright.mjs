@@ -49,6 +49,7 @@ async function layoutMetrics(page) {
       return { y: r.top, b: r.bottom, fs: parseFloat(getComputedStyle(el).fontSize) || 0, text: (el.textContent || "").trim() };
     };
     const line = box("todaysHideLine"), list = box("todaysHideList"), stage = box("todaysHideStage");
+    const hint = box("todaysHideHint"), zoomIn = box("todaysHideZoomIn"), zoomOut = box("todaysHideZoomOut");
     const breath = box("todaysHideBreath"), cue = box("todaysHideCue");
     let maxFs = 0;
     document.querySelectorAll("#todays-hide *").forEach((el) => {
@@ -57,18 +58,21 @@ async function layoutMetrics(page) {
       const fs = parseFloat(st.fontSize);
       if (fs > maxFs) maxFs = fs;
     });
-    return { line, list, stage, breath, cue, maxFs };
+    return { line, list, stage, hint, zoomIn, zoomOut, breath, cue, maxFs };
   });
 }
 async function assertLayout(page, label) {
   const m = await layoutMetrics(page);
   check(label + " line sits above the list", !!(m.line && m.list && m.line.b <= m.list.y + 2));
+  check(label + " extra space between the line and the item pills", !!(m.line && m.list && (m.list.y - m.line.b) >= 20));
   check(label + " list sits above the picture", !!(m.list && m.stage && m.list.b <= m.stage.y + 2));
-  check(label + " picture sits above the breath ring", !!(m.stage && m.breath && m.stage.b <= m.breath.y + 2));
+  check(label + " Hint and zoom sit directly under the picture", !!(m.stage && m.hint && m.zoomOut && m.zoomIn &&
+    m.stage.b <= m.hint.y + 2 && Math.abs(m.hint.y - m.zoomOut.y) < 8 && Math.abs(m.hint.y - m.zoomIn.y) < 8));
+  check(label + " breath ring sits under the Hint and zoom buttons", !!(m.hint && m.breath && m.hint.b <= m.breath.y + 2));
   check(label + " Breathe and look sits under the picture", !!(m.cue && m.stage && m.cue.y >= m.stage.b - 2));
   check(label + " daily line is the largest text in the section", !!(m.line && m.line.fs >= m.maxFs - 0.5));
   check(label + " shows the daily line", m.line && m.line.text === "Breathe still. The hidden reveal themselves to the calm.");
-  if (!(m.line && m.list && m.line.b <= m.list.y + 2 && m.list.b <= m.stage.y + 2)) {
+  if (!(m.line && m.list && m.line.b <= m.list.y + 2 && m.list.b <= m.stage.y + 2 && m.hint && m.stage.b <= m.hint.y + 2)) {
     console.log("debug layout", label, JSON.stringify(m));
   }
   return m;
