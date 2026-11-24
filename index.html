@@ -1716,8 +1716,27 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   touch-action: none; cursor: pointer; -webkit-user-select: none; user-select: none;
   line-height: 0;
 }
-#todays-hide .th-pan { transform-origin: 0 0; will-change: transform; }
+#todays-hide .th-pan { position: relative; transform-origin: 0 0; will-change: transform; }
 #todays-hide .th-pan img { display: block; width: 100%; height: auto; pointer-events: none; }
+#todays-hide .th-marks { position: absolute; inset: 0; pointer-events: none; }
+#todays-hide .th-item-ring {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  border: 2px solid #C6FF00; box-shadow: 0 0 12px rgba(198,255,0,.55);
+  transform: translate(-50%,-50%);
+  animation: th-found-pop .45s ease-out;
+}
+#todays-hide .th-item-ring.th-snap { border-color: #FFF36A; box-shadow: 0 0 16px rgba(255,243,106,.7); }
+#todays-hide .th-hint-pulse {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  transform: translate(-50%,-50%);
+  background: radial-gradient(circle at center, rgba(198,255,0,.4), rgba(198,255,0,0) 70%);
+  animation: th-hint-pulse 1.6s ease-out;
+}
+@keyframes th-hint-pulse {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.7); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.15); }
+}
 #todays-hide .th-glow {
   position: absolute; width: 50%; height: 50%; pointer-events: none;
   background: radial-gradient(circle at center, rgba(198,255,0,.28), rgba(198,255,0,0) 70%);
@@ -1750,8 +1769,22 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 }
 @keyframes th-breathe { 0%,100% { opacity: .85; } 25% { opacity: 1; } 75% { opacity: .7; } }
 @media (prefers-reduced-motion: reduce) {
-  #todays-hide .th-breath-ring, #todays-hide .th-found-ring { animation: none; }
+  #todays-hide .th-breath-ring, #todays-hide .th-found-ring,
+  #todays-hide .th-item-ring, #todays-hide .th-hint-pulse { animation: none; }
 }
+#todays-hide .th-list {
+  list-style: none; display: flex; flex-wrap: wrap; justify-content: center;
+  gap: .4rem; margin: .7rem 0 0; padding: 0;
+}
+#todays-hide .th-list li { margin: 0; }
+#todays-hide .th-list button {
+  font: inherit; font-weight: 600; font-size: .82rem; cursor: pointer;
+  background: transparent; color: var(--text);
+  border: 1px solid rgba(239,244,241,.22); border-radius: 999px; padding: .35rem .8rem;
+}
+#todays-hide .th-list button[aria-pressed="true"] { border-color: rgba(198,255,0,.75); color: var(--lime, #C6FF00); }
+#todays-hide .th-list button.th-done { text-decoration: line-through; opacity: .65; color: var(--muted); }
+#todays-hide .th-list button:focus-visible { outline: none; border-color: rgba(198,255,0,.75); }
 #todays-hide .th-tip { margin: .55rem 0 0; color: var(--muted); font-size: .92rem; }
 #todays-hide .th-msg { margin: .35rem 0 0; color: var(--lime, #C6FF00); font-weight: 600; min-height: 1.2em; }
 #todays-hide .th-row { display: flex; justify-content: center; gap: .45rem; flex-wrap: wrap; margin-top: .7rem; }
@@ -1775,10 +1808,12 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <div class="th-stage" id="todaysHideStage">
       <div class="th-pan" id="todaysHidePan">
         <img id="todaysHideImg" width="1152" height="864" alt="Today's hide. Breathe and look.">
+        <div class="th-marks" id="todaysHideMarks"></div>
       </div>
       <div class="th-glow" id="todaysHideGlow" hidden></div>
       <div class="th-found-ring" id="todaysHideFound" hidden></div>
     </div>
+    <ul class="th-list" id="todaysHideList" hidden></ul>
     <div class="th-breath" id="todaysHideBreath" aria-hidden="true">
       <svg viewBox="0 0 88 88">
         <defs>
@@ -1797,6 +1832,8 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="th-msg" id="todaysHideMsg" aria-live="polite"></p>
     <div class="th-row">
       <button type="button" class="th-btn" id="todaysHideHint">Hint</button>
+      <button type="button" class="th-btn" id="todaysHideZoomOut" aria-label="Zoom out">−</button>
+      <button type="button" class="th-btn" id="todaysHideZoomIn" aria-label="Zoom in">+</button>
       <button type="button" class="th-btn" id="todaysHideReset" hidden>Reset view</button>
       <button type="button" class="th-share" id="todaysHideShare" hidden>Share</button>
     </div>
