@@ -5,15 +5,85 @@
  * missing. Visual / local only: it reads the video element and the PFP head spot, never the counter or the session.
  * The recording (not the live view) gets the HUD numbers on top, the PFP logo when that switch is on, and a small
  * watermark bottom-right that hops to bottom-left while the head / logo would touch it (0.5 s clear before it returns).
+ * A placeholder sponsor mark sits with that watermark (same hop, never over the face logo or the HUD). After the clip,
+ * a 2-3 s branded end card (no camera frames) is appended in the same file. Swap SPONSOR.name / logoUrl, or set
+ * enabled: false to hide the slot.
  */
 (function (root) {
   "use strict";
-  var W = { markFrac: 0.06, marginFrac: 0.035, clearMs: 500, hudFrac: 0.12, pad: 6 };
+  var W = { markFrac: 0.06, marginFrac: 0.035, clearMs: 500, hudFrac: 0.12, pad: 6, endMs: 2500, gapFrac: 0.01 };
+  // One object to swap when a real sponsor is ready. Default is a clearly placeholder slot.
+  var SPONSOR = { enabled: true, name: "Your brand here", logoUrl: "", line: "Breathe. Then begin." };
   // ---- pure layout maths ----
+  function getSponsor() {
+    var s = SPONSOR && typeof SPONSOR === "object" ? SPONSOR : {};
+    var name = typeof s.name === "string" && s.name.trim() ? s.name.trim() : "Your brand here";
+    var line = typeof s.line === "string" && s.line.trim() ? s.line.trim() : "Breathe. Then begin.";
+    var logoUrl = typeof s.logoUrl === "string" ? s.logoUrl.trim() : "";
+    return { enabled: s.enabled !== false, name: name, logoUrl: logoUrl, line: line };
+  }
+
+  // Workout cameras use CSS scaleX(-1). #zlSelf and #zmCamVid do not (pose uses flipHorizontal: false).
+  // Recordings must match that, or the PFP logo lands on the wrong side of the face.
+  function sourceMirrored(v) {
+    if (!v) return false;
+    try {
+      var tf = "";
+      if (root.getComputedStyle) {
+        var cs = root.getComputedStyle(v);
+        tf = (cs && (cs.transform || cs.webkitTransform)) || "";
+      } else if (v.style) {
+        tf = v.style.transform || v.style.webkitTransform || "";
+      }
+      if (!tf || tf === "none") return false;
+      if (/scaleX\s*\(\s*-/.test(tf)) return true;
+      var mm = /matrix\(([^,]+)/.exec(tf);
+      return !!(mm && parseFloat(mm[1]) < 0);
+    } catch (e) { return false; }
+  }
   function wmBox(fw, fh, side) {
     var m = Math.round(Math.max(8, fw * W.marginFrac)), mark = Math.max(14, Math.round(fw * W.markFrac)), font = Math.max(9, Math.round(mark * 0.42));
     var tw = Math.round(font * 4.9), w = mark + Math.round(font * 0.5) + tw, h = Math.max(mark, Math.round(font * 2.3));
     return { x: side === "left" ? m : fw - m - w, y: fh - m - h, w: w, h: h, mark: mark, font: font };
+  }
+  function rectUnion(a, b) {
+    if (!a) return b; if (!b) return a;
+    var x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+    var r = Math.max(a.x + a.w, b.x + b.w), btm = Math.max(a.y + a.h, b.y + b.h);
+    return { x: x, y: y, w: r - x, h: btm - y };
+  }
+  function rectsOverlap(a, b, pad) {
+    if (!a || !b) return false; var p = pad || 0;
+    return a.x < b.x + b.w + p && a.x + a.w + p > b.x && a.y < b.y + b.h + p && a.y + a.h + p > b.y;
+  }
+  function hudRect(fw, fh) { return { x: 0, y: 0, w: fw, h: Math.round(fh * W.hudFrac) }; }
+  function wmSponsorBox(fw, fh, side, brand) {
+    if (!getSponsor().enabled || !brand) return null;
+    var name = getSponsor().name;
+    var gap = Math.max(4, Math.round(fw * W.gapFrac));
+    var mark = brand.mark, font = brand.font;
+    var tw = Math.round(font * Math.min(11, Math.max(4.2, name.length * 0.62)));
+    var w = mark + Math.round(font * 0.5) + tw, h = Math.max(mark, Math.round(font * 1.7));
+    var m = Math.round(Math.max(8, fw * W.marginFrac));
+    var xAlign = side === "left" ? brand.x : brand.x + brand.w - w;
+    var yAbove = brand.y - gap - h;
+    var hudBottom = hudRect(fw, fh).h + 4;
+    if (yAbove >= hudBottom) {
+      var x = xAlign;
+      if (x < m) x = m;
+      if (x + w > fw - m) x = Math.max(m, fw - m - w);
+      return { x: x, y: yAbove, w: w, h: h, mark: mark, font: font, placed: "above" };
+    }
+    var xBeside = side === "right" ? brand.x - gap - w : brand.x + brand.w + gap;
+    if (xBeside < m) xBeside = m;
+    if (xBeside + w > fw - m) w = Math.max(mark, fw - m - xBeside);
+    return { x: xBeside, y: brand.y + Math.max(0, brand.h - h), w: w, h: h, mark: mark, font: font, placed: "beside" };
+  }
+  function wmCluster(fw, fh, side) {
+    var brand = wmBox(fw, fh, side);
+    var sponsor = wmSponsorBox(fw, fh, side, brand);
+    var cluster = sponsor ? rectUnion(brand, sponsor) : { x: brand.x, y: brand.y, w: brand.w, h: brand.h };
+    return { brand: brand, sponsor: sponsor, cluster: cluster, side: side };
   }
   function circleHitsRect(c, r, pad) {
     if (!c || !r) return false; var p = pad || 0;
@@ -24,14 +94,109 @@
     var o = Object.assign({}, W, opts || {}), side = "right", clearSince = null;
     return {
       step: function (head, fw, fh, t) {
-        var right = wmBox(fw, fh, "right"), hitR = circleHitsRect(head, right, o.pad);
-        if (side === "right") { if (hitR) { side = "left"; clearSince = null; } }
-        else if (hitR) clearSince = null;
-        else { if (clearSince == null) clearSince = t; if (t - clearSince >= o.clearMs) { side = "right"; clearSince = null; } }
-        return { side: side, box: wmBox(fw, fh, side) };
+        var cur = wmCluster(fw, fh, side);
+        var hit = circleHitsRect(head, cur.cluster, o.pad);
+        if (hit) {
+          var otherSide = side === "right" ? "left" : "right";
+          var other = wmCluster(fw, fh, otherSide);
+          if (!circleHitsRect(head, other.cluster, o.pad)) { side = otherSide; clearSince = null; cur = other; }
+          else { cur.hidden = true; clearSince = null; }
+        } else if (side !== "right") {
+          var right = wmCluster(fw, fh, "right");
+          if (circleHitsRect(head, right.cluster, o.pad)) clearSince = null;
+          else {
+            if (clearSince == null) clearSince = t;
+            if (t - clearSince >= o.clearMs) { side = "right"; clearSince = null; cur = right; }
+          }
+        }
+        return { side: side, box: cur.brand, sponsor: cur.sponsor, cluster: cur.cluster, hidden: !!cur.hidden };
       },
       side: function () { return side; }
     };
+  }
+  function endCardRemaining(endAt, now, endMs) {
+    var ms = endMs == null ? W.endMs : endMs;
+    return Math.max(0, ms - ((Number(now) || 0) - (Number(endAt) || 0)));
+  }
+  function endCardDone(endAt, now, endMs) { return endCardRemaining(endAt, now, endMs) <= 0; }
+  function beginEndCard(r, now) {
+    if (!r || r.ending) return r;
+    r.ending = true; r.endAt = now;
+    return r;
+  }
+  function tickRecording(r, now, paintLive, paintEnd, finish) {
+    if (!r) return "idle";
+    if (r.ending) {
+      if (paintEnd) paintEnd(r, now);
+      if (endCardDone(r.endAt, now, W.endMs)) { if (finish) finish(r); return "finished"; }
+      return "ending";
+    }
+    if (paintLive) paintLive(r, now);
+    return "recording";
+  }
+  function hasImg(img) { return !!(img && img.complete && img.naturalWidth); }
+  function drawBrandWatermark(x, b, markImg) {
+    if (!x || !b) return;
+    x.save(); x.globalAlpha = 0.7; x.shadowColor = "rgba(0,0,0,.65)"; x.shadowBlur = Math.max(2, b.font * 0.5); x.shadowOffsetY = 1;
+    if (hasImg(markImg)) x.drawImage(markImg, b.x, b.y + (b.h - b.mark) / 2, b.mark, b.mark);
+    else { x.strokeStyle = "#fff"; x.lineWidth = Math.max(1.5, b.mark * 0.07); x.beginPath(); x.arc(b.x + b.mark / 2, b.y + b.h / 2, b.mark * 0.44, 0, Math.PI * 2); x.stroke(); }
+    var tx = b.x + b.mark + Math.round(b.font * 0.5); x.fillStyle = "#fff"; x.textAlign = "left"; x.textBaseline = "alphabetic";
+    x.font = "600 " + b.font + "px 'Cormorant Garamond', Georgia, serif"; x.fillText("Zabbadat", tx, b.y + b.h * 0.52);
+    x.font = "500 " + Math.round(b.font * 0.72) + "px Outfit, sans-serif"; x.fillText("zabbadat.com", tx, b.y + b.h * 0.9);
+    x.restore();
+  }
+  function drawSponsorWatermark(x, b, sponsorImg, name) {
+    if (!x || !b) return;
+    name = name || getSponsor().name;
+    x.save(); x.globalAlpha = 0.7; x.shadowColor = "rgba(0,0,0,.65)"; x.shadowBlur = Math.max(2, b.font * 0.5); x.shadowOffsetY = 1;
+    if (hasImg(sponsorImg)) x.drawImage(sponsorImg, b.x, b.y + (b.h - b.mark) / 2, b.mark, b.mark);
+    else {
+      x.fillStyle = "rgba(255,255,255,.2)"; x.strokeStyle = "#fff"; x.lineWidth = Math.max(1, b.mark * 0.06);
+      x.beginPath(); x.roundRect ? x.roundRect(b.x, b.y + (b.h - b.mark) / 2, b.mark, b.mark, Math.max(2, b.mark * 0.16)) : x.rect(b.x, b.y + (b.h - b.mark) / 2, b.mark, b.mark); x.fill(); x.stroke();
+    }
+    var tx = b.x + b.mark + Math.round(b.font * 0.5); x.fillStyle = "#fff"; x.textAlign = "left"; x.textBaseline = "middle";
+    x.font = "600 " + Math.max(8, Math.round(b.font * 0.92)) + "px Outfit, sans-serif";
+    x.fillText(name, tx, b.y + b.h / 2);
+    x.restore();
+  }
+  // End card: branded graphics only. Never draw the live camera or a face.
+  function paintEndCard(x, fw, fh, assets) {
+    if (!x) return;
+    assets = assets || {};
+    var sp = getSponsor();
+    x.save();
+    if (typeof x.setTransform === "function") x.setTransform(1, 0, 0, 1, 0, 0);
+    x.globalAlpha = 1; x.shadowColor = "transparent"; x.shadowBlur = 0;
+    x.fillStyle = "#0e1412"; x.fillRect(0, 0, fw, fh);
+    var min = Math.min(fw, fh), logo = Math.max(36, Math.round(min * 0.22)), cy = fh * 0.34;
+    var lx = (fw - logo) / 2, ly = cy - logo / 2, markImg = assets.mark;
+    if (hasImg(markImg)) x.drawImage(markImg, lx, ly, logo, logo);
+    else { x.strokeStyle = "#e8f0ea"; x.lineWidth = Math.max(2, logo * 0.06); x.beginPath(); x.arc(fw / 2, cy, logo * 0.44, 0, Math.PI * 2); x.stroke(); }
+    var title = Math.max(16, Math.round(min * 0.07));
+    x.fillStyle = "#f2f5f3"; x.textAlign = "center"; x.textBaseline = "top";
+    x.font = "600 " + title + "px 'Cormorant Garamond', Georgia, serif";
+    x.fillText("Zabbadat", fw / 2, ly + logo + Math.round(title * 0.35));
+    var urlSize = Math.max(10, Math.round(title * 0.48));
+    x.font = "500 " + urlSize + "px Outfit, sans-serif"; x.fillStyle = "#c5d4c9";
+    x.fillText("zabbadat.com", fw / 2, ly + logo + title + Math.round(title * 0.55));
+    var lineSize = Math.max(11, Math.round(title * 0.55));
+    x.font = "500 " + lineSize + "px Outfit, sans-serif"; x.fillStyle = "#9fbfa8";
+    x.fillText(sp.line, fw / 2, ly + logo + title + urlSize + Math.round(title * 1.15));
+    if (sp.enabled) {
+      var slotY = fh * 0.78;
+      x.strokeStyle = "rgba(143,191,168,.35)"; x.lineWidth = 1;
+      x.beginPath(); x.moveTo(fw * 0.28, slotY - lineSize); x.lineTo(fw * 0.72, slotY - lineSize); x.stroke();
+      var slotH = Math.max(18, Math.round(min * 0.06)), spImg = assets.sponsor;
+      if (hasImg(spImg)) {
+        x.drawImage(spImg, fw / 2 - slotH / 2, slotY, slotH, slotH);
+        x.fillStyle = "#d7e3db"; x.font = "500 " + Math.max(10, Math.round(slotH * 0.45)) + "px Outfit, sans-serif";
+        x.textBaseline = "top"; x.fillText(sp.name, fw / 2, slotY + slotH + 6);
+      } else {
+        x.fillStyle = "#d7e3db"; x.font = "500 " + Math.max(11, Math.round(min * 0.04)) + "px Outfit, sans-serif";
+        x.textBaseline = "top"; x.fillText(sp.name, fw / 2, slotY);
+      }
+    }
+    x.restore();
   }
   // Arm / record state machine (pure; the browser side injects start/stop).
   function createCtl(io) {
@@ -141,7 +306,7 @@
     return { ready: ready, onTap: onTap, state: state, shareBtn: sh, saveEl: sv };
   }
   var share = { isMp4: isMp4, fileName: fileName, isCancel: isShareCancel, canWebShareFiles: canWebShareFiles, isNativeApp: isNativeApp, getPlugin: getPlugin, blobToBase64: blobToBase64, prepareNativeShare: prepareNativeShare, shareFromTap: shareFromTap, wirePreviewButtons: wirePreviewButtons, TITLE: "Zabbadat", TEXT: "zabbadat.com" };
-  var api = { wmBox: wmBox, circleHitsRect: circleHitsRect, createWmPlacer: createWmPlacer, createCtl: createCtl, W: W, share: share };
+  var api = { wmBox: wmBox, sourceMirrored: sourceMirrored, circleHitsRect: circleHitsRect, createWmPlacer: createWmPlacer, createCtl: createCtl, W: W, share: share, SPONSOR: SPONSOR, getSponsor: getSponsor, wmSponsorBox: wmSponsorBox, wmCluster: wmCluster, rectsOverlap: rectsOverlap, rectUnion: rectUnion, hudRect: hudRect, endCardRemaining: endCardRemaining, endCardDone: endCardDone, beginEndCard: beginEndCard, tickRecording: tickRecording, paintEndCard: paintEndCard, drawBrandWatermark: drawBrandWatermark, drawSponsorWatermark: drawSponsorWatermark };
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 
@@ -160,6 +325,14 @@
     return "";
   }
   var mark = null; function ensureMark() { if (!mark && typeof Image !== "undefined") { mark = new Image(); mark.src = "/zd-v2-mark.svg"; } }
+  var sponsorImg = null, sponsorImgUrl = "";
+  function ensureSponsor() {
+    var url = getSponsor().enabled ? getSponsor().logoUrl : "";
+    if (!url) { sponsorImg = null; sponsorImgUrl = ""; return; }
+    if (sponsorImg && sponsorImgUrl === url) return;
+    if (typeof Image === "undefined") return;
+    sponsorImg = new Image(); sponsorImgUrl = url; sponsorImg.src = url;
+  }
   var cur = null; // { id, vid, cv, x, mr, chunks, raf, placer, type, stopBtn }
   function hudText(id) {
     // Live Match / Go Live recordings: score, turn, elapsed time only — never steps.
@@ -208,12 +381,13 @@
     var head0 = root.ZabPfp && root.ZabPfp.lastHead ? root.ZabPfp.lastHead(VID[r.id], typeof performance !== "undefined" ? performance.now() : null) : null;
     var rf = pfpOn && root.ZabPfp.recFrame ? root.ZabPfp.recFrame(VID[r.id]) : null, blanket = pfpOn && !rf;
     if (rf) head0 = rf.c; // the pose-matched frame and its own head circle (same as the screen shows)
-    x.save(); x.translate(fw, 0); x.scale(-1, 1);
+    var mir = sourceMirrored(v);
+    if (mir) { x.save(); x.translate(fw, 0); x.scale(-1, 1); }
     try {
       x.drawImage(rf ? rf.img : v, 0, 0, fw, fh); // always the live (or pose-matched) picture — never a dark full-frame fill
       if (blanket) head0 = null; // no locked head: the large opening logo is drawn after restore, not a corner-to-corner disc
     } catch (e) {}
-    x.restore();
+    if (mir) x.restore();
     var cells = hudText(r.id), hh = Math.round(fh * W.hudFrac);
     if (cells.length) {
       x.fillStyle = "rgba(4,6,16,.78)"; x.fillRect(0, 0, fw, hh);
@@ -229,17 +403,12 @@
       var PP = root.ZabPfp.P || {}, br = Math.max(10, Math.min((PP.blankR || 0.48) * fw, 0.85 * fh));
       root.ZabPfp.drawLogo(x, { x: fw / 2, y: fh * (PP.blankY || 0.38), r: br }); // large opening logo over the face area; the rest of the frame stays the live picture
     } else if (hd && pfpOn) root.ZabPfp.drawLogo(x, hd);
-    var pl = r.placer.step(hd, fw, fh, now); drawWatermark(x, pl.box);
-  }
-  function drawWatermark(x, b) {
-    ensureMark();
-    x.save(); x.globalAlpha = 0.7; x.shadowColor = "rgba(0,0,0,.65)"; x.shadowBlur = Math.max(2, b.font * 0.5); x.shadowOffsetY = 1;
-    if (mark && mark.complete && mark.naturalWidth) x.drawImage(mark, b.x, b.y + (b.h - b.mark) / 2, b.mark, b.mark);
-    else { x.strokeStyle = "#fff"; x.lineWidth = Math.max(1.5, b.mark * 0.07); x.beginPath(); x.arc(b.x + b.mark / 2, b.y + b.h / 2, b.mark * 0.44, 0, Math.PI * 2); x.stroke(); }
-    var tx = b.x + b.mark + Math.round(b.font * 0.5); x.fillStyle = "#fff"; x.textAlign = "left"; x.textBaseline = "alphabetic";
-    x.font = "600 " + b.font + "px 'Cormorant Garamond', Georgia, serif"; x.fillText("Zabbadat", tx, b.y + b.h * 0.52);
-    x.font = "500 " + Math.round(b.font * 0.72) + "px Outfit, sans-serif"; x.fillText("zabbadat.com", tx, b.y + b.h * 0.9);
-    x.restore();
+    var pl = r.placer.step(hd, fw, fh, now);
+    if (!pl.hidden) {
+      ensureMark(); ensureSponsor();
+      drawBrandWatermark(x, pl.box, mark);
+      if (pl.sponsor) drawSponsorWatermark(x, pl.sponsor, sponsorImg, getSponsor().name);
+    }
   }
   function start(id) {
     var vid = isLiveId(id) ? pickLiveVideo(id) : doc.getElementById(VID[id]); if (!vid || !supported()) return false;
@@ -254,17 +423,33 @@
     r.mr = new root.MediaRecorder(stream, mo);
     r.mr.ondataavailable = function (e) { if (e.data && e.data.size) r.chunks.push(e.data); };
     r.mr.onstop = function () { stream.getTracks().forEach(function (t) { t.stop(); }); preview(new Blob(r.chunks, { type: (r.type || "video/webm").split(";")[0] })); };
-    var loop = function () { if (cur !== r) return; try { paintFrame(r, performance.now()); } catch (e) {} r.raf = root.requestAnimationFrame(loop); };
-    cur = r; paintFrame(r, performance.now()); r.mr.start(1000); r.raf = root.requestAnimationFrame(loop);
+    function finishRecorder(rec) {
+      if (!rec || rec.finished) return;
+      rec.finished = true;
+      if (cur === rec) cur = null;
+      try { root.cancelAnimationFrame(rec.raf); } catch (e) {}
+      try { if (rec.mr && rec.mr.state !== "inactive") rec.mr.stop(); } catch (e) {}
+    }
+    var loop = function () {
+      if (cur !== r) return;
+      var now = root.performance && performance.now ? performance.now() : Date.now();
+      var phase = tickRecording(r, now,
+        function () { paintFrame(r, now); },
+        function () { ensureMark(); ensureSponsor(); paintEndCard(r.x, r.cv.width, r.cv.height, { mark: mark, sponsor: sponsorImg }); },
+        function () { finishRecorder(r); }
+      );
+      if (phase !== "finished") r.raf = root.requestAnimationFrame(loop);
+    };
+    cur = r; paintFrame(r, (root.performance && performance.now) ? performance.now() : Date.now()); r.mr.start(1000); r.raf = root.requestAnimationFrame(loop);
     var wrap = doc.getElementById(id), b = doc.createElement("button"); b.type = "button"; b.className = "btn rec-stop"; b.innerHTML = '<span class="rec-dot"></span>Stop recording';
     b.onclick = function () { ctl.stopNow(); }; if (wrap) wrap.appendChild(b); r.stopBtn = b;
     return true;
   }
   function stop() {
-    var r = cur; if (!r) return; cur = null;
-    try { root.cancelAnimationFrame(r.raf); } catch (e) {}
+    var r = cur; if (!r) return;
     if (r.stopBtn && r.stopBtn.parentNode) r.stopBtn.parentNode.removeChild(r.stopBtn);
-    try { if (r.mr.state !== "inactive") r.mr.stop(); } catch (e) {}
+    if (r.ending) return;
+    beginEndCard(r, (root.performance && performance.now) ? performance.now() : Date.now());
   }
   function preview(blob) {
     if (!blob || !blob.size) return;
@@ -289,7 +474,7 @@
     if (isLiveId(id)) { var v = pickLiveVideo(id); return !!(v && (v.srcObject || v.videoWidth > 0)); }
     var w = doc.getElementById(id); while (w) { if (w.classList && w.classList.contains("cam-fs") && !w.hidden) return true; w = w.parentElement; } return false;
   } });
-  api.ctl = ctl; api.onFs = function (id, on) { try { return ctl.onFs(id, on); } catch (e) { return ""; } }; api.supported = supported; api.paintFrame = paintFrame; api.hudText = hudText; api.isLiveId = isLiveId;
+  api.ctl = ctl; api.onFs = function (id, on) { try { return ctl.onFs(id, on); } catch (e) { return ""; } }; api.supported = supported; api.paintFrame = paintFrame; api.hudText = hudText; api.isLiveId = isLiveId; api.stop = function () { try { stop(); } catch (e) {} };
   root.ZabRec = api;
   function wire() {
     try {
