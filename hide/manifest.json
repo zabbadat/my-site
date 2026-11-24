@@ -3,11 +3,13 @@
   "days": {
     "2026-11-22": {
       "src": "/hide/2026-11-23.webp",
-      "k": "NXZAZ4MtNEVYbYST/rCx3Jw="
+      "k": "NXZAZ4MtNEVYbYST/rCx3Jw=",
+      "line": "Know the field. Know your breath. Then strike."
     },
     "2026-11-23": {
       "src": "/hide/2026-11-23.webp",
-      "k": "NXZAZ4MtNEVYbYST/rCx3Jw="
+      "k": "NXZAZ4MtNEVYbYST/rCx3Jw=",
+      "line": "Know the field. Know your breath. Then strike."
     },
     "2026-11-24": {
       "src": "/hide/2026-11-24.webp",
@@ -17,7 +19,8 @@
         "NWcAZIIuH0VTOJ6Craq73tc=",
         "NVHmVWUtp0ZOIoGZrb+4wcSv",
         "NWOkVhUssElaJZKe5g=="
-      ]
+      ],
+      "line": "Breathe still. The hidden reveal themselves to the calm."
     },
     "2026-11-25": {
       "src": "/hide/2026-11-25.webp",
@@ -27,7 +30,8 @@
         "NXRnZeouE0VTOJ6Craq73tc=",
         "NW6KX0ot+0ZOIoGZrb+4wcSv",
         "NWLyUxIsuElaJZKe5g=="
-      ]
+      ],
+      "line": "Stay hard. One more breath. One more find."
     },
     "2026-11-26": {
       "src": "/hide/2026-11-26.webp",
@@ -37,7 +41,8 @@
         "NWUJYnkuA0VTOJ6Craq73tc=",
         "NWGtScstC0ZOIoGZrb+4wcSv",
         "NVCCUxIsvElaJZKe5g=="
-      ]
+      ],
+      "line": "Breathe big, look bold. All five are yours."
     }
   }
 }

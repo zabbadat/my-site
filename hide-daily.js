@@ -98,8 +98,13 @@
     return { x: rd16(buf, 1) / 10000, y: rd16(buf, 3) / 10000, r: rd16(buf, 5) / 10000, name: name };
   }
 
+  var LINE_FALLBACK = "Breathe and look.";
   function recReady(rec) {
     return !!(rec && rec.src && (rec.k || (rec.ks && rec.ks.length)));
+  }
+  function dayLine(rec) {
+    var s = rec && rec.line != null ? String(rec.line).trim() : "";
+    return s || LINE_FALLBACK;
   }
   function pickDay(manifest, key) {
     var days = (manifest && manifest.days) || {};
@@ -226,6 +231,7 @@
     var tip = document.getElementById("todaysHideTip");
     var msg = document.getElementById("todaysHideMsg");
     var listEl = document.getElementById("todaysHideList");
+    var lineEl = document.getElementById("todaysHideLine");
     var hintBtn = document.getElementById("todaysHideHint");
     var breathLbl = document.getElementById("todaysHideBreathLbl");
     var resetBtn = document.getElementById("todaysHideReset");
@@ -544,6 +550,7 @@
         if (!picked) throw new Error("empty");
         var dayItems = unpackDay(picked.rec);
         if (!dayItems.length) throw new Error("pack");
+        if (lineEl) lineEl.textContent = dayLine(picked.rec);
         items = dayItems;
         selected = dayItems.length === 1 ? dayItems[0] : null;
         foundIds = {};
@@ -603,6 +610,7 @@
     SNAP_PX: SNAP_PX,
     teaserKey: teaserKey, nextRolloverMs: nextRolloverMs,
     packAnswer: packAnswer, unpackAnswer: unpackAnswer, unpackDay: unpackDay, pickDay: pickDay,
+    dayLine: dayLine, LINE_FALLBACK: LINE_FALLBACK,
     hitTest: hitTest, fairHit: fairHit, objectRadiusCss: objectRadiusCss,
     quadrant: quadrant, breathParts: breathParts,
     shareText: shareText, shareUrl: shareUrl,

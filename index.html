@@ -1710,8 +1710,18 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 
 <style id="todaysHideCss">
 #todays-hide { margin: 0 auto 2rem; max-width: 52rem; text-align: center; }
+#todays-hide h2.th-kicker {
+  margin: 0 0 .4rem; font-size: .7rem; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+}
+#todays-hide .th-line {
+  margin: 0 auto .8rem; max-width: 34rem;
+  font-size: clamp(1.5rem, 5.6vw, 2.2rem); font-weight: 800;
+  line-height: 1.2; letter-spacing: -.02em; color: var(--text);
+  text-wrap: balance;
+}
 #todays-hide .th-stage {
-  margin: .85rem auto 0; position: relative; overflow: hidden;
+  margin: 0 auto; position: relative; overflow: hidden;
   background: #0a100e; border: 1px solid rgba(255,46,147,.28); border-radius: 12px;
   touch-action: none; cursor: pointer; -webkit-user-select: none; user-select: none;
   line-height: 0;
@@ -1754,7 +1764,10 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 }
 @keyframes th-found-pop { from { transform: translate(-50%,-50%) scale(.4); opacity: 0; } to { transform: translate(-50%,-50%) scale(1); opacity: 1; } }
 #todays-hide .th-breath {
-  margin: .85rem auto 0; width: 88px; height: 88px; position: relative;
+  margin: .8rem auto 0; width: 88px; height: 88px; position: relative;
+}
+#todays-hide .lead {
+  margin: .4rem 0 0; font-size: 1.02rem; font-weight: 600;
 }
 #todays-hide .th-breath svg { width: 88px; height: 88px; display: block; }
 #todays-hide .th-breath-ring { transform-origin: 44px 44px; animation: th-breathe 16s linear infinite; }
@@ -1774,7 +1787,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 }
 #todays-hide .th-list {
   list-style: none; display: flex; flex-wrap: wrap; justify-content: center;
-  gap: .4rem; margin: .7rem 0 0; padding: 0;
+  gap: .4rem; margin: 0 0 .8rem; padding: 0;
 }
 #todays-hide .th-list li { margin: 0; }
 #todays-hide .th-list button {
@@ -1803,8 +1816,9 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 #todays-hide .fine { margin: .45rem 0 0; }
 </style>
   <section id="todays-hide">
-    <h2>Today's Hide</h2>
-    <p class="lead">Breathe and look.</p>
+    <h2 class="th-kicker">Today's Hide</h2>
+    <p class="th-line" id="todaysHideLine"></p>
+    <ul class="th-list" id="todaysHideList" hidden></ul>
     <div class="th-stage" id="todaysHideStage">
       <div class="th-pan" id="todaysHidePan">
         <img id="todaysHideImg" width="1152" height="864" alt="Today's hide. Breathe and look.">
@@ -1813,7 +1827,6 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="th-glow" id="todaysHideGlow" hidden></div>
       <div class="th-found-ring" id="todaysHideFound" hidden></div>
     </div>
-    <ul class="th-list" id="todaysHideList" hidden></ul>
     <div class="th-breath" id="todaysHideBreath" aria-hidden="true">
       <svg viewBox="0 0 88 88">
         <defs>
@@ -1828,6 +1841,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       </svg>
       <div class="th-breath-lbl" id="todaysHideBreathLbl">In · 1</div>
     </div>
+    <p class="lead" id="todaysHideCue">Breathe and look.</p>
     <p class="th-tip" id="todaysHideTip">Pinch to look closer. Tap when you see it.</p>
     <p class="th-msg" id="todaysHideMsg" aria-live="polite"></p>
     <div class="th-row">

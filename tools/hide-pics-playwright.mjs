@@ -22,6 +22,57 @@ async function scrollHide(page) {
   });
   await sleep(120);
 }
+async function scrollSection(page) {
+  const loc = page.locator("#todays-hide");
+  await loc.scrollIntoViewIfNeeded();
+  await page.evaluate(() => {
+    const sec = document.getElementById("todays-hide");
+    if (!sec) return;
+    const navh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navh")) || 72;
+    const top = sec.getBoundingClientRect().top + (document.scrollingElement.scrollTop || window.scrollY) - navh - 8;
+    document.scrollingElement.scrollTop = Math.max(0, top);
+  });
+  await page.waitForFunction(() => {
+    const line = document.getElementById("todaysHideLine");
+    if (!line) return false;
+    const r = line.getBoundingClientRect();
+    return line.textContent.trim().length > 5 && r.top >= 0 && r.bottom <= (window.innerHeight + 20);
+  }, { timeout: 5000 }).catch(() => {});
+  await sleep(160);
+}
+async function layoutMetrics(page) {
+  return page.evaluate(() => {
+    const box = (id) => {
+      const el = document.getElementById(id);
+      if (!el || el.hidden) return null;
+      const r = el.getBoundingClientRect();
+      return { y: r.top, b: r.bottom, fs: parseFloat(getComputedStyle(el).fontSize) || 0, text: (el.textContent || "").trim() };
+    };
+    const line = box("todaysHideLine"), list = box("todaysHideList"), stage = box("todaysHideStage");
+    const breath = box("todaysHideBreath"), cue = box("todaysHideCue");
+    let maxFs = 0;
+    document.querySelectorAll("#todays-hide *").forEach((el) => {
+      const st = getComputedStyle(el);
+      if (st.display === "none" || st.visibility === "hidden") return;
+      const fs = parseFloat(st.fontSize);
+      if (fs > maxFs) maxFs = fs;
+    });
+    return { line, list, stage, breath, cue, maxFs };
+  });
+}
+async function assertLayout(page, label) {
+  const m = await layoutMetrics(page);
+  check(label + " line sits above the list", !!(m.line && m.list && m.line.b <= m.list.y + 2));
+  check(label + " list sits above the picture", !!(m.list && m.stage && m.list.b <= m.stage.y + 2));
+  check(label + " picture sits above the breath ring", !!(m.stage && m.breath && m.stage.b <= m.breath.y + 2));
+  check(label + " Breathe and look sits under the picture", !!(m.cue && m.stage && m.cue.y >= m.stage.b - 2));
+  check(label + " daily line is the largest text in the section", !!(m.line && m.line.fs >= m.maxFs - 0.5));
+  check(label + " shows the daily line", m.line && m.line.text === "Breathe still. The hidden reveal themselves to the calm.");
+  if (!(m.line && m.list && m.line.b <= m.list.y + 2 && m.list.b <= m.stage.y + 2)) {
+    console.log("debug layout", label, JSON.stringify(m));
+  }
+  return m;
+}
 function check(n, ok) { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); results.push({ n, ok: !!ok }); }
 
 async function tapNorm(page, img, nx, ny) {
@@ -51,6 +102,9 @@ await page.waitForFunction(() => {
 await scrollHide(page);
 
 check("five-item list is shown", true);
+await scrollSection(page);
+await assertLayout(page, "phone");
+await page.locator("#todays-hide").screenshot({ path: path.join(OUT, "layout-phone.png") });
 
 // Zoom via + button
 const panBefore = await page.evaluate(() => document.getElementById("todaysHidePan").style.transform || "");
@@ -174,6 +228,19 @@ if (!/A washer\./.test(legacyFound)) console.log("debug legacy", { legacyFound, 
 check("legacy picture: tapping the object finds it", /A washer\./.test(legacyFound));
 
 await page.screenshot({ path: path.join(OUT, "playwright-legacy-found.png") });
+
+const desk = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+await desk.goto(BASE + "/index.html", { waitUntil: "networkidle" });
+await desk.evaluate(() => window.ZabbadatHide.showDay("2026-11-24"));
+await desk.waitForFunction(() => {
+  const list = document.getElementById("todaysHideList");
+  return list && !list.hidden && list.querySelectorAll("button").length === 5;
+}, { timeout: 8000 });
+await scrollSection(desk);
+await assertLayout(desk, "desktop");
+await desk.locator("#todays-hide").screenshot({ path: path.join(OUT, "layout-desktop.png") });
+await desk.close();
+
 await browser.close();
 
 const ok = results.every((r) => r.ok);
