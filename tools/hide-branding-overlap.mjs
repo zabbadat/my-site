@@ -51,7 +51,8 @@ async function measure(page) {
     }
     const neu = [];
     for (const sel of [
-      "#todaysHideList", "#todaysHideZoomIn", "#todaysHideZoomOut",
+      "#todaysHideLine", "#todaysHideList", "#todaysHideCue",
+      "#todaysHideZoomIn", "#todaysHideZoomOut",
       "#todaysHideBreath", "#todaysHideHint", "#todaysHideReset",
       "#todaysHideShare", "#todaysHideMsg"
     ]) {

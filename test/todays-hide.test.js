@@ -79,12 +79,24 @@ check("#todays-hide sits after #plank-prompt and before the TUT section",
 const hideSection = html.slice(hideAt, pushAt);
 check("the hide section itself has no object name", !/washer/i.test(hideSection));
 check("section copy and breath cue are present",
-  /<h2>Today's Hide<\/h2>/.test(html) && /Breathe and look\./.test(html) &&
+  /<h2(?:\s[^>]*)?>Today's Hide<\/h2>/.test(html) && /Breathe and look\./.test(html) &&
   /Pinch to look closer\. Tap when you see it\./.test(html) &&
   /Same 4-count as the cooling box\./.test(html));
 check("list and zoom controls are in the hide section",
   html.includes('id="todaysHideList"') && html.includes('id="todaysHideZoomIn"') &&
   html.includes('id="todaysHideZoomOut"') && html.includes('id="todaysHideMarks"'));
+const hideChunk = html.slice(html.indexOf('id="todays-hide"'), html.indexOf('<section id="push">'));
+const at = (id) => hideChunk.indexOf(id);
+check("layout order is line, list, picture, then breath and the cue",
+  at('id="todaysHideLine"') > 0 &&
+  at('id="todaysHideLine"') < at('id="todaysHideList"') &&
+  at('id="todaysHideList"') < at('id="todaysHideStage"') &&
+  at('id="todaysHideStage"') < at('id="todaysHideBreath"') &&
+  at('id="todaysHideBreath"') < at('id="todaysHideCue"') &&
+  /id="todaysHideCue">Breathe and look\./.test(hideChunk));
+check("the daily line is styled as the largest text in the section",
+  /#todays-hide \.th-line \{[^}]*font-size: clamp\(1\.5rem/.test(html) &&
+  /h2\.th-kicker \{[^}]*font-size: \.7rem/.test(html));
 check("index.html loads hide-daily.js immediately after et-day.js",
   html.indexOf('src="/et-day.js"') > 0 &&
   html.indexOf('src="/et-day.js"') < html.indexOf('src="/hide-daily.js"') &&
@@ -151,6 +163,23 @@ check("SNAP_PX is a fingertip-sized 24-28 screen px", H.SNAP_PX >= 24 && H.SNAP_
 check("legacy single-item days still unpack through unpackDay",
   H.unpackDay(man.days["2026-11-23"]).length === 1 &&
   H.unpackDay(man.days["2026-11-23"])[0].name === "A washer.");
+
+const LINES = {
+  "2026-11-22": "Know the field. Know your breath. Then strike.",
+  "2026-11-23": "Know the field. Know your breath. Then strike.",
+  "2026-11-24": "Breathe still. The hidden reveal themselves to the calm.",
+  "2026-11-25": "Stay hard. One more breath. One more find.",
+  "2026-11-26": "Breathe big, look bold. All five are yours."
+};
+for (const [day, line] of Object.entries(LINES)) {
+  check(day + " has the exact daily line", man.days[day] && man.days[day].line === line);
+}
+check("dayLine falls back when a record has no line",
+  H.dayLine({}) === "Breathe and look." &&
+  H.dayLine({ line: "  " }) === "Breathe and look." &&
+  H.dayLine(man.days["2026-11-24"]) === LINES["2026-11-24"]);
+check("a later missing day falls back to the last picture and its line",
+  H.dayLine(H.pickDay(man, "2026-12-01").rec) === LINES["2026-11-26"]);
 
 const ok = R.every(Boolean);
 console.log((ok ? "OK" : "NOT OK") + "  " + R.filter(Boolean).length + " passed, " + (R.length - R.filter(Boolean).length) + " failed");
