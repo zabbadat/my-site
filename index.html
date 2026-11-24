@@ -1748,7 +1748,18 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 #todays-hide .th-list button:focus-visible { outline: none; border-color: rgba(198,255,0,.75); }
 #todays-hide .th-tip { margin: .55rem 0 0; color: var(--muted); font-size: .92rem; }
 #todays-hide .th-msg { margin: .35rem 0 0; color: var(--lime, #C6FF00); font-weight: 600; min-height: 1.2em; }
-#todays-hide .th-row { display: flex; justify-content: center; gap: .45rem; flex-wrap: wrap; margin-top: .65rem; }
+#todays-hide .th-row { display: flex; justify-content: center; gap: .45rem; flex-wrap: wrap; margin: .65rem auto .1rem; }
+#todays-hide .th-make { margin: 1rem 0 0; }
+#todays-hide .th-make .th-btn { font-size: .78rem; }
+#todays-hide .th-create { margin: .7rem auto 0; max-width: 24rem; }
+#todays-hide .th-create-copy { margin: 0 0 .55rem; color: var(--muted); font-size: .92rem; }
+#todays-hide .th-create .th-btn { display: inline-block; }
+#todays-hide .th-create input[type="file"] {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); border: 0;
+}
+#todays-hide .th-create-err { margin: .45rem 0 0; color: #ff8a8a; font-size: .9rem; font-weight: 600; }
+#todays-hide.th-custom .th-make { display: none; }
 #todays-hide .th-btn {
   font: inherit; font-weight: 600; font-size: .82rem; cursor: pointer;
   background: transparent; color: var(--muted);
@@ -1775,11 +1786,13 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       <div class="th-glow" id="todaysHideGlow" hidden></div>
       <div class="th-found-ring" id="todaysHideFound" hidden></div>
     </div>
-    <div class="th-row">
+    <div class="th-row th-controls" id="todaysHideControls">
       <button type="button" class="th-btn" id="todaysHideHint">Hint</button>
       <button type="button" class="th-btn" id="todaysHideZoomOut" aria-label="Zoom out">−</button>
       <button type="button" class="th-btn" id="todaysHideZoomIn" aria-label="Zoom in">+</button>
       <button type="button" class="th-btn" id="todaysHideReset" hidden>Reset view</button>
+      <button type="button" class="th-btn" id="todaysHideNew" hidden>New hide</button>
+      <button type="button" class="th-btn" id="todaysHideBack" hidden>Today's picture</button>
       <button type="button" class="th-share" id="todaysHideShare" hidden>Share</button>
     </div>
     <div class="th-breath" id="todaysHideBreath" aria-hidden="true">
@@ -1800,6 +1813,15 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="th-tip" id="todaysHideTip">Pinch to look closer. Tap when you see it.</p>
     <p class="th-msg" id="todaysHideMsg" aria-live="polite"></p>
     <p class="fine">Stop if you get dizzy. Same 4-count as the cooling box.</p>
+    <p class="th-make" id="todaysHideMakeWrap">
+      <button type="button" class="th-btn" id="todaysHideMake">Make your own</button>
+    </p>
+    <div class="th-create" id="todaysHideCreate" hidden>
+      <p class="th-create-copy">Pick a photo or take one. Five hides, on this device only.</p>
+      <label class="th-btn" for="todaysHideFile">Choose a photo</label>
+      <input type="file" id="todaysHideFile" accept="image/*">
+      <p class="th-create-err" id="todaysHideCreateErr" hidden></p>
+    </div>
   </section>
 <section id="push">
     <h2>TUTS &amp; PUSH up sets</h2>
@@ -2413,6 +2435,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
   <script src="/plank-session.js"></script>
   <script src="/et-day.js"></script>
   <script src="/hide-daily.js"></script>
+  <script src="/hide-create.js"></script>
   <script src="/cooling-box.js"></script>
   <script src="/plank-daily.js"></script>
   <script src="/daily-steps.js"></script>

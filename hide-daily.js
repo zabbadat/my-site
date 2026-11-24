@@ -216,6 +216,10 @@
   var _rollTimer = 0;
   var _bound = false;
   var _showDay = null;
+  var _playCustom = null;
+  var _isCustom = function () { return false; };
+  var _getPlayState = function () { return null; };
+  var _loadGen = 0;
 
   function mount(opts) {
     if (typeof document === "undefined") return;
@@ -242,6 +246,7 @@
 
     var items = [], selected = null, foundIds = {}, misses = {};
     var dayKey = "", looks = 0, solved = false;
+    var customMode = false, shareFile = null;
     var scale = 1, tx = 0, ty = 0;
     var pts = {}, tapX = 0, tapY = 0, tapOn = false, moved = false, pinching = false, lastDist = 0;
     var lastTapAt = 0, lastTapX = 0, lastTapY = 0, guessTimer = 0;
@@ -360,6 +365,7 @@
       });
     }
     function persist() {
+      if (customMode) return;
       var got = [], id;
       for (id in foundIds) if (Object.prototype.hasOwnProperty.call(foundIds, id) && foundIds[id]) got.push(id);
       writeFound(dayKey, { found: solved, got: got, looks: looks, at: Date.now() });
@@ -367,11 +373,13 @@
     function finishSolved() {
       solved = true;
       section.classList.add("th-found");
-      bumpStreak(dayKey);
+      if (!customMode) bumpStreak(dayKey);
       persist();
       var line = items.length > 1 ? "Found them all." : (items[0] && items[0].name ? items[0].name : "Found.");
-      var st = readStreak();
-      if (st && st.count > 0 && st.lastKey === dayKey) line += " Day " + st.count + ".";
+      if (!customMode) {
+        var st = readStreak();
+        if (st && st.count > 0 && st.lastKey === dayKey) line += " Day " + st.count + ".";
+      }
       setMsg(line);
       if (tip) tip.textContent = "Found.";
       if (shareBtn) shareBtn.hidden = false;
@@ -397,14 +405,14 @@
       pulseHint(it);
       setMsg("Look near there.");
     }
-    function guess(cx, cy) {
+    function guess(cx, cy, already) {
       if (solved) return;
       if (!selected) {
         if (items.length > 1) setMsg("Pick one from the list, then tap where it is.");
         return;
       }
       if (foundIds[selected.id]) return;
-      var n = normFromClient(cx, cy);
+      var n = already || normFromClient(cx, cy);
       if (!n) return;
       looks += 1;
       var cssW = img.offsetWidth, cssH = img.offsetHeight;
@@ -419,10 +427,24 @@
     function doShare() {
       if (!solved) return;
       var st = readStreak();
-      var text = shareText(looks, st && st.lastKey === dayKey ? st.count : 0);
+      var text = customMode
+        ? ("I made a hide on Zabbadat." + (looks > 0 ? " " + looks + (looks === 1 ? " look." : " looks.") : ""))
+        : shareText(looks, st && st.lastKey === dayKey ? st.count : 0);
       var url = shareUrl();
+      var payload = { title: "Today's Hide", text: text, url: url };
+      if (shareFile && navigator.share) {
+        var withFile = { title: payload.title, text: payload.text, url: payload.url, files: [shareFile] };
+        try {
+          if (!navigator.canShare || navigator.canShare(withFile)) {
+            navigator.share(withFile).catch(function () {
+              navigator.share(payload).catch(function () {});
+            });
+            return;
+          }
+        } catch (err) {}
+      }
       if (navigator.share) {
-        navigator.share({ title: "Today's Hide", text: text, url: url }).catch(function () {});
+        navigator.share(payload).catch(function () {});
         return;
       }
       try {
@@ -505,9 +527,10 @@
           } else {
             lastTapAt = now; lastTapX = cx; lastTapY = cy;
             if (guessTimer) window.clearTimeout(guessTimer);
+            var nTap = normFromClient(cx, cy);
             guessTimer = window.setTimeout(function () {
               guessTimer = 0;
-              guess(cx, cy);
+              guess(cx, cy, nTap);
             }, DBL_MS);
           }
         }
@@ -542,14 +565,19 @@
 
     function loadFor(now, forceKey) {
       var want = forceKey || teaserKey(now);
+      var gen = ++_loadGen;
       return fetch(opts.manifestUrl || MANIFEST_URL, { cache: "no-cache" }).then(function (res) {
         if (!res.ok) throw new Error("manifest");
         return res.json();
       }).then(function (man) {
+        if (gen !== _loadGen) return;
         var picked = pickDay(man, want);
         if (!picked) throw new Error("empty");
         var dayItems = unpackDay(picked.rec);
         if (!dayItems.length) throw new Error("pack");
+        customMode = false;
+        shareFile = null;
+        section.classList.remove("th-custom");
         if (lineEl) lineEl.textContent = dayLine(picked.rec);
         items = dayItems;
         selected = dayItems.length === 1 ? dayItems[0] : null;
@@ -590,7 +618,49 @@
       });
     }
 
+    function playCustom(spec) {
+      spec = spec || {};
+      _loadGen += 1;
+      var dayItems = (spec.items || []).map(function (it, i) {
+        return { x: +it.x, y: +it.y, r: +it.r, name: String(it.name || ""), id: it.id != null ? String(it.id) : String(i) };
+      }).filter(function (it) { return it.name && it.r > 0; });
+      if (!dayItems.length || !spec.src) return Promise.resolve();
+      customMode = true;
+      shareFile = spec.file || null;
+      section.classList.add("th-custom");
+      if (lineEl) lineEl.textContent = spec.line || LINE_FALLBACK;
+      items = dayItems;
+      selected = dayItems.length === 1 ? dayItems[0] : null;
+      foundIds = {};
+      misses = {};
+      dayKey = "custom";
+      looks = 0;
+      solved = false;
+      section.classList.remove("th-found");
+      clearMarks();
+      if (shareBtn) shareBtn.hidden = true;
+      setMsg("");
+      if (tip) tip.textContent = "Pick one, then tap where it is. Pinch to look closer.";
+      img.alt = "Your hide. Breathe and look.";
+      img.onload = function () { resetView(); };
+      img.src = spec.src;
+      renderList();
+      return Promise.resolve();
+    }
     _showDay = function (key, now) { return loadFor(now == null ? Date.now() : now, key); };
+    _playCustom = playCustom;
+    _isCustom = function () { return customMode; };
+    _getPlayState = function () {
+      return {
+        custom: customMode,
+        solved: solved,
+        dayKey: dayKey,
+        selected: selected ? selected.id : null,
+        items: items.map(function (it) {
+          return { id: it.id, name: it.name, x: it.x, y: it.y, r: it.r };
+        })
+      };
+    };
 
     if (opts.dayKey) loadFor(opts.now != null ? opts.now : Date.now(), opts.dayKey);
     else loadFor(opts.now != null ? opts.now : Date.now());
@@ -598,7 +668,7 @@
     function armRoll() {
       var wait = Math.max(250, nextRolloverMs(Date.now()) - Date.now() + 50);
       _rollTimer = window.setTimeout(function () {
-        if (!opts.dayKey) loadFor(Date.now());
+        if (!opts.dayKey && !customMode) loadFor(Date.now());
         armRoll();
       }, Math.min(wait, 6 * 3600 * 1000));
     }
@@ -616,7 +686,10 @@
     shareText: shareText, shareUrl: shareUrl,
     previousTeaserKey: previousTeaserKey, readFound: readFound, writeFound: writeFound,
     bumpStreak: bumpStreak, readStreak: readStreak, mount: mount,
-    showDay: function (key, now) { return _showDay ? _showDay(key, now) : Promise.resolve(); }
+    showDay: function (key, now) { return _showDay ? _showDay(key, now) : Promise.resolve(); },
+    playCustom: function (spec) { return _playCustom ? _playCustom(spec) : Promise.resolve(); },
+    isCustom: function () { return _isCustom(); },
+    getPlayState: function () { return _getPlayState(); }
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else {

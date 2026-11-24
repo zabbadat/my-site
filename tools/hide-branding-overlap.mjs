@@ -54,7 +54,9 @@ async function measure(page) {
       "#todaysHideLine", "#todaysHideList", "#todaysHideCue",
       "#todaysHideZoomIn", "#todaysHideZoomOut",
       "#todaysHideBreath", "#todaysHideHint", "#todaysHideReset",
-      "#todaysHideShare", "#todaysHideMsg"
+      "#todaysHideShare", "#todaysHideMsg",
+      "#todaysHideMake", "#todaysHideNew", "#todaysHideBack", "#todaysHideCreate",
+      "#todaysHideControls"
     ]) {
       const box = vis(document.querySelector(sel));
       if (box) neu.push(box);
