@@ -198,7 +198,9 @@ async function run(base, sc, y4m) {
     }
     // Outbound live track and recorded frames: same green-pixel rule, never the raw camera while PFP is on.
     if (["zlSelf", "match", "watch", "push", "plank", "tut", "squats"].includes(sc.surface)) {
-      const extra = await p.evaluate(async (id) => {
+      const recWrap = { push: "camWrap", plank: "plankWrap", tut: "tbCamWrap", zlSelf: "zmLiveSlot", match: "zmCamWrap", watch: "zmLiveSlot" }[sc.surface] || "";
+      const extra = await p.evaluate(async (opts) => {
+        const id = opts && opts.id;
         const GREEN = (d, i) => d[i + 1] > 180 && d[i] < 90 && d[i + 2] < 90;
         const countCanvas = (c) => { if (!c || !c.width) return 0; const d = c.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (GREEN(d, i)) n++; return n; };
         const countStream = async (stream, frames, ms) => {
@@ -239,7 +241,7 @@ async function run(base, sc, y4m) {
           outbound.yt = yt; outbound.frames += yt.frames; outbound.exposed += yt.exposed; outbound.pixels += yt.pixels;
           if (pfpOn && (yt.missing || !yt.frames)) outbound.missing = true;
         }
-        const rec = { frames: 0, exposed: 0, pixels: 0 };
+        const rec = { frames: 0, exposed: 0, pixels: 0, composed: 0, watermarked: 0 };
         if (Z && Z.recFrame && v) {
           const c = document.createElement("canvas");
           const until = performance.now() + 1200;
@@ -252,8 +254,38 @@ async function run(base, sc, y4m) {
             await new Promise((r) => setTimeout(r, 60));
           }
         }
+        // Also sample the Record & Share composite (watermarks + PFP) when rec.js is present.
+        const ZR = window.ZabRec, recId = opts && opts.recId;
+        if (ZR && ZR.paintFrame && recId && v) {
+          const c2 = document.createElement("canvas");
+          const placer = ZR.createWmPlacer ? ZR.createWmPlacer() : null;
+          const until2 = performance.now() + 800;
+          while (performance.now() < until2 && rec.composed < 12) {
+            if (v.videoWidth > 0) {
+              // Only composite once ZabPfp.recFrame has a covered still. lastHead alone is not
+              // enough: paintFrame then draws the raw camera under the opening logo, which is
+              // the existing pre-lock path and not a watermark test.
+              const covered = !!(Z && Z.recFrame && Z.recFrame(id));
+              if (!covered) { await new Promise((r) => setTimeout(r, 60)); continue; }
+              const k = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight));
+              c2.width = Math.round(v.videoWidth * k); c2.height = Math.round(v.videoHeight * k);
+              try { ZR.paintFrame({ id: recId, vid: v, cv: c2, x: c2.getContext("2d", { willReadFrequently: true }), placer: placer }, performance.now()); } catch (e) {}
+              const n = countCanvas(c2); rec.frames++; rec.composed++; if (n) { rec.exposed++; rec.pixels += n; }
+              if (ZR.wmCluster) {
+                const lay = ZR.wmCluster(c2.width, c2.height, "right");
+                const box = lay && (lay.cluster || lay.brand);
+                if (box) {
+                  const x = c2.getContext("2d"), d = x.getImageData(Math.max(0, box.x|0), Math.max(0, box.y|0), Math.max(1, box.w|0), Math.max(1, box.h|0)).data;
+                  let bright = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 160 && d[i+1] > 160 && d[i+2] > 160) bright++;
+                  if (bright > 8) rec.watermarked++;
+                }
+              }
+            }
+            await new Promise((r) => setTimeout(r, 60));
+          }
+        }
         return { outbound, rec };
-      }, vidId).catch((e) => ({ error: String(e && e.message || e) }));
+      }, { id: vidId, recId: recWrap }).catch((e) => ({ error: String(e && e.message || e) }));
       res.outbound = extra && extra.outbound || null;
       res.recProof = extra && extra.rec || null;
       res.outboundError = extra && extra.error || null;
