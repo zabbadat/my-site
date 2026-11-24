@@ -26,8 +26,9 @@ check("stop ends the run", !box.running());
 t += 20000; box.tick();
 check("stopped box does not count more cycles", box.getCycles() === 5);
 
-check("Start cooling box button and local counter are on the page",
-  /id="coolingStartBtn"/.test(html) && />Start cooling box</.test(html)
+check("Breathe solo and Breathe on camera buttons and the local counter are on the page",
+  /id="coolingSoloBtn"/.test(html) && />Breathe solo</.test(html)
+  && /id="coolingCamBtn"/.test(html) && />Breathe on camera</.test(html)
   && /id="coolingCycles"/.test(html) && /cooling-box.js/.test(html));
 check("Breath cycles is the third #miniDash stat and starts visible (not a signed-in dash)",
   /id="miniDashBreath"/.test(html) && /Breath cycles/.test(html)

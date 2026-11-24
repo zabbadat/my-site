@@ -6,8 +6,8 @@ const ET = require("../et-day.js");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const src = fs.readFileSync(path.join(__dirname, "..", "cooling-box.js"), "utf8");
 const R = [];
-const check = (n, ok) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); R.push(!!ok); };
-function mem() { const d = {}; return { getItem: (k) => (Object.prototype.hasOwnProperty.call(d, k) ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, d }; }
+const check = (n, ok, info) => { console.log(`${ok ? "PASS" : "FAIL"}  ${n}${!ok && info != null ? "  " + info : ""}`); R.push(!!ok); };
+function mem() { const d = {}; return { getItem: (k) => (Object.prototype.hasOwnProperty.call(d, k) ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; }, d }; }
 const T = (s) => Date.parse(s);
 // Eastern standard time in late Nov 2026 is UTC-5.
 const MON_NOON = T("2026-11-23T17:00:00Z");   // Mon 12:00 ET
@@ -139,9 +139,18 @@ check("gauge clamps to 1–10 minutes in 1-minute steps",
 // --- Mute + share (supporting hooks) ---
 {
   const s = mem();
-  check("sound starts unmuted", CB.isMuted(s) === false);
-  check("mute persists on the device", CB.setMuted(s, true) === true && CB.isMuted(s) === true && CB.setMuted(s, false) === false && CB.isMuted(s) === false);
+  s.setItem(CB.MUTE_KEY, "1");
+  check("isMuted ignores a leftover mute key so tones always play", CB.isMuted(s) === false);
+  CB.clearMutePref(s);
+  check("clearMutePref removes the leftover zabbadat-breath-mute key", s.getItem(CB.MUTE_KEY) == null);
+  const s2 = mem();
+  s2.setItem(CB.MUTE_KEY, "1");
+  CB.createBox({ store: s2, et: ET, now: () => MON_NOON });
+  check("createBox clears a leftover mute key on load", s2.getItem(CB.MUTE_KEY) == null);
 }
+check("Sound/mute button is gone from the cooling-box card",
+  !/id="coolingMuteBtn"/.test(html) && !/coolingMuteBtn/.test(html) && !/paintMute/.test(src)
+  && !/setMuted/.test(src) && /function phaseTone\(sideIndex\)/.test(src) && !/if \(isMuted/.test(src));
 {
   const p = CB.sharePayload({ streak: 3 }, { name: "Sitkari" });
   check("share card is streak plus level and links to #cooling-box",
@@ -172,20 +181,163 @@ check("Sitkari how-to text is unchanged",
   && /Bariboshi:<\/strong> both sides, one mandatory minute/.test(html));
 check("Today's Hide section and script are left in place",
   /id="todays-hide"/.test(html) && /hide-daily\.js/.test(html));
-check("cooling play UI has ring, goal, streak, gauge, mute and share",
+check("cooling play UI has ring, goal, streak, gauge and share, and no mute button",
   /id="coolingRing"/.test(html) && /id="coolingRingScale"/.test(html)
   && /id="coolingGoalFill"/.test(html) && /id="coolingGoalText"/.test(html)
   && /id="coolingStreak"/.test(html) && /id="coolingStreakDays"/.test(html)
-  && /id="coolingSessionMin"/.test(html) && /id="coolingMuteBtn"/.test(html)
+  && /id="coolingSessionMin"/.test(html) && !/id="coolingMuteBtn"/.test(html)
   && /id="coolingShareBtn"/.test(html) && /id="coolingNudge"/.test(html)
   && /id="coolingCeleb"/.test(html) && /id="coolingLevelBadge"/.test(html)
-  && /cursor:pointer/.test(html.slice(html.indexOf("id=\"coolingStartBtn\""), html.indexOf("id=\"coolingStartBtn\"") + 80)));
+  && /cursor:pointer/.test(html.slice(html.indexOf("id=\"coolingSoloBtn\""), html.indexOf("id=\"coolingSoloBtn\"") + 80)));
 check("mini dash has a compact streak badge beside Breath cycles",
   /id="miniDashStreak"/.test(html) && /class="pe-mini-streak"/.test(html)
   && html.indexOf("id=\"miniDashBreath\"") < html.indexOf("id=\"miniDashStreak\""));
 check("prefers-reduced-motion calms the cooling-box motion",
   /prefers-reduced-motion:reduce/.test(html) && /cooling-plus/.test(html));
 
-const bad = R.filter((x) => !x).length;
-console.log(`\n${R.length - bad} passed, ${bad} failed`);
-process.exit(bad ? 1 : 0);
+check("hold sides are Hold full (1) and Hold empty (3)", CB.isHoldSide(0) === false && CB.isHoldSide(1) === true && CB.isHoldSide(2) === false && CB.isHoldSide(3) === true);
+{
+  const inhale = CB.statusView({ running: true, side: "Inhale", sideIndex: 0, count: 3 });
+  const hold = CB.statusView({ running: true, side: "Hold full", sideIndex: 1, count: 2 });
+  const empty = CB.statusView({ running: true, side: "Hold empty", sideIndex: 3, count: 4 });
+  check("inhale/exhale keep the spoken prompt with the count", inhale.hold === false && inhale.status === "Inhale 3");
+  check("hold phases show the arcade count and keep the side name as status",
+    hold.hold === true && hold.status === "Hold full" && hold.count === "2" && hold.label === "Hold"
+    && empty.hold === true && empty.status === "Hold empty" && empty.count === "4");
+}
+check("arcade hold strip uses the shared arcade-num markup",
+  /id="coolingHoldStrip"/.test(html) && /class="arcade-strip"/.test(html)
+  && /id="coolingHoldCount"/.test(html) && /class="arcade-num"/.test(html)
+  && /id="coolingHoldLbl"/.test(html) && /class="arcade-lbl"/.test(html));
+check("Record preference is off by default and remembered locally",
+  CB.RECORD_KEY === "zabbadat-breath-record"
+  && (function () { const s = mem(); return CB.isRecordOn(s) === false && CB.setRecordOn(s, true) === true && CB.isRecordOn(s) === true && s.getItem(CB.RECORD_KEY) === "1"; })());
+check("Proof of Sitkari summary leads the end-of-session line when the camera ran",
+  CB.summaryLine({ rounds: 18, level: { name: "Coolbox" }, streak: { streak: 3 } }, true)
+    === "Proof of Sitkari · 18 rounds · Coolbox · 3-day streak."
+  && CB.summaryLine({ rounds: 2 }, false) === "2 rounds.");
+check("cooling camera markup and caption are in the card, Record toggle is present",
+  /id="coolingWrap"/.test(html) && /id="coolingVid"/.test(html)
+  && /id="coolingProofCaption"/.test(html) && /Proof of Sitkari/.test(html)
+  && /id="coolingRecBtn"/.test(html) && /data-rec="coolingWrap"/.test(html));
+check("cooling-box.js opens the camera only through the shared host constraints",
+  /getUserMedia\(H\.CAM_CONSTRAINTS\)/.test(src) && /ZabPfp\.sitkariFrame/.test(src)
+  && !/camFs\(/.test(src));
+
+check("two equal start buttons sit under the ring, Record lives only in the camera column",
+  /id="coolingSoloBtn"/.test(html) && /id="coolingCamBtn"/.test(html)
+  && /id="coolingStartRow"/.test(html) && /id="coolingCamCol"/.test(html)
+  && html.indexOf('id="coolingRecBtn"') > html.indexOf('id="coolingCamBtn"')
+  && html.indexOf('id="coolingRecBtn"') < html.indexOf('id="coolingShareBtn"')
+  && /Breathe solo/.test(html) && /Breathe on camera/.test(html)
+  && !/id="coolingStartBtn"/.test(html));
+check("unselected start mode uses the dark ghost treatment, last-used keeps the primary fill",
+  /#coolingSoloBtn\.btn\.ghost,#coolingCamBtn\.btn\.ghost/.test(html)
+  || /#coolingCamBtn\.btn\.ghost,#coolingSoloBtn\.btn\.ghost/.test(html));
+
+check("last-used mode is remembered locally and defaults to solo",
+  CB.MODE_KEY === "zabbadat-breath-mode"
+  && (function () { const s = mem(); return CB.getMode(s) === "solo" && CB.setMode(s, "camera") === "camera" && CB.getMode(s) === "camera" && CB.setMode(s, "solo") === "solo"; })());
+check("close-up hint is the exact camera-only line, above the video and not over the caption",
+  CB.CLOSE_HINT === "Sit up close so your mouth and chin show."
+  && /id="coolingCloseHint"/.test(html)
+  && html.indexOf('id="coolingCloseHint"') < html.indexOf('id="coolingVid"')
+  && html.indexOf('id="coolingVid"') < html.indexOf('id="coolingProofCaption"'));
+check("camera intro names sitting up close; solo intro does not",
+  CB.INTRO_LINE === "Sitkari time. Sit up close so your mouth shows, then breathe in through your teeth and out through your nose."
+  && CB.INTRO_SOLO === "Sitkari time. Breathe in through your teeth and out through your nose."
+  && !/Sit up close/.test(CB.INTRO_SOLO));
+check("alignment script is shared: intro, sit-tall line, then One. Two. Three. Breathe.",
+  CB.ALIGN_LINE === "Sit tall. Shoulders down and soft. Relax your jaw."
+  && CB.ALIGN_COUNTS.join("|") === "One.|Two.|Three.|Breathe."
+  && CB.alignmentScript("camera").join("|") === [CB.INTRO_LINE, CB.ALIGN_LINE].concat(CB.ALIGN_COUNTS).join("|")
+  && CB.alignmentScript("solo").join("|") === [CB.INTRO_SOLO, CB.ALIGN_LINE].concat(CB.ALIGN_COUNTS).join("|"));
+check("solo start never opens the camera; only camera mode calls getUserMedia",
+  /if \(mode === "camera"\)/.test(src) && /startCoolingCam\(\)/.test(src)
+  && /getUserMedia\(H\.CAM_CONSTRAINTS\)/.test(src));
+check("alignment countdown reuses the breath-ring, not arcade-num; holds stay arcade",
+  /id="coolingAlignRing"/.test(html) && /class="cooling-ring-wrap" id="coolingAlignRing"/.test(html)
+  && /id="coolingAlignScale"/.test(html) && /class="cooling-ring-scale"/.test(html)
+  && /id="coolingAlignCount"/.test(html)
+  && !/id="coolingAlignRing"[\s\S]{0,500}arcade-num/.test(html)
+  && /id="coolingHoldStrip"/.test(html) && /class="arcade-strip" id="coolingHoldStrip"/.test(html)
+  && /class="arcade-num" id="coolingHoldCount"/.test(html));
+{
+  const sHead = { x: 320, y: 164.5, r: 53.1 };
+  const pos = CB.alignRingPos(sHead, 640, 480, 96);
+  const mouth = CB.mouthChinBox(sHead);
+  const ringBox = { x: pos.x - pos.r, y: pos.y - pos.r, w: pos.r * 2, h: pos.r * 2 };
+  const logo = { x: sHead.x - sHead.r, y: sHead.y - sHead.r, w: sHead.r * 2, h: sHead.r * 2 };
+  check("align ring sits off the mouth, chin, and logo boxes",
+    !!pos && CB.boxesOverlap(ringBox, mouth) === 0 && CB.boxesOverlap(ringBox, logo) === 0 && pos.y > sHead.y,
+    JSON.stringify({ pos, mouth }));
+}
+
+function runRewards(store, rounds) {
+  let now = MON_NOON;
+  const box = CB.createBox({ store, et: ET, now: () => now });
+  box.start();
+  for (let i = 0; i < rounds; i++) { now += 16000; box.tick(); }
+  box.stop();
+  return {
+    cycles: CB.getCycles(store),
+    streak: CB.streakStatus(store, ET, now).streak,
+    today: CB.streakStatus(store, ET, now).todayCount,
+    level: (CB.levelFor(CB.getCycles(store)) || {}).name || "",
+    combo: (CB.comboFor(rounds) || {}).name || "",
+    goal: CB.roundsForMinutes(CB.getSessionMinutes(store))
+  };
+}
+{
+  const a = runRewards(mem(), 4), b = runRewards(mem(), 4);
+  check("solo and camera modes award identical cycles, streak, combos, levels, daily goal and gauge",
+    JSON.stringify(a) === JSON.stringify(b) && a.cycles === 4 && a.streak === 1 && a.combo === "Bariboshi minute");
+  check("no ZAB awards were added for breath", !/awardZab|zab-earn/.test(src));
+}
+
+(async () => {
+  const spoken = [];
+  let t = 0, breathed = false, counts = [];
+  const align = CB.createAlign({
+    intro: CB.INTRO_SOLO,
+    now: () => t,
+    wait: (ms) => { t += ms; return Promise.resolve(); },
+    speak: (line) => { spoken.push(line); return Promise.resolve(); },
+    onCount: (n) => { if (n) counts.push(n); },
+    onBreathe: () => { breathed = true; }
+  });
+  const ok = await align.run();
+  const store = mem();
+  check("alignment speaks the exact solo script in order and breathes last",
+    ok === true && spoken.join("|") === CB.alignmentScript("solo").join("|")
+    && counts.join(",") === "1,2,3" && breathed === true);
+  check("no cycle is counted before Breathe", CB.getCycles(store) === 0 && breathed === true);
+
+  const spoken2 = [];
+  let breathed2 = false, t2 = 0, mid;
+  mid = CB.createAlign({
+    now: () => t2,
+    wait: (ms) => { t2 += ms; return Promise.resolve(); },
+    speak: (line) => { spoken2.push(line); if (spoken2.length === 2) mid.cancel(); return Promise.resolve(); },
+    onBreathe: () => { breathed2 = true; }
+  });
+  const ok2 = await mid.run();
+  check("Stop during alignment cancels speech and never starts a cycle",
+    ok2 === false && breathed2 === false && spoken2.indexOf("Breathe.") < 0);
+
+  const spokenCam = [];
+  const camAlign = CB.createAlign({
+    intro: CB.INTRO_LINE,
+    now: () => 0,
+    wait: () => Promise.resolve(),
+    speak: (line) => { spokenCam.push(line); return Promise.resolve(); },
+    onBreathe: () => {}
+  });
+  await camAlign.run();
+  check("camera alignment uses the close-up intro, then the shared sit-tall count",
+    spokenCam.join("|") === CB.alignmentScript("camera").join("|"));
+
+  const bad = R.filter((x) => !x).length;
+  console.log(`\n${R.length - bad} passed, ${bad} failed`);
+  process.exit(bad ? 1 : 0);
+})().catch((e) => { console.log("FAIL harness", e && e.stack || e); process.exit(1); });

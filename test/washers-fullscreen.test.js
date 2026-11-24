@@ -30,7 +30,7 @@ check("Go live enters CSS .cam-fs (no Fullscreen API required)", html.includes("
 check("stop live / stop watching / leave match also exit full screen", html.includes("function zlCastStop") && html.includes("WashersFs.exitCast") && /function zlStop\(\)[\s\S]{0,500}exitWatch/.test(html) && html.includes("WashersFs.exitAll"));
 check("split-screen full screen keeps both camera columns", /#zlStage\.cam-fs .zl-tiles\{[^}]*grid-template-columns:1fr 1fr/.test(html));
 check("single and split FS reuse the same .cam-fs fixed column as other cameras", /#zmGame\.cam-fs,#zmLiveSlot\.cam-fs,#zmCamBox\.cam-fs,#zlStage\.cam-fs\{[^}]*position:fixed/.test(html) && /flex-direction:column/.test(html));
-check("production OPEN_IDS is unchanged (registerCam only adds test cameras)", /var OPEN_IDS = \{ camVid: 1, plankVid: 1, tbVid: 1, sqVid: 1, zlSelf: 1, zmCamVid: 1 \};/.test(pfp));
+check("production OPEN_IDS is unchanged (registerCam only adds test cameras)", /var OPEN_IDS = \{ camVid: 1, plankVid: 1, tbVid: 1, sqVid: 1, zlSelf: 1, zmCamVid: 1, coolingVid: 1 \};/.test(pfp));
 check("pfp-proof is the existing runner, extended with fs states like mirror-21", proof.includes('surface: "mirror21"') && proof.includes("sc.fs") && proof.includes("WashersFs") && !/new proof|proof framework/i.test(proof));
 check("never reintroduce openMask or a rec.js / pfp full-frame dark hood", !/\bopenMask\b/.test(html+pfp) && !/full-frame dark/.test(fs.readFileSync(path.join(__dirname, "..", "rec.js"), "utf8")) && !/coverBack blanket/.test(pfp));
 check("paint writes score + clock and never a steps field", (function () {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <!-- PFP fail-safe (Nov 16): with the profile-logo switch on, camera videos are never shown directly - hidden from the first
        paint, before any camera opens; pfp.js shows only frames that already carry the logo (a canvas in the video's place). -->
-  <style id="pfpShieldCss">html.zab-pfp-shield video#camVid,html.zab-pfp-shield video#plankVid,html.zab-pfp-shield video#tbVid,html.zab-pfp-shield video#sqVid,html.zab-pfp-shield video#zlSelf,html.zab-pfp-shield video#zmCamVid{opacity:0!important}html.zab-pfp-shield canvas.pfp-shield{position:absolute;z-index:1;pointer-events:none}</style>
+  <style id="pfpShieldCss">html.zab-pfp-shield video#camVid,html.zab-pfp-shield video#plankVid,html.zab-pfp-shield video#tbVid,html.zab-pfp-shield video#sqVid,html.zab-pfp-shield video#zlSelf,html.zab-pfp-shield video#zmCamVid,html.zab-pfp-shield video#coolingVid{opacity:0!important}html.zab-pfp-shield canvas.pfp-shield{position:absolute;z-index:1;pointer-events:none}</style>
   <script>try { if (localStorage.getItem("zabPfpOn") !== "0") document.documentElement.classList.add("zab-pfp-shield"); } catch (e) { try { document.documentElement.classList.add("zab-pfp-shield"); } catch (e2) {} }</script>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-273E209E9K"></script>
@@ -908,7 +908,7 @@ h2 em,h1 em,.tut-hero h2 em,.price{color:var(--pink-2)!important}
 .btn:not(.ghost):not(.danger),.walk-bubble,.zt-send-tab{background:var(--grad)!important;color:#0e1412!important;font-weight:700;box-shadow:0 4px 18px rgba(255,46,147,.25)}
 .sign-gate{position:fixed;inset:0;z-index:1000;background:rgba(5,8,7,.72);display:flex;align-items:center;justify-content:center;padding:1rem}.sign-gate-box{max-width:22rem;width:100%;background:#0e1412;border:1px solid #ff2e93;border-radius:16px;padding:1.2rem;color:#eaffd0;box-shadow:0 0 0 1px #b6ff3b inset}.sign-gate-box h2{margin:0 0 .4rem;color:#b6ff3b}.sign-gate-box .row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
 .btn.ghost{border:1px solid transparent!important;background:var(--grad)!important;color:#0e1412!important;font-weight:700;box-shadow:0 4px 18px rgba(255,46,147,.25)}
-/* Keep existing ghost treatment on brand sign-in, scoring keys, camera overlay, and selected-state toggles. */#signInXBtn.btn.ghost,.btn.ghost.rec-btn,#camFsBtn,#camStopBtn,#tbCam,.btn.ghost.cam-fs-exit,.btn.ghost[data-points],.btn.ghost[data-zm],#wbSize2,#wbSize4,#wbTeamA,#wbTeamB,#boardAllBtn.btn.ghost,#boardTonightBtn.btn.ghost,#coolingMuteBtn,#coolingShareBtn{background:linear-gradient(#0e1412,#0e1412) padding-box,var(--grad) border-box!important;color:var(--lime-2)!important;font-weight:600;box-shadow:none}
+/* Keep existing ghost treatment on brand sign-in, scoring keys, camera overlay, and selected-state toggles. */#signInXBtn.btn.ghost,.btn.ghost.rec-btn,#camFsBtn,#camStopBtn,#tbCam,.btn.ghost.cam-fs-exit,.btn.ghost[data-points],.btn.ghost[data-zm],#wbSize2,#wbSize4,#wbTeamA,#wbTeamB,#boardAllBtn.btn.ghost,#boardTonightBtn.btn.ghost,#coolingShareBtn,#coolingRecBtn,#coolingSoloBtn.btn.ghost,#coolingCamBtn.btn.ghost{background:linear-gradient(#0e1412,#0e1412) padding-box,var(--grad) border-box!important;color:var(--lime-2)!important;font-weight:600;box-shadow:none}
 :where(a):focus-visible,button:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--pink-2)!important;outline-offset:2px}
 .social-btn:not([data-brand]){border-color:rgba(198,255,0,.4)}
 .zt-badge .zt-name{display:inline-block;max-width:7.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
@@ -1576,10 +1576,10 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="fine">Sit upright. Stop if you get dizzy. This is a settling drill before a Bariboshi, not a medical treatment.</p>
     <style id="coolingBoxCss">
 #coolingPlay{position:relative}
-#coolingStartBtn,#coolingMuteBtn,#coolingShareBtn{cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#coolingSoloBtn,#coolingCamBtn,#coolingStopBtn,#coolingShareBtn,#coolingRecBtn{cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .cooling-nudge{margin:0 0 .85rem;padding:.55rem .7rem;border-radius:10px;border:1px solid rgba(198,255,0,.28);background:rgba(198,255,0,.06);color:var(--text,#eef4f1);font-weight:700;font-size:.95rem}
 .cooling-nudge[hidden],.cooling-celeb[hidden],.cooling-summary[hidden],.cooling-streak[hidden],.cooling-level[hidden]{display:none}
-.cooling-stage{display:flex;flex-direction:column;align-items:center;text-align:center}
+.cooling-stage{display:flex;flex-direction:column;align-items:center;text-align:center;position:relative}
 .cooling-ring-wrap{position:relative;width:168px;height:168px;margin:.15rem auto .35rem}
 .cooling-ring-wrap>svg{display:block;width:168px;height:168px}
 .cooling-ring-track{stroke:rgba(198,255,0,.16)}
@@ -1604,6 +1604,12 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 .cooling-gauge #coolingSessionLabel{justify-self:end}
 .cooling-gauge input[type=range]{grid-column:1/-1;width:100%;accent-color:#C6FF00}
 .cooling-actions{gap:.5rem;flex-wrap:wrap}
+.cooling-start-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;align-items:start;width:100%;margin:.55rem 0 0}
+.cooling-start-row[hidden],#coolingStopBtn[hidden]{display:none}
+#coolingSoloBtn,#coolingCamBtn,#coolingStopBtn{min-height:52px;width:100%;font-size:1.05rem;font-weight:800;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.cooling-cam-col{display:flex;flex-direction:column;gap:.4rem;align-items:stretch;min-width:0}
+.cooling-cam-col #coolingRecBtn{width:100%}
+#coolingStopBtn{margin:.55rem 0 0;width:100%}
 .cooling-plus{position:fixed;z-index:40;margin:0;pointer-events:none;font-weight:800;color:#C6FF00;text-shadow:0 0 12px rgba(198,255,0,.65);transform:translate(-50%,-50%)}
 .cooling-plus.is-fly{animation:cooling-fly .75s ease-out forwards}
 .cooling-plus.is-fade,.cooling-plus.is-calm{animation:cooling-fade .6s ease-out forwards}
@@ -1611,10 +1617,26 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 @keyframes cooling-fade{to{opacity:0}}
 .cooling-sparkle{position:absolute;inset:16%;border-radius:50%;pointer-events:none;background:radial-gradient(circle,rgba(198,255,0,.55),rgba(198,255,0,0) 70%);animation:cooling-pop .55s ease-out forwards}
 @keyframes cooling-pop{from{transform:scale(.45);opacity:.9}to{transform:scale(1.35);opacity:0}}
+#coolingHoldStrip[hidden]{display:none}
+#coolingWrap[hidden]{display:none}
+#coolingWrap{margin:.55rem auto 0;max-width:22rem;position:relative;width:100%}
+#coolingStage{position:relative}
+#coolingProofCaption{margin:.35rem 0 0;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#9aada4);font-weight:700;text-align:center}
+#coolingProofCaption[hidden]{display:none}
+#coolingCloseHint{margin:0 0 .35rem;padding:.4rem .55rem;border-radius:10px;border:1px solid rgba(198,255,0,.28);background:rgba(198,255,0,.08);color:var(--text,#eef4f1);font-weight:700;font-size:.88rem;text-align:center}
+#coolingCloseHint[hidden]{display:none}
+#coolingCloseHint.is-fade{animation:cooling-fade .6s ease-out forwards}
+#coolingCamNote{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+#coolingAlignRing{position:absolute;left:0;top:0;width:96px;height:96px;margin:0;z-index:2;pointer-events:none;transform:translate(-50%,-50%)}
+#coolingAlignRing[hidden]{display:none}
+#coolingAlignRing>svg{display:block;width:96px;height:96px}
+#coolingAlignCount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;margin:0;font-weight:800;font-size:1.55rem;line-height:1;color:#C6FF00;pointer-events:none}
+#coolingStage{overflow:hidden}
 @media (prefers-reduced-motion:reduce){
-  .cooling-plus,.cooling-sparkle,.cooling-celeb{animation:none !important}
+  .cooling-plus,.cooling-sparkle,.cooling-celeb,#coolingCloseHint{animation:none !important}
   .cooling-plus{opacity:.85}
-  .cooling-ring-scale,.cooling-goal-fill{transition:opacity .2s linear,transform .2s linear,stroke-dashoffset .2s linear}
+  .cooling-ring-scale,.cooling-goal-fill,#coolingAlignRing .cooling-ring-scale{transition:opacity .2s linear,transform .2s linear,stroke-dashoffset .2s linear}
+  #coolingHoldStrip,#coolingHoldStrip *{animation:none !important;transition:none !important}
 }
     </style>
     <div class="card" id="coolingPlay" style="margin-top:1.15rem">
@@ -1637,16 +1659,46 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
           </div>
         </div>
         <p class="lead" id="coolingStatus">Start a 16-second 4-count cycle.</p>
+        <div class="arcade-strip" id="coolingHoldStrip" hidden>
+          <div class="arcade-cell">
+            <span class="arcade-num" id="coolingHoldCount"></span>
+            <span class="arcade-lbl" id="coolingHoldLbl">Hold</span>
+          </div>
+        </div>
+        <div id="coolingWrap" hidden>
+          <p class="cooling-close-hint" id="coolingCloseHint" hidden>Sit up close so your mouth and chin show.</p>
+          <div id="coolingStage" style="position:relative">
+            <video id="coolingVid" autoplay playsinline muted style="width:100%;border-radius:14px 14px 0 0;background:#101816;transform:scaleX(-1);display:block"></video>
+          </div>
+          <p class="cooling-proof-caption" id="coolingProofCaption" hidden>Proof of Sitkari</p>
+        </div>
+        <div class="cooling-ring-wrap" id="coolingAlignRing" hidden aria-hidden="true">
+          <svg viewBox="0 0 120 120" width="96" height="96" focusable="false">
+            <circle class="cooling-ring-track" cx="60" cy="60" r="44" fill="none" stroke-width="2.2"/>
+            <g id="coolingAlignScale" class="cooling-ring-scale">
+              <circle class="cooling-ring-glow" cx="60" cy="60" r="44" fill="none" stroke-width="8"/>
+              <circle class="cooling-ring-line" cx="60" cy="60" r="44" fill="none" stroke-width="3"/>
+            </g>
+          </svg>
+          <span id="coolingAlignCount"></span>
+        </div>
         <p class="cooling-celeb" id="coolingCeleb" hidden></p>
         <p class="cooling-summary" id="coolingSummary" hidden></p>
+        <div class="cooling-start-row" id="coolingStartRow">
+          <button class="btn" id="coolingSoloBtn" type="button" style="cursor:pointer">Breathe solo</button>
+          <div class="cooling-cam-col" id="coolingCamCol">
+            <button class="btn ghost" id="coolingCamBtn" type="button" style="cursor:pointer">Breathe on camera</button>
+            <button class="btn ghost rec-btn" id="coolingRecBtn" type="button" data-rec="coolingWrap" hidden aria-pressed="false" style="cursor:pointer"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button>
+          </div>
+        </div>
+        <button class="btn" id="coolingStopBtn" type="button" hidden style="cursor:pointer">Stop cooling box</button>
       </div>
       <p class="note">All-time on this phone: <strong id="coolingCycles">0</strong> breath cycles. <span class="cooling-level" id="coolingLevelBadge" hidden></span></p>
       <p class="cooling-streak" id="coolingStreak" hidden><span class="cooling-flame" aria-hidden="true"></span><b id="coolingStreakDays">0</b> day streak</p>
       <label class="cooling-gauge" for="coolingSessionMin">Session <input id="coolingSessionMin" type="range" min="1" max="10" step="1" value="5"> <span id="coolingSessionLabel">5 min · 18 rounds</span></label>
       <div class="row cooling-actions">
-        <button class="btn" id="coolingStartBtn" type="button" style="cursor:pointer">Start cooling box</button>
-        <button class="btn ghost" id="coolingMuteBtn" type="button" aria-pressed="false">Sound on</button>
         <button class="btn ghost" id="coolingShareBtn" type="button">Share</button>
+        <p id="coolingCamNote" hidden></p>
       </div>
     </div>
   </section>
@@ -4191,10 +4243,14 @@ function attachCam(vid, stream) {
   vid.muted = true;
   return vid.play ? Promise.resolve(vid.play()) : Promise.resolve();
 }
+function stopCoolingCamIfAny() {
+  try { if (window.ZabbadatCoolingBox && typeof window.ZabbadatCoolingBox.stopCam === "function") window.ZabbadatCoolingBox.stopCam(); } catch (e) {}
+}
 async function openCam() {
   const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
   if (!native) { // browser: unchanged (dffac32)
     if (camOn && poseLoopOn) return true; // already running: never a second stream or loop
+    try { if (typeof stopCoolingCamIfAny === "function") stopCoolingCamIfAny(); } catch (e) {}
     const my = openCam.seq = (openCam.seq || 0) + 1, current = () => my === openCam.seq; // each openCam / stopCam bumps it: a superseded open (double tap, Stop camera while opening) drops its own stream, never the newer one
     if (camWake) camWake.start().catch(() => {});
     let stream = null;
@@ -4240,6 +4296,7 @@ async function openCam() {
     }
   }
   if (camOn && poseLoopOn) return true; // already running: never a second stream or loop
+  try { if (typeof stopCoolingCamIfAny === "function") stopCoolingCamIfAny(); } catch (e) {}
   const my = openCam.seq = (openCam.seq || 0) + 1, current = () => my === openCam.seq; // each openCam / stopCam bumps it: a superseded open (double tap, Stop camera while opening) drops its own stream, never the newer one
   if (camWake) camWake.start().catch(() => {});
   let stream = null;
@@ -4533,6 +4590,7 @@ function newPlankHold() {
 }
 async function startPlankCam() {
   if (plankLoop || plankStarting) return; // idempotent: a running or starting camera ignores the tap
+  try { if (typeof stopCoolingCamIfAny === "function") stopCoolingCamIfAny(); } catch (e) {}
   if (!requireSignIn("plank", () => startPlankCam(), { practice: true })) return;
   const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
   if (plankWake) plankWake.start().catch(() => {}); // inside the tap, before any await or timer
@@ -4681,7 +4739,7 @@ window.ZabSquatHost = {
   ensurePose: () => ensurePushPose(), // iOS app: Apple Vision (knee3D); everywhere else MoveNet, same as push-ups
   attachCam, stopCamTracks, camErrorText, isNativeApp, CAM_CONSTRAINTS,
   requireSignIn: (f, fn, o) => requireSignIn(f, fn, o), unlockGetSet: () => unlockGetSet(),
-  stopOtherCams: () => { try { if (camOn) stopCam(); if (pushStarting) cancelPushStart(); if (plankLoop) stopPlankCam(); if (plankStarting) cancelPlankStart(); } catch (e) {} },
+  stopOtherCams: () => { try { if (camOn) stopCam(); if (pushStarting) cancelPushStart(); if (plankLoop) stopPlankCam(); if (plankStarting) cancelPlankStart(); if (typeof stopCoolingCamIfAny === "function") stopCoolingCamIfAny(); } catch (e) {} },
   camFs: (id, on) => { if (typeof camFs === "function") camFs(id, on); },
   sessionPlan: (k) => sessionPlan(k), sessionCommit: (k) => sessionCommit(k), sessionTouch: () => sessionTouch(),
   wake: makeWake("sqStatus"),
@@ -4689,6 +4747,15 @@ window.ZabSquatHost = {
   playerName: () => { const typed = ($("player").value || "").trim().slice(0, 20); return currentUser ? (typed || displayNameOf(currentUser)) : (typed || "Player"); },
   save: async () => { throw new Error("Squat board is not connected"); }, // replaced once Firebase loads (below)
   award: (id) => awardZab("squats", id), zabNote: (r) => zabNote(r), zabRing: (el) => zabRing(el)
+};
+// Cooling box camera: same shared helpers as squat-page.js (CAM_CONSTRAINTS, attachCam, stopCamTracks).
+// Reuses the shared camera helpers, no sign-in, no camFs — the preview stays in the card.
+window.ZabCoolingHost = {
+  ensurePose: () => ensurePushPose(),
+  attachCam, stopCamTracks, camErrorText, isNativeApp, CAM_CONSTRAINTS,
+  unlock: () => { if (typeof unlockGetSet === "function") unlockGetSet(); },
+  stopOtherCams: () => { try { if (camOn) stopCam(); if (pushStarting) cancelPushStart(); if (plankLoop) stopPlankCam(); if (plankStarting) cancelPlankStart(); } catch (e) {} },
+  wake: makeWake("coolingCamNote")
 };
 // ---- Daily steps (shared module daily-steps.js; native plugin in the app, live walk on web) ----
 let saveRemoteDaily = async () => { throw new Error("Daily board is not connected"); };
@@ -5667,6 +5734,7 @@ function tbGoLive(r) {
   tbStat(tbStream ? "Go! Keep repping." : "Camera is off: turn it on to stay in the battle.");
 }
 async function tbCamOn(placed) {
+  try { if (typeof stopCoolingCamIfAny === "function") stopCoolingCamIfAny(); } catch (e) {}
   const native = typeof window !== "undefined" && !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()); // app only: camera first (iOS prompt); browsers keep the original order
   const my = tbCamOn.seq = (tbCamOn.seq || 0) + 1, current = () => my === tbCamOn.seq; // each tap / tbCamOff bumps it: a double tap or a stop while opening never leaves a second stream
   let stream = null;

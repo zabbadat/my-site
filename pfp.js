@@ -264,6 +264,49 @@
     else r = Math.max(r, Math.hypot(cx - headPt.x, cy - headPt.y) + faceR);
     return { x: cx, y: cy, r: r, sw: L };
   }
+  // Cooling box only: the logo covers the nose and everything above (eyes, forehead). Mouth and chin stay visible.
+  // Same tracking as the other modes; only this vertical placement differs. No change to headCircle / plankHead.
+  function sitkariHead(kps, frameW, frameH) {
+    var face = faceCircle(kps), by, nose, le, re, d, w, cx, topY, mouthY, downX, downY, len, pts, i, px, py, dx, dist, r, cy, pad;
+    if (!face) return null;
+    by = kps && kps.length ? byName(kps) : {};
+    function g(n, idx) { return by[n] || (kps[idx] && !kps[idx].name ? kps[idx] : null); }
+    nose = g("nose", 0); le = g("left_eye", 1); re = g("right_eye", 2);
+    w = face.w || (face.r * 2 / P.padK);
+    cx = face.x;
+    downX = 0; downY = 1;
+    if (ok(nose)) {
+      dx = nose.x - face.x; dist = nose.y - face.y;
+      len = Math.hypot(dx, dist);
+      if (len > 2) { downX = dx / len; downY = dist / len; }
+    }
+    // Bottom of the logo is just under the nose tip, along the face-down axis. Mouth and chin stay below this line.
+    if (ok(nose)) {
+      d = (ok(le) && ok(re)) ? Math.hypot(((le.x + re.x) / 2) - nose.x, ((le.y + re.y) / 2) - nose.y) : w * 0.25;
+      mouthY = { x: nose.x + downX * Math.max(w * 0.10, d * 0.40), y: nose.y + downY * Math.max(w * 0.10, d * 0.40) };
+    } else {
+      mouthY = { x: face.x + downX * w * 0.18, y: face.y + downY * w * 0.18 };
+    }
+    topY = { x: face.x - downX * w * P.topUp, y: face.y - downY * w * P.topUp };
+    pts = (face.pts || []).concat([topY, { x: face.x, y: face.y }]);
+    if (ok(nose)) pts.push({ x: nose.x, y: nose.y });
+    // Circle tangent to the just-below-nose line (center is r along -down) covering forehead, eyes, and the nose.
+    r = P.minR; pad = w * 0.08;
+    for (i = 0; i < pts.length; i++) {
+      px = pts[i].x; py = pts[i].y;
+      // Skip points clearly below the mouth line — they must stay uncovered.
+      if ((px - mouthY.x) * downX + (py - mouthY.y) * downY > 0) continue;
+      dx = px - mouthY.x; dist = py - mouthY.y;
+      var across = dx * downX + dist * downY; // negative or 0 if above the line
+      var perp2 = dx * dx + dist * dist - across * across;
+      var lift = -across + 1e-6;
+      var need = (perp2 + across * across) / (2 * lift) + pad;
+      if (need > r) r = need;
+    }
+    cy = { x: mouthY.x - downX * r, y: mouthY.y - downY * r };
+    return capCircle({ x: cy.x, y: cy.y, r: r, sw: w }, "sitkari", frameW, frameH);
+  }
+  function sitkariFrame(vid, kps, t) { frame(vid, kps, t, sitkariHead); }
   // Plank (side-on): same side cover as a side push-up when the body is in profile; otherwise the usual face / shoulder path.
   function plankHead(kps, frameW, frameH) {
     var face = faceCircle(kps), by = kps && kps.length ? byName(kps) : {}, so = sideOn(by);
@@ -424,7 +467,7 @@
     det._zabFlip = 1;
     return det;
   }
-  var api = { honorFlip: honorFlip, photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, sideCover: sideCover, coverCircle: coverCircle, chestOf: chestOf, bentOver: bentOver, hipsVisible: hipsVisible, shoulderCircle: shoulderCircle, coverTransform: coverTransform, openCircle: openCircle, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
+  var api = { honorFlip: honorFlip, photoUrl: photoUrl, initialOf: initialOf, faceCircle: faceCircle, headCircle: headCircle, plankHead: plankHead, sitkariHead: sitkariHead, sitkariFrame: sitkariFrame, sideCover: sideCover, coverCircle: coverCircle, chestOf: chestOf, bentOver: bentOver, hipsVisible: hipsVisible, shoulderCircle: shoulderCircle, coverTransform: coverTransform, openCircle: openCircle, miniCrop: miniCrop, createTracker: createTracker, mapToBox: mapToBox, KEY: KEY, P: P };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 
   // ---- browser side ----
@@ -622,7 +665,7 @@
   function plankFrame(vid, kps, phase, t) { frame(vid, kps, t, plankHead); }
   // Camera opened (its <video> starts playing): show the logo LARGE at once, before any detection (owner, Nov 16).
   // The first pose frame that finds the head moves + shrinks it onto the head (tracker open/lock). Only the solo camera views.
-  var OPEN_IDS = { camVid: 1, plankVid: 1, tbVid: 1, sqVid: 1, zlSelf: 1, zmCamVid: 1 };
+  var OPEN_IDS = { camVid: 1, plankVid: 1, tbVid: 1, sqVid: 1, zlSelf: 1, zmCamVid: 1, coolingVid: 1 };
   // Called from a camera-start tap, before the camera request returns: stand up the shield so the logo paints at once
   // (even before the first decoded frame). Safe with no stream and no videoWidth yet.
   function prepare(vid) {
@@ -824,6 +867,12 @@
   }
   function blanketLogo(g) { var R = picRect(g), vis = { x: Math.max(0, R.x), y: Math.max(0, R.y), w: Math.min(g.bw, R.w), h: Math.min(g.bh, R.h) };
     return { x: vis.x + vis.w / 2, y: vis.y + vis.h * P.blankY, r: Math.max(P.minR, Math.min(P.blankR * vis.w, 0.85 * vis.h)) }; }
+  function isSitkariCam(s) { return !!(s && s.vid && s.vid.id === "coolingVid"); }
+  // Cooling-box opening only: a higher, smaller disc so the mouth stays clear before lock. Other cameras unchanged.
+  function sitkariBlanket(g) {
+    var R = picRect(g), vis = { x: Math.max(0, R.x), y: Math.max(0, R.y), w: Math.min(g.bw, R.w), h: Math.min(g.bh, R.h) };
+    return { x: vis.x + vis.w / 2, y: vis.y + vis.h * 0.28, r: Math.max(P.minR, Math.min(0.22 * vis.w, 0.28 * vis.h)) };
+  }
   function blanketAround(g, t) { // the check-in logo, or the smallest circle holding it and circle t (+1 px): t is always inside
     var c = blanketLogo(g);
     return t ? enclose(c, { x: t.x, y: t.y, r: t.r + 1 }) : c;
@@ -846,18 +895,24 @@
     var x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
     var m = null, gk = g.bw + "x" + g.bh + "x" + g.fit + "x" + g.mir + "x" + v.videoWidth + "x" + v.videoHeight;
     if (s.lockT && s.snap && s.circle) { s.lockG = gk;
-      var t = mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit), B = blanketAround(g, t);
+      var t = mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit), B = isSitkariCam(s) ? (t ? enclose(sitkariBlanket(g), { x: t.x, y: t.y, r: t.r + 1 }) : sitkariBlanket(g)) : blanketAround(g, t);
       m = lerpC(B, t, ease((now - s.lockT) / P.shrinkMs));
       x.clearRect(0, 0, g.bw, g.bh); drawSnap(x, g, s.snap, s.vw, s.vh);
     } else if (s.lostT && s.lostFrom && s.snap && now - s.lostT < P.growMs && s.lockG === gk && s.snap.width === s.vw && s.snap.height === s.vh) { // same box, fit, mirror and video size as the last locked frame only
       // Start from a circle that holds both the last drawn logo AND the head of the frame actually frozen on screen (s.circle
       // always belongs to s.snap): if a pose landed between the last paint and the loss, lostFrom was for the previous frame.
-      var L0 = enclose(s.lostFrom, s.circle ? mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit) : null), B2 = blanketAround(g, L0); m = lerpC(L0, B2, ease((now - s.lostT) / P.growMs));
+      var L0 = enclose(s.lostFrom, s.circle ? mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit) : null), B2 = blanketAround(g, L0);
+      // Cooling box: hold the last tracked sitkari circle; do not grow a large disc over the mouth.
+      m = isSitkariCam(s) ? L0 : lerpC(L0, B2, ease((now - s.lostT) / P.growMs));
       x.clearRect(0, 0, g.bw, g.bh); drawSnap(x, g, s.snap, s.vw, s.vh); // the last covered frame, frozen, while the logo grows
     } else {
-      m = blanketAround(g, s.circle ? mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit) : null);
+      var lastC = s.circle ? mapToBox(s.circle, s.vw, s.vh, g.bw, g.bh, g.fit) : null;
+      var lockedBefore = s.wasLocked || (s.vid && lockedOnce[s.vid.id]);
+      if (isSitkariCam(s) && lockedBefore && lastC) m = lastC;
+      else if (isSitkariCam(s)) m = sitkariBlanket(g);
+      else m = blanketAround(g, lastC);
       x.clearRect(0, 0, g.bw, g.bh); // no dark fill, no hood, no full-frame blanket — only the live (or frozen) picture + the logo
-      var lockedBefore = s.wasLocked || (s.vid && lockedOnce[s.vid.id]), frame = lockedBefore ? (s.snap || grabPreview(s, v)) : (grabPreview(s, v) || s.snap);
+      var frame = lockedBefore ? (s.snap || grabPreview(s, v)) : (grabPreview(s, v) || s.snap);
       if (frame) drawSnap(x, g, frame, frame.width || s.vw || v.videoWidth, frame.height || s.vh || v.videoHeight);
     }
     ensureLogo(); m = glideMark(s, m, now); drawLogo(x, m); s.lastM = s.lockT ? m : null; s.drawM = m; s.drawG = g; s.frames += 1;

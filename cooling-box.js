@@ -1,6 +1,7 @@
 /* Cooling box: a 16-second 4-count cycle (inhale 4, hold 4, exhale 4, hold empty 4).
  * Each completed cycle adds one to the all-time localStorage counter zabbadat-breath-cycles.
- * Streak, mute, and session length are also device-local. No network and no Firestore writes.
+ * Streak and session length are also device-local. No network and no Firestore writes.
+ * A leftover zabbadat-breath-mute key is ignored and removed on load; there is no mute button.
  * Browser: window.ZabbadatCoolingBox. Node: module.exports.
  *
  * Haptics: navigator.vibrate(10) where the Vibration API exists (not iOS Safari).
@@ -14,9 +15,157 @@
   var STREAK_KEY = "zabbadat-breath-streak";
   var MUTE_KEY = "zabbadat-breath-mute";
   var SESSION_MIN_KEY = "zabbadat-breath-session-min";
+  var RECORD_KEY = "zabbadat-breath-record";
+  var MODE_KEY = "zabbadat-breath-mode";
+  var PROOF_CAPTION = "Proof of Sitkari";
+  var CLOSE_HINT = "Sit up close so your mouth and chin show.";
+  var INTRO_LINE = "Sitkari time. Sit up close so your mouth shows, then breathe in through your teeth and out through your nose.";
+  var INTRO_SOLO = "Sitkari time. Breathe in through your teeth and out through your nose.";
+  var ALIGN_LINE = "Sit tall. Shoulders down and soft. Relax your jaw.";
+  var ALIGN_COUNTS = ["One.", "Two.", "Three.", "Breathe."];
+  var ALIGN_COUNT_MS = 1000;
+  var ALIGN_RING_SIZE = 96;
   var CYCLE_MS = 16000;
   var SIDE_MS = 4000;
   var SIDES = ["Inhale", "Hold full", "Exhale", "Hold empty"];
+  // Hold phases (after inhale, after exhale) show the 1-4 count in the shared arcade-num style.
+  function isHoldSide(sideIndex) { return sideIndex === 1 || sideIndex === 3; }
+  function statusView(state) {
+    if (!state || !state.running) return { running: false, hold: false, status: "", count: "", label: "Hold" };
+    var hold = isHoldSide(state.sideIndex);
+    return {
+      running: true,
+      hold: hold,
+      side: state.side,
+      sideIndex: state.sideIndex,
+      count: String(state.count),
+      label: "Hold",
+      status: hold ? state.side : (state.side + " " + state.count)
+    };
+  }
+  function isRecordOn(store) { return storeOf(store).getItem(RECORD_KEY) === "1"; }
+  function setRecordOn(store, on) { storeOf(store).setItem(RECORD_KEY, on ? "1" : "0"); return !!on; }
+  function getMode(store) {
+    return storeOf(store).getItem(MODE_KEY) === "camera" ? "camera" : "solo";
+  }
+  function setMode(store, mode) {
+    mode = mode === "camera" ? "camera" : "solo";
+    storeOf(store).setItem(MODE_KEY, mode);
+    return mode;
+  }
+  function alignmentScript(mode) {
+    return [(mode === "camera" ? INTRO_LINE : INTRO_SOLO), ALIGN_LINE].concat(ALIGN_COUNTS);
+  }
+  function boxesOverlap(a, b) {
+    if (!a || !b) return 0;
+    var x = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+    var y = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+    return x * y;
+  }
+  // Mouth and chin sit just below the sitkari logo (the logo covers the nose and everything above).
+  function mouthChinBox(head) {
+    if (!head || !(head.r > 0)) return null;
+    var w = Math.max(24, head.r * 1.05), h = Math.max(28, head.r * 1.15);
+    return { x: head.x - w / 2, y: head.y + head.r + 2, w: w, h: h };
+  }
+  function logoBox(head) {
+    if (!head || !(head.r > 0)) return null;
+    return { x: head.x - head.r, y: head.y - head.r, w: head.r * 2, h: head.r * 2 };
+  }
+  // Place the alignment ring below the tracked logo, offset to the side of the mouth, clamped in view.
+  // Never covers the mouth or chin; stays off the logo, optional caption, and branding boxes. Lower side corner if needed.
+  function alignRingPos(head, vw, vh, ringSize, opts) {
+    opts = opts || {};
+    var size = ringSize || ALIGN_RING_SIZE, R = size / 2, margin = opts.margin != null ? opts.margin : 8;
+    var mouth = mouthChinBox(head), logo = logoBox(head);
+    var avoid = [];
+    if (logo) avoid.push(logo);
+    if (mouth) avoid.push(mouth);
+    if (opts.caption) avoid.push(opts.caption);
+    if (opts.brand && opts.brand.length) avoid = avoid.concat(opts.brand);
+    function ok(c) {
+      if (c.x - R < margin || c.y - R < margin || c.x + R > vw - margin || c.y + R > vh - margin) return false;
+      var box = { x: c.x - R, y: c.y - R, w: 2 * R, h: 2 * R };
+      for (var i = 0; i < avoid.length; i++) if (boxesOverlap(box, avoid[i]) > 0) return false;
+      return true;
+    }
+    function clamp(c) {
+      return {
+        x: Math.max(R + margin, Math.min(vw - R - margin, c.x)),
+        y: Math.max(R + margin, Math.min(vh - R - margin, c.y)),
+        r: R, size: size
+      };
+    }
+    var cands = [];
+    if (head) {
+      var below = head.y + head.r + R + 10;
+      var side = head.x < vw / 2 ? 1 : -1;
+      cands.push({ x: head.x + side * (head.r * 0.9 + R), y: below });
+      cands.push({ x: head.x - side * (head.r * 0.9 + R), y: below });
+    }
+    cands.push({ x: vw - R - margin - 4, y: vh - R - margin - 4 });
+    cands.push({ x: R + margin + 4, y: vh - R - margin - 4 });
+    for (var i = 0; i < cands.length; i++) {
+      var c = clamp(cands[i]);
+      if (ok(c)) return c;
+    }
+    return clamp(cands[cands.length - 1]);
+  }
+  function createAlign(opts) {
+    opts = opts || {};
+    var speak = opts.speak || function () { return Promise.resolve(); };
+    var wait = opts.wait || function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    var now = opts.now || function () { return Date.now(); };
+    var onCount = opts.onCount || function () {};
+    var onBreathe = opts.onBreathe || function () {};
+    var seq = 0;
+    function dead(my) { return my !== seq; }
+    function cancel() { seq += 1; if (typeof opts.stopSpeech === "function") opts.stopSpeech(); }
+    function running() { return seq > 0; }
+    function run() {
+      var my = ++seq;
+      var intro = opts.intro || INTRO_LINE;
+      function stepSpeak(line) {
+        return Promise.resolve().then(function () { return speak(line); }).then(function () { return !dead(my); });
+      }
+      return stepSpeak(intro).then(function (ok) {
+        if (!ok) return false;
+        return stepSpeak(ALIGN_LINE);
+      }).then(function (ok) {
+        if (!ok) return false;
+        function countAt(i) {
+          if (i >= 3) {
+            onCount(0);
+            onBreathe();
+            speak(ALIGN_COUNTS[3]);
+            return !dead(my);
+          }
+          onCount(i + 1, ALIGN_COUNTS[i]);
+          var t0 = now();
+          return stepSpeak(ALIGN_COUNTS[i]).then(function (ok2) {
+            if (!ok2) return false;
+            var left = ALIGN_COUNT_MS - (now() - t0);
+            return (left > 0 ? wait(left) : Promise.resolve()).then(function () {
+              if (dead(my)) return false;
+              return countAt(i + 1);
+            });
+          });
+        }
+        return countAt(0);
+      });
+    }
+    return { run: run, cancel: cancel, running: function () { return seq > 0; } };
+  }
+  function summaryLine(summary, camRan) {
+    var bits = [];
+    if (camRan) bits.push(PROOF_CAPTION);
+    bits.push(((summary && summary.rounds) || 0) + " rounds");
+    if (summary && summary.level && summary.level.name) bits.push(summary.level.name);
+    var days = summary && summary.streak && summary.streak.streak;
+    if (days) bits.push(days + "-day streak");
+    return bits.join(" · ") + ".";
+  }
+
   var LEVELS = [
     { at: 4, name: "Sitkari" },
     { at: 18, name: "Coolbox" },
@@ -35,7 +184,7 @@
   function storeOf(store) {
     if (store) return store;
     try { if (typeof localStorage !== "undefined") return localStorage; } catch (e) {}
-    return { getItem: function () { return null; }, setItem: function () {} };
+    return { getItem: function () { return null; }, setItem: function () {}, removeItem: function () {} };
   }
   function etOf(et) {
     if (et) return et;
@@ -180,13 +329,14 @@
     return m + " min · " + roundsForMinutes(m) + " rounds";
   }
 
-  function isMuted(store) {
-    return storeOf(store).getItem(MUTE_KEY) === "1";
+  // Sound/mute button removed. Tones always play. Drop a leftover mute key so an earlier mute cannot stick.
+  function clearMutePref(store) {
+    try {
+      var st = storeOf(store);
+      if (st && typeof st.removeItem === "function") st.removeItem(MUTE_KEY);
+    } catch (e) {}
   }
-  function setMuted(store, on) {
-    storeOf(store).setItem(MUTE_KEY, on ? "1" : "0");
-    return !!on;
-  }
+  function isMuted() { return false; }
 
   function sharePayload(st, level) {
     var parts = [];
@@ -261,13 +411,11 @@
       osc.stop(now + (dur || 0.09));
     } catch (e) {}
   }
-  function phaseTone(sideIndex, store) {
-    if (isMuted(store)) return;
+  function phaseTone(sideIndex) {
     var f = PHASE_FREQ[sideIndex] || 262;
     playTone(f, 0.09, 0.045);
   }
-  function popTone(store) {
-    if (isMuted(store)) return;
+  function popTone() {
     playTone(523, 0.12, 0.06);
   }
 
@@ -276,6 +424,7 @@
   function createBox(opts) {
     opts = opts || {};
     var store = storeOf(opts.store);
+    clearMutePref(store);
     var nowFn = opts.now || function () { return Date.now(); };
     var onTick = opts.onTick || function () {};
     var onCycle = opts.onCycle || function () {};
@@ -470,10 +619,19 @@
     return { tap: tap };
   }
 
+  var camMount = null;
+
   function mount(doc, store) {
     if (!doc || !doc.getElementById) return null;
-    var btn = el(doc, "coolingStartBtn");
+    var soloBtn = el(doc, "coolingSoloBtn");
+    var camBtn = el(doc, "coolingCamBtn");
+    var stopBtn = el(doc, "coolingStopBtn");
+    var startRow = el(doc, "coolingStartRow");
     var status = el(doc, "coolingStatus");
+    var hintEl = el(doc, "coolingCloseHint");
+    var alignRing = el(doc, "coolingAlignRing");
+    var alignScale = el(doc, "coolingAlignScale");
+    var alignCount = el(doc, "coolingAlignCount");
     var countEl = el(doc, "coolingCycles");
     var ring = el(doc, "coolingRing");
     var ringScaleEl = el(doc, "coolingRingScale");
@@ -484,18 +642,249 @@
     var miniStreak = el(doc, "miniDashStreak");
     var miniBreath = el(doc, "miniDashBreath");
     var levelBadge = el(doc, "coolingLevelBadge");
+    var holdStrip = el(doc, "coolingHoldStrip");
+    var holdCount = el(doc, "coolingHoldCount");
+    var holdLbl = el(doc, "coolingHoldLbl");
     var celeb = el(doc, "coolingCeleb");
     var nudgeEl = el(doc, "coolingNudge");
     var summaryEl = el(doc, "coolingSummary");
-    var muteBtn = el(doc, "coolingMuteBtn");
     var shareBtn = el(doc, "coolingShareBtn");
     var gauge = el(doc, "coolingSessionMin");
     var gaugeLabel = el(doc, "coolingSessionLabel");
-    if (!btn) return null;
-    try { btn.style.cursor = "pointer"; } catch (e0) {}
+    var recBtn = el(doc, "coolingRecBtn");
+    var wrap = el(doc, "coolingWrap");
+    var vid = el(doc, "coolingVid");
+    var proofCap = el(doc, "coolingProofCaption");
+    var camStream = null;
+    var camLoopId = 0;
+    var camRan = false;
+    var camSeq = 0;
+    function host() { return root && root.ZabCoolingHost; }
+    function showProofCaption(on) {
+      if (proofCap) {
+        proofCap.textContent = PROOF_CAPTION;
+        proofCap.hidden = !on;
+      }
+    }
+    function stopCoolingCam() {
+      camLoopId += 1;
+      camSeq += 1;
+      try { if (root.ZabRec && root.ZabRec.onFs) root.ZabRec.onFs("coolingWrap", false); } catch (e0) {}
+      try { if (root.ZabPfp && root.ZabPfp.clear) root.ZabPfp.clear("coolingVid"); } catch (e1) {}
+      var H = host();
+      if (camStream) {
+        try { if (H && H.stopCamTracks) H.stopCamTracks(camStream); } catch (e2) {}
+        camStream = null;
+      }
+      if (vid) vid.srcObject = null;
+      if (wrap) wrap.hidden = true;
+      showProofCaption(false);
+      hideCloseHint();
+      hideAlignRing();
+      try { if (H && H.wake && H.wake.stop) H.wake.stop(); } catch (e3) {}
+    }
+    async function tickCam(id) {
+      if (id !== camLoopId) return;
+      var H = host();
+      try {
+        var det = H && H.ensurePose ? await H.ensurePose() : null;
+        if (id !== camLoopId) return;
+        if (det && vid && vid.videoWidth) {
+          var t = (root.performance && root.performance.now) ? root.performance.now() : Date.now();
+          var input = root.ZabPfp && root.ZabPfp.input ? root.ZabPfp.input(vid, det) : vid;
+          var poses = await det.estimatePoses(input, { flipHorizontal: true });
+          if (id !== camLoopId) return;
+          var kps = poses && poses[0] ? poses[0].keypoints : [];
+          if (root.ZabPfp && root.ZabPfp.sitkariFrame) root.ZabPfp.sitkariFrame(vid, kps, t);
+          else if (root.ZabPfp && root.ZabPfp.frame) root.ZabPfp.frame(vid, kps, t, root.ZabPfp.sitkariHead);
+          if (aligning && activeMode === "camera") placeAlignRingCamera();
+        }
+      } catch (e) {}
+      if (id === camLoopId && root.requestAnimationFrame) root.requestAnimationFrame(function () { tickCam(id); });
+    }
+    async function startCoolingCam() {
+      var H = host();
+      var my = ++camSeq;
+      if (!H || !H.attachCam || !vid || !wrap) return false;
+      if (!root.navigator || !root.navigator.mediaDevices || !root.navigator.mediaDevices.getUserMedia) return false;
+      try {
+        if (H.stopOtherCams) H.stopOtherCams();
+        if (H.wake && H.wake.start) H.wake.start().catch(function () {});
+        wrap.hidden = false;
+        showProofCaption(true);
+        try { if (root.ZabPfp && root.ZabPfp.prepare) root.ZabPfp.prepare(vid); } catch (e0) {}
+        var gum = root.navigator.mediaDevices.getUserMedia(H.CAM_CONSTRAINTS);
+        if (H.ensurePose) H.ensurePose().catch(function () {});
+        var stream = await gum;
+        if (my !== camSeq || !sessionOn) { if (H.stopCamTracks) H.stopCamTracks(stream); return false; }
+        camStream = stream;
+        await H.attachCam(vid, stream);
+        if (my !== camSeq) return false;
+        camRan = true;
+        if (H.ensurePose) await H.ensurePose().catch(function () {});
+        tickCam(++camLoopId);
+        if (isRecordOn(store) && root.ZabRec && root.ZabRec.ctl) {
+          var st = root.ZabRec.ctl.state();
+          if (!st.armed.coolingWrap && st.recording !== "coolingWrap") root.ZabRec.ctl.tap("coolingWrap");
+        }
+        if (isRecordOn(store) && root.ZabRec && root.ZabRec.onFs) root.ZabRec.onFs("coolingWrap", true);
+        return true;
+      } catch (e) {
+        if (my === camSeq) {
+          try { if (H && H.camErrorText) H.camErrorText(e); } catch (e1) {}
+          stopCoolingCam();
+        }
+        return false;
+      }
+    }
+    function syncRecordPref() {
+      var on = false;
+      try {
+        var st = root.ZabRec && root.ZabRec.ctl && root.ZabRec.ctl.state();
+        on = !!(st && (st.armed.coolingWrap || st.recording === "coolingWrap"));
+      } catch (e) {}
+      setRecordOn(store, on);
+    }
+    function restoreRecordPref() {
+      if (!isRecordOn(store) || !root.ZabRec || !root.ZabRec.ctl) return;
+      var st = root.ZabRec.ctl.state();
+      if (!st.armed.coolingWrap && st.recording !== "coolingWrap") root.ZabRec.ctl.tap("coolingWrap");
+    }
+    if (!soloBtn || !camBtn) return null;
+    try { soloBtn.style.cursor = "pointer"; camBtn.style.cursor = "pointer"; if (stopBtn) stopBtn.style.cursor = "pointer"; } catch (e0) {}
     var box = null;
     var celebTimer = null;
     var lastPhase = -1;
+    var sessionOn = false;
+    var aligning = false;
+    var alignCtl = null;
+    var hintTimer = null;
+    var activeMode = getMode(store);
+
+    function hideCloseHint() {
+      if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+      if (hintEl) { hintEl.hidden = true; hintEl.classList.remove("is-fade"); }
+    }
+    function showCloseHint() {
+      if (!hintEl) return;
+      hintEl.textContent = CLOSE_HINT;
+      hintEl.hidden = false;
+      hintEl.classList.remove("is-fade");
+      if (hintTimer) clearTimeout(hintTimer);
+      hintTimer = setTimeout(function () { fadeCloseHint(); }, 5000);
+    }
+    function fadeCloseHint() {
+      if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+      if (!hintEl || hintEl.hidden) return;
+      if (reducedMotion(doc.defaultView || root)) { hintEl.hidden = true; return; }
+      hintEl.classList.add("is-fade");
+      setTimeout(function () { if (hintEl) { hintEl.hidden = true; hintEl.classList.remove("is-fade"); } }, 700);
+    }
+    function hideAlignRing() {
+      if (alignRing) alignRing.hidden = true;
+      if (alignCount) alignCount.textContent = "";
+      if (alignScale) alignScale.style.transform = "scale(0.55)";
+    }
+    function fillAlignRing(n) {
+      if (!alignRing) return;
+      alignRing.hidden = false;
+      if (alignCount) alignCount.textContent = n ? String(n) : "";
+      if (alignScale) {
+        var calm = reducedMotion(doc.defaultView || root);
+        alignScale.style.transition = calm ? "none" : "transform 1s linear";
+        alignScale.style.transform = "scale(0.55)";
+        void alignScale.offsetWidth;
+        alignScale.style.transform = "scale(1)";
+      }
+    }
+    function stageRect() {
+      var stage = startRow && startRow.parentNode ? startRow.parentNode : (ring && ring.parentNode);
+      return stage && stage.getBoundingClientRect ? stage.getBoundingClientRect() : { left: 0, top: 0, width: 1, height: 1 };
+    }
+    function placeAlignRingSolo() {
+      if (!alignRing || !ring) return;
+      var sr = stageRect(), rr = ring.getBoundingClientRect();
+      var x = rr.left - sr.left + rr.width / 2;
+      var y = rr.top - sr.top + rr.height / 2;
+      alignRing.style.left = x + "px";
+      alignRing.style.top = y + "px";
+      alignRing.hidden = false;
+    }
+    function placeAlignRingCamera() {
+      if (!alignRing || !vid) return;
+      var sr = stageRect(), vr = vid.getBoundingClientRect();
+      var vw = vid.videoWidth || 640, vh = vid.videoHeight || 480;
+      if (!(vr.width > 0) || !(vw > 0)) return;
+      var head = null;
+      try { if (root.ZabPfp && root.ZabPfp.lastHead) head = root.ZabPfp.lastHead("coolingVid", root.performance && root.performance.now ? root.performance.now() : Date.now()); } catch (e) {}
+      var cap = null;
+      if (proofCap && !proofCap.hidden && proofCap.getBoundingClientRect) {
+        var cr = proofCap.getBoundingClientRect();
+        cap = { x: (cr.left - vr.left) * (vw / vr.width), y: (cr.top - vr.top) * (vh / vr.height), w: cr.width * (vw / vr.width), h: cr.height * (vh / vr.height) };
+      }
+      var pos = alignRingPos(head || { x: vw / 2, y: vh * 0.32, r: Math.min(vw, vh) * 0.16 }, vw, vh, ALIGN_RING_SIZE, { caption: cap });
+      var x = vr.left - sr.left + (pos.x / vw) * vr.width;
+      var y = vr.top - sr.top + (pos.y / vh) * vr.height;
+      alignRing.style.left = x + "px";
+      alignRing.style.top = y + "px";
+      alignRing.hidden = false;
+    }
+    function placeAlignRing() {
+      if (activeMode === "camera" && vid && wrap && !wrap.hidden) placeAlignRingCamera();
+      else placeAlignRingSolo();
+    }
+    function unlockSpeech() {
+      var H = host();
+      try { if (H && H.unlock) H.unlock(); } catch (e) {}
+      try {
+        var GS = root.ZabbadatGetSet, w = root;
+        if (w && w.speechSynthesis && typeof w.SpeechSynthesisUtterance === "function") {
+          if (typeof w.speechSynthesis.resume === "function") w.speechSynthesis.resume();
+          var u = new w.SpeechSynthesisUtterance(" ");
+          u.volume = 0;
+          u.rate = (GS && GS.VOICE && GS.VOICE.rate) || 0.88;
+          w.speechSynthesis.speak(u);
+        }
+      } catch (e2) {}
+    }
+    function speakLine(text) {
+      var GS = root.ZabbadatGetSet;
+      try {
+        if (GS && typeof GS.enqueueSpeak === "function") return GS.enqueueSpeak(text);
+        if (GS && typeof GS.speakAndWait === "function") return GS.speakAndWait(text);
+      } catch (e) {}
+      return Promise.resolve();
+    }
+    function stopSpeech() {
+      try { if (root.speechSynthesis) root.speechSynthesis.cancel(); } catch (e) {}
+    }
+    function paintMode() {
+      activeMode = getMode(store);
+      if (soloBtn) {
+        if (activeMode === "solo") soloBtn.classList.remove("ghost");
+        else soloBtn.classList.add("ghost");
+      }
+      if (camBtn) {
+        if (activeMode === "camera") camBtn.classList.remove("ghost");
+        else camBtn.classList.add("ghost");
+      }
+    }
+    function paintStartStop(busy) {
+      if (startRow) startRow.hidden = !!busy;
+      if (stopBtn) {
+        stopBtn.hidden = !busy;
+        stopBtn.textContent = "Stop cooling box";
+      }
+    }
+    function onAlignCount(n) {
+      if (n) {
+        if (status) status.textContent = ALIGN_COUNTS[n - 1].replace(/\.$/, "");
+        try { placeAlignRing(); } catch (eP) {}
+        fillAlignRing(n);
+      } else {
+        hideAlignRing();
+      }
+    }
 
     function showCeleb(text) {
       if (!celeb || !text) return;
@@ -544,12 +933,6 @@
       if (gauge && gauge.value !== String(m)) gauge.value = String(m);
       if (gaugeLabel) gaugeLabel.textContent = sessionLabel(m);
     }
-    function paintMute() {
-      if (!muteBtn) return;
-      var off = isMuted(store);
-      muteBtn.setAttribute("aria-pressed", off ? "true" : "false");
-      muteBtn.textContent = off ? "Sound off" : "Sound on";
-    }
     function paintLevel(total) {
       var lv = levelFor(total);
       if (!levelBadge) return;
@@ -581,8 +964,19 @@
       paintGoal(st.todayCount);
       paintRing(state || { running: false, ringScale: 0.55 });
       paintLevel(n);
+      var view = statusView(state);
+      if (holdStrip) {
+        holdStrip.hidden = !view.hold;
+        if (view.hold && !reducedMotion(doc.defaultView || root)) holdStrip.removeAttribute("data-calm");
+        else if (holdStrip) holdStrip.setAttribute("data-calm", reducedMotion(doc.defaultView || root) ? "1" : "0");
+      }
+      if (holdCount) {
+        if (view.hold) holdCount.textContent = view.count;
+        else holdCount.textContent = "";
+      }
+      if (holdLbl && view.hold) holdLbl.textContent = view.label;
       if (status) {
-        if (state && state.running) status.textContent = state.side + " " + state.count;
+        if (state && state.running) status.textContent = view.status;
         else if (state && state.summary && state.summary.reason === "complete") {
           status.textContent = state.summary.rounds + " rounds done. " + (st.streak ? st.streak + "-day streak." : "Start again when you're ready.");
         } else {
@@ -590,19 +984,20 @@
         }
       }
       if (summaryEl) {
-        if (state && state.summary && state.summary.reason === "complete") {
-          var bits = [state.summary.rounds + " rounds"];
-          if (state.summary.level && state.summary.level.name) bits.push(state.summary.level.name);
-          if (st.streak) bits.push(st.streak + "-day streak");
-          summaryEl.hidden = false;
-          summaryEl.textContent = bits.join(" · ") + ".";
+        if (state && state.summary && (state.summary.reason === "complete" || state.summary.reason === "stop")) {
+          var line = state.summary.line || summaryLine(state.summary, camRan);
+          if (line && state.summary.rounds) {
+            summaryEl.hidden = false;
+            summaryEl.textContent = line;
+          }
         } else if (!(state && state.running)) {
           /* keep last summary until the next start */
         } else {
           summaryEl.hidden = true;
         }
       }
-      btn.textContent = state && state.running ? "Stop cooling box" : "Start cooling box";
+      paintMode();
+      paintStartStop(sessionOn || (state && state.running) || aligning);
       if (typeof doc.dispatchEvent === "function") {
         try { doc.dispatchEvent(new (root.Event || Event)("zabbadat-breath-cycles")); } catch (e) {}
       }
@@ -620,10 +1015,11 @@
         onPhase: function (state) { phaseTone(state.sideIndex, store); },
         onCycle: function (total, meta) {
           meta = meta || {};
+          fadeCloseHint();
           var calm = reducedMotion(doc.defaultView || root);
           popTone(store);
-          sparkle(doc, ring || btn, calm);
-          flyPlus(doc, ring || btn, countEl, calm);
+          sparkle(doc, ring || soloBtn, calm);
+          flyPlus(doc, ring || soloBtn, countEl, calm);
           if (meta.combo) showCeleb(meta.combo.name);
           if (meta.levels && meta.levels.length) {
             showCeleb(meta.levels[meta.levels.length - 1].name);
@@ -642,36 +1038,105 @@
         },
         onSessionEnd: function (summary) {
           lastPhase = -1;
+          sessionOn = false;
+          aligning = false;
+          summary.line = summaryLine(summary, camRan);
           paint({ running: false, total: summary.total, summary: summary, streak: summary.streak && summary.streak.streak, todayCount: summary.streak && summary.streak.todayCount, live: summary.streak && summary.streak.live });
+          stopCoolingCam();
         }
       });
       return box;
     }
-    function toggle() {
+    function stopSession() {
       unlockAudio();
+      if (alignCtl) { alignCtl.cancel(); alignCtl = null; }
+      aligning = false;
+      stopSpeech();
+      hideAlignRing();
+      hideCloseHint();
       var b = ensure();
-      if (summaryEl && !b.running()) { summaryEl.hidden = true; summaryEl.textContent = ""; }
       if (b.running()) b.stop();
       else {
-        lastPhase = -1;
-        paintNudge();
-        b.start();
+        sessionOn = false;
+        stopCoolingCam();
+        paint({ running: false, total: getCycles(store) });
+      }
+    }
+    function startSession(mode) {
+      unlockAudio();
+      unlockSpeech();
+      var b = ensure();
+      if (sessionOn || b.running() || aligning) return;
+      mode = setMode(store, mode);
+      activeMode = mode;
+      paintMode();
+      if (summaryEl) { summaryEl.hidden = true; summaryEl.textContent = ""; }
+      lastPhase = -1;
+      camRan = false;
+      sessionOn = true;
+      aligning = true;
+      paintNudge();
+      paintStartStop(true);
+      if (status) status.textContent = "Sitkari time.";
+      function beginBreath() {
+        if (!sessionOn) return;
+        aligning = false;
+        hideAlignRing();
+        if (!b.running()) b.start();
+        paintStartStop(true);
+      }
+      function runShared() {
+        alignCtl = createAlign({
+          intro: mode === "camera" && camRan ? INTRO_LINE : INTRO_SOLO,
+          speak: speakLine,
+          stopSpeech: stopSpeech,
+          onCount: onAlignCount,
+          onBreathe: beginBreath
+        });
+        return alignCtl.run().then(function (ok) {
+          aligning = false;
+          if (!ok) return;
+        });
+      }
+      if (mode === "camera") {
+        startCoolingCam().then(function (ok) {
+          if (!sessionOn) return;
+          if (!ok) {
+            mode = "solo";
+            activeMode = "solo";
+            /* permission denied: continue the shared Sitkari flow as solo, no camera extras */
+          } else {
+            showCloseHint();
+          }
+          placeAlignRing();
+          return runShared();
+        }).catch(function () {
+          if (sessionOn) return runShared();
+        });
+      } else {
+        placeAlignRingSolo();
+        runShared();
       }
     }
 
+    clearMutePref(store);
     paint({ running: false, total: getCycles(store) });
     paintGauge();
-    paintMute();
     paintNudge();
+    paintMode();
+    paintStartStop(false);
 
-    bindStartBtn(btn, toggle, typeof navigator !== "undefined" ? navigator : null, root && root.Capacitor);
-
-    if (muteBtn) {
-      bindStartBtn(muteBtn, function () {
-        setMuted(store, !isMuted(store));
-        paintMute();
-      }, typeof navigator !== "undefined" ? navigator : null, root && root.Capacitor);
+    camMount = { stopCam: stopCoolingCam };
+    restoreRecordPref();
+    if (recBtn) {
+      try { recBtn.style.cursor = "pointer"; } catch (eR) {}
+      recBtn.addEventListener("click", function () { setTimeout(syncRecordPref, 0); });
     }
+    var nav = typeof navigator !== "undefined" ? navigator : null, cap = root && root.Capacitor;
+    bindStartBtn(soloBtn, function () { startSession("solo"); }, nav, cap);
+    bindStartBtn(camBtn, function () { startSession("camera"); }, nav, cap);
+    if (stopBtn) bindStartBtn(stopBtn, stopSession, nav, cap);
+
     if (shareBtn) {
       bindStartBtn(shareBtn, function () {
         var st = streakStatus(store, etOf());
@@ -692,7 +1157,7 @@
         paintGauge();
       });
     }
-    return { box: function () { return box; }, paint: paint, toggle: toggle };
+    return { box: function () { return box; }, paint: paint, startSession: startSession, stopSession: stopSession, stopCam: stopCoolingCam };
   }
 
   var api = {
@@ -700,6 +1165,16 @@
     STREAK_KEY: STREAK_KEY,
     MUTE_KEY: MUTE_KEY,
     SESSION_MIN_KEY: SESSION_MIN_KEY,
+    RECORD_KEY: RECORD_KEY,
+    MODE_KEY: MODE_KEY,
+    PROOF_CAPTION: PROOF_CAPTION,
+    CLOSE_HINT: CLOSE_HINT,
+    INTRO_LINE: INTRO_LINE,
+    INTRO_SOLO: INTRO_SOLO,
+    ALIGN_LINE: ALIGN_LINE,
+    ALIGN_COUNTS: ALIGN_COUNTS,
+    ALIGN_COUNT_MS: ALIGN_COUNT_MS,
+    ALIGN_RING_SIZE: ALIGN_RING_SIZE,
     SHARE_URL: SHARE_URL,
     CYCLE_MS: CYCLE_MS,
     SIDE_MS: SIDE_MS,
@@ -725,9 +1200,22 @@
     setSessionMinutes: setSessionMinutes,
     sessionLabel: sessionLabel,
     isMuted: isMuted,
-    setMuted: setMuted,
+    clearMutePref: clearMutePref,
+    isRecordOn: isRecordOn,
+    setRecordOn: setRecordOn,
+    getMode: getMode,
+    setMode: setMode,
+    alignmentScript: alignmentScript,
+    createAlign: createAlign,
+    alignRingPos: alignRingPos,
+    mouthChinBox: mouthChinBox,
+    boxesOverlap: boxesOverlap,
+    summaryLine: summaryLine,
+    stopCam: function () { if (camMount && camMount.stopCam) camMount.stopCam(); },
     sharePayload: sharePayload,
     shareFromTap: shareFromTap,
+    isHoldSide: isHoldSide,
+    statusView: statusView,
     ringScale: ringScale,
     buzz: buzz,
     bindStartBtn: bindStartBtn,

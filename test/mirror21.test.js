@@ -67,8 +67,8 @@ const faint = front.map((k) => Object.assign({}, k, { score: 0.1 }));
 check("detectInfo: low-confidence face points are off at the default threshold", M.detectInfo(faint).on === false);
 
 const openIds = /var OPEN_IDS = \{([^}]+)\}/.exec(pfpSrc)[1];
-check("production OPEN_IDS is unchanged (six live cameras, no m21Vid hardcoded)",
-  /camVid: 1/.test(openIds) && /sqVid: 1/.test(openIds) && !/m21Vid/.test(openIds) && (openIds.match(/: 1/g) || []).length === 6, openIds);
+check("production OPEN_IDS lists the live cameras, including coolingVid, and no m21Vid hardcoded",
+  /camVid: 1/.test(openIds) && /sqVid: 1/.test(openIds) && /coolingVid: 1/.test(openIds) && !/m21Vid/.test(openIds) && (openIds.match(/: 1/g) || []).length === 7, openIds);
 check("pfp.js adds registerCam as a read-only extra-id hook", /function registerCam\(id\)/.test(pfpSrc) && /api\.registerCam = registerCam/.test(pfpSrc) && /Never removes or changes the six production ids/.test(pfpSrc));
 check("registerCam exists on the API and is a function", typeof PF.registerCam === "function");
 

@@ -18,7 +18,7 @@ check("phone back / browser back (popstate) and Escape leave the solo camera the
 check("More toggle and exit() clear remain for later (handlers kept)", /zlMoreBtn"\)\.onclick/.test(html) && /classList\.remove\("cam-fs-more"\)/.test(fsJs));
 check("push/TUT camera video also fills cam-fs; Exit full screen is hidden while already full screen", /#camWrap\.cam-fs video\{[^}]*position:absolute[^}]*inset:0[^}]*height:100%/.test(html) && /#camWrap\.cam-fs #camFsBtn\{display:none!important\}/.test(html));
 check("End set stays on the push/TUT camera", /id="camEndBtn"/.test(html) && /class="btn cam-end-btn"/.test(html));
-check("production OPEN_IDS is unchanged", /var OPEN_IDS = \{ camVid: 1, plankVid: 1, tbVid: 1, sqVid: 1, zlSelf: 1, zmCamVid: 1 \};/.test(pfp));
+check("production OPEN_IDS is unchanged", /var OPEN_IDS = \{ camVid: 1, plankVid: 1, tbVid: 1, sqVid: 1, zlSelf: 1, zmCamVid: 1, coolingVid: 1 \};/.test(pfp));
 check("never reintroduce openMask, coverBack, or a rec.js dark cover", !/\bopenMask\b/.test(html + pfp + rec) && !/coverBack blanket/.test(pfp) && !/full-frame dark/.test(rec));
 check("viewport-fit=cover so the camera can extend into the notch / status-bar inset", /name="viewport"[^>]*viewport-fit=cover/.test(html));
 check("apple-mobile-web-app-status-bar-style is black-translucent", /apple-mobile-web-app-status-bar-style" content="black-translucent"/.test(html));

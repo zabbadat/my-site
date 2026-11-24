@@ -6,7 +6,7 @@ let pass = 0, fail = 0; const check = (n, c) => { console.log((c ? "PASS  " : "F
 const K = (o, s = 0.9) => Object.entries(o).map(([name, [x, y]]) => ({ name, x, y, score: s }));
 // 1. hidden from the first paint, in the initial HTML (head), before any script that could open a camera
 const head = html.slice(0, html.indexOf("</head>")), css = /<style id="pfpShieldCss">([^<]*)<\/style>/.exec(head);
-const ids = ["camVid", "plankVid", "tbVid", "sqVid", "zlSelf", "zmCamVid"];
+const ids = ["camVid", "plankVid", "tbVid", "sqVid", "zlSelf", "zmCamVid", "coolingVid"];
 check("index.html <head>: raw camera video is opacity 0 while the switch is on (zero exposure); the shield canvas sits on top and shows the live covered feed", !!css && ids.every((i) => css[1].includes("html.zab-pfp-shield video#" + i)) && /opacity:0!important/.test(css[1]) && /canvas\.pfp-shield/.test(css[1]));
 check("index.html <head>: shield on before first paint unless the key is explicitly off (unset or \"1\")", /<script>try \{ if \(localStorage\.getItem\("zabPfpOn"\) !== "0"\) document\.documentElement\.classList\.add\("zab-pfp-shield"\); \} catch \(e\) \{ try \{ document\.documentElement\.classList\.add\("zab-pfp-shield"\); \} catch \(e2\) \{\} \}<\/script>/.test(head) && head.indexOf("pfpShieldCss") < head.indexOf("<script async"));
 function earlyShield(getItem, shouldThrow) {

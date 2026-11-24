@@ -149,7 +149,7 @@
   var doc = root && root.document;
   if (!doc) return;
   var LIVE_IDS = { zmLiveSlot: "zlSelf", zlSelfWrap: "zlSelf", zmCamWrap: "zmCamVid" };
-  var VID = { camWrap: "camVid", tbCamWrap: "tbVid", plankWrap: "plankVid", zmLiveSlot: "zlSelf", zlSelfWrap: "zlSelf", zmCamWrap: "zmCamVid" };
+  var VID = { camWrap: "camVid", tbCamWrap: "tbVid", plankWrap: "plankVid", zmLiveSlot: "zlSelf", zlSelfWrap: "zlSelf", zmCamWrap: "zmCamVid", coolingWrap: "coolingVid" };
   function isLiveId(id) { return !!LIVE_IDS[id]; }
   function supported() {
     try { return typeof root.MediaRecorder === "function" && !!(root.HTMLCanvasElement && root.HTMLCanvasElement.prototype.captureStream); } catch (e) { return false; }
@@ -163,6 +163,7 @@
   var cur = null; // { id, vid, cv, x, mr, chunks, raf, placer, type, stopBtn }
   function hudText(id) {
     // Live Match / Go Live recordings: score, turn, elapsed time only — never steps.
+    if (id === "coolingWrap") return [["Proof of Sitkari", "Sitkari"]];
     if (isLiveId(id)) {
       var out = [], scoreEl = doc.getElementById("washersLiveScore") || doc.querySelector("#zmSeats .zm-seat.turn .zm-score, #zmSeats .zm-score");
       var clockEl = doc.getElementById("zmElapsed") || doc.getElementById("washersStripClock");
@@ -211,7 +212,7 @@
     x.save(); x.translate(fw, 0); x.scale(-1, 1);
     try {
       x.drawImage(rf ? rf.img : v, 0, 0, fw, fh); // always the live (or pose-matched) picture — never a dark full-frame fill
-      if (blanket) head0 = null; // no locked head: the large opening logo is drawn after restore, not a corner-to-corner disc
+      if (blanket && r.id !== "coolingWrap") head0 = null; // no locked head: the large opening logo is drawn after restore, not a corner-to-corner disc
     } catch (e) {}
     x.restore();
     var cells = hudText(r.id), hh = Math.round(fh * W.hudFrac);
@@ -226,8 +227,15 @@
     var vw = v.videoWidth || fw, sc = fw / vw;
     var hd = head0 ? { x: head0.x * sc, y: head0.y * sc, r: head0.r * sc } : null;
     if (blanket && pfpOn) {
-      var PP = root.ZabPfp.P || {}, br = Math.max(10, Math.min((PP.blankR || 0.48) * fw, 0.85 * fh));
-      root.ZabPfp.drawLogo(x, { x: fw / 2, y: fh * (PP.blankY || 0.38), r: br }); // large opening logo over the face area; the rest of the frame stays the live picture
+      var PP = root.ZabPfp.P || {};
+      if (r.id === "coolingWrap") {
+        // Cooling box only: keep the mouth clear. Use the last sitkari circle, or a higher smaller opening disc — never the large mouth-covering blanket.
+        if (hd) root.ZabPfp.drawLogo(x, hd);
+        else root.ZabPfp.drawLogo(x, { x: fw / 2, y: fh * 0.28, r: Math.max(10, Math.min(0.22 * fw, 0.28 * fh)) });
+      } else {
+        var br = Math.max(10, Math.min((PP.blankR || 0.48) * fw, 0.85 * fh));
+        root.ZabPfp.drawLogo(x, { x: fw / 2, y: fh * (PP.blankY || 0.38), r: br }); // large opening logo over the face area; the rest of the frame stays the live picture
+      }
     } else if (hd && pfpOn) root.ZabPfp.drawLogo(x, hd);
     var pl = r.placer.step(hd, fw, fh, now); drawWatermark(x, pl.box);
   }
@@ -287,6 +295,7 @@
   }
   var ctl = createCtl({ start: start, stop: stop, paint: paint, isFs: function (id) {
     if (isLiveId(id)) { var v = pickLiveVideo(id); return !!(v && (v.srcObject || v.videoWidth > 0)); }
+    if (id === "coolingWrap") { var cv = doc.getElementById(VID[id]), cw = doc.getElementById(id); return !!(cw && !cw.hidden && cv && (cv.srcObject || cv.videoWidth > 0)); }
     var w = doc.getElementById(id); while (w) { if (w.classList && w.classList.contains("cam-fs") && !w.hidden) return true; w = w.parentElement; } return false;
   } });
   api.ctl = ctl; api.onFs = function (id, on) { try { return ctl.onFs(id, on); } catch (e) { return ""; } }; api.supported = supported; api.paintFrame = paintFrame; api.hudText = hudText; api.isLiveId = isLiveId;

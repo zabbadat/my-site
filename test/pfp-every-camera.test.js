@@ -41,7 +41,8 @@ const pt = seg("async function poseTick(", "const CAM_CONSTRAINTS");
     { id: "tbVid", where: "TUT Battle", file: "index.html", hook: /ZabPfp\.frame\(v, kps, tFrame\)/ },
     { id: "sqVid", where: "Gyatt Squats", file: "squat-page.js", hook: /ZabPfp\.frame\(vid, kps, t\)/ },
     { id: "zlSelf", where: "Go live self preview", file: "index.html", hook: /zlPfpStart\(\)/ },
-    { id: "zmCamVid", where: "Live Match", file: "match-pfp-cam.js", hook: /Z\.frame\(vid, kps, t\)/ }
+    { id: "zmCamVid", where: "Live Match", file: "match-pfp-cam.js", hook: /Z\.frame\(vid, kps, t\)/ },
+    { id: "coolingVid", where: "Cooling box", file: "cooling-box.js", hook: /ZabPfp\.sitkariFrame\(vid, kps, t\)/ }
   ];
   check("OPEN_IDS lists every local getUserMedia camera and no extras",
     CAMERAS.every((c) => new RegExp(c.id + ": 1").test(openIds)) && (openIds.match(/: 1/g) || []).length === CAMERAS.length, openIds);
