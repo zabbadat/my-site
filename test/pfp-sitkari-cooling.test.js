@@ -65,9 +65,60 @@ check("Record toggle is optional, off by default, remembered locally",
   && /zabbadat-breath-record/.test(box) && /=== "1"/.test(box));
 check("recordings of the cooling box use a mouth-clear logo and the Proof of Sitkari HUD",
   /coolingWrap: "coolingVid"/.test(rec) && /Proof of Sitkari/.test(rec) && /r\.id === "coolingWrap"/.test(rec));
-check("cooling host reuses attachCam / stopCamTracks / CAM_CONSTRAINTS and does not call camFs",
+check("cooling host reuses attachCam / stopCamTracks / CAM_CONSTRAINTS and cooling-box owns Fullscreen API + .cam-fs",
   /window\.ZabCoolingHost/.test(html) && /attachCam, stopCamTracks, camErrorText, isNativeApp, CAM_CONSTRAINTS/.test(html)
-  && /Reuses the shared camera helpers, no sign-in, no camFs/.test(html));
+  && /enterCoolingFs/.test(box) && /requestFullscreen/.test(box) && /cam-fs/.test(html));
+check("on-camera breathe cue sits in the lower right and is styled like the solo inhale pill",
+  /id="coolingCamCue"/.test(html) && /cooling-cam-pill/.test(html)
+  && /cooling-cam-cue\{position:absolute;right:/.test(html) && /bottom:/.test(html)
+  && /id="coolingCamStopBtn"/.test(html));
+
+
+// Close-up front face where ears are level with nose (ear.y ≈ nose.y): must stay nose-up, never blow up radius or flip sideways
+{
+  const closeFront = [
+    { name: "nose", x: 320, y: 200, score: 0.96 },
+    { name: "left_eye", x: 356, y: 170, score: 0.96 },
+    { name: "right_eye", x: 284, y: 170, score: 0.96 },
+    { name: "left_ear", x: 392, y: 202, score: 0.91 },
+    { name: "right_ear", x: 248, y: 202, score: 0.91 },
+    { name: "left_shoulder", x: 470, y: 420, score: 0.88 },
+    { name: "right_shoulder", x: 170, y: 420, score: 0.88 }
+  ];
+  const prev = PF.sitkariHead(closeFront, 640, 480);
+  const trSit = PF.createTracker({ sitkari: true, deadPos: 0.045, deadR: 0.06, minCut: 0.22, beta: 3.5, dCut: 1.5 });
+  trSit.step(closeFront, 0, 640, 480, 0, PF.sitkariHead);
+  let maxDelta = 0, maxRDelta = 0, prevC = prev, maxTrDelta = 0, prevTr = trSit.at(0);
+  for (let i = 0; i < 30; i++) {
+    const jx = ((i % 3) - 1) * 2.0;
+    const jy = (((i >> 1) % 3) - 1) * 2.0;
+    const earDrop = i % 2 === 0 ? 18 : -18;
+    const jittered = closeFront.map((k) => {
+      if (k.name === "left_ear" || k.name === "right_ear") return { ...k, x: k.x + jx, y: k.y + earDrop };
+      return { ...k, x: k.x + jx, y: k.y + jy };
+    });
+    const c = PF.sitkariHead(jittered, 640, 480);
+    const t = (i + 1) * 33;
+    trSit.step(jittered, t, 640, 480, t, PF.sitkariHead);
+    const trC = trSit.at(t);
+    const d = Math.hypot(c.x - prevC.x, c.y - prevC.y);
+    if (d > maxDelta) maxDelta = d;
+    const rd = Math.abs(c.r - prevC.r);
+    if (rd > maxRDelta) maxRDelta = rd;
+    const td = Math.hypot(trC.x - prevTr.x, trC.y - prevTr.y);
+    if (td > maxTrDelta) maxTrDelta = td;
+    check(`close-up frame ${i} covers eyes & nose, clears mouth/chin`,
+      inside(c, jittered[1].x, jittered[1].y) && inside(c, jittered[2].x, jittered[2].y) && inside(c, jittered[0].x, jittered[0].y)
+      && c.y + c.r < 252 && c.r < 220,
+      JSON.stringify({ c, i }));
+    prevC = c;
+    prevTr = trC;
+  }
+  check("sitkariHead stays bounded on ear-level close-up jitter (r never blows up)", maxRDelta < 18 && maxDelta < 18,
+    JSON.stringify({ maxDelta, maxRDelta }));
+  check("sitkari tracker holds steady (< 0.5 px frame delta) under ±2 px still-face noise", maxTrDelta < 0.5,
+    JSON.stringify({ maxTrDelta }));
+}
 
 const ok = R.filter(Boolean).length;
 console.log(`\n${ok}/${R.length} passed`);

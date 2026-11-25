@@ -265,41 +265,59 @@
     return { x: cx, y: cy, r: r, sw: L };
   }
   // Cooling box only: the logo covers the nose and everything above (eyes, forehead). Mouth and chin stay visible.
-  // Same tracking as the other modes; only this vertical placement differs. No change to headCircle / plankHead.
+  // Anchored on eye-line + nose so ear-height shifts never tilt the axis sideways or blow up r; bottom stays just under the nose tip.
   function sitkariHead(kps, frameW, frameH) {
-    var face = faceCircle(kps), by, nose, le, re, d, w, cx, topY, mouthY, downX, downY, len, pts, i, px, py, dx, dist, r, cy, pad;
+    var face = faceCircle(kps), by, nose, le, re, eyes, ed, eyeMid, d, w, topY, mouthY, downX, downY, len, pts, i, px, py, dx, dist, r, cy, pad;
     if (!face) return null;
     by = kps && kps.length ? byName(kps) : {};
     function g(n, idx) { return by[n] || (kps[idx] && !kps[idx].name ? kps[idx] : null); }
     nose = g("nose", 0); le = g("left_eye", 1); re = g("right_eye", 2);
-    w = face.w || (face.r * 2 / P.padK);
-    cx = face.x;
+    eyes = [le, re].filter(ok);
+    ed = eyes.length === 2 ? Math.hypot(le.x - re.x, le.y - re.y) : 0;
+    w = Math.max(face.w || (face.r * 2 / P.padK), ed * 2);
+    eyeMid = eyes.length === 2 ? { x: (le.x + re.x) / 2, y: (le.y + re.y) / 2 } : (eyes.length === 1 ? { x: eyes[0].x, y: eyes[0].y } : { x: face.x, y: face.y });
     downX = 0; downY = 1;
-    if (ok(nose)) {
-      dx = nose.x - face.x; dist = nose.y - face.y;
-      len = Math.hypot(dx, dist);
-      if (len > 2) { downX = dx / len; downY = dist / len; }
+    if (ed > 4) {
+      var ex = (re.x - le.x) / ed, ey = (re.y - le.y) / ed;
+      downX = -ey; downY = ex;
+      if (downY < 0) { downX = -downX; downY = -downY; }
+      if (ok(nose) && Math.hypot(nose.x - eyeMid.x, nose.y - eyeMid.y) > 4) {
+        if ((nose.x - eyeMid.x) * downX + (nose.y - eyeMid.y) * downY < 0) { downX = -downX; downY = -downY; }
+      }
+    } else if (ok(nose) && nose.y - eyeMid.y > 4) {
+      dx = nose.x - eyeMid.x; dist = nose.y - eyeMid.y; len = Math.hypot(dx, dist);
+      if (len > 4) {
+        downX = Math.max(-0.45, Math.min(0.45, dx / len));
+        downY = Math.sqrt(Math.max(0, 1 - downX * downX));
+      }
     }
-    // Bottom of the logo is just under the nose tip, along the face-down axis. Mouth and chin stay below this line.
+    // Bottom edge sits just below the nose tip along down, strictly above the upper lip / mouth / chin.
     if (ok(nose)) {
-      d = (ok(le) && ok(re)) ? Math.hypot(((le.x + re.x) / 2) - nose.x, ((le.y + re.y) / 2) - nose.y) : w * 0.25;
-      mouthY = { x: nose.x + downX * Math.max(w * 0.10, d * 0.40), y: nose.y + downY * Math.max(w * 0.10, d * 0.40) };
+      var noseDown = (nose.x - eyeMid.x) * downX + (nose.y - eyeMid.y) * downY;
+      var noseRef = noseDown >= w * 0.14 ? nose : { x: eyeMid.x + downX * w * 0.18, y: eyeMid.y + downY * w * 0.18 };
+      d = eyes.length === 2 ? Math.hypot(eyeMid.x - noseRef.x, eyeMid.y - noseRef.y) : w * 0.25;
+      var margin = Math.max(w * 0.08, Math.min(w * 0.15, d * 0.36));
+      mouthY = { x: noseRef.x + downX * margin, y: noseRef.y + downY * margin };
     } else {
-      mouthY = { x: face.x + downX * w * 0.18, y: face.y + downY * w * 0.18 };
+      mouthY = { x: eyeMid.x + downX * w * 0.28, y: eyeMid.y + downY * w * 0.28 };
     }
-    topY = { x: face.x - downX * w * P.topUp, y: face.y - downY * w * P.topUp };
-    pts = (face.pts || []).concat([topY, { x: face.x, y: face.y }]);
-    if (ok(nose)) pts.push({ x: nose.x, y: nose.y });
-    // Circle tangent to the just-below-nose line (center is r along -down) covering forehead, eyes, and the nose.
-    r = P.minR; pad = w * 0.08;
+    var fh = ed > 4 ? Math.max(w * 0.62, ed * 1.35) : w * 0.65;
+    topY = { x: eyeMid.x - downX * fh, y: eyeMid.y - downY * fh };
+    var span = (mouthY.x - topY.x) * downX + (mouthY.y - topY.y) * downY;
+    r = Math.max(P.minR, span / 2);
+    pts = [topY, eyeMid];
+    if (ok(le)) pts.push(le);
+    if (ok(re)) pts.push(re);
+    if (ok(nose)) pts.push(nose);
+    // Tangent at mouthY: ensure forehead, both eyes, and nose stay inside with comfortable padding, without ear-level blowups.
+    pad = w * 0.10;
     for (i = 0; i < pts.length; i++) {
       px = pts[i].x; py = pts[i].y;
-      // Skip points clearly below the mouth line — they must stay uncovered.
-      if ((px - mouthY.x) * downX + (py - mouthY.y) * downY > 0) continue;
       dx = px - mouthY.x; dist = py - mouthY.y;
-      var across = dx * downX + dist * downY; // negative or 0 if above the line
-      var perp2 = dx * dx + dist * dist - across * across;
-      var lift = -across + 1e-6;
+      var across = dx * downX + dist * downY;
+      if (across >= -w * 0.04) continue;
+      var perp2 = Math.max(0, dx * dx + dist * dist - across * across);
+      var lift = Math.max(w * 0.12, -across);
       var need = (perp2 + across * across) / (2 * lift) + pad;
       if (need > r) r = need;
     }
@@ -342,8 +360,9 @@
     // Grow r so the raw (unsmoothed) head circle stays inside. Never shrinks. Centre stays put (no jump toward noise).
     function coverRaw(c) {
       if (!c || !raw || c.held || c.open) return c;
+      var slack = o.sitkari ? raw.r * 0.14 : 0;
       var need = Math.hypot(raw.x - c.x, raw.y - c.y) + raw.r;
-      if (need > c.r) return { x: c.x, y: c.y, r: need, held: c.held, src: c.src, open: c.open };
+      if (need > c.r + slack) return { x: c.x, y: c.y, r: need, held: c.held, src: c.src, open: c.open };
       return c;
     }
     function place(head, src, t, drawT) {
@@ -352,7 +371,7 @@
       // Fresh start, or the face is back after a gap (held / lost): snap straight onto it with no velocity (no slide, no fling).
       if (!f || !(dtS > 0) || dtS > o.snapMs / 1000) { reacq = !!f || !!held || !!disp; f = { x: head.x, y: head.y, dx: 0, dy: 0, vx: 0, vy: 0, k: 0, t: t, r: head.r, mx: head.x, my: head.y, sw: head.sw || 0, ax: head.x, ay: head.y, ar: head.r }; }
       else {
-        var scale = (head.sw > 8) ? head.sw : (f.sw > 8 ? f.sw : Math.max(2 * Math.max(o.minR, head.r), 40));
+        var scale = o.sitkari ? Math.max(head.sw || 0, 2 * Math.max(o.minR, head.r)) : ((head.sw > 8) ? head.sw : (f.sw > 8 ? f.sw : Math.max(2 * Math.max(o.minR, head.r), 40)));
         if (head.sw > 8) f.sw = head.sw;
         // Dead-zone vs the last accepted raw target (not the filtered centre): otherwise a lag of a few px freezes short of the head.
         var ax = f.ax != null ? f.ax : f.x, ay = f.ay != null ? f.ay : f.y, ar0 = f.ar != null ? f.ar : f.r;
@@ -378,8 +397,9 @@
         if (nr < f.r - maxDn) nr = f.r - maxDn;
         f.r = nr; f.t = t;
       }
+      var slack = o.sitkari ? raw.r * 0.14 : 0;
       var need = Math.hypot(raw.x - f.x, raw.y - f.y) + raw.r;
-      if (need > f.r) f.r = need;
+      if (need > f.r + slack) f.r = need;
       f.src = src;
       return predict(drawT);
     }
@@ -625,7 +645,7 @@
       // Switch off: avatar, its head tracking and the recording avatar all stop (rep counting never depends on this).
       if (!isOn()) { heads[id] = null; var o0 = overlays[id]; if (o0) clearOne(o0); miniStop(); return; }
       var drawT = given && root.performance && typeof root.performance.now === "function" ? root.performance.now() : tt;
-      var hc = heads[id] || (heads[id] = { tr: createTracker(), c: null, t: 0 }); hc.c = hc.tr.step(kps, tt, vid.videoWidth, vid.videoHeight, drawT, where); hc.t = tt; hc.timed = given && drawT !== tt;
+      var hc = heads[id] || (heads[id] = { tr: createTracker(where === sitkariHead ? { sitkari: true, deadPos: 0.035, deadR: 0.08, minCut: 0.20, beta: 3.0, dCut: 1.5, dispMinMs: 48, dispMaxMs: 72 } : null), c: null, t: 0 }); hc.c = hc.tr.step(kps, tt, vid.videoWidth, vid.videoHeight, drawT, where); hc.t = tt; hc.timed = given && drawT !== tt;
       if (hc.c && hc.timed) { var g0 = hc.tr.at(drawT); if (g0) hc.c = g0; } // draw the glided spot (same as every screen refresh): no step at pose frames // head spot for the avatar, the recording and the watermark hop
       ensureLogo();
       var o = overlayFor(vid), c = hc.c;
@@ -820,7 +840,14 @@
     if (!s.lockSnap) s.lockSnap = doc.createElement("canvas");
     if (s.lockSnap.width !== snap.width || s.lockSnap.height !== snap.height) { s.lockSnap.width = snap.width; s.lockSnap.height = snap.height; }
     s.lockSnap.getContext("2d").drawImage(snap, 0, 0); // own copy: the input ring of 3 buffers is reused and must not overwrite the frozen frame
-    s.snap = s.lockSnap; s.circle = enclose(raw, hc && hc.c && !hc.c.open ? hc.c : null); s.dbg.c = s.circle; s.lastPoseT = perfNow(); s.vw = vw; s.vh = vh;
+    var sc = hc && hc.c && !hc.c.open ? hc.c : null;
+    if (isSitkariCam(s) && sc) {
+      var sDist = Math.hypot(raw.x - sc.x, raw.y - sc.y);
+      s.circle = (sDist + raw.r <= sc.r + raw.r * 0.15) ? { x: sc.x, y: sc.y, r: sc.r, src: sc.src || raw.src } : enclose(raw, sc);
+    } else {
+      s.circle = enclose(raw, sc);
+    }
+    s.snap = s.lockSnap; s.dbg.c = s.circle; s.lastPoseT = perfNow(); s.vw = vw; s.vh = vh;
     if (!s.lockT && s.good >= P.lockFrames) { s.lockT = perfNow(); s.lostT = 0; s.wasLocked = 1; s.opening = 0; if (s.vid && s.vid.id) lockedOnce[s.vid.id] = 1; }
     s.live = !!s.lockT;
   }
@@ -853,7 +880,16 @@
   function glideMark(s, t, now) {
     var p = s.dispM, dtS = s.dispT ? (now - s.dispT) / 1000 : 0;
     s.dispT = now;
-    s.dispM = smoothLogo(p, t, dtS);
+    if (isSitkariCam(s) && p && t) {
+      var dt = Math.max(1 / 120, Math.min(0.05, dtS || 1 / 60));
+      var dead = Math.max(1.2, t.r * 0.045), deadR = Math.max(1.2, t.r * 0.05);
+      var dx = t.x - p.x, dy = t.y - p.y, dist = Math.hypot(dx, dy), nx = p.x, ny = p.y, nr = p.r;
+      if (dist > dead) { var a = dist > t.r * 0.25 ? 0.85 : (1 - Math.exp(-dt / 0.06)); nx = p.x + dx * a; ny = p.y + dy * a; }
+      if (Math.abs(t.r - p.r) > deadR) { var ar = 1 - Math.exp(-dt / 0.11); nr = p.r + (t.r - p.r) * ar; }
+      s.dispM = { x: nx, y: ny, r: nr };
+    } else {
+      s.dispM = smoothLogo(p, t, dtS);
+    }
     return s.dispM || t;
   }
   api.smoothLogo = smoothLogo;
@@ -871,7 +907,7 @@
   // Cooling-box opening only: a higher, smaller disc so the mouth stays clear before lock. Other cameras unchanged.
   function sitkariBlanket(g) {
     var R = picRect(g), vis = { x: Math.max(0, R.x), y: Math.max(0, R.y), w: Math.min(g.bw, R.w), h: Math.min(g.bh, R.h) };
-    return { x: vis.x + vis.w / 2, y: vis.y + vis.h * 0.28, r: Math.max(P.minR, Math.min(0.22 * vis.w, 0.28 * vis.h)) };
+    return { x: vis.x + vis.w / 2, y: vis.y + vis.h * 0.25, r: Math.max(P.minR, Math.min(0.20 * vis.w, 0.23 * vis.h)) };
   }
   function blanketAround(g, t) { // the check-in logo, or the smallest circle holding it and circle t (+1 px): t is always inside
     var c = blanketLogo(g);
