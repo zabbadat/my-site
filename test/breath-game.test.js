@@ -220,9 +220,14 @@ check("cooling camera markup and caption are in the card, Record toggle is prese
   /id="coolingWrap"/.test(html) && /id="coolingVid"/.test(html)
   && /id="coolingProofCaption"/.test(html) && /Proof of Sitkari/.test(html)
   && /id="coolingRecBtn"/.test(html) && /data-rec="coolingWrap"/.test(html));
-check("cooling-box.js opens the camera only through the shared host constraints",
+check("cooling-box.js opens the camera through host constraints with Fullscreen API + .cam-fs fallback and lower-right cue",
   /getUserMedia\(H\.CAM_CONSTRAINTS\)/.test(src) && /ZabPfp\.sitkariFrame/.test(src)
-  && !/camFs\(/.test(src));
+  && /enterCoolingFs/.test(src) && /exitCoolingFs/.test(src) && /requestFullscreen/.test(src)
+  && /id="coolingCamCue"/.test(html) && /id="coolingCamStopBtn"/.test(html));
+check("solo hold strip sits inside a fixed-height cue slot so toggling holds causes zero layout jump",
+  /class="cooling-cue-slot" id="coolingCueSlot"/.test(html)
+  && /\.cooling-cue-slot\{[^}]*min-height:/.test(html)
+  && /transform-box:view-box/.test(html));
 
 check("two equal start buttons sit under the ring, Record lives only in the camera column",
   /id="coolingSoloBtn"/.test(html) && /id="coolingCamBtn"/.test(html)

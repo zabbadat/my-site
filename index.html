@@ -1576,7 +1576,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     <p class="fine">Sit upright. Stop if you get dizzy. This is a settling drill before a Bariboshi, not a medical treatment.</p>
     <style id="coolingBoxCss">
 #coolingPlay{position:relative}
-#coolingSoloBtn,#coolingCamBtn,#coolingStopBtn,#coolingShareBtn,#coolingRecBtn{cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#coolingSoloBtn,#coolingCamBtn,#coolingStopBtn,#coolingShareBtn,#coolingRecBtn,#coolingCamStopBtn{cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .cooling-nudge{margin:0 0 .85rem;padding:.55rem .7rem;border-radius:10px;border:1px solid rgba(198,255,0,.28);background:rgba(198,255,0,.06);color:var(--text,#eef4f1);font-weight:700;font-size:.95rem}
 .cooling-nudge[hidden],.cooling-celeb[hidden],.cooling-summary[hidden],.cooling-streak[hidden],.cooling-level[hidden]{display:none}
 .cooling-stage{display:flex;flex-direction:column;align-items:center;text-align:center;position:relative}
@@ -1585,16 +1585,17 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 .cooling-ring-track{stroke:rgba(198,255,0,.16)}
 .cooling-ring-glow{stroke:rgba(198,255,0,.28)}
 .cooling-ring-line{stroke:#C6FF00;filter:drop-shadow(0 0 8px rgba(198,255,0,.5))}
-.cooling-ring-scale{transform-origin:60px 60px;transform:scale(.55)}
-#coolingRing[data-side="0"] .cooling-ring-line{stroke:#C6FF00}
-#coolingRing[data-side="1"] .cooling-ring-line{stroke:#E8FF8A}
-#coolingRing[data-side="2"] .cooling-ring-line{stroke:#7ad0ff}
-#coolingRing[data-side="3"] .cooling-ring-line{stroke:#9aada4}
-.cooling-goal{position:absolute;right:-6px;bottom:6px;width:44px;text-align:center;pointer-events:none}
+.cooling-ring-scale{transform-origin:60px 60px;transform-box:view-box;transform:scale(.55);will-change:transform}
+#coolingRing[data-side="0"] .cooling-ring-line,#coolingCamRing[data-side="0"] .cooling-ring-line{stroke:#C6FF00}
+#coolingRing[data-side="1"] .cooling-ring-line,#coolingCamRing[data-side="1"] .cooling-ring-line{stroke:#E8FF8A}
+#coolingRing[data-side="2"] .cooling-ring-line,#coolingCamRing[data-side="2"] .cooling-ring-line{stroke:#7ad0ff}
+#coolingRing[data-side="3"] .cooling-ring-line,#coolingCamRing[data-side="3"] .cooling-ring-line{stroke:#9aada4}
+.cooling-goal{position:absolute;right:-16px;bottom:2px;width:44px;text-align:center;pointer-events:none}
 .cooling-goal-track{stroke:rgba(198,255,0,.2)}
 .cooling-goal-fill{stroke:#C6FF00;stroke-linecap:round;transition:stroke-dashoffset .25s linear}
 .cooling-goal span{display:block;margin-top:.05rem;font-size:.62rem;letter-spacing:.04em;color:var(--muted,#9aada4)}
-#coolingPlay #coolingStatus{margin:.15rem 0 0}
+.cooling-cue-slot{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:.35rem;min-height:6.3rem;width:100%}
+#coolingPlay #coolingStatus{margin:.15rem 0 0;min-height:1.5em}
 .cooling-celeb{margin:.25rem 0 0;font-weight:800;letter-spacing:.05em;color:#C6FF00}
 .cooling-summary{margin:.4rem 0 0;color:var(--muted,#9aada4)}
 .cooling-streak{display:flex;align-items:center;gap:.4rem;margin:.7rem 0 0;font-weight:700;color:var(--text,#eef4f1)}
@@ -1620,7 +1621,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 #coolingHoldStrip[hidden]{display:none}
 #coolingWrap[hidden]{display:none}
 #coolingWrap{margin:.55rem auto 0;max-width:22rem;position:relative;width:100%}
-#coolingStage{position:relative}
+#coolingStage{position:relative;overflow:hidden}
 #coolingProofCaption{margin:.35rem 0 0;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#9aada4);font-weight:700;text-align:center}
 #coolingProofCaption[hidden]{display:none}
 #coolingCloseHint{margin:0 0 .35rem;padding:.4rem .55rem;border-radius:10px;border:1px solid rgba(198,255,0,.28);background:rgba(198,255,0,.08);color:var(--text,#eef4f1);font-weight:700;font-size:.88rem;text-align:center}
@@ -1631,7 +1632,29 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 #coolingAlignRing[hidden]{display:none}
 #coolingAlignRing>svg{display:block;width:96px;height:96px}
 #coolingAlignCount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;margin:0;font-weight:800;font-size:1.55rem;line-height:1;color:#C6FF00;pointer-events:none}
-#coolingStage{overflow:hidden}
+/* Full-screen Sitkari camera (Fullscreen API + iOS Safari fixed-inset 100dvh fallback) */
+html.zab-cooling-fs,html.zab-cooling-fs body{overflow:hidden!important;overscroll-behavior:none!important}
+html.zab-cooling-fs nav,html.zab-cooling-fs #sessionStrip,html.zab-cooling-fs .promo-banner,html.zab-cooling-fs #playEarn10k{display:none!important;visibility:hidden!important;pointer-events:none!important}
+#coolingWrap:fullscreen,#coolingWrap:-webkit-full-screen,#coolingWrap.cam-fs{position:fixed!important;inset:0;z-index:2147483000;max-width:none!important;width:100%;width:100vw;height:100vh;height:100dvh;height:100lvh;min-height:100vh;min-height:100dvh;margin:0!important;padding:0!important;background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:center;overflow:hidden}
+#coolingWrap:fullscreen #coolingStage,#coolingWrap:-webkit-full-screen #coolingStage,#coolingWrap.cam-fs #coolingStage{position:relative;flex:1 1 auto;min-height:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#000}
+#coolingWrap:fullscreen #coolingVid,#coolingWrap:-webkit-full-screen #coolingVid,#coolingWrap.cam-fs #coolingVid{width:100%;height:100%;object-fit:contain;border-radius:0!important;background:#000}
+#coolingWrap:fullscreen #coolingCloseHint,#coolingWrap:-webkit-full-screen #coolingCloseHint,#coolingWrap.cam-fs #coolingCloseHint{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:6;margin:0;max-width:min(88vw,24rem);background:rgba(14,20,18,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#coolingWrap:fullscreen #coolingProofCaption,#coolingWrap:-webkit-full-screen #coolingProofCaption,#coolingWrap.cam-fs #coolingProofCaption{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:calc(12px + env(safe-area-inset-left,0px));z-index:5;margin:0;padding:.25rem .6rem;border-radius:999px;background:rgba(14,20,18,.68);color:rgba(238,244,241,.86);pointer-events:none}
+#coolingWrap:fullscreen .rec-stop,#coolingWrap:-webkit-full-screen .rec-stop,#coolingWrap.cam-fs .rec-stop{bottom:calc(68px + env(safe-area-inset-bottom,0px));left:calc(12px + env(safe-area-inset-left,0px));z-index:7}
+/* Lower-right off-to-the-side Breathe cue styled like the solo inhale button */
+.cooling-cam-cue{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:6;display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.45rem .6rem;border-radius:16px;background:rgba(14,20,18,.78);border:1px solid rgba(198,255,0,.38);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);pointer-events:none;max-width:116px}
+.cooling-cam-cue[hidden]{display:none}
+.cooling-cam-ring-wrap{position:relative;width:62px;height:62px;margin:0 auto}
+.cooling-cam-ring-wrap>svg{display:block;width:100%;height:100%}
+.cooling-cam-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.25rem;line-height:1;color:#C6FF00}
+.cooling-cam-pill{display:inline-flex;align-items:center;justify-content:center;background:var(--grad);color:#0e1412;font-weight:800;font-size:.78rem;line-height:1.15;letter-spacing:.02em;padding:.3rem .72rem;border-radius:999px;box-shadow:0 4px 16px rgba(255,46,147,.28);white-space:nowrap}
+@media (min-width:720px){
+  .cooling-cam-cue{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));padding:.55rem .75rem;max-width:136px}
+  .cooling-cam-ring-wrap{width:76px;height:76px}
+  .cooling-cam-pill{font-size:.86rem;padding:.34rem .84rem}
+}
+.cooling-cam-stop{left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:6;min-height:44px!important;min-width:5.4rem!important;max-width:34%;padding:.5rem .9rem!important;font-size:.95rem!important}
+.cooling-cam-stop[hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){
   .cooling-plus,.cooling-sparkle,.cooling-celeb,#coolingCloseHint{animation:none !important}
   .cooling-plus{opacity:.85}
@@ -1658,11 +1681,13 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
             <span id="coolingGoalText">0 / 4</span>
           </div>
         </div>
-        <p class="lead" id="coolingStatus">Start a 16-second 4-count cycle.</p>
-        <div class="arcade-strip" id="coolingHoldStrip" hidden>
-          <div class="arcade-cell">
-            <span class="arcade-num" id="coolingHoldCount"></span>
-            <span class="arcade-lbl" id="coolingHoldLbl">Hold</span>
+        <div class="cooling-cue-slot" id="coolingCueSlot">
+          <p class="lead" id="coolingStatus">Start a 16-second 4-count cycle.</p>
+          <div class="arcade-strip" id="coolingHoldStrip" hidden>
+            <div class="arcade-cell">
+              <span class="arcade-num" id="coolingHoldCount"></span>
+              <span class="arcade-lbl" id="coolingHoldLbl">Hold</span>
+            </div>
           </div>
         </div>
         <div id="coolingWrap" hidden>
@@ -1671,6 +1696,20 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
             <video id="coolingVid" autoplay playsinline muted style="width:100%;border-radius:14px 14px 0 0;background:#101816;transform:scaleX(-1);display:block"></video>
           </div>
           <p class="cooling-proof-caption" id="coolingProofCaption" hidden>Proof of Sitkari</p>
+          <div class="cooling-cam-cue" id="coolingCamCue" hidden aria-live="polite">
+            <div class="cooling-cam-ring-wrap" id="coolingCamRing" data-side="">
+              <svg viewBox="0 0 120 120" width="64" height="64" aria-hidden="true" focusable="false">
+                <circle class="cooling-ring-track" cx="60" cy="60" r="44" fill="none" stroke-width="2.5"/>
+                <g id="coolingCamRingScale" class="cooling-ring-scale">
+                  <circle class="cooling-ring-glow" cx="60" cy="60" r="44" fill="none" stroke-width="8"/>
+                  <circle class="cooling-ring-line" cx="60" cy="60" r="44" fill="none" stroke-width="3.5"/>
+                </g>
+              </svg>
+              <span class="cooling-cam-num" id="coolingCamNum"></span>
+            </div>
+            <span class="cooling-cam-pill" id="coolingCamLabel">Sitkari</span>
+          </div>
+          <button class="btn ghost cam-end-btn cooling-cam-stop" id="coolingCamStopBtn" type="button" hidden style="cursor:pointer">Stop</button>
         </div>
         <div class="cooling-ring-wrap" id="coolingAlignRing" hidden aria-hidden="true">
           <svg viewBox="0 0 120 120" width="96" height="96" focusable="false">
@@ -4800,7 +4839,7 @@ window.ZabSquatHost = {
   award: (id) => awardZab("squats", id), zabNote: (r) => zabNote(r), zabRing: (el) => zabRing(el)
 };
 // Cooling box camera: same shared helpers as squat-page.js (CAM_CONSTRAINTS, attachCam, stopCamTracks).
-// Reuses the shared camera helpers, no sign-in, no camFs — the preview stays in the card.
+// Reuses the shared camera helpers; no sign-in; cooling-box.js owns Fullscreen API + .cam-fs fallback on #coolingWrap.
 window.ZabCoolingHost = {
   ensurePose: () => ensurePushPose(),
   attachCam, stopCamTracks, camErrorText, isNativeApp, CAM_CONSTRAINTS,
