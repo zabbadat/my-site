@@ -18,10 +18,11 @@
   var NODE = typeof module !== "undefined" && module.exports;
   var SC = NODE ? require("./squat-counter.js") : root.ZabbadatSquat;
   var ETD = NODE ? require("./et-day.js") : root.ZabbadatEtDay;
+  var ZSS = NODE ? require("./push-session.js") : root.ZabbadatSession;
   var L = { stallBottomMs: 15000, noRepMs: 45000, sitStillMs: 8000, sitDrop: 0.8, sitStillTol: 0.06, floorDrop: 1.6, floorMs: 1500,
     handsMs: 1000, missingMs: 3000, maxReps: 1000, setReps: 10 }; // a set is ten counted reps
   var REASON = { stall_bottom: "15 seconds at the bottom with no rep", no_rep: "45 seconds with no rep", sat: "sat down", hands_down: "hands down",
-    left_frame: "left the frame", stopped: "End set", set_done: "ten reps, set complete", max_reps: "1000 reps, the most one set can post" };
+    knees: "knelt down", left_frame: "left the frame", stopped: "End set", set_done: "ten reps, set complete", max_reps: "1000 reps, the most one set can post" };
   function reasonText(r) { return REASON[r] || "set over"; }
   // TUT while the squat is under load (down, bottom, or up). Pauses at the top rest, out of frame, or a form break.
   function createTutClock() {
@@ -41,12 +42,21 @@
     return !!(st && st.frame === "ok" && st.guard === "ok" && (st.phase === "down" || st.phase === "bottom" || st.phase === "up"));
   }
 
+  function squatKneeDrop(kps, st) {
+    if (!SC || !SC.measure || !st || st.frame !== "ok") return false;
+    var m = SC.measure(kps); if (!m) return false;
+    var thigh = Math.max(1, m.kneeY - m.hipY), fullH = Math.max(1, m.ankY - m.shY);
+    var kneesAtFloor = m.hipY <= m.kneeY + 0.1 * thigh && (m.ankY - m.kneeY) <= 0.35 * thigh && thigh >= 0.25 * fullH;
+    var k3Bent = st.knee3D != null && st.knee3D < 110 && st.drop >= 0.6 && (m.ankY - m.kneeY) <= 0.5 * thigh;
+    return kneesAtFloor || k3Bent;
+  }
   function createSquatSet(opts) {
     opts = opts || {};
     var lim = Object.assign({}, L, opts.limits || {});
     var counter = opts.counter || SC.createCounter(opts.counterOpts);
     var t0 = opts.startT != null ? opts.startT : null, lastRepT = null, downT = null, missT = null, handsT = null, floorT = null;
     var still = null, ended = null, repTimes = [], lastSt = null, tut = createTutClock();
+    var giveUp = ZSS && ZSS.createGiveUpWatch ? ZSS.createGiveUpWatch({ kneelMs: lim.handsMs, leaveMs: lim.missingMs, neverSeenMs: lim.missingMs, chainMs: 1500, chainLeaveMs: 450, minFrames: 5, badRatio: 0.75, gapMs: 300, okGraceMs: 150, leaveReason: "left_frame" }) : null;
     function finish(t, reason) {
       if (ended) return ended;
       if (lastSt) tut.tick(t, squatLoaded(lastSt)); else tut.stop(t);
@@ -60,10 +70,17 @@
       if (lastRepT == null) lastRepT = t0;
       var st = counter.update(kps, t, extra); lastSt = st; tut.tick(t, squatLoaded(st));
       if (st.event === "rep") { lastRepT = t; repTimes.push(Math.round(t - t0)); downT = null; still = null; if (lim.setReps && st.reps >= lim.setReps) return finish(t, "set_done"); if (st.reps >= lim.maxReps) return finish(t, "max_reps"); }
-      // out of frame
-      if (st.frame === "missing") { if (missT == null) missT = t; if (t - missT >= lim.missingMs) return finish(t, "left_frame"); }
-      else missT = null;
       var down = st.frame === "ok" && st.guard === "ok" && (st.phase === "down" || st.phase === "bottom" || st.phase === "up") && st.drop > SC.T.downAt;
+      var kneeDrop = squatKneeDrop(kps, st);
+      var handsDownNow = !!(st.frame === "ok" && st.wristBelowKnee && (down || kneeDrop));
+      if (handsDownNow) { if (handsT == null) handsT = t; if (t - handsT >= lim.handsMs) return finish(t, "hands_down"); } else if (st.frame === "ok") handsT = null;
+      if (giveUp) {
+        var gu = giveUp.update({ t: t, seen: st.frame !== "missing", kneel: kneeDrop, stand: false });
+        if (gu) return finish(t, gu);
+      } else {
+        if (st.frame === "missing") { if (missT == null) missT = t; if (t - missT >= lim.missingMs) return finish(t, "left_frame"); }
+        else missT = null;
+      }
       if (st.frame !== "missing") {
         if (down) { if (downT == null) downT = t; } else if (st.frame === "ok" && st.guard === "ok") downT = null;
       }
@@ -72,14 +89,14 @@
         if (!still || Math.abs(st.drop - still.drop) > lim.sitStillTol) still = { drop: st.drop, t: t };
         else if (t - still.t >= lim.sitStillMs) return finish(t, "sat");
       } else if (st.frame === "ok") still = null;
-      if (down && st.drop >= lim.floorDrop) { if (floorT == null) floorT = t; if (t - floorT >= lim.floorMs) return finish(t, "sat"); } else if (st.frame === "ok") floorT = null;
-      if (down && st.wristBelowKnee) { if (handsT == null) handsT = t; if (t - handsT >= lim.handsMs) return finish(t, "hands_down"); } else if (st.frame === "ok") handsT = null;
+      var floorOk = st.frame === "ok" && (down || (st.scale >= 0.7 && st.scale <= 1.4 && st.drop >= lim.floorDrop));
+      if (floorOk && st.drop >= lim.floorDrop) { if (floorT == null) floorT = t; if (t - floorT >= lim.floorMs) return finish(t, "sat"); } else if (st.frame === "ok") floorT = null;
       if (downT != null && t - downT >= lim.stallBottomMs && t - lastRepT >= lim.stallBottomMs) return finish(t, "stall_bottom");
       if (t - lastRepT >= lim.noRepMs) return finish(t, "no_rep");
       return out(st, { t: t, sinceRepMs: Math.round(t - lastRepT), downMs: downT == null ? 0 : Math.round(t - downT) });
     }
     return { update: update, stop: function (t, reason) { return finish(t, reason || "stopped"); }, state: function () { return ended || (lastSt ? out(lastSt, {}) : null); }, counter: counter, limits: lim,
-      start: function (t) { t0 = t; lastRepT = t; } };
+      start: function (t) { t0 = t; lastRepT = t; if (giveUp) giveUp.reset(t); } };
   }
   // Today's squats on this phone, per Eastern day (et-day.js, resets at Eastern midnight like the push-up keys):
   // localStorage "zabbadat-squats-day-YYYY-MM-DD" = { reps, sets }. A set with 0 reps is not a set.

@@ -11,7 +11,7 @@
   // settleMs: wait after 3:00 so both phones' final reps/TUT reach the room before the time-up result is decided.
   // gapMs: a dropout shorter than this never restarts a loss window (noisy tracking cannot hide a real break). uprightMs: a clear
   // stand-up (straight legs running down the frame, off the top) for this long loses as "standing" (same rule as solo sets).
-  const RULES = { gapMs: 300, uprightMs: 1000, postureHoldMs: 750, outOfFrameMs: 10000, publishMs: 1000, minScore: 0.3, durationMs: 180000, topCapMs: 10000, settleMs: 3000 };
+  const RULES = { gapMs: 300, uprightMs: 1000, postureHoldMs: 750, outOfFrameMs: 2500, publishMs: 1000, minScore: 0.3, durationMs: 180000, topCapMs: 10000, settleMs: 3000 };
   // Published rules only allow loseReason in [standing, knees, frame, stopped, left] and only a self-reported loss.
   // Time-up therefore reuses the allowed value "stopped" = "lost on time (less TUT, then fewer reps)".
   const TIME_UP = "stopped";
@@ -25,29 +25,44 @@
   function createJudge(guard, opts) {
     const o = Object.assign({}, RULES, opts || {});
     const view = SS && SS.createViewWatch ? SS.createViewWatch() : null;
-    let st;
-    function reset(t0) { st = { t0, lastSeen: t0, lost: null }; if (guard) guard.reset(); if (view) view.reset(); }
+    const giveUp = SS && SS.createGiveUpWatch ? SS.createGiveUpWatch({ kneelMs: o.postureHoldMs, leaveMs: o.outOfFrameMs, neverSeenMs: Math.max(o.outOfFrameMs, 6000), minFrames: 5, badRatio: 0.75, gapMs: o.gapMs, okGraceMs: 150, leaveReason: "frame" }) : null;
+    let st, nextKnee3D = null;
+    function reset(t0) { st = { t0, lastSeen: t0, lost: null }; nextKnee3D = null; if (guard) guard.reset(); if (view) view.reset(); if (giveUp) giveUp.reset(t0); }
+    function setKnee3D(v) { nextKnee3D = v; }
     reset(0);
+    function legSeen(kps) {
+      const has = (n) => (kps || []).some((k) => k && k.name === n && (k.score == null || k.score >= 0.5));
+      return (has("left_hip") && has("left_knee")) || (has("right_hip") && has("right_knee"));
+    }
     // kps: pose keypoints; t: ms; topWidth: counter's calibrated top width (px) or 0. frameW (optional) sizes the
     // pickup check. No time-without-reps rule. Shoulder-width shrink is not a loss (a long top hold looks like that).
-    // Picking the phone up is not a loss. Out of frame and elbows down are not losses. A hard collapse loses as knees.
-    function update(kps, t, topWidth, frameW, atTop) {
+    // Picking the phone up and elbows down are not losses. Knees down, standing up, hard collapse, and leaving the frame lose.
+    function update(kps, t, topWidth, frameW, atTop, extra) {
       if (st.lost) return st.lost;
-      if (hasUpperBody(kps, o.minScore)) st.lastSeen = t;
-      // Out of frame never loses (owner, Nov 16): losing tracking pauses counting, the set keeps going.
-      if (t - st.lastSeen > 0 && t - st.lastSeen < o.gapMs) return null; // brief dropout: hold every window
-      if (atTop !== true && SS && SS.isUpright && SS.isUpright(kps, topWidth, o.minScore, 0.5)) { if (st.upSince == null) { st.upSince = t; st.upN = 0; } st.upN += 1; if (t - st.upSince >= o.uprightMs && st.upN >= 5) return (st.lost = "standing"); } else { st.upSince = null; st.upN = 0; }
-      if (guard) { const g = guard.update(kps, t, topWidth); if (g.event === "knees") return (st.lost = g.event); /* holding the top never loses: shoulder-shrink "standing" is not a loss */ }
-      // Elbows down is not a loss (owner, Nov 16): only knees down, a hard collapse (chest on the floor 4 s, no press) or standing up.
-      if (view) {
-        const v = view.update(kps, t, typeof frameW === "number" ? frameW : 640);
-        // "lifted" (phone picked up) is not a loss: only form breaks lose.
-        if (v === "standing") return (st.lost = "standing");
-        if (v === "collapse") return (st.lost = "knees");
+      const seen = hasUpperBody(kps, o.minScore);
+      if (seen) st.lastSeen = t;
+      const g = seen && guard ? guard.update(kps, t, topWidth) : (guard ? guard.state() : null);
+      const v = seen && view ? view.update(kps, t, typeof frameW === "number" ? frameW : 640, atTop === true) : null;
+      const vPend = view && view.pending ? view.pending() : null;
+      const rawK3 = (extra && (extra.knee3D || (extra.pose3d && extra.pose3d.kneeAngleDeg))) || nextKnee3D; nextKnee3D = null;
+      const k3 = rawK3 && SS && SS.minKnee3D ? SS.minKnee3D(rawK3) : null;
+      const k3Straight = k3 != null && k3 >= 140;
+      const k3Bent = seen && k3 != null && k3 < 140 && legSeen(kps);
+      const uprightNow = seen && atTop !== true && SS && SS.isUpright && SS.isUpright(kps, topWidth, o.minScore, 0.5);
+      const kneelNow = seen && ((g && g.frame === "knees" && !k3Straight) || k3Bent);
+      const standNow = seen && (v === "standing" || vPend === "standing" || uprightNow);
+      if (giveUp) {
+        const gu = giveUp.update({ t, seen, kneel: kneelNow, stand: standNow, liftedAt: view && view.liftedAt ? view.liftedAt() : null });
+        if (gu) return (st.lost = gu);
       }
+      if (!seen || (t - st.lastSeen > 0 && t - st.lastSeen < o.gapMs)) return null;
+      if (uprightNow) { if (st.upSince == null) { st.upSince = t; st.upN = 0; } st.upN += 1; if (t - st.upSince >= o.uprightMs && st.upN >= 5) return (st.lost = "standing"); } else { st.upSince = null; st.upN = 0; }
+      if (g && g.event === "knees" && !k3Straight) return (st.lost = "knees");
+      if (v === "standing") return (st.lost = "standing");
+      if (v === "collapse") return (st.lost = "knees");
       return null;
     }
-    return { update, reset, state: () => st };
+    return { update, reset, setKnee3D, state: () => st };
   }
   function throttle(ms, now) { let last = -Infinity; return () => { const t = now(); if (t - last >= ms) { last = t; return true; } return false; }; }
   const other = (r, uid) => Object.keys((r && r.players) || {}).find((u) => u !== uid) || null;

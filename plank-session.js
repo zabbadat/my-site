@@ -120,6 +120,12 @@
     if (sh && hip && !an && kn && o.kneeFallback) {
       var kr = Math.abs(kn.x - sh.x), kz = Math.abs(kn.y - sh.y);
       if (kz > o.flat * kr) return { frame: "standing", side: side, end: "knee" };
+      if (fy != null) {
+        var pLen = Math.hypot(kn.x - sh.x, kn.y - sh.y) / o.kneeFrac;
+        if (pLen > 0 && Math.abs(kn.y - fy) <= (o.floorFrac || 0.12) * pLen && kn.y - hip.y > 0.15 * pLen && fy - hip.y > 0.08 * pLen) {
+          return { frame: "knees", side: side, end: "knee" };
+        }
+      }
       var d0 = hipOffset(sh, hip, kn);
       return classifyDev(d0 == null ? null : d0 * o.kneeFrac, null, side, o, "knee");
     }
@@ -248,9 +254,10 @@
   //   framing = { ok, issue, msg } (message debounced for display). Framing only gates the READY start; once the clock
   //   runs it is information only and can never end the hold.
   function createPlankHold(opts) {
-    var o = merge(opts), live = createLiveness(o), pf = createPlankFilter(o), h;
+    var o = merge(opts), live = createLiveness(o), pf = createPlankFilter(o), S = sessionFns(), h;
+    var giveUp = S && S.createGiveUpWatch ? S.createGiveUpWatch({ kneelMs: o.badMs, leaveMs: o.missMs, neverSeenMs: o.missMs, minFrames: 1, badRatio: 0.75, gapMs: o.gapMs, okGraceMs: 150, leaveReason: "left_frame" }) : null;
     function reset() {
-      live.reset(); pf.reset();
+      live.reset(); pf.reset(); if (giveUp) giveUp.reset();
       h = { phase: "ready", goodSince: null, readyBadSince: null, startT: null, badSince: null, badType: null, missSince: null, ms: 0, reason: null, lastT: null,
             cueAt: null, cueSeq: 0, cueBadSince: null, wasOk: false, fr: { ok: false, issue: null, msg: "" }, frIssue: null, frIssueSince: null, frClearSince: null };
     }
@@ -274,7 +281,7 @@
     // The clock starts here (cue mode): called by the page right after the lock-in countdown has been spoken.
     function begin(t) {
       if (h.phase !== "cue") return false;
-      h.phase = "holding"; h.startT = t; h.ms = 0; h.badSince = null; h.missSince = null; live.reset();
+      h.phase = "holding"; h.startT = t; h.ms = 0; h.badSince = null; h.missSince = null; live.reset(); if (giveUp) giveUp.reset(t);
       return true;
     }
     function update(kps, t, dims) {
@@ -301,7 +308,7 @@
           if (h.goodSince == null) h.goodSince = t;
           if (t - h.goodSince >= o.readyMs) {
             if (o.cue) { h.phase = "cue"; h.cueAt = t; h.cueSeq += 1; h.cueBadSince = null; } // lock-in: cue first, count after begin()
-            else { h.phase = "holding"; h.startT = t; live.reset(); }
+            else { h.phase = "holding"; h.startT = t; live.reset(); if (giveUp) giveUp.reset(t); }
           }
         } else if (h.goodSince != null) {
           // one noisy frame must not throw away the countdown: only a bad stretch longer than readyGraceMs does
@@ -313,10 +320,14 @@
       // holding (framing is never consulted here)
       // Collapse (holding only, so the start gate is unchanged): the shoulder has dropped to elbow height, i.e. lying on the floor.
       if (f === "ok" && c.side) { var cs = pt(fk, c.side + "_shoulder", o.minScore), ce = pt(fk, c.side + "_elbow", o.minScore), cl = bodyLen(fk); if (cs && ce && cl > 0 && ce.y - cs.y < o.collapseFrac * cl) f = "collapse"; }
+      if (giveUp) {
+        var gu = giveUp.update({ t: t, seen: f !== "missing", kneel: f === "knees", stand: f === "standing" });
+        if (gu) { end(t, gu, giveUp.failedAt()); return out(f); }
+      }
       if (f === "missing") {
         if (h.missSince == null) h.missSince = t;
         if (t - h.missSince >= o.gapMs) h.badSince = null; // only a real gap restarts the bad-form window
-        if (t - h.missSince >= o.missMs) { end(t, "left_frame", h.missSince); return out(f); }
+        if (!giveUp && t - h.missSince >= o.missMs) { end(t, "left_frame", h.missSince); return out(f); }
       } else {
         h.missSince = null;
         if (f === "ok") { h.badSince = null; h.badType = null; }

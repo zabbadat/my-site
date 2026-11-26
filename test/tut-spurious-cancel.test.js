@@ -37,10 +37,10 @@ function sim(segs, cfg, counterOpts) {
 
 // Reasons that can end a TUT set (One long set). Challenge is a separate clock; this list is the TUT path.
 const TUT_FORM = ["knees", "collapse", "standing"];
-check("TUT set-end reasons: form breaks (knees, collapse, standing), 15 s stall when parked low, End set, camera stop; no frame / elbows / pickup / frozen-liveness end",
-  TUT_FORM.every((k) => SS.FAIL_TEXT[k]) && SS.FAIL_TEXT.stalled && SS.FAIL_TEXT.ended &&
+check("TUT set-end reasons: form breaks (knees, collapse, standing, frame), 15 s stall when parked low, End set, camera stop; no elbows / pickup / frozen-liveness end",
+  TUT_FORM.every((k) => SS.FAIL_TEXT[k]) && SS.FAIL_TEXT.frame && SS.FAIL_TEXT.stalled && SS.FAIL_TEXT.ended &&
   SS.FAIL.endOn.knees && SS.FAIL.endOn.sag && SS.FAIL.endOn.left &&
-  !SS.FAIL.endOn.frame && !SS.FAIL.endOn.elbows && !SS.FAIL.endOn.lifted && !SS.FAIL.endOn.form &&
+  SS.FAIL.endOn.frame && !SS.FAIL.endOn.elbows && !SS.FAIL.endOn.lifted && !SS.FAIL.endOn.form &&
   SS.SET_END.stallMs === 15000 && /createLiveness/.test(fs.readFileSync(path.join(__dirname, "../plank-session.js"), "utf8")) &&
   !/createLiveness/.test(fs.readFileSync(path.join(__dirname, "../push-session.js"), "utf8")) &&
   /voidTutSet\(kind \|\| "stalled"/.test(html) && /function endSetNow/.test(html) && /function endPushOnCameraStop/.test(html) &&
@@ -129,14 +129,14 @@ check("TUT set-end reasons: form breaks (knees, collapse, standing), 15 s stall 
   end.reset(0); w.reset(0);
   let form = null, stall = null;
   for (let t = 0; t <= S.total(segs); t += 1000 / c.fps) {
-    const kps = (t >= 8000 ? [] : S.frameFor(S.fracAt(segs, t), c, t));
+    const kps = (t >= 8000 && t < 9500 ? [] : S.frameFor(S.fracAt(segs, t), c, t));
     const r = ctr.update(kps, t, c.W), st = ctr.state(), atTop = CH.atTopFrom(st);
     const f = w.update(kps, t, st.topSize ? st.topSize * c.W : 0, { frameW: c.W, atTop });
     if (f && !form) form = f;
     const s = end.update({ mode: "long", reps: st.reps, t, atTop, counter: st, kps });
     if (s && !stall) stall = s;
   }
-  check("phone pickup / out of frame 12 s mid-TUT never ends the set", form === null && stall === null, JSON.stringify({ form, stall }));
+  check("brief 1.5 s dropout mid-TUT never ends the set", form === null && stall === null, JSON.stringify({ form, stall }));
 }
 
 

@@ -20,10 +20,10 @@ let r = play(judge(), [[plank, 3000, 1500], [away, 2000, 1500]]); check("stood u
   const r2 = play(judge(), [[el(240, 320), 2000], [el(360, 395), 2000]]); check("elbows down alone does not lose (owner, Nov 16)", r2.out === null); }
 check("brief 0.5s stand blip is ignored", play(judge(), [[plank, 3000, 1500], [away, 500, 1500], [plank, 3000, 1500]]).out === null);
 r = play(judge(), [[plank, 3000, 1500], [kneesDown, 2000, 1500]]); check("knee down -> knees ~0.75s", r.out === "knees" && r.at - 3000 < 900);
-r = play(judge(), [[plank, 3000, 1500], [[], 11000, 1500]]); check("out of frame 11 s never loses (owner, Nov 16)", r.out === null);
+r = play(judge(), [[plank, 3000, 1500], [[], 4000, 1500]]); check("out of frame > 2.5 s loses as frame", r.out === "frame");
 check("1.5s dropout tolerated", play(judge(), [[plank, 3000, 1500], [[], 1500, 1500], [plank, 3000, 1500]]).out === null);
 check("no 8 s no-rep loss: 30 s top rest in plank is fine", play(judge(), [[plank, 2000, 1000], [plank, 30000]]).out === null);
-check("RULES: no noRepMs, 3:00 clock, 10 s top cap, 10 s frame", !("noRepMs" in TB.RULES) && TB.RULES.durationMs === 180000 && TB.RULES.topCapMs === 10000 && TB.RULES.outOfFrameMs === 10000);
+check("RULES: no noRepMs, 3:00 clock, 10 s top cap, 2.5 s frame", !("noRepMs" in TB.RULES) && TB.RULES.durationMs === 180000 && TB.RULES.topCapMs === 10000 && TB.RULES.outOfFrameMs === 2500);
 check("flag texts", TB.REASONS.standing === "Stood up / left plank flagged" && TB.REASONS.knees === "Knees down flagged");
 check("3:00 clock from startAt: time left", TB.endAt({ startAt: 1000 }) === 181000 && TB.timeLeft({ startAt: 1000 }, 61000) === 120000 && TB.timeLeft({ startAt: 1000 }, 999999) === 0 && TB.timeLeft({ startAt: null }, 5) === null);
 { const CH = require("../push-challenge.js"); const c = CH.createChallenge({ durationMs: TB.RULES.durationMs, topCapMs: TB.RULES.topCapMs }); c.start(0); let x;

@@ -3478,7 +3478,7 @@ function showTwoMinIntro(cancelled) {
 // Failure-watch settings for the hold: the first 1.5 s after Hold read as the top, so the start pose becomes the body-line baseline
 // (sag / pike); after that every check is on (knees, collapse / arms giving out, stood up, sag / pike). Out of frame never ends it.
 const TWO_MIN_BASE_MS = 1500;
-function twoMinFailExtra(t) { const st = pushChallenge && pushChallenge.state ? pushChallenge.state() : null; const settling = !st || !st.started || t - st.startT < TWO_MIN_BASE_MS; return settling ? { skipFrame: true, atTop: true, reps: 1 } : { skipFrame: true, atTop: false, reps: 2 }; }
+function twoMinFailExtra(t) { const st = pushChallenge && pushChallenge.state ? pushChallenge.state() : null; const settling = !st || !st.started || t - st.startT < TWO_MIN_BASE_MS; return settling ? { atTop: true, reps: 1 } : { atTop: false, reps: 2 }; }
 function hideTwoMinIntro() { const c = $("twoMinIntro"); if (c) { c.hidden = true; c.onclick = null; } }
 function setPushMode(m) {
   if (!window.ZabbadatSession.canSwitchMode(pushState)) { $("pushStatus").textContent = "End or reset first to switch modes."; return; }
@@ -3517,6 +3517,21 @@ function failExtra(st, w, pose, more) {
   if (pose && pose.knee3D) o.knee3D = pose.knee3D;
   else if (pose && pose.pose3d && pose.pose3d.kneeAngleDeg) o.knee3D = pose.pose3d.kneeAngleDeg;
   return o;
+}
+function discardZeroRepSet(why, failedAtPerf) {
+  if (pushState.finished || !pushState.running) return;
+  let lasted;
+  if (typeof freezePushClock === "function") { freezePushClock(failedAtPerf); lasted = pushState.elapsed; }
+  else lasted = pushState.elapsed + (pushState.startedAt ? Date.now() - pushState.startedAt : 0);
+  pushState.running = false; pushState.finished = true;
+  if (typeof camFs === "function") camFs("camWrap", false);
+  clearInterval(pushState.tick);
+  if (pushWake) pushWake.stop().catch(() => {});
+  freshPushSet({ keepSpeech: true });
+  $("pushStatus").textContent = "Set ended: 0 reps, " + formatTime(lasted) + " (" + (why || "Set ended") + "). Nothing saved. Ready for the next set.";
+  $("camNote").textContent = "Set ended";
+  renderPush();
+  if (typeof exitPushCam === "function") exitPushCam(why);
 }
 function voidTutSet(reason) {
   const failedAtPerf = arguments.length > 1 ? arguments[1] : undefined;
@@ -4212,7 +4227,7 @@ async function poseTick(id = poseLoopId) {
       if (g.event && pushMode === "challenge") challengeFlags[g.event] = (challengeFlags[g.event] || 0) + 1;
       if (g.event) $("pushStatus").textContent = (g.event === "knees" ? "Knees down" : "Stood up / left plank") + " flagged: fix it now or the set ends.";
       const fw = typeof modeWatch === "function" ? modeWatch() : (typeof failWatch !== "undefined" ? failWatch : null);
-      const failed = fw ? fw.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, failExtra(st, w, pose, pushMode === "challenge" ? twoMinFailExtra(performance.now()) : { skipFrame: true })) : null;
+      const failed = fw ? fw.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, failExtra(st, w, pose, pushMode === "challenge" ? twoMinFailExtra(performance.now()) : {})) : null;
       if (failed) voidTutSet(failed, fw.failedAt && fw.failedAt()); // clock stops at the last valid moment
       const f = $("pushViolFlag");
       if (f) { f.hidden = !g.active; if (g.active) f.textContent = (g.active === "knees" ? "Knees down" : "Standing") + " · " + g.count; }
@@ -4262,7 +4277,7 @@ async function poseTick(id = poseLoopId) {
     if (pushMode === "sets" && pushState.running && !pushState.finished && typeof failWatch !== "undefined" && failWatch) {
       const st = pushCounter.state();
       const failed = failWatch.update(pose ? pose.keypoints : [], performance.now(), st.topSize ? st.topSize * w : 0, failExtra(st, w, pose));
-      if (failed) { const why = (window.ZabbadatSession.FAIL_TEXT || {})[failed] || "Set ended"; if (pushState.reps >= 1) { freezePushClock(failWatch.failedAt && failWatch.failedAt()); finishPushSet(why); } else { failWatch.reset(performance.now()); $("pushStatus").textContent = why + ": no reps yet, the set keeps going. Tap End set to stop."; } }
+      if (failed) { const why = (window.ZabbadatSession.FAIL_TEXT || {})[failed] || "Set ended"; if (pushState.reps >= 1) { freezePushClock(failWatch.failedAt && failWatch.failedAt()); finishPushSet(why); } else { discardZeroRepSet(why, failWatch.failedAt && failWatch.failedAt()); } }
     }
     // End of set (every push-up mode): a stall after the last rep ends the set through the normal save path, and the set end
     // leaves camera mode (exitPushCam). The rep target never ends a set. Rep counting above is unchanged.
@@ -5874,6 +5889,8 @@ async function tbPose() {
         else {
           // Shared end-of-set watch (push-session.js createSetEnd, battle = stall only): no rep for 15 s while seen and off the top
           // loses as "standing" (left plank). Top rests still never lose.
+          const p0 = poses && poses[0];
+          if (p0 && (p0.knee3D || (p0.pose3d && p0.pose3d.kneeAngleDeg)) && tbJudge.setKnee3D) tbJudge.setKnee3D(p0.knee3D || p0.pose3d.kneeAngleDeg);
           const lost = tbJudge.update(kps, now, st.topSize ? st.topSize * w : 0, w, TBC.atTopFrom(st)) || (tbSetEnd && tbSetEnd.update({ mode: "battle", reps: tbMine.reps, t: now, atTop: TBC.atTopFrom(st), counter: st, kps }) === "stalled" ? "standing" : null);
           if (lost) tbEndMySet(lost);
           else {

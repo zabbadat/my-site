@@ -68,8 +68,8 @@ async function session(o) {
     const r2 = runW(450, noHead, () => ({ skipFrame: true }));
     check("same in a TUT set: no fail", r2.out === null); }
   { const w = SS.createFailureWatch(); w.reset(0); let out = null;
-    for (let i = 0; i < 450; i++) { const r = w.update(i < 90 ? S.frameFor(0, S.BASE, 0) : [], i * DT, 128, { frameW: W, skipFrame: true }); if (r && !out) out = r; }
-    check("TUT sets still never end on out of frame", out === null); }
+    for (let i = 0; i < 450; i++) { const r = w.update(i < 90 ? S.frameFor(0, S.BASE, 0) : [], i * DT, 128, { frameW: W }); if (r && !out) out = r; }
+    check("TUT sets end on sustained out of frame (walk-out)", out === "frame"); }
 
   // 2. Full sessions (counter + watch): app path (stub ZabbaPose) and MoveNet keypoints
   const hidLegs = (k) => legs(k, 0.25, 0.2), flick = (k, i) => legs(k, 0.9, i % 4 ? 0.1 : 0.9);

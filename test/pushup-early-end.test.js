@@ -79,13 +79,12 @@ const every = (period, first) => (t) => (t < (first || 0) ? 0 : 1 + Math.floor((
   check("pike held 4 s mid-set: no end", pike.end === null, JSON.stringify(pike));
   const bottom = sim((t) => kpsOf(t < 6000 ? rep(t) : BOT), 16000, (t) => Math.min(repsAt(t), 2), (t) => t < 6000 && (t % REP) / REP < 0.4);
   check("normal bottom position held 10 s: no end", bottom.end === null, JSON.stringify(bottom));
-  const leave = sim((t) => (t >= 9000 && t < 14000 ? [] : kpsOf(rep(t))), 25000, repsAt, (t) => (t % REP) / REP < 0.4);
-  check("leaves the frame 5 s mid-set, comes back: no end", leave.end === null, JSON.stringify(leave));
+  const leave = sim((t) => (t >= 9000 && t < 10500 ? [] : kpsOf(rep(t))), 25000, repsAt, (t) => (t % REP) / REP < 0.4);
+  check("brief 1.5 s dropout mid-set, comes back: no end", leave.end === null, JSON.stringify(leave));
   const leaveLong = sim((t) => (t >= 9000 ? [] : kpsOf(rep(t))), 70000, (t) => Math.min(repsAt(t), 3), () => false);
-  // Nov 20 (owner): leaving the frame is a set that is over (Sets): body gone 10 s ends it as "frame". TUT keeps pausing.
-  check("Sets: out of frame for 10 s ends the set as 'frame' (~19 s, left at 9 s)", leaveLong.end === "frame" && leaveLong.at >= 18900 && leaveLong.at <= 19300, JSON.stringify(leaveLong));
+  check("Sets: out of frame for 2.5 s ends the set as 'frame' (~11.5 s, left at 9 s)", leaveLong.end === "frame" && leaveLong.at >= 11400 && leaveLong.at <= 11800, JSON.stringify(leaveLong));
   const leaveTut = sim((t) => (t >= 9000 ? [] : kpsOf(rep(t))), 70000, (t) => Math.min(repsAt(t), 3), () => false, "long");
-  check("TUT: out of frame for 60 s: no end (losing tracking pauses the TUT set)", leaveTut.end === null, JSON.stringify(leaveTut));
+  check("TUT: out of frame for 2.5 s ends the TUT set as 'frame'", leaveTut.end === "frame" && leaveTut.at >= 11400 && leaveTut.at <= 11800, JSON.stringify(leaveTut));
   const elb = sim((t) => kpsOf(t >= 9000 && t < 12000 ? Object.assign({}, BOT, { elbow: [240, 338] }) : rep(t)), 20000, repsAt, (t) => (t % REP) / REP < 0.4);
   check("elbows flat 3 s mid-set: no end", elb.end === null, JSON.stringify(elb));
   for (const hold of [1500, 3000]) {
@@ -120,8 +119,8 @@ const every = (period, first) => (t) => (t < (first || 0) ? 0 : 1 + Math.floor((
   for (let t = 0; t <= 140000 && !g3; t += 33) { g3 = e3.update({ mode: "sets", reps: 1, t, atTop: (t % 40000) < 30000 || t > 80000, kps: K1 }); if (g3) at3 = t; }
   check(`45 s timer restarts on every return to the top (dips off and back every 40 s keep it alive; ends 45 s after the last return, at ${at3})`, g3 === "stalled" && at3 >= 125000 && at3 <= 126000, at3);
 }
-check("final end rules: knees, collapse (hip sag 35 deg / 1.5 s; chest on the floor 4 s no press), standing, 15 s / 45 s timers; no frame / elbows / pike-form ends",
-  SS.FAIL.endOn.knees && SS.FAIL.endOn.sag && SS.FAIL.endOn.left && SS.FAIL.endOn.upright && !SS.FAIL.endOn.frame && !SS.FAIL.endOn.elbows && !SS.FAIL.endOn.form && !SS.FAIL.endOn.lifted &&
+check("final end rules: knees, frame, collapse (hip sag 35 deg / 1.5 s; chest on the floor 4 s no press), standing, 15 s / 45 s timers; no elbows / pike-form ends",
+  SS.FAIL.endOn.knees && SS.FAIL.endOn.sag && SS.FAIL.endOn.left && SS.FAIL.endOn.upright && SS.FAIL.endOn.frame && !SS.FAIL.endOn.elbows && !SS.FAIL.endOn.form && !SS.FAIL.endOn.lifted &&
   SS.FAIL.sagDeg === 35 && SS.FAIL.sagMs === 1500 && SS.VIEW.chestMs === 4000 && SS.SET_END.stallMs === 15000 && SS.SET_END.setsIdleMs === 45000);
 // ---- plank hold rules unchanged: plank does not opt in to the push-up hidden-knee fold check ----
 {
