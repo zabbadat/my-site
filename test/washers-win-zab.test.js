@@ -18,7 +18,7 @@ function memFs(){const db={};const k=p=>p.join('/');return{db,ts:()=>'TS',tx:fn=
   ok(!ZT.validEarn(Object.assign({},e.tx,{amount:2})),'amount 2 rejected');
   ok(ZT.txLine(e.tx).source==='Won Zabba Washers'&&ZT.txLine(e.tx).qty==='1 game won','tx reason text');
   ok(ZT.RATES.pushups.per===1&&ZT.RATES.pushups.zab===0.1&&ZT.RATES.plank.per===60&&ZT.RATES.tut.per===60&&ZT.RATES.walk.per===10,'other rates: push-ups 0.1 each, others unchanged');
-  const L=ZT.rateLines(); ok(L.length===9&&L[5]==='One set of 10 Gyatt Squats = 1 ZAB'&&L[6]==='4 ZAB for 10,000 steps'&&L[7]==='Won Zabba Washers game = 1 ZAB','earn rates line (squats added)');
+  const L=ZT.rateLines(); ok(L.length===10&&L[5]==='One set of 10 Gyatt Squats = 1 ZAB'&&L[6]==='4 ZAB for 10,000 steps'&&L[7]==='Won Zabba Washers game = 1 ZAB'&&L[9]==='Breath Equity: 2 minutes = 1 ZAB, 5 minutes = 3 ZAB','earn rates line (squats added, Breath Equity too)');
   ok(ZT.qtyFrom('washers',1)===1&&ZT.qtyFrom('washers',0)===0,'qty');
   const fg=html.slice(html.indexOf('async function finishGame'),html.indexOf('paintRows(localBoard());\nrender();'));
   ok(/awardZab\("washers"/.test(fg)&&fg.indexOf('awardZab("washers"')>fg.indexOf('if (!currentUser)'),'award only after verified + signed-in checks');

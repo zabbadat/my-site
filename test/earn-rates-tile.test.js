@@ -1,9 +1,9 @@
-// Earn rates (ZAB tab, #ztRates): nine tiles that fill evenly (2 x 4 phone, 4 x 2 desktop), built from the real rates.
+// Earn rates (ZAB tab, #ztRates): ten tiles that fill evenly (2-col phone, 4-col desktop), built from the real rates.
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const Z = require("../zab-balance.js");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const L = Z.rateLines();
-assert.strictEqual(L.length, 9, "nine earn-rate tiles");
+assert.strictEqual(L.length, 10, "ten earn-rate tiles");
 assert.deepStrictEqual(L, [
   "1 push-up = 0.1 ZAB",
   "1 ZAB for a 60-second plank",
@@ -13,7 +13,8 @@ assert.deepStrictEqual(L, [
   "One set of 10 Gyatt Squats = 1 ZAB",
   "4 ZAB for 10,000 steps",
   "Won Zabba Washers game = 1 ZAB",
-  "30-second plank push press = 0.5 ZAB bonus"
+  "30-second plank push press = 0.5 ZAB bonus",
+  "Breath Equity: 2 minutes = 1 ZAB, 5 minutes = 3 ZAB"
 ]);
 assert(Z.RATES.squats.per === 10 && Z.zabFor("squats", 10) === 1, "squats rate matches");
 assert(Z.RATES.hold.zab === 0.5 && Z.zabFor("hold", 1) === 0.5, "plank push press bonus matches");

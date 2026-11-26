@@ -530,14 +530,17 @@
       if (zoomInBtn) zoomInBtn.addEventListener("click", function (e) { e.preventDefault(); zoomBy(1.25); });
       if (zoomOutBtn) zoomOutBtn.addEventListener("click", function (e) { e.preventDefault(); zoomBy(1 / 1.25); });
 
+      // Decorative tick is retired: the Breath Equity dial under the picture is a live session
+      // started from cooling-box.js (same ring as Breathe on camera). Keep breathLbl updates
+      // only if the old label is still in the document.
       function tickBreath() {
+        if (document.getElementById("todaysHideRing")) return;
         if (!breathLbl) return;
         var b = breathParts(Date.now());
         breathLbl.textContent = b.text;
         section.setAttribute("data-th-phase", String(b.phase));
       }
       tickBreath();
-      window.setInterval(tickBreath, 200);
     }
 
     function loadFor(now, forceKey) {

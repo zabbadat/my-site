@@ -16,6 +16,9 @@
  *   tutBattle tutBattles/{code}  players[uid].tutMs of a finished TUT Battle (credited as source "tut")
  *   squats   squats/{id}       reps (Gyatt Squats, front camera)   10 reps = 1 ZAB per set (whole tens; NO daily cap)
  *   steps10k dailySteps/{uid}_{YYYY-MM-DD}  steps >= 10,000 on that Eastern day   4 ZAB once per person per day
+ *   breath   (no client session doc)        completed minutes  2–4 min = 1 ZAB, 5+ min = 3 ZAB
+ *             Claimed from the request body (minutes/rounds/ms) so it works under current Firestore rules
+ *             without a breaths collection or a rules publish.
  * RESIDUAL RISK: those session docs are still written by the player's own browser. firestore.rules only bound them
  * (ranges, server time) and plausible() below adds sanity limits, so a determined player can still post invented
  * sessions within those limits. The caps (per claim, per source per UTC day) bound how much that is worth.
@@ -26,7 +29,7 @@ const ZB = require("./zab-balance.js");
 
 // ---- OWNER DECISION: caps (ZAB). Per claim and per source per America/New_York day (resets at Eastern midnight, see capDay). ----
 const CLAIM_CAP = 500;
-const DAY_CAP = { pushups: 50, tut: 30, hold: 10, plank: 30, plankTut: 30, walk: 24, washers: 20, steps10k: 4 };
+const DAY_CAP = { pushups: 50, tut: 30, hold: 10, plank: 30, plankTut: 30, walk: 24, washers: 20, steps10k: 4, breath: 15 };
 // Sources with NO daily cap (owner, Nov 16: Gyatt Squats). Only CLAIM_CAP and the per-set rule cap (1000 reps = 100 ZAB) bound a claim.
 const NO_DAY_CAP = { squats: true };
 const MAX_AGE_MS = 48 * 3600000;          // a session can be claimed for 48 h after it was recorded
@@ -42,7 +45,8 @@ const KINDS = {
   washers:   { col: "games", source: "washers" },
   tutBattle: { col: "tutBattles", source: "tut" },
   steps10k:  { col: "dailySteps", source: "steps10k" },
-  squats:    { col: "squats", source: "squats" }
+  squats:    { col: "squats", source: "squats" },
+  breath:    { col: "breaths", source: "breath" }
 };
 const ID = /^[A-Za-z0-9_-]{1,60}$/;
 const err = (status, message) => Object.assign(new Error(message), { status });
@@ -123,6 +127,19 @@ function measure(kind, d, uid, nowMs) {
     if (d.verified !== true || d.score !== 21 || !isInt(d.ms) || d.ms < 60000) bad("not a verified win");
     return { qty: 1, units: "wins", amount: ZB.zabFor("washers", 1) };
   }
+  if (kind === "breath") {
+    // Body-only session: no breaths/{id} read. minutes 1–10, rounds must match 16 s cycles, elapsed must match a full set.
+    if (d.uid !== uid) throw err(403, "Not your session.");
+    const minutes = d.minutes, rounds = d.rounds, ms = num(d.ms);
+    if (!isInt(minutes) || minutes < 1 || minutes > 10) bad("bad breath minutes");
+    const wantRounds = Math.round(minutes * 18 / 5);
+    if (!isInt(rounds) || rounds !== wantRounds) bad("rounds don't match the session");
+    const expected = rounds * 16000;
+    if (!(ms >= expected - 2500) || ms > expected + 30000) bad("session time doesn't match");
+    const amount = ZB.breathZabFor(minutes);
+    if (!(amount >= 0.1)) bad("shorter than 2 minutes");
+    return { qty: minutes, units: "minutes", amount };
+  }
   throw err(400, "Unknown source.");
 }
 
@@ -136,10 +153,7 @@ function claim(fs, uid, body, nowMs, sinceMs) {
   if (!K) return Promise.reject(err(400, "Unknown source."));
   if (!ID.test(id)) return Promise.reject(err(400, "Bad session id."));
   const now = nowMs || Date.now(), src = K.source, today = capDay(src, now);
-  return fs.tx((t) => t.get([K.col, id]).then((d) => {
-    if (!d) throw err(404, "No such session.");
-    if (kind === "steps10k" && (d.uid !== uid || id !== uid + "_" + d.date)) throw err(403, "Not your day.");
-    const created = fs.toMs(kind === "steps10k" ? d.updatedAt : d.createdAt); // day docs carry updatedAt only
+  function credit(t, d, created) {
     if (created == null) throw err(422, "Session has no time.");
     if (created < (sinceMs || 0)) throw err(410, "Sessions from before server-checked earning can't be claimed.");
     if (now - created > MAX_AGE_MS) throw err(410, "That session is too old to claim.");
@@ -163,6 +177,26 @@ function claim(fs, uid, body, nowMs, sinceMs) {
       if (b) t.update(refs.board, { total: bal, updatedAt: ts });
       return { ok: true, credited: amount, capped: amount < m.amount, balance: bal };
     });
+  }
+  // Breath Equity: no client-writable session collection under current rules. Measure from the request body.
+  if (kind === "breath") {
+    const d = {
+      uid,
+      minutes: Math.floor(Number(body.minutes)),
+      rounds: Math.floor(Number(body.rounds)),
+      ms: Math.floor(Number(body.ms)),
+      mode: body.mode === "camera" ? "camera" : "solo"
+    };
+    return fs.tx((t) => {
+      try { return credit(t, d, now); }
+      catch (e) { return Promise.reject(e); }
+    });
+  }
+  return fs.tx((t) => t.get([K.col, id]).then((d) => {
+    if (!d) throw err(404, "No such session.");
+    if (kind === "steps10k" && (d.uid !== uid || id !== uid + "_" + d.date)) throw err(403, "Not your day.");
+    const created = fs.toMs(kind === "steps10k" ? d.updatedAt : d.createdAt); // day docs carry updatedAt only
+    return credit(t, d, created);
   }));
 }
 module.exports = { CLAIM_CAP, DAY_CAP, NO_DAY_CAP, MAX_AGE_MS, KINDS, measure, claim, capDay, etDay };

@@ -17,7 +17,7 @@ const st = (p) => p.then((r) => ({ ok: true, r }), (e) => ({ ok: false, status: 
   check("squats is a claim source; ledger label Gyatt Squats", Z.txLine({ source: "squats", amount: 2, qty: 25 }).source === "Gyatt Squats" && Z.txLine({ source: "squats", amount: 2, qty: 25 }).qty === "25 squats");
   check("other rates unchanged: push-up 0.1/rep, plank 60 s = 1 once, walk 10 min = 1, TUT 60 s = 1, hold 0.5, 10K = 4",
     Z.zabFor("pushups", 1) === 0.1 && Z.zabFor("plank", 600) === 1 && Z.zabFor("walk", 10) === 1 && Z.zabFor("tut", 60) === 1 && Z.RATES.hold.zab === 0.5 && Z.zabFor("steps10k", 10000) === 4);
-  check("DAY_CAP unchanged for every other source; squats has no day cap", JSON.stringify(E.DAY_CAP) === JSON.stringify({ pushups: 50, tut: 30, hold: 10, plank: 30, plankTut: 30, walk: 24, washers: 20, steps10k: 4 }) && E.NO_DAY_CAP.squats === true && !("squats" in E.DAY_CAP));
+  check("DAY_CAP unchanged for every other source; squats has no day cap", JSON.stringify(E.DAY_CAP) === JSON.stringify({ pushups: 50, tut: 30, hold: 10, plank: 30, plankTut: 30, walk: 24, washers: 20, steps10k: 4, breath: 15 }) && E.NO_DAY_CAP.squats === true && !("squats" in E.DAY_CAP));
   const f = fakeFs(NOW);
   for (let i = 0; i < 12; i++) f.db["squats/s" + i] = { uid: "u1", reps: 100, ms: 600000, source: "camera", createdAt: NOW - 1000 };
   f.db["squats/r25"] = { uid: "u1", reps: 25, ms: 400000, source: "camera", createdAt: NOW - 1000 };

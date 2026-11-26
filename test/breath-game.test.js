@@ -102,14 +102,15 @@ check("combos do not fire off the 4 and 18 marks",
 }
 
 // --- Gauge ---
-check("default session is 5 min / 18 rounds", CB.roundsForMinutes(5) === 18 && CB.sessionLabel(5) === "5 min · 18 rounds");
+check("default session is 2 min / 7 rounds", CB.DEFAULT_MIN === 2 && CB.roundsForMinutes(2) === 7 && CB.sessionLabel(2) === "2 min · 7 rounds");
+check("5 min is still 18 rounds", CB.roundsForMinutes(5) === 18 && CB.sessionLabel(5) === "5 min · 18 rounds");
 check("1 min is 4 rounds (Bariboshi minute); 10 min is 36 rounds", CB.roundsForMinutes(1) === 4 && CB.roundsForMinutes(10) === 36);
 check("gauge clamps to 1–10 minutes in 1-minute steps",
   CB.clampMinutes(0) === 1 && CB.clampMinutes(11) === 10 && CB.clampMinutes(2.9) === 2
   && [1,2,3,4,5,6,7,8,9,10].map(CB.roundsForMinutes).join(",") === "4,7,11,14,18,22,25,29,32,36");
 {
   const s = mem();
-  check("unset gauge preference reads as 5", CB.getSessionMinutes(s) === 5);
+  check("unset gauge preference reads as 2", CB.getSessionMinutes(s) === 2);
   check("setSessionMinutes persists and clamps", CB.setSessionMinutes(s, 8) === 8 && CB.getSessionMinutes(s) === 8 && CB.setSessionMinutes(s, 99) === 10);
 }
 {
@@ -154,13 +155,13 @@ check("Sound/mute button is gone from the cooling-box card",
 {
   const p = CB.sharePayload({ streak: 3 }, { name: "Sitkari" });
   check("share card is streak plus level and links to #cooling-box",
-    p.url === "https://zabbadat.com/#cooling-box" && p.title === "Zabbadat cooling box" && p.text === "3-day streak · Sitkari");
+    p.url === "https://zabbadat.com/#cooling-box" && p.title === "Zabbadat Breath Equity" && p.text === "3-day streak · Sitkari");
   const p2 = CB.sharePayload({ streak: 0 }, null);
   check("share card stays spoiler-free with no hide or object name",
-    p2.text === "Cooling box" && !/washer|hide|found/i.test(p.text + p2.text + p.url));
+    p2.text === "Breath Equity" && !/washer|hide|found/i.test(p.text + p2.text + p.url));
   let called = null;
   const via = CB.shareFromTap({ share: (x) => { called = x; return Promise.resolve(); } }, { streak: 4 }, { name: "Coolbox" });
-  check("shareFromTap calls navigator.share synchronously from the tap", via === "share" && called && called.url === CB.SHARE_URL && called.text === "4-day streak · Coolbox");
+  check("shareFromTap calls navigator.share synchronously from the tap", via === "share" && called && called.url === CB.SHARE_URL && called.text === "4-day streak · Breath Equity");
 }
 
 // --- Core cycle and local-only rules still hold ---
@@ -169,8 +170,9 @@ check("ring grows on inhale, holds, shrinks on exhale, rests empty",
   CB.ringScale(0) === 0.55 && CB.ringScale(4000) === 1 && CB.ringScale(8000) === 1
   && Math.abs(CB.ringScale(2000) - 0.775) < 1e-9 && Math.abs(CB.ringScale(10000) - 0.775) < 1e-9
   && CB.ringScale(12000) === 0.55 && CB.ringScale(15000) === 0.55);
-check("no Firestore writes or ZAB awards in cooling-box.js",
-  !/addDoc|setDoc|updateDoc|collection\(|zab-earn|awardZab|zabBalance/.test(src));
+check("no Firestore writes or direct awardZab calls in cooling-box.js (host awards Breath Equity)",
+  !/addDoc|setDoc|updateDoc|collection\(|zab-earn|awardZab|zabBalance/.test(src)
+  && /saveAndAwardBreath/.test(src));
 check("start button still uses pointer or touch, not onclick",
   /bindStartBtn/.test(src) && /pointerdown/.test(src) && /touchend/.test(src)
   && /btn\.onclick = null/.test(src) && /cursor = "pointer"/.test(src) && /vibrate\(10\)/.test(src));
@@ -213,8 +215,8 @@ check("Record preference is off by default and remembered locally",
   CB.RECORD_KEY === "zabbadat-breath-record"
   && (function () { const s = mem(); return CB.isRecordOn(s) === false && CB.setRecordOn(s, true) === true && CB.isRecordOn(s) === true && s.getItem(CB.RECORD_KEY) === "1"; })());
 check("Proof of Sitkari summary leads the end-of-session line when the camera ran",
-  CB.summaryLine({ rounds: 18, level: { name: "Coolbox" }, streak: { streak: 3 } }, true)
-    === "Proof of Sitkari · 18 rounds · Coolbox · 3-day streak."
+  CB.summaryLine({ rounds: 18, level: { name: "Coolbox" }, streak: { streak: 3 }, zab: 3 }, true)
+    === "Proof of Sitkari · 18 rounds · Breath Equity · 3-day streak · +3 ZAB."
   && CB.summaryLine({ rounds: 2 }, false) === "2 rounds.");
 check("cooling camera markup and caption are in the card, Record toggle is present",
   /id="coolingWrap"/.test(html) && /id="coolingVid"/.test(html)
@@ -297,7 +299,8 @@ function runRewards(store, rounds) {
   const a = runRewards(mem(), 4), b = runRewards(mem(), 4);
   check("solo and camera modes award identical cycles, streak, combos, levels, daily goal and gauge",
     JSON.stringify(a) === JSON.stringify(b) && a.cycles === 4 && a.streak === 1 && a.combo === "Bariboshi minute");
-  check("no ZAB awards were added for breath", !/awardZab|zab-earn/.test(src));
+  check("breath ZAB is awarded through the host, not inside cooling-box.js",
+    /saveAndAwardBreath/.test(src) && !/awardZab|zab-earn/.test(src));
 }
 
 (async () => {

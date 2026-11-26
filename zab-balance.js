@@ -30,6 +30,13 @@
     // 10,000 steps in a local day: a 4 ZAB bonus once per day (setId = YYYY-MM-DD), on top of the walk earn.
     steps10k: { units: "steps", per: 10000, max: 10000, zab: 4 }
   };
+  // Breath Equity: completing 2–4 minutes = 1 ZAB, 5+ minutes = 3 ZAB, under 2 minutes = 0. Only on a finished session.
+  function breathZabFor(minutes) {
+    var m = Math.floor(Number(minutes) || 0);
+    if (m >= 5) return 3;
+    if (m >= 2) return 1;
+    return 0;
+  }
   var PENDING_KEY = "zdZabPending";
   // qty from raw measurements: reps as-is; ms -> whole seconds / minutes.
   function qtyFrom(source, raw) {
@@ -40,9 +47,11 @@
     if (source === "washers") return n > 0 ? 1 : 0;
     if (source === "hold") return n >= 1 ? 1 : 0;
     if (source === "steps10k") return n >= 10000 ? 10000 : 0;
+    if (source === "breath") return Math.max(0, Math.floor(n));
     return 0;
   }
   function zabFor(source, qty) {
+    if (source === "breath") return breathZabFor(qty);
     var r = RATES[source]; if (!r) return 0;
     var q = Math.min(Math.max(0, Math.floor(Number(qty) || 0)), r.max);
     return ZC.roundZab(Math.floor(q / r.per) * (r.zab || 1));
@@ -120,27 +129,34 @@
   function claimKey(c) { return c.source + ":" + c.id; }
   function keepClaim(store, c) { var q = readClaims(store); if (!q.some(function (x) { return claimKey(x) === claimKey(c); })) q.push(c); store.setItem(CLAIM_KEY, JSON.stringify(q.slice(-50))); }
   function dropClaim(store, c) { store.setItem(CLAIM_KEY, JSON.stringify(readClaims(store).filter(function (x) { return claimKey(x) !== claimKey(c); }))); }
-  var CLAIM_SOURCES = ["pushups", "tut", "hold", "plank", "plankTut", "walk", "washers", "tutBattle", "steps10k", "squats"];
-  function claimEarn(post, store, source, id) {
+  var CLAIM_SOURCES = ["pushups", "tut", "hold", "plank", "plankTut", "walk", "washers", "tutBattle", "steps10k", "squats", "breath"];
+  function claimEarn(post, store, source, id, extra) {
     var c = { source: String(source || ""), id: cleanId(id) };
+    if (extra && typeof extra === "object") {
+      if (extra.minutes != null) c.minutes = extra.minutes;
+      if (extra.rounds != null) c.rounds = extra.rounds;
+      if (extra.ms != null) c.ms = extra.ms;
+      if (extra.mode != null) c.mode = extra.mode;
+    }
     if (CLAIM_SOURCES.indexOf(c.source) < 0 || !c.id) return Promise.resolve({ credited: 0, skipped: "invalid" });
     keepClaim(store, c);
     return post(c).then(function (r) { dropClaim(store, c); return r; }, function (e) { if (e && e.status && e.status < 500) dropClaim(store, c); throw e; });
   }
   function flushClaims(post, store) {
-    return readClaims(store).reduce(function (p, c) { return p.then(function () { return claimEarn(post, store, c.source, c.id).catch(function () {}); }); }, Promise.resolve());
+    return readClaims(store).reduce(function (p, c) { return p.then(function () { return claimEarn(post, store, c.source, c.id, c).catch(function () {}); }); }, Promise.resolve());
   }
   // App only (Capacitor native): the 30-second top hold is called "plank push press". Browsers keep "30-second holds".
   function isNativeApp() { return typeof root !== "undefined" && !!(root && root.Capacitor && typeof root.Capacitor.isNativePlatform === "function" && root.Capacitor.isNativePlatform()); }
   var APP = isNativeApp();
-  var LABEL = { pushups: "Push-ups", squats: "Gyatt Squats", plank: "Plank", plankTut: "Plank TUT", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers", hold: APP ? "30-second plank push presses" : "30-second holds", steps10k: "10K steps bonus" };
+  var LABEL = { pushups: "Push-ups", squats: "Gyatt Squats", plank: "Plank", plankTut: "Plank TUT", walk: "Walking", tut: "TUT", washers: "Won Zabba Washers", hold: APP ? "30-second plank push presses" : "30-second holds", steps10k: "10K steps bonus", breath: "Breath Equity" };
   var WAGER_TYPE = { stake: "Battle stake", payout: "Battle win", refund: "Battle refund" };
   var WAGER_GAME = { washers: "Zabba Washer Battle", tut: "TUT Battle", plank: "Plank Battle" };
   function mins(m) { m = Math.floor(m); return m + " minute" + (m === 1 ? "" : "s"); }
   var UNIT = { pushups: function (n) { return n + " push-up" + (n === 1 ? "" : "s"); }, squats: function (n) { return n + " squat" + (n === 1 ? "" : "s"); }, plank: function (n) { return mins(n / 60); }, plankTut: function (n) { return mins(n / 60); },
     tut: function (n) { return mins(n / 60); }, walk: function (n) { return mins(n); },
     washers: function (n) { return n + " game" + (n === 1 ? "" : "s") + " won"; }, hold: function (n) { return APP ? n + " 30-second plank push press" + (n === 1 ? "" : "es") : n + " 30-second hold" + (n === 1 ? "" : "s"); },
-    steps10k: function (n) { return Number(n).toLocaleString("en-US") + " steps in a day"; } };
+    steps10k: function (n) { return Number(n).toLocaleString("en-US") + " steps in a day"; },
+    breath: function (n) { return n + " minute" + (n === 1 ? "" : "s") + " of Breath Equity"; } };
   var OF = { pushups: "", squats: "", plank: " of plank", tut: " of TUT", walk: " of walking", hold: "", steps10k: "" };
   // Display lines built from RATES so the page always matches the earn math.
   // Earn rates: nine lines, one tile each (2 columns on phones, 4 on wide screens), built from RATES so they match the earn math.
@@ -155,7 +171,8 @@
       "One set of " + RATES.squats.per + " Gyatt Squats = " + ZC.fmtZab(RATES.squats.zab || 1) + " ZAB",
       ZC.fmtZab(RATES.steps10k.zab) + " ZAB for " + RATES.steps10k.per.toLocaleString("en-US") + " steps",
       "Won Zabba Washers game = " + ZC.fmtZab(RATES.washers.zab || 1) + " ZAB",
-      "30-second plank push press = " + ZC.fmtZab(RATES.hold.zab) + " ZAB bonus"];
+      "30-second plank push press = " + ZC.fmtZab(RATES.hold.zab) + " ZAB bonus",
+      "Breath Equity: 2 minutes = 1 ZAB, 5 minutes = 3 ZAB"];
   }
   function txLine(t) {
     t = t || {};
@@ -239,6 +256,6 @@
     }).join("") + "</ol>";
   }
   var api = { tenKEarn: tenKEarn, holderName: holderName, holdersView: holdersView, holdersHtml: holdersHtml, boardEntry: boardEntry, topLine: topLine, badgeParts: badgeParts, rateLines: rateLines, txLine: txLine, txRowsHtml: txRowsHtml, RATES: RATES, qtyFrom: qtyFrom, zabFor: zabFor, txId: txId, newSetId: newSetId, buildEarn: buildEarn, washersWinEarn: washersWinEarn, validEarn: validEarn,
-    profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, claimEarn: claimEarn, nameWithSuffix: nameWithSuffix, flushClaims: flushClaims, readClaims: readClaims, CLAIM_KEY: CLAIM_KEY, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY };
+    profileFrom: profileFrom, ensureProfile: ensureProfile, award: award, claimEarn: claimEarn, nameWithSuffix: nameWithSuffix, flushClaims: flushClaims, readClaims: readClaims, CLAIM_KEY: CLAIM_KEY, earnAndQueue: earnAndQueue, flush: flush, readQ: readQ, PENDING_KEY: PENDING_KEY, CLAIM_SOURCES: CLAIM_SOURCES, breathZabFor: breathZabFor };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZabBalance = api;
 })(typeof window !== "undefined" ? window : this);

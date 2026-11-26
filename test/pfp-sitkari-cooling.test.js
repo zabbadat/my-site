@@ -33,6 +33,10 @@ check("sitkari leaves the chin uncovered", !!(s && !inside(s, chin.x, chin.y)), 
 check("sitkari covers both eyes", !!(s && inside(s, leftEye.x, leftEye.y) && inside(s, rightEye.x, rightEye.y)), JSON.stringify({ s, leftEye, rightEye }));
 check("sitkari covers the forehead", !!(s && inside(s, forehead.x, forehead.y)), JSON.stringify({ s, forehead }));
 check("sitkari covers the nose (above the mouth)", !!(s && inside(s, 320, 200)), JSON.stringify(s));
+check("sitkari bottom edge sits at the nose, not below it", !!(s && Math.abs((s.y + s.r) - 200) < 1.5) && !inside(s, 320, 208), JSON.stringify(s));
+check("sitkari is centered horizontally on the nose", !!(s && Math.abs(s.x - 320) < 1), JSON.stringify(s));
+check("the area under the nose stays visible", !inside(s, 320, 218), JSON.stringify(s));
+
 check("headCircle still covers the chin (other modes unchanged)", !!(h && inside(h, chin.x, chin.y)), JSON.stringify(h));
 check("plankHead still covers the chin (other modes unchanged)", !!(p && inside(p, chin.x, chin.y)), JSON.stringify(p));
 check("headCircle and plankHead still cover the mouth", !!(h && inside(h, mouth.x, mouth.y) && p && inside(p, mouth.x, mouth.y)));

@@ -20,7 +20,7 @@ check("spring forward: Mar 9 midnight is EDT (04:00Z) -> 03-09; 03:59Z -> 03-08"
 check("fall back Nov 1 2026: midnight EDT (04:00Z) -> 11-01; 03:59Z -> 10-31; 1:30 AM (twice, 05:30Z and 06:30Z) -> 11-01", E.capDay("walk", T("2026-11-01T04:00:00Z")) === "2026-11-01" && E.capDay("walk", T("2026-11-01T03:59:00Z")) === "2026-10-31" && E.capDay("walk", T("2026-11-01T05:30:00Z")) === "2026-11-01" && E.capDay("walk", T("2026-11-01T06:30:00Z")) === "2026-11-01");
 check("fall back: Nov 2 midnight is EST (05:00Z) -> 11-02; 04:59Z -> 11-01", E.capDay("walk", T("2026-11-02T05:00:00Z")) === "2026-11-02" && E.capDay("walk", T("2026-11-02T04:59:00Z")) === "2026-11-01");
 check("every source uses the Eastern day", ["pushups", "tut", "hold", "plank", "washers", "walk"].every((s) => E.capDay(s, T("2026-11-10T04:30:00Z")) === "2026-11-09" && E.capDay(s, T("2026-11-10T05:00:00Z")) === "2026-11-10"));
-check("day caps unchanged (plus the 10K bonus: 4 a day)", JSON.stringify(E.DAY_CAP) === JSON.stringify({ pushups: 50, tut: 30, hold: 10, plank: 30, plankTut: 30, walk: 24, washers: 20, steps10k: 4 }));
+check("day caps unchanged (plus the 10K bonus: 4 a day)", JSON.stringify(E.DAY_CAP) === JSON.stringify({ pushups: 50, tut: 30, hold: 10, plank: 30, plankTut: 30, walk: 24, washers: 20, steps10k: 4, breath: 15 }));
 (async () => {
   // ---- claims across Eastern midnight
   const f = fakeFs(), late = T("2026-11-10T04:30:00Z") /* 11:30 PM ET Nov 9 */, early = T("2026-11-10T05:30:00Z") /* 12:30 AM ET Nov 10 */;

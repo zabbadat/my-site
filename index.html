@@ -1159,7 +1159,7 @@ body.arcade-live #playEarn10k{display:none}
     <a href="#battles-hub">Battles</a>
     <a href="#plank">Plank House</a>
     <a href="#league">League</a>
-    <a href="#cooling-box">Cooling box</a>
+    <a href="#cooling-box">Breath Equity</a>
     <a href="#corporate">Companies</a>
     <a href="#order">Order</a>
     <a href="#membership">Membership</a>
@@ -1553,7 +1553,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
     </div>
   </section>
   <section id="cooling-box">
-    <h2> Breathwork & Meditation —<br>Zabsticking<br>Sitkari coolbox breathing technique </h2>
+    <h2> Breathwork & Meditation —<br>Zabsticking<br>Breath Equity </h2>
     <p class="lead">Sitkari through the inhale, box counts on all four sides. Cool the mouth & mind, then close the cycle through the nose.</p>
     <p class="tut-theme" id="coolingTutLine"><strong>Breathe through the tension,</strong> then move.</p>
     <div class="card" id="sitkari-how" style="margin-bottom:1.15rem">
@@ -1568,7 +1568,7 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
       Hold empty — 4</p>
       <p>That is ~16 seconds. Lips close on the hold and on the nose exhale. No force on the empty hold.</p>
       <h3 style="margin-top:1rem">How long</h3>
-      <p><strong>Full set:</strong> 18 cycles = about 5 minutes. If 4-counts feel tight, use 3-3-3-3 and do 24 cycles. Same five minutes. Five minutes is the allotted cooling box so the effect holds.</p>
+      <p><strong>Full set:</strong> 18 cycles = about 5 minutes. If 4-counts feel tight, use 3-3-3-3 and do 24 cycles. Same five minutes. Five minutes is the allotted Breath Equity so the effect holds.</p>
       <p><strong>Bariboshi:</strong> both sides, one mandatory minute before the opening washer. Four 4-count cycles (~1 minute), or five 3-count cycles. Then the pitch.</p>
       <p class="fine">Stop if you get dizzy, tingly, or short of breath. This is a settling drill before a match, not medical treatment.</p>
     </div>                                                                                                                                        
@@ -1586,10 +1586,14 @@ n.addEventListener("scroll",f,{passive:true});window.addEventListener("resize",f
 .cooling-ring-glow{stroke:rgba(198,255,0,.28)}
 .cooling-ring-line{stroke:#C6FF00;filter:drop-shadow(0 0 8px rgba(198,255,0,.5))}
 .cooling-ring-scale{transform-origin:60px 60px;transform-box:view-box;transform:scale(.55);will-change:transform}
-#coolingRing[data-side="0"] .cooling-ring-line,#coolingCamRing[data-side="0"] .cooling-ring-line{stroke:#C6FF00}
-#coolingRing[data-side="1"] .cooling-ring-line,#coolingCamRing[data-side="1"] .cooling-ring-line{stroke:#E8FF8A}
-#coolingRing[data-side="2"] .cooling-ring-line,#coolingCamRing[data-side="2"] .cooling-ring-line{stroke:#7ad0ff}
-#coolingRing[data-side="3"] .cooling-ring-line,#coolingCamRing[data-side="3"] .cooling-ring-line{stroke:#9aada4}
+#coolingRing[data-side="0"] .cooling-ring-line,#coolingCamRing[data-side="0"] .cooling-ring-line,#todaysHideRing[data-side="0"] .cooling-ring-line{stroke:#C6FF00}
+#coolingRing[data-side="1"] .cooling-ring-line,#coolingCamRing[data-side="1"] .cooling-ring-line,#todaysHideRing[data-side="1"] .cooling-ring-line{stroke:#E8FF8A}
+#coolingRing[data-side="2"] .cooling-ring-line,#coolingCamRing[data-side="2"] .cooling-ring-line,#todaysHideRing[data-side="2"] .cooling-ring-line{stroke:#7ad0ff}
+#coolingRing[data-side="3"] .cooling-ring-line,#coolingCamRing[data-side="3"] .cooling-ring-line,#todaysHideRing[data-side="3"] .cooling-ring-line{stroke:#9aada4}
+.cooling-clock{font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:.06em;color:#C6FF00;font-size:1.2rem;line-height:1}
+#coolingClock{margin:0 0 .15rem;text-align:center}
+#coolingClock[hidden],#coolingCamClock[hidden],#todaysHideClock[hidden]{display:none}
+#coolingCamClock{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));z-index:7;padding:.28rem .7rem;border-radius:999px;background:rgba(14,20,18,.78);border:1px solid rgba(198,255,0,.38);pointer-events:none;font-size:1.1rem}
 .cooling-goal{position:absolute;right:-16px;bottom:2px;width:44px;text-align:center;pointer-events:none}
 .cooling-goal-track{stroke:rgba(198,255,0,.2)}
 .cooling-goal-fill{stroke:#C6FF00;stroke-linecap:round;transition:stroke-dashoffset .25s linear}
@@ -1641,16 +1645,16 @@ html.zab-cooling-fs nav,html.zab-cooling-fs #sessionStrip,html.zab-cooling-fs .p
 #coolingWrap:fullscreen #coolingCloseHint,#coolingWrap:-webkit-full-screen #coolingCloseHint,#coolingWrap.cam-fs #coolingCloseHint{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:6;margin:0;max-width:min(88vw,24rem);background:rgba(14,20,18,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 #coolingWrap:fullscreen #coolingProofCaption,#coolingWrap:-webkit-full-screen #coolingProofCaption,#coolingWrap.cam-fs #coolingProofCaption{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:calc(12px + env(safe-area-inset-left,0px));z-index:5;margin:0;padding:.25rem .6rem;border-radius:999px;background:rgba(14,20,18,.68);color:rgba(238,244,241,.86);pointer-events:none}
 #coolingWrap:fullscreen .rec-stop,#coolingWrap:-webkit-full-screen .rec-stop,#coolingWrap.cam-fs .rec-stop{bottom:calc(68px + env(safe-area-inset-bottom,0px));left:calc(12px + env(safe-area-inset-left,0px));z-index:7}
-/* Lower-right off-to-the-side Breathe cue styled like the solo inhale button */
-.cooling-cam-cue{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:6;display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.45rem .6rem;border-radius:16px;background:rgba(14,20,18,.78);border:1px solid rgba(198,255,0,.38);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);pointer-events:none;max-width:116px}
+/* Lower-right cue: exact same 168px dial as the solo ring (size, colors, animation). */
+.cooling-cam-cue{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:6;display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:0;background:transparent;border:none;pointer-events:none;max-width:none}
 .cooling-cam-cue[hidden]{display:none}
-.cooling-cam-ring-wrap{position:relative;width:62px;height:62px;margin:0 auto}
-.cooling-cam-ring-wrap>svg{display:block;width:100%;height:100%}
-.cooling-cam-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.25rem;line-height:1;color:#C6FF00}
+.cooling-cam-ring-wrap{position:relative;width:168px;height:168px;margin:0 auto}
+.cooling-cam-ring-wrap>svg{display:block;width:168px;height:168px}
+.cooling-cam-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.25rem;line-height:1;color:#C6FF00;pointer-events:none}
 .cooling-cam-pill{display:inline-flex;align-items:center;justify-content:center;background:var(--grad);color:#0e1412;font-weight:800;font-size:.78rem;line-height:1.15;letter-spacing:.02em;padding:.3rem .72rem;border-radius:999px;box-shadow:0 4px 16px rgba(255,46,147,.28);white-space:nowrap}
 @media (min-width:720px){
-  .cooling-cam-cue{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));padding:.55rem .75rem;max-width:136px}
-  .cooling-cam-ring-wrap{width:76px;height:76px}
+  .cooling-cam-cue{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+  .cooling-cam-ring-wrap{width:168px;height:168px}
   .cooling-cam-pill{font-size:.86rem;padding:.34rem .84rem}
 }
 .cooling-cam-stop{left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:6;min-height:44px!important;min-width:5.4rem!important;max-width:34%;padding:.5rem .9rem!important;font-size:.95rem!important}
@@ -1665,6 +1669,7 @@ html.zab-cooling-fs nav,html.zab-cooling-fs #sessionStrip,html.zab-cooling-fs .p
     <div class="card" id="coolingPlay" style="margin-top:1.15rem">
       <p class="cooling-nudge" id="coolingNudge" hidden></p>
       <div class="cooling-stage">
+        <p class="cooling-clock" id="coolingClock" hidden>0:00</p>
         <div class="cooling-ring-wrap" id="coolingRing">
           <svg viewBox="0 0 120 120" width="168" height="168" aria-hidden="true" focusable="false">
             <circle class="cooling-ring-track" cx="60" cy="60" r="44" fill="none" stroke-width="2.2"/>
@@ -1694,15 +1699,16 @@ html.zab-cooling-fs nav,html.zab-cooling-fs #sessionStrip,html.zab-cooling-fs .p
           <p class="cooling-close-hint" id="coolingCloseHint" hidden>Sit up close so your mouth and chin show.</p>
           <div id="coolingStage" style="position:relative">
             <video id="coolingVid" autoplay playsinline muted style="width:100%;border-radius:14px 14px 0 0;background:#101816;transform:scaleX(-1);display:block"></video>
+            <p class="cooling-clock" id="coolingCamClock" hidden>0:00</p>
           </div>
           <p class="cooling-proof-caption" id="coolingProofCaption" hidden>Proof of Sitkari</p>
           <div class="cooling-cam-cue" id="coolingCamCue" hidden aria-live="polite">
-            <div class="cooling-cam-ring-wrap" id="coolingCamRing" data-side="">
-              <svg viewBox="0 0 120 120" width="64" height="64" aria-hidden="true" focusable="false">
-                <circle class="cooling-ring-track" cx="60" cy="60" r="44" fill="none" stroke-width="2.5"/>
+            <div class="cooling-ring-wrap cooling-cam-ring-wrap" id="coolingCamRing" data-side="">
+              <svg viewBox="0 0 120 120" width="168" height="168" aria-hidden="true" focusable="false">
+                <circle class="cooling-ring-track" cx="60" cy="60" r="44" fill="none" stroke-width="2.2"/>
                 <g id="coolingCamRingScale" class="cooling-ring-scale">
                   <circle class="cooling-ring-glow" cx="60" cy="60" r="44" fill="none" stroke-width="8"/>
-                  <circle class="cooling-ring-line" cx="60" cy="60" r="44" fill="none" stroke-width="3.5"/>
+                  <circle class="cooling-ring-line" cx="60" cy="60" r="44" fill="none" stroke-width="3"/>
                 </g>
               </svg>
               <span class="cooling-cam-num" id="coolingCamNum"></span>
@@ -1730,11 +1736,11 @@ html.zab-cooling-fs nav,html.zab-cooling-fs #sessionStrip,html.zab-cooling-fs .p
             <button class="btn ghost rec-btn" id="coolingRecBtn" type="button" data-rec="coolingWrap" hidden aria-pressed="false" style="cursor:pointer"><span class="rec-dot" aria-hidden="true"></span><span>Record</span></button>
           </div>
         </div>
-        <button class="btn" id="coolingStopBtn" type="button" hidden style="cursor:pointer">Stop cooling box</button>
+        <button class="btn" id="coolingStopBtn" type="button" hidden style="cursor:pointer">Stop Breath Equity</button>
       </div>
       <p class="note">All-time on this phone: <strong id="coolingCycles">0</strong> breath cycles. <span class="cooling-level" id="coolingLevelBadge" hidden></span></p>
       <p class="cooling-streak" id="coolingStreak" hidden><span class="cooling-flame" aria-hidden="true"></span><b id="coolingStreakDays">0</b> day streak</p>
-      <label class="cooling-gauge" for="coolingSessionMin">Session <input id="coolingSessionMin" type="range" min="1" max="10" step="1" value="5"> <span id="coolingSessionLabel">5 min · 18 rounds</span></label>
+      <label class="cooling-gauge" for="coolingSessionMin">Session <input id="coolingSessionMin" type="range" min="1" max="10" step="1" value="2"> <span id="coolingSessionLabel">2 min · 7 rounds</span></label>
       <div class="row cooling-actions">
         <button class="btn ghost" id="coolingShareBtn" type="button">Share</button>
         <p id="coolingCamNote" hidden></p>
@@ -1802,26 +1808,22 @@ html.zab-cooling-fs nav,html.zab-cooling-fs #sessionStrip,html.zab-cooling-fs .p
   animation: th-found-pop .55s ease-out;
 }
 @keyframes th-found-pop { from { transform: translate(-50%,-50%) scale(.4); opacity: 0; } to { transform: translate(-50%,-50%) scale(1); opacity: 1; } }
-#todays-hide .th-breath {
-  margin: .85rem auto 0; width: 88px; height: 88px; position: relative;
+#todays-hide .th-breath-slot { margin: .85rem auto 0; display: flex; flex-direction: column; align-items: center; gap: .4rem; }
+#todays-hide .th-breath-cue,
+#todays-hide #todaysHideBreath.cooling-cam-cue {
+  position: relative; right: auto; bottom: auto; margin: 0 auto; pointer-events: auto;
+  cursor: pointer; background: transparent; border: 0; padding: 0; max-width: none;
+  font: inherit; color: inherit;
 }
+#todays-hide .th-breath-clock { position: static; padding: 0; background: none; border: 0; font-size: 1.15rem; }
+#todays-hide #todaysHideBreathStop { min-height: 44px; }
+#todays-hide #todaysHideBreathStop[hidden],#todays-hide #todaysHideBreathStatus[hidden]{display:none}
+#todays-hide #todaysHideBreathStatus { margin: 0; color: var(--muted,#9aada4); font-size: .92rem; text-align: center; }
 #todays-hide .lead {
   margin: .4rem 0 0; font-size: 1.02rem; font-weight: 600;
 }
-#todays-hide .th-breath svg { width: 88px; height: 88px; display: block; }
-#todays-hide .th-breath-ring { transform-origin: 44px 44px; animation: th-breathe 16s linear infinite; }
-#todays-hide[data-th-phase="0"] .th-breath-ring { transform: scale(1.08); }
-#todays-hide[data-th-phase="1"] .th-breath-ring { transform: scale(1.12); }
-#todays-hide[data-th-phase="2"] .th-breath-ring { transform: scale(1.02); }
-#todays-hide[data-th-phase="3"] .th-breath-ring { transform: scale(.92); }
-#todays-hide .th-breath-lbl {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: .78rem; color: var(--lime, #C6FF00); letter-spacing: .06em;
-  pointer-events: none;
-}
-@keyframes th-breathe { 0%,100% { opacity: .85; } 25% { opacity: 1; } 75% { opacity: .7; } }
 @media (prefers-reduced-motion: reduce) {
-  #todays-hide .th-breath-ring, #todays-hide .th-found-ring,
+  #todays-hide .th-found-ring,
   #todays-hide .th-item-ring, #todays-hide .th-hint-pulse { animation: none; }
 }
 #todays-hide .th-list {
@@ -1873,19 +1875,23 @@ html.zab-cooling-fs nav,html.zab-cooling-fs #sessionStrip,html.zab-cooling-fs .p
       <button type="button" class="th-btn" id="todaysHideReset" hidden>Reset view</button>
       <button type="button" class="th-share" id="todaysHideShare" hidden>Share</button>
     </div>
-    <div class="th-breath" id="todaysHideBreath" aria-hidden="true">
-      <svg viewBox="0 0 88 88">
-        <defs>
-          <linearGradient id="thBreathGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#C6FF00"/>
-            <stop offset=".55" stop-color="#FF8A00"/>
-            <stop offset="1" stop-color="#FF2E93"/>
-          </linearGradient>
-        </defs>
-        <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(238,244,241,.12)" stroke-width="2"/>
-        <circle class="th-breath-ring" cx="44" cy="44" r="28" fill="none" stroke="url(#thBreathGrad)" stroke-width="3" stroke-linecap="round"/>
-      </svg>
-      <div class="th-breath-lbl" id="todaysHideBreathLbl">In · 1</div>
+    <div class="th-breath-slot">
+      <button type="button" class="cooling-cam-cue th-breath-cue" id="todaysHideBreath" aria-label="Start Breath Equity" aria-pressed="false">
+        <div class="cooling-ring-wrap cooling-cam-ring-wrap" id="todaysHideRing" data-side="">
+          <svg viewBox="0 0 120 120" width="168" height="168" aria-hidden="true" focusable="false">
+            <circle class="cooling-ring-track" cx="60" cy="60" r="44" fill="none" stroke-width="2.2"/>
+            <g id="todaysHideRingScale" class="cooling-ring-scale">
+              <circle class="cooling-ring-glow" cx="60" cy="60" r="44" fill="none" stroke-width="8"/>
+              <circle class="cooling-ring-line" cx="60" cy="60" r="44" fill="none" stroke-width="3"/>
+            </g>
+          </svg>
+          <span class="cooling-cam-num" id="todaysHideCamNum"></span>
+        </div>
+        <span class="cooling-cam-pill" id="todaysHideCamLabel">Breathe</span>
+        <span class="cooling-clock th-breath-clock" id="todaysHideClock" hidden>0:00</span>
+      </button>
+      <button class="btn ghost" id="todaysHideBreathStop" type="button" hidden style="cursor:pointer">Stop Breath Equity</button>
+      <p class="th-breath-status" id="todaysHideBreathStatus" hidden></p>
     </div>
     <p class="lead" id="todaysHideCue">Breathe and look.</p>
     <p class="th-tip" id="todaysHideTip">Pinch to look closer. Tap when you see it.</p>
@@ -4860,7 +4866,14 @@ window.ZabCoolingHost = {
   attachCam, stopCamTracks, camErrorText, isNativeApp, CAM_CONSTRAINTS,
   unlock: () => { if (typeof unlockGetSet === "function") unlockGetSet(); },
   stopOtherCams: () => { try { if (camOn) stopCam(); if (pushStarting) cancelPushStart(); if (plankLoop) stopPlankCam(); if (plankStarting) cancelPlankStart(); } catch (e) {} },
-  wake: makeWake("coolingCamNote")
+  wake: makeWake("coolingCamNote"),
+  // Breath Equity ZAB: no client Firestore write (current rules have no breaths collection).
+  // The earn function validates minutes/rounds/ms and credits the ledger with the admin SDK.
+  saveAndAwardBreath: (rec) => {
+    if (!rec || rec.reason !== "complete" || !(rec.zab > 0) || !auth.currentUser) return Promise.resolve({ credited: 0 });
+    const id = (ZT && ZT.newSetId) ? ZT.newSetId() : String(Date.now());
+    return awardZab("breath", id, { minutes: rec.minutes, rounds: rec.rounds, ms: rec.elapsedMs, mode: rec.mode || "solo" });
+  }
 };
 // ---- Daily steps (shared module daily-steps.js; native plugin in the app, live walk on web) ----
 let saveRemoteDaily = async () => { throw new Error("Daily board is not connected"); };
@@ -5282,9 +5295,9 @@ async function zabPost(body) {
   const res = await fetch("/.netlify/functions/zab-earn", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await u.getIdToken()) }, body: JSON.stringify(body) });
   const j = await res.json().catch(() => ({})); if (!res.ok) throw Object.assign(new Error(j.error || "ZAB service unavailable."), { status: res.status }); return j;
 }
-awardZab = async (source, sessionId) => {
+awardZab = async (source, sessionId, extra) => {
   if (!ZT || !auth.currentUser || !sessionId) return { credited: 0 };
-  const r = await ZT.claimEarn(zabPost, localStorage, source, sessionId);
+  const r = await ZT.claimEarn(zabPost, localStorage, source, sessionId, extra);
   if (r && r.balance != null) paintZab(r.balance);
   return r;
 };

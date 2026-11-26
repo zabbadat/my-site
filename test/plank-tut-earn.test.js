@@ -97,7 +97,8 @@ const plankDoc = (id, holdSec) => ({ uid: "u1", holdSec, source: "camera", creat
   check("boards query planks where holdSec >= 80", /where\("holdSec", ">=", 80\)/.test(html));
   check("board copy names the 80-second regular plank TUT and marks planks",
     /or an 80-second regular plank/.test(html) && /Plank TUTs are marked as plank/.test(html));
-  check("ninth earn-rate line", Z.rateLines()[2] === "1 ZAB for an 80-second plank TUT" && Z.rateLines().length === 9);
+  check("ninth earn-rate line, plus Breath Equity", Z.rateLines()[2] === "1 ZAB for an 80-second plank TUT" && Z.rateLines().length === 10
+    && Z.rateLines()[9] === "Breath Equity: 2 minutes = 1 ZAB, 5 minutes = 3 ZAB");
   check("no new client Firestore writes for this earn (still only saveRemotePlank to planks)",
     (html.match(/addDoc\(collection\(db, "planks"/g) || []).length === 1);
 

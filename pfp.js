@@ -264,8 +264,8 @@
     else r = Math.max(r, Math.hypot(cx - headPt.x, cy - headPt.y) + faceR);
     return { x: cx, y: cy, r: r, sw: L };
   }
-  // Cooling box only: the logo covers the nose and everything above (eyes, forehead). Mouth and chin stay visible.
-  // Anchored on eye-line + nose so ear-height shifts never tilt the axis sideways or blow up r; bottom stays just under the nose tip.
+  // Breath Equity camera only: the logo covers the nose and everything above (eyes, forehead). Mouth and chin stay visible.
+  // Anchored on eye-line + nose so ear-height shifts never tilt the axis sideways or blow up r; bottom edge sits at the nose tip (not below).
   function sitkariHead(kps, frameW, frameH) {
     var face = faceCircle(kps), by, nose, le, re, eyes, ed, eyeMid, d, w, topY, mouthY, downX, downY, len, pts, i, px, py, dx, dist, r, cy, pad;
     if (!face) return null;
@@ -291,17 +291,16 @@
         downY = Math.sqrt(Math.max(0, 1 - downX * downX));
       }
     }
-    // Bottom edge sits just below the nose tip along down, strictly above the upper lip / mouth / chin.
+    // Bottom edge sits at the nose tip along down (not below). Mouth, chin, and the area under the nose stay visible.
+    // Horizontal center stays over the nose. Radius grows upward and wider to cover more of the top half of the head.
     if (ok(nose)) {
       var noseDown = (nose.x - eyeMid.x) * downX + (nose.y - eyeMid.y) * downY;
-      var noseRef = noseDown >= w * 0.14 ? nose : { x: eyeMid.x + downX * w * 0.18, y: eyeMid.y + downY * w * 0.18 };
-      d = eyes.length === 2 ? Math.hypot(eyeMid.x - noseRef.x, eyeMid.y - noseRef.y) : w * 0.25;
-      var margin = Math.max(w * 0.08, Math.min(w * 0.15, d * 0.36));
-      mouthY = { x: noseRef.x + downX * margin, y: noseRef.y + downY * margin };
+      var noseRef = noseDown >= w * 0.10 ? nose : { x: eyeMid.x + downX * w * 0.18, y: eyeMid.y + downY * w * 0.18 };
+      mouthY = { x: noseRef.x, y: noseRef.y };
     } else {
-      mouthY = { x: eyeMid.x + downX * w * 0.28, y: eyeMid.y + downY * w * 0.28 };
+      mouthY = { x: eyeMid.x + downX * w * 0.22, y: eyeMid.y + downY * w * 0.22 };
     }
-    var fh = ed > 4 ? Math.max(w * 0.62, ed * 1.35) : w * 0.65;
+    var fh = ed > 4 ? Math.max(w * 0.90, ed * 1.85) : w * 0.95;
     topY = { x: eyeMid.x - downX * fh, y: eyeMid.y - downY * fh };
     var span = (mouthY.x - topY.x) * downX + (mouthY.y - topY.y) * downY;
     r = Math.max(P.minR, span / 2);
@@ -310,7 +309,8 @@
     if (ok(re)) pts.push(re);
     if (ok(nose)) pts.push(nose);
     // Tangent at mouthY: ensure forehead, both eyes, and nose stay inside with comfortable padding, without ear-level blowups.
-    pad = w * 0.10;
+    pad = w * 0.18;
+    r = Math.max(r, w * 0.90);
     for (i = 0; i < pts.length; i++) {
       px = pts[i].x; py = pts[i].y;
       dx = px - mouthY.x; dist = py - mouthY.y;

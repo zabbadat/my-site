@@ -163,9 +163,11 @@
     var bits = [];
     if (camRan) bits.push(PROOF_CAPTION);
     bits.push(((summary && summary.rounds) || 0) + " rounds");
-    if (summary && summary.level && summary.level.name) bits.push(summary.level.name);
+    if (summary && summary.level && summary.level.name) bits.push(levelLabel(summary.level));
     var days = summary && summary.streak && summary.streak.streak;
     if (days) bits.push(days + "-day streak");
+    var zab = summary && summary.zab;
+    if (zab > 0) bits.push("+" + zab + " ZAB");
     return bits.join(" · ") + ".";
   }
 
@@ -177,9 +179,50 @@
     { at: 250, name: "Deep box" },
     { at: 500, name: "Zabbadat" }
   ];
-  var DEFAULT_MIN = 5;
+  var DEFAULT_MIN = 2;
   var MIN_MIN = 1;
   var MAX_MIN = 10;
+  var TWO_MIN_MS = 120000;
+  var TWO_MIN_LINE = "Two minutes. One ZAB earned.";
+  var STOP_LABEL = "Stop Breath Equity";
+  // Visible label in this block: the 18-round level stays "Coolbox" in logic, shown as "Breath Equity".
+  function levelLabel(level) {
+    var name = typeof level === "string" ? level : (level && level.name) || "";
+    return name === "Coolbox" ? "Breath Equity" : name;
+  }
+  function formatClock(ms) {
+    var sec = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+    var m = Math.floor(sec / 60), r = sec % 60;
+    return m + ":" + (r < 10 ? "0" : "") + r;
+  }
+  // Completing a full session: under 2 min = 0, 2–4 min = 1 ZAB, 5+ min = 3 ZAB. Awarded only on reason "complete".
+  function breathZabFor(minutes) {
+    var m = Math.floor(Number(minutes) || 0);
+    if (m >= 5) return 3;
+    if (m >= 2) return 1;
+    return 0;
+  }
+  function zabEndCopy(zab) {
+    zab = Math.floor(Number(zab) || 0);
+    if (zab === 1) return "Plus 1 ZAB.";
+    if (zab > 0) return "Plus " + zab + " ZAB.";
+    return "";
+  }
+  function completeSpeakLine(zab) {
+    zab = Math.floor(Number(zab) || 0);
+    if (zab === 1) return "Session complete. One ZAB earned.";
+    if (zab === 3) return "Session complete. Three ZAB earned.";
+    if (zab > 0) return "Session complete. " + zab + " ZAB earned.";
+    return "Session complete.";
+  }
+  // Mid-session 2:00 cue: once, only if the session continues past 2 minutes. A 2-minute session uses completeSpeakLine at the end.
+  function twoMinCue(opts) {
+    opts = opts || {};
+    if (opts.said) return { speak: null, said: true };
+    if (!(opts.elapsedMs >= TWO_MIN_MS)) return { speak: null, said: false };
+    if (opts.running && (opts.minutes || 0) > 2) return { speak: TWO_MIN_LINE, said: true };
+    return { speak: null, said: true };
+  }
   var SHARE_URL = "https://zabbadat.com/#cooling-box";
   var PHASE_FREQ = [392, 330, 262, 196];
   var audioCtx = null;
@@ -345,10 +388,10 @@
     var parts = [];
     var n = st && st.streak ? st.streak : 0;
     if (n) parts.push(n + "-day streak");
-    if (level && level.name) parts.push(level.name);
+    if (level && level.name) parts.push(levelLabel(level));
     return {
-      title: "Zabbadat cooling box",
-      text: parts.length ? parts.join(" · ") : "Cooling box",
+      title: "Zabbadat Breath Equity",
+      text: parts.length ? parts.join(" · ") : "Breath Equity",
       url: SHARE_URL
     };
   }
@@ -433,8 +476,12 @@
     var onCycle = opts.onCycle || function () {};
     var et = etOf(opts.et);
     var timer = null, startedAt = 0, running = false, cycleBase = 0;
-    var sessionCount = 0, sessionTarget = 0, lastSide = -1;
+    var sessionCount = 0, sessionTarget = 0, sessionMinutes = 0, lastSide = -1, frozenMs = 0;
 
+    function sessionElapsed(t) {
+      if (running) return Math.max(0, t - startedAt);
+      return frozenMs;
+    }
     function snapshot(t, extra) {
       var elapsed = running ? Math.max(0, t - cycleBase) : 0;
       var inCycle = elapsed % CYCLE_MS;
@@ -451,6 +498,8 @@
         ringScale: running ? ringScale(inCycle) : 0.55,
         sessionCount: sessionCount,
         sessionTarget: sessionTarget,
+        sessionMinutes: sessionMinutes,
+        sessionMs: sessionElapsed(t),
         streak: st.streak,
         todayCount: st.todayCount,
         live: st.live
@@ -473,11 +522,15 @@
       running = false;
       if (timer) { clearInterval(timer); timer = null; }
       lastSide = -1;
+      frozenMs = Math.max(0, t - startedAt);
+      var zab = (reason === "complete") ? breathZabFor(sessionMinutes) : 0;
       var summary = {
         rounds: sessionCount,
-        minutes: getSessionMinutes(store),
+        minutes: sessionMinutes || getSessionMinutes(store),
         target: sessionTarget,
         reason: reason || "end",
+        elapsedMs: frozenMs,
+        zab: zab,
         streak: streakStatus(store, et, t),
         total: getCycles(store),
         level: levelFor(getCycles(store))
@@ -515,10 +568,14 @@
       if (running) return;
       running = true;
       sessionCount = 0;
+      sessionMinutes = opts.sessionMinutes != null
+        ? clampMinutes(opts.sessionMinutes)
+        : getSessionMinutes(store);
       sessionTarget = opts.sessionRounds != null
         ? Math.max(0, Math.floor(Number(opts.sessionRounds) || 0))
-        : roundsForMinutes(getSessionMinutes(store));
+        : roundsForMinutes(sessionMinutes);
       startedAt = nowFn();
+      frozenMs = 0;
       cycleBase = startedAt;
       lastSide = -1;
       emit(startedAt);
@@ -539,7 +596,9 @@
       liveSide: function () { return running ? Math.min(3, Math.floor((Math.max(0, nowFn() - cycleBase) % CYCLE_MS) / SIDE_MS)) : 0; },
       getCycles: function () { return getCycles(store); },
       sessionCount: function () { return sessionCount; },
-      sessionTarget: function () { return sessionTarget; }
+      sessionTarget: function () { return sessionTarget; },
+      sessionMinutes: function () { return sessionMinutes; },
+      sessionMs: function () { return sessionElapsed(nowFn()); }
     };
   }
 
@@ -668,6 +727,17 @@
     var camNum = el(doc, "coolingCamNum");
     var camLabel = el(doc, "coolingCamLabel");
     var camStopBtn = el(doc, "coolingCamStopBtn");
+    var clockEl = el(doc, "coolingClock");
+    var camClockEl = el(doc, "coolingCamClock");
+    var hideCue = el(doc, "todaysHideBreath");
+    var hideRing = el(doc, "todaysHideRing");
+    var hideRingScale = el(doc, "todaysHideRingScale");
+    var hideNum = el(doc, "todaysHideCamNum");
+    var hideLabel = el(doc, "todaysHideCamLabel");
+    var hideClock = el(doc, "todaysHideClock");
+    var hideStop = el(doc, "todaysHideBreathStop");
+    var hideStatus = el(doc, "todaysHideBreathStatus");
+    var twoMinSaid = false;
     var camStream = null;
     var camLoopId = 0;
     var camRan = false;
@@ -955,8 +1025,46 @@
       if (startRow) startRow.hidden = !!busy;
       if (stopBtn) {
         stopBtn.hidden = !busy;
-        stopBtn.textContent = "Stop cooling box";
+        stopBtn.textContent = STOP_LABEL;
       }
+      if (hideStop) {
+        hideStop.hidden = !busy;
+        hideStop.textContent = STOP_LABEL;
+      }
+      if (hideCue) {
+        hideCue.setAttribute("aria-pressed", busy ? "true" : "false");
+        hideCue.classList.toggle("is-running", !!busy);
+      }
+    }
+    function paintClock(ms, visible) {
+      var txt = formatClock(ms);
+      var nodes = [clockEl, camClockEl, hideClock];
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        if (!n) continue;
+        n.textContent = txt;
+        if (visible) n.removeAttribute("hidden");
+        else n.hidden = true;
+      }
+    }
+    function maybeSpeak(text) {
+      if (!text || isMuted()) return Promise.resolve();
+      return speakLine(text);
+    }
+    function awardBreathIfDue(summary) {
+      if (!summary || summary.reason !== "complete" || !(summary.zab > 0)) return;
+      var H = host();
+      if (!H || typeof H.saveAndAwardBreath !== "function") return;
+      try {
+        H.saveAndAwardBreath({
+          reason: "complete",
+          minutes: summary.minutes,
+          rounds: summary.rounds,
+          elapsedMs: summary.elapsedMs,
+          zab: summary.zab,
+          mode: activeMode
+        });
+      } catch (eA) {}
     }
     function onAlignCount(n) {
       if (n) {
@@ -1020,6 +1128,11 @@
         camRingScale.style.transform = tf;
         if (camRing) camRing.setAttribute("data-side", side);
       }
+      if (hideRingScale) {
+        hideRingScale.style.transition = "none";
+        hideRingScale.style.transform = tf;
+        if (hideRing) hideRing.setAttribute("data-side", side);
+      }
       if (typeof root.requestAnimationFrame === "function") rafRingId = root.requestAnimationFrame(stepRingAnim);
     }
     function startRingAnim() {
@@ -1031,6 +1144,7 @@
       var side = state && state.running ? String(state.sideIndex) : "";
       if (ring) ring.setAttribute("data-side", side);
       if (camRing && camCue && !camCue.hidden) camRing.setAttribute("data-side", side);
+      if (hideRing) hideRing.setAttribute("data-side", side);
       if (rafRingId && state && state.running) return;
       var s = state && state.running ? (state.ringScale != null ? state.ringScale : 0.55) : 0.55;
       var calm = reducedMotion(doc.defaultView || root);
@@ -1043,6 +1157,10 @@
         camRingScale.style.transition = calm ? "transform .2s linear, opacity .2s linear" : "transform .2s linear";
         camRingScale.style.transform = tf;
       }
+      if (hideRingScale) {
+        hideRingScale.style.transition = calm ? "transform .2s linear, opacity .2s linear" : "transform .2s linear";
+        hideRingScale.style.transform = tf;
+      }
     }
     function paintGauge() {
       var m = getSessionMinutes(store);
@@ -1054,7 +1172,7 @@
       if (!levelBadge) return;
       if (!lv) { levelBadge.hidden = true; levelBadge.textContent = ""; return; }
       levelBadge.hidden = false;
-      levelBadge.textContent = lv.name;
+      levelBadge.textContent = levelLabel(lv);
     }
     function paintNudge() {
       if (!nudgeEl) return;
@@ -1094,7 +1212,8 @@
       if (status) {
         if (state && state.running) status.textContent = view.status;
         else if (state && state.summary && state.summary.reason === "complete") {
-          status.textContent = state.summary.rounds + " rounds done. " + (st.streak ? st.streak + "-day streak." : "Start again when you're ready.");
+          var zabBit = zabEndCopy(state.summary.zab);
+          status.textContent = state.summary.rounds + " rounds done." + (zabBit ? " " + zabBit : "") + " " + (st.streak ? st.streak + "-day streak." : "Start again when you're ready.");
         } else {
           status.textContent = n ? (n + " breath cycle" + (n === 1 ? "" : "s") + " on this phone.") : "Start a 16-second 4-count cycle.";
         }
@@ -1103,9 +1222,32 @@
         if (camNum) camNum.textContent = view.count;
         if (camLabel) camLabel.textContent = view.status;
       }
+      if (hideCue) {
+        if (state && (state.running || sessionOn)) {
+          if (hideNum) hideNum.textContent = view.count || "";
+          if (hideLabel) hideLabel.textContent = view.status || "Sitkari";
+        } else if (!(state && state.summary)) {
+          if (hideNum) hideNum.textContent = "";
+          if (hideLabel) hideLabel.textContent = "Breathe";
+        }
+      }
+      if (hideStatus) {
+        if (state && state.summary && state.summary.reason === "complete") {
+          hideStatus.hidden = false;
+          hideStatus.textContent = status ? status.textContent : "";
+        } else if (state && state.running) {
+          hideStatus.hidden = true;
+        }
+      }
+      if (state && (state.running || sessionOn || (state.summary && state.sessionMs != null))) {
+        var clockShow = (state.sessionMs != null) ? state.sessionMs : (state.summary && state.summary.elapsedMs) || 0;
+        paintClock(clockShow, true);
+      } else if (state && state.summary && state.summary.elapsedMs != null) {
+        paintClock(state.summary.elapsedMs, true);
+      }
       if (summaryEl) {
         if (state && state.summary && (state.summary.reason === "complete" || state.summary.reason === "stop")) {
-          var line = state.summary.line || summaryLine(state.summary, camRan);
+          var line = summaryLine(state.summary, camRan);
           if (line && state.summary.rounds) {
             summaryEl.hidden = false;
             summaryEl.textContent = line;
@@ -1130,6 +1272,16 @@
           if (state.running && state.sideIndex !== lastPhase) {
             lastPhase = state.sideIndex;
           }
+          if (state.running) {
+            var cue = twoMinCue({
+              said: twoMinSaid,
+              elapsedMs: state.sessionMs,
+              running: true,
+              minutes: state.sessionMinutes
+            });
+            if (cue.speak) maybeSpeak(cue.speak);
+            twoMinSaid = cue.said;
+          }
           paint(state);
         },
         onPhase: function (state) { phaseTone(state.sideIndex, store); },
@@ -1142,7 +1294,7 @@
           flyPlus(doc, ring || soloBtn, countEl, calm);
           if (meta.combo) showCeleb(meta.combo.name);
           if (meta.levels && meta.levels.length) {
-            showCeleb(meta.levels[meta.levels.length - 1].name);
+            showCeleb(levelLabel(meta.levels[meta.levels.length - 1]));
           }
           paint({
             running: true,
@@ -1161,8 +1313,11 @@
           lastPhase = -1;
           sessionOn = false;
           aligning = false;
+          twoMinSaid = true;
           summary.line = summaryLine(summary, camRan);
-          paint({ running: false, total: summary.total, summary: summary, streak: summary.streak && summary.streak.streak, todayCount: summary.streak && summary.streak.todayCount, live: summary.streak && summary.streak.live });
+          paint({ running: false, total: summary.total, summary: summary, sessionMs: summary.elapsedMs, streak: summary.streak && summary.streak.streak, todayCount: summary.streak && summary.streak.todayCount, live: summary.streak && summary.streak.live });
+          if (summary.reason === "complete") maybeSpeak(completeSpeakLine(summary.zab));
+          awardBreathIfDue(summary);
           stopCoolingCam();
         }
       });
@@ -1195,8 +1350,10 @@
       if (summaryEl) { summaryEl.hidden = true; summaryEl.textContent = ""; }
       lastPhase = -1;
       camRan = false;
+      twoMinSaid = false;
       sessionOn = true;
       aligning = true;
+      paintClock(0, true);
       paintNudge();
       paintStartStop(true);
       if (status) status.textContent = "Sitkari time.";
@@ -1269,6 +1426,8 @@
     bindStartBtn(camBtn, function () { startSession("camera"); }, nav, cap);
     if (stopBtn) bindStartBtn(stopBtn, stopSession, nav, cap);
     if (camStopBtn) bindStartBtn(camStopBtn, stopSession, nav, cap);
+    if (hideCue) bindStartBtn(hideCue, function () { startSession("solo"); }, nav, cap);
+    if (hideStop) bindStartBtn(hideStop, stopSession, nav, cap);
     function onFsChange() {
       if (!exitingFs && nativeFsActive && !fsEl() && sessionOn && activeMode === "camera") {
         nativeFsActive = false;
@@ -1361,6 +1520,16 @@
     mouthChinBox: mouthChinBox,
     boxesOverlap: boxesOverlap,
     summaryLine: summaryLine,
+    levelLabel: levelLabel,
+    formatClock: formatClock,
+    breathZabFor: breathZabFor,
+    zabEndCopy: zabEndCopy,
+    completeSpeakLine: completeSpeakLine,
+    twoMinCue: twoMinCue,
+    TWO_MIN_MS: TWO_MIN_MS,
+    TWO_MIN_LINE: TWO_MIN_LINE,
+    DEFAULT_MIN: DEFAULT_MIN,
+    STOP_LABEL: STOP_LABEL,
     stopCam: function () { if (camMount && camMount.stopCam) camMount.stopCam(); },
     sharePayload: sharePayload,
     shareFromTap: shareFromTap,
