@@ -10,7 +10,7 @@ const kneeling = () => upper().concat(K({ left_hip: [300, 400], left_knee: [330,
 const run = (frames, topW = 128) => { const w = SS.createFailureWatch(); w.reset(0); let out = null, at = null; for (const [t, k] of frames) { const r = w.update(k, t, topW); if (r && out == null) { out = r; at = t; } } return { out, at }; };
 const seq = (from, to, f, dt = 33) => { const a = []; for (let t = from; t < to; t += dt) a.push([t, f(t)]); return a; };
 
-check("defaults reuse Plank's 1 s bad-form rule; out of frame 10 s", SS.FAIL.badMs === 1000 && SS.FAIL.frameMs === 10000 && require("../plank-session.js").PLANK.badMs === SS.FAIL.badMs);
+check("defaults reuse Plank's 1 s bad-form rule; out of frame 2.5 s", SS.FAIL.badMs === 1000 && SS.FAIL.frameMs === 2500 && require("../plank-session.js").PLANK.badMs === SS.FAIL.badMs);
 let r = run(seq(0, 3000, () => upper()).concat(seq(3000, 5000, kneeling)));
 check(`knees down for 1 s fails as 'knees' (at ${r.at - 3000} ms into it)`, r.out === "knees" && r.at - 3000 >= 1000 && r.at - 3000 < 1100);
 r = run(seq(0, 3000, () => upper()).concat(seq(3000, 3900, kneeling), seq(3900, 6000, () => upper())));
@@ -19,11 +19,11 @@ r = run(seq(0, 3000, () => upper()).concat(seq(3000, 5000, () => upper(60))));
 check("shoulders shrink (leaned-up camera, long top hold) never ends the set", r.out === null);
 r = run(seq(0, 3000, () => upper()).concat(seq(3000, 3900, () => upper(60)), seq(3900, 6000, () => upper())));
 check("shrink for 0.9 s then back: no failure", r.out === null);
-r = run(seq(0, 3000, () => upper()).concat(seq(3000, 14000, () => [])));
-check("out of frame for 11 s never fails (owner, Nov 16)", r.out === null);
+r = run(seq(0, 3000, () => upper()).concat(seq(3000, 8000, () => [])));
+check("out of frame > 2.5 s fails as frame", r.out === "frame");
 { const w = SS.createFailureWatch(); w.reset(0); let out = null;
-  for (const [t, k] of seq(0, 3000, () => upper()).concat(seq(3000, 14000, () => []))) { const f = w.update(k, t, 128, { frameW: 640, skipFrame: true }); if (f && !out) out = f; }
-  check("TUT skipFrame: 10 s out of frame does not end the set", out === null && w.failed() === null); }
+  for (const [t, k] of seq(0, 3000, () => upper()).concat(seq(3000, 8000, () => []))) { const f = w.update(k, t, 128, { frameW: 640 }); if (f && !out) out = f; }
+  check("TUT watch: out of frame > 2.5 s ends the set as frame", out === "frame" && w.failed() === "frame"); }
 r = run(seq(0, 3000, () => upper()).concat(seq(3000, 4900, () => []), seq(4900, 8000, () => upper())));
 check("out of frame 1.9 s then back: no failure", r.out === null);
 r = run(seq(0, 3000, () => upper()).concat(seq(3000, 8000, (t) => (Math.floor(t / 400) % 2 ? [] : upper()))));
@@ -77,7 +77,7 @@ check("the end-of-set line is exactly 'Set complete.'", G.SET_DONE_LINE === "Set
 // ---- page wiring pins
 const pt = html.slice(html.indexOf("async function poseTick(id = poseLoopId)"), html.indexOf("async function openCam()"));
 check("failure check: TUT block voids via voidTutSet; Sets block ends only via finishPushSet (knees / 10 s out of frame)", /if \(\(pushMode === "long" \|\| pushMode === "challenge"\) && postureGuard && pushState\.running && !pushState\.finished\) \{[\s\S]*(failWatch|fw)\.update\([\s\S]*voidTutSet\(failed/.test(pt) && /pushMode === "sets" && pushState\.running[\s\S]*failWatch\.update\([\s\S]*finishPushSet\(why\)/.test(pt) && (pt.match(/\b(failWatch|fw)\.update\(/g) || []).length === 2 /* TUT / challenge block (challenge: its own twoMinWatch via modeWatch) + Sets block */);
-check("TUT camera skips the 10 s out-of-frame end; Sets path does not", /failExtra\(st, w, pose, pushMode === "challenge" \? twoMinFailExtra\(performance\.now\(\)\) : \{ skipFrame: true \}\)/.test(pt) && !/pushMode === "sets"[\s\S]{0,400}skipFrame/.test(pt));
+check("neither TUT nor challenge skips out-of-frame detection", !/skipFrame:\s*true/.test(pt));
 const longNote = (html.match(/id="longNote"[^>]*>([\s\S]*?)<\/p>/) || [])[1] || "";
 const challengeNote = (html.match(/id="challengeNote"[^>]*>([\s\S]*?)<\/p>/) || [])[1] || "";
 check("longNote and challengeNote no longer end on 10 seconds out of frame", /Ends only on knees down or a failure motion/.test(longNote) && !/End session/.test(longNote) && !/10 seconds out of frame/.test(longNote) && /runs from 2:00 to 0:00/.test(challengeNote) && /Bad form fails the plank/.test(challengeNote) && !/10 seconds out of frame/.test(challengeNote));

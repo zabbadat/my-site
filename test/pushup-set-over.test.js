@@ -109,9 +109,9 @@ function bodySim(frame, ms, mode) {
   const flat = bodySim((t) => (t < B ? pre(t) : BS.kpsOf(moveTo(BS.POSE.bottom, BS.POSE.collapse, B, 500)(t))), B + 10000, "sets");
   check(`sets (side-on): collapsed onto the floor, can't push back up -> 'collapse' within ~5 s (${flat.end} at ${flat.at})`, flat.end === "collapse" && flat.at <= B + 5000, JSON.stringify(flat));
   const walk = bodySim((t) => (t < B ? pre(t) : t < B + 300 ? BS.kpsOf(BS.POSE.top) : []), B + 15000, "sets");
-  check(`sets: walked out of the picture -> 'frame' 10 s after the body left (${walk.end} at ${walk.at})`, walk.end === "frame" && walk.at >= B + 10000 && walk.at <= B + 10500, JSON.stringify(walk));
-  const walkT = bodySim((t) => (t < B ? pre(t) : t < B + 300 ? BS.kpsOf(BS.POSE.top) : []), B + 40000, "long");
-  check(`TUT: out of the picture keeps pausing (no frame end in 40 s) (${walkT.end})`, walkT.end === null, JSON.stringify(walkT));
+  check(`sets: walked out of the picture -> 'frame' 2.5 s after the body left (${walk.end} at ${walk.at})`, walk.end === "frame" && walk.at >= B + 2500 && walk.at <= B + 3200, JSON.stringify(walk));
+  const walkT = bodySim((t) => (t < B ? pre(t) : t < B + 300 ? BS.kpsOf(BS.POSE.top) : []), B + 15000, "long");
+  check(`TUT: walked out of the picture -> 'frame' 2.5 s after the body left (${walkT.end} at ${walkT.at})`, walkT.end === "frame" && walkT.at >= B + 2500 && walkT.at <= B + 3200, JSON.stringify(walkT));
 }
 // 8. Defaults are what the comments say.
 check("SET_END defaults: stuckMs 3500, stuckFrac 0.35, moveFrac 0.15 (emaMs 400), frameMs 10000 (Sets), liftGraceMs 3000; 15 s / 45 s kept",
