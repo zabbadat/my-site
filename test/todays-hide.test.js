@@ -131,8 +131,15 @@ const cssW = 390, cssH = 292.5;
 for (const day of ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27", "2026-11-28"]) {
   const its = H.unpackDay(man.days[day]);
   check(day + " has five packed items", its.length === 5);
-  check(day + " includes the steel ring in the list", its.some((it) => /washer/i.test(it.name)));
+  if (day === "2026-11-24" || day === "2026-11-25") {
+    check(day + " includes the steel ring in the list", its.some((it) => /washer/i.test(it.name)));
+  } else {
+    check(day + " does not repeat Nov 25's finds",
+      !its.some((it) => /washer|water bottle|jump rope|work glove|chalk/i.test(it.name)));
+  }
+  const namesPlain = its.some((it) => JSON.stringify(man.days[day]).toLowerCase().includes(String(it.name).toLowerCase()));
   check(day + " names and coords are packed, not plaintext",
+    !namesPlain &&
     !/washer/i.test(JSON.stringify(man.days[day])) &&
     !its.some((it) => String(man.days[day].ks).includes(String(it.x.toFixed(3)))));
   check(day + " asset path matches the day", man.days[day].src === "/hide/" + day + ".webp");
@@ -155,6 +162,21 @@ for (const day of ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27", "2026
     }
   }
   check(day + " items are far enough that snap zones do not overlap at 1x", sep);
+}
+
+// Consecutive days from Nov 25 on share no find names; 26-28 also avoid Nov 24's set.
+{
+  const names = {};
+  for (const day of ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27", "2026-11-28"]) {
+    names[day] = H.unpackDay(man.days[day]).map((it) => it.name.toLowerCase());
+  }
+  const overlap = (a, b) => a.some((n) => b.includes(n));
+  check("Nov 25 and Nov 26 share no finds", !overlap(names["2026-11-25"], names["2026-11-26"]));
+  check("Nov 26 and Nov 27 share no finds", !overlap(names["2026-11-26"], names["2026-11-27"]));
+  check("Nov 27 and Nov 28 share no finds", !overlap(names["2026-11-27"], names["2026-11-28"]));
+  check("Nov 25 and Nov 27 share no finds", !overlap(names["2026-11-25"], names["2026-11-27"]));
+  check("Nov 25 and Nov 28 share no finds", !overlap(names["2026-11-25"], names["2026-11-28"]));
+  check("Nov 26 and Nov 28 share no finds", !overlap(names["2026-11-26"], names["2026-11-28"]));
 }
 
 const A = { x: 0.5, y: 0.5, r: 0.02, name: "A", id: "0" };
