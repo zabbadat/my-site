@@ -13,13 +13,25 @@ const OUT = process.argv[3] || "/workspace/zabbadat-notes/hide-pics";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 async function scrollHide(page) {
+  // scrollIntoView keeps the picture in the phone viewport. window.scrollTo can
+  // leave #todaysHideImg below the fold (img top past vh), so hunt taps miss.
+  const loc = page.locator("#todaysHideStage");
+  if (await loc.count()) await loc.scrollIntoViewIfNeeded();
   await page.evaluate(() => {
     const stage = document.getElementById("todaysHideStage") || document.getElementById("todays-hide");
     if (!stage) return;
     const navh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navh")) || 72;
-    const y = stage.getBoundingClientRect().top + window.scrollY - navh - 8;
-    window.scrollTo(0, Math.max(0, y));
+    const el = document.scrollingElement || document.documentElement;
+    const top = stage.getBoundingClientRect().top + el.scrollTop - navh - 8;
+    el.scrollTop = Math.max(0, top);
   });
+  await page.waitForFunction(() => {
+    const img = document.getElementById("todaysHideImg");
+    if (!img) return true;
+    const r = img.getBoundingClientRect();
+    const navh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navh")) || 72;
+    return r.bottom > navh && r.top < window.innerHeight;
+  }, { timeout: 5000 }).catch(() => {});
   await sleep(120);
 }
 async function scrollSection(page) {
