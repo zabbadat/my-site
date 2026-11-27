@@ -54,7 +54,7 @@ check("Nov 22 and Nov 23 both have the first picture",
 check("today's key is used when the entry exists",
   H.pickDay(man, "2026-11-23").key === "2026-11-23" && H.pickDay(man, "2026-11-23").fallback === false);
 check("a later day with no entry falls back to the last available",
-  H.pickDay(man, "2026-12-01").key === "2026-11-29" && H.pickDay(man, "2026-12-01").fallback === true);
+  H.pickDay(man, "2026-12-01").key === "2026-11-30" && H.pickDay(man, "2026-12-01").fallback === true);
 check("Nov 24 uses its own five-item picture",
   H.pickDay(man, "2026-11-24").key === "2026-11-24" && H.pickDay(man, "2026-11-24").fallback === false);
 check("a day before the first entry still shows the earliest, so the slot is not empty",
@@ -115,7 +115,8 @@ check("new hide pictures exist",
   fs.existsSync(path.join(root, "hide/2026-11-26.webp")) &&
   fs.existsSync(path.join(root, "hide/2026-11-27.webp")) &&
   fs.existsSync(path.join(root, "hide/2026-11-28.webp")) &&
-  fs.existsSync(path.join(root, "hide/2026-11-29.webp")));
+  fs.existsSync(path.join(root, "hide/2026-11-29.webp")) &&
+  fs.existsSync(path.join(root, "hide/2026-11-30.webp")));
 check("design note is in the branch as a doc only",
   fs.existsSync(path.join(root, "docs/todays-hide-design.md")));
 check("module does not touch pfp, camera, auth, Firebase, or Netlify config",
@@ -129,7 +130,7 @@ check("share text is spoiler-free",
 const ZOOM_UI = { x0: 0.86, y0: 0.82 };
 const MARGIN = 0.04;
 const cssW = 390, cssH = 292.5;
-for (const day of ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27", "2026-11-28", "2026-11-29"]) {
+for (const day of ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27", "2026-11-28", "2026-11-29", "2026-11-30"]) {
   const its = H.unpackDay(man.days[day]);
   check(day + " has five packed items", its.length === 5);
   if (day === "2026-11-24" || day === "2026-11-25") {
@@ -168,7 +169,7 @@ for (const day of ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27", "2026
 // Consecutive days from Nov 25 on share no find names; 26-28 also avoid Nov 24's set.
 {
   const names = {};
-  for (const day of ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27", "2026-11-28", "2026-11-29"]) {
+  for (const day of ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27", "2026-11-28", "2026-11-29", "2026-11-30"]) {
     names[day] = H.unpackDay(man.days[day]).map((it) => it.name.toLowerCase());
   }
   const overlap = (a, b) => a.some((n) => b.includes(n));
@@ -182,6 +183,12 @@ for (const day of ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27", "2026
   check("Nov 26 and Nov 29 share no finds", !overlap(names["2026-11-26"], names["2026-11-29"]));
   check("Nov 27 and Nov 29 share no finds", !overlap(names["2026-11-27"], names["2026-11-29"]));
   check("Nov 25 and Nov 29 share no finds", !overlap(names["2026-11-25"], names["2026-11-29"]));
+  check("Nov 29 and Nov 30 share no finds", !overlap(names["2026-11-29"], names["2026-11-30"]));
+  check("Nov 24 and Nov 30 share no finds", !overlap(names["2026-11-24"], names["2026-11-30"]));
+  check("Nov 25 and Nov 30 share no finds", !overlap(names["2026-11-25"], names["2026-11-30"]));
+  check("Nov 26 and Nov 30 share no finds", !overlap(names["2026-11-26"], names["2026-11-30"]));
+  check("Nov 27 and Nov 30 share no finds", !overlap(names["2026-11-27"], names["2026-11-30"]));
+  check("Nov 28 and Nov 30 share no finds", !overlap(names["2026-11-28"], names["2026-11-30"]));
 }
 
 const A = { x: 0.5, y: 0.5, r: 0.02, name: "A", id: "0" };
@@ -208,7 +215,8 @@ const LINES = {
   "2026-11-26": "Breathe big, look bold. All five are yours.",
   "2026-11-27": "Slow breath, kind eyes. You'll find them.",
   "2026-11-28": "Quiet breath. The field yields its finds.",
-  "2026-11-29": "Breathe hard. Look harder. Get all five."
+  "2026-11-29": "Breathe hard. Look harder. Get all five.",
+  "2026-11-30": "Breathe strong. Look sharp. Take all five."
 };
 for (const [day, line] of Object.entries(LINES)) {
   check(day + " has the exact daily line", man.days[day] && man.days[day].line === line);
@@ -218,7 +226,7 @@ check("dayLine falls back when a record has no line",
   H.dayLine({ line: "  " }) === "Breathe and look." &&
   H.dayLine(man.days["2026-11-24"]) === LINES["2026-11-24"]);
 check("a later missing day falls back to the last picture and its line",
-  H.dayLine(H.pickDay(man, "2026-12-01").rec) === LINES["2026-11-29"]);
+  H.dayLine(H.pickDay(man, "2026-12-01").rec) === LINES["2026-11-30"]);
 
 const ok = R.every(Boolean);
 console.log((ok ? "OK" : "NOT OK") + "  " + R.filter(Boolean).length + " passed, " + (R.length - R.filter(Boolean).length) + " failed");
